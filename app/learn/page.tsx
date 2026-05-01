@@ -15,7 +15,7 @@ const modules = [
 ]
 
 export default async function Learn() {
-  let articles = []
+  let articles: any[] = []
   try {
     articles = await client.fetch(
       `*[_type == "article"] | order(publishedAt asc) {
