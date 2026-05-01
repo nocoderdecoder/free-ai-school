@@ -1,8 +1,8 @@
 import { createClient } from 'next-sanity'
 
 const client = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID!,
-  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET!,
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || '',
+  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
   apiVersion: '2024-01-01',
   useCdn: true,
 })
@@ -14,12 +14,25 @@ const modules = [
   { key: 'hands-on', label: 'Module 4: Hands-On for Non-Engineers' },
 ]
 
+type Article = {
+  title: string
+  slug: { current: string }
+  module: string
+  excerpt?: string
+  readTime?: number
+}
+
 export default async function Learn() {
-  const articles = await client.fetch(
-    `*[_type == "article"] | order(publishedAt asc) {
-      title, slug, module, excerpt, readTime, publishedAt
-    }`
-  )
+  let articles: Article[] = []
+  try {
+    articles = await client.fetch(
+      `*[_type == "article"] | order(publishedAt asc) {
+        title, slug, module, excerpt, readTime, publishedAt
+      }`
+    )
+  } catch (e) {
+    articles = []
+  }
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -38,21 +51,24 @@ export default async function Learn() {
         <h1 className="text-4xl font-bold mb-4">AI education for business leaders.</h1>
         <p className="text-white/60 text-lg mb-16">Practical AI knowledge for people who run teams and make decisions. No engineering degree required.</p>
 
-        {articles.length === 0 ? (
+        {articles.length === 0 && (
           <div className="border border-white/10 rounded-xl p-8 text-center">
             <p className="text-white/40 mb-2">First article coming soon.</p>
             <p className="text-white/30 text-sm">Check back shortly.</p>
           </div>
-        ) : (
+        )}
+
+        {articles.length > 0 && (
           <div className="space-y-16">
             {modules.map((mod) => {
-              const modArticles = articles.filter((a: any) => a.module === mod.key)
+              const modArticles = articles.filter((a) => a.module === mod.key)
               if (modArticles.length === 0) return null
               return (
                 <div key={mod.key}>
                   <p className="text-white/40 text-sm uppercase tracking-widest mb-6">{mod.label}</p>
                   <div className="space-y-4">
                     {modArticles.map((article) => (
+                      
                         key={article.slug.current}
                         href={`/learn/${article.slug.current}`}
                         className="block border border-white/10 rounded-xl p-6 hover:border-white/30 transition"
