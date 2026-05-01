@@ -5,17 +5,16 @@ const client = createClient({
   projectId: '8w4exnl4',
   dataset: 'production',
   apiVersion: '2024-01-01',
-  useCdn: true,
+  useCdn: false,
 })
 
-export default async function Article({ params }: { params: { slug: string } }) {
+export default async function Article({ params }: any) {
+  const { slug } = await params
   let article: any = null
   try {
     article = await client.fetch(
-      `*[_type == "article" && slug.current == $slug][0] {
-        title, excerpt, readTime, publishedAt, body, module
-      }`,
-      { slug: params.slug }
+      `*[_type == "article" && slug.current == $slug][0] { title, excerpt, readTime, publishedAt, body, module }`,
+      { slug }
     )
   } catch (e) {
     article = null
@@ -43,9 +42,7 @@ export default async function Article({ params }: { params: { slug: string } }) 
       <article className="max-w-2xl mx-auto px-8 py-24">
         <a href="/learn" className="text-white/40 text-sm hover:text-white transition mb-8 inline-block">← Back to Learn</a>
         <h1 className="text-4xl font-bold mt-4 mb-4">{article.title}</h1>
-        {article.readTime && (
-          <p className="text-white/40 text-sm mb-12">{article.readTime} min read</p>
-        )}
+        {article.readTime && <p className="text-white/40 text-sm mb-12">{article.readTime} min read</p>}
         <div className="prose prose-invert prose-lg max-w-none">
           {article.body && <PortableText value={article.body} />}
         </div>
