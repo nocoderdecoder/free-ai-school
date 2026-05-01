@@ -12,17 +12,19 @@ export default function About() {
       </nav>
       <section className="max-w-3xl mx-auto px-8 py-24">
         <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">About</p>
-        <h1 className="text-4xl font-bold mb-8">The non-engineer who builds with AI.</h1>
-        <div className="space-y-6 text-white/70 text-lg leading-relaxed">
-          <p>I am Anshul Gupta. I work in GTM Strategy and Business Intelligence at Google. Before that I spent years at Unilever running channel sales and operations in India. I have a Kellogg MBA.</p>
-          <p>None of that makes me a technical person. I cannot write backend code from scratch. I do not have a CS degree. But I build real AI products, ship them, and use them in real business contexts.</p>
-          <p>That gap between technical AI people and business people is what Free AI School is about. I am living proof that you do not need to be an engineer to build with AI.</p>
-          <p>I am based in Sunnyvale, CA. I plan to return to India in about 10 years. This site is where I document everything I learn along the way.</p>
+        <h1 className="text-4xl font-bold mb-10">GTM leader at Google. AI builder. Educator.</h1>
+        <div className="space-y-6">
+          <p className="text-white/70 text-lg leading-relaxed">
+            I am Anshul Gupta, a GTM Strategy and Business Intelligence leader at Google with a Kellogg MBA and 8 years of experience across Google and Unilever.
+          </p>
+          <p className="text-white/70 text-lg leading-relaxed">
+            I build AI products without an engineering degree and write about what I learn. This site is where I share practical AI knowledge for business leaders who want to actually use AI, not just talk about it.
+          </p>
         </div>
       </section>
       <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
         © {new Date().getFullYear()} Anshul Gupta
       </footer>
     </main>
-  );
+  )
 }
