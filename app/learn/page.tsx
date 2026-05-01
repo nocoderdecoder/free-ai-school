@@ -52,8 +52,7 @@ export default async function Learn() {
                 <div key={mod.key}>
                   <p className="text-white/40 text-sm uppercase tracking-widest mb-6">{mod.label}</p>
                   <div className="space-y-4">
-                    {modArticles.map((article: any) => (
-                      
+                    {modArticles.map((article) => (
                         key={article.slug.current}
                         href={`/learn/${article.slug.current}`}
                         className="block border border-white/10 rounded-xl p-6 hover:border-white/30 transition"
