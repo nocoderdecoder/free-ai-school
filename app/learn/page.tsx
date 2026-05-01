@@ -1,28 +1,26 @@
-import { createClient } from 'next-sanity'
-
-const client = createClient({
-  projectId: '8w4exnl4',
-  dataset: 'production',
-  apiVersion: '2024-01-01',
-  useCdn: true,
-})
-
-const modules = [
-  { key: 'foundations', label: 'Module 1: Foundations' },
-  { key: 'tools', label: 'Module 2: The Tools Layer' },
-  { key: 'organization', label: 'Module 3: AI in Your Organization' },
-  { key: 'hands-on', label: 'Module 4: Hands-On for Non-Engineers' },
-]
-
 export default async function Learn() {
-  let articles = []
+  let articles: any[] = []
   try {
+    const { createClient } = await import('next-sanity')
+    const client = createClient({
+      projectId: '8w4exnl4',
+      dataset: 'production',
+      apiVersion: '2024-01-01',
+      useCdn: true,
+    })
     articles = await client.fetch(
       `*[_type == "article"] | order(publishedAt asc) { title, slug, module, excerpt, readTime }`
     )
   } catch (e) {
     articles = []
   }
+
+  const modules = [
+    { key: 'foundations', label: 'Module 1: Foundations' },
+    { key: 'tools', label: 'Module 2: The Tools Layer' },
+    { key: 'organization', label: 'Module 3: AI in Your Organization' },
+    { key: 'hands-on', label: 'Module 4: Hands-On for Non-Engineers' },
+  ]
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -47,24 +45,22 @@ export default async function Learn() {
         )}
         {articles.length > 0 && (
           <div className="space-y-16">
-            {modules.map(function(mod) {
-              const modArticles = articles.filter(function(a) { return a.module === mod.key })
+            {modules.map((mod) => {
+              const modArticles = articles.filter((a: any) => a.module === mod.key)
               if (modArticles.length === 0) return null
               return (
                 <div key={mod.key}>
                   <p className="text-white/40 text-sm uppercase tracking-widest mb-6">{mod.label}</p>
                   <div className="space-y-4">
-                    {modArticles.map(function(article) {
-                      return (
-                        <a key={article.slug.current} href={'/learn/' + article.slug.current} className="block border border-white/10 rounded-xl p-6 hover:border-white/30 transition">
-                          <div className="flex justify-between items-start mb-2">
-                            <h2 className="text-lg font-semibold">{article.title}</h2>
-                            {article.readTime && <span className="text-white/30 text-sm ml-4 shrink-0">{article.readTime} min</span>}
-                          </div>
-                          {article.excerpt && <p className="text-white/50 text-sm leading-relaxed">{article.excerpt}</p>}
-                        </a>
-                      )
-                    })}
+                    {modArticles.map((article: any) => (
+                      <a key={article.slug.current} href={'/learn/' + article.slug.current} className="block border border-white/10 rounded-xl p-6 hover:border-white/30 transition">
+                        <div className="flex justify-between items-start mb-2">
+                          <h2 className="text-lg font-semibold">{article.title}</h2>
+                          {article.readTime && <span className="text-white/30 text-sm ml-4 shrink-0">{article.readTime} min</span>}
+                        </div>
+                        {article.excerpt && <p className="text-white/50 text-sm leading-relaxed">{article.excerpt}</p>}
+                      </a>
+                    ))}
                   </div>
                 </div>
               )
