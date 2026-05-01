@@ -1,4 +1,26 @@
-export default function Learn() {
+import { createClient } from 'next-sanity'
+
+const client = createClient({
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID!,
+  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET!,
+  apiVersion: '2024-01-01',
+  useCdn: true,
+})
+
+const modules = [
+  { key: 'foundations', label: 'Module 1: Foundations' },
+  { key: 'tools', label: 'Module 2: The Tools Layer' },
+  { key: 'organization', label: 'Module 3: AI in Your Organization' },
+  { key: 'hands-on', label: 'Module 4: Hands-On for Non-Engineers' },
+]
+
+export default async function Learn() {
+  const articles = await client.fetch(
+    `*[_type == "article"] | order(publishedAt asc) {
+      title, slug, module, excerpt, readTime, publishedAt
+    }`
+  )
+
   return (
     <main className="min-h-screen bg-black text-white">
       <nav className="flex justify-between items-center px-8 py-6 border-b border-white/10">
@@ -10,21 +32,54 @@ export default function Learn() {
           <a href="/writing" className="hover:text-white transition">Writing</a>
         </div>
       </nav>
+
       <section className="max-w-3xl mx-auto px-8 py-24">
         <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Free AI School</p>
         <h1 className="text-4xl font-bold mb-4">AI education for business leaders.</h1>
         <p className="text-white/60 text-lg mb-16">Practical AI knowledge for people who run teams and make decisions. No engineering degree required.</p>
-        <div className="border border-white/10 rounded-xl p-8 text-center">
-          <p className="text-white/40 mb-4">Content coming soon.</p>
-          <p className="text-white/60 text-sm">Follow me on LinkedIn for daily AI content while this section is being built.</p>
-          <a href="https://www.linkedin.com/in/anshulgupta1512" target="_blank" className="inline-block mt-6 bg-white text-black px-6 py-3 rounded-full font-medium text-sm hover:bg-white/90 transition">
-            Follow on LinkedIn
-          </a>
-        </div>
+
+        {articles.length === 0 ? (
+          <div className="border border-white/10 rounded-xl p-8 text-center">
+            <p className="text-white/40 mb-2">First article coming soon.</p>
+            <p className="text-white/30 text-sm">Check back shortly.</p>
+          </div>
+        ) : (
+          <div className="space-y-16">
+            {modules.map((mod) => {
+              const modArticles = articles.filter((a: any) => a.module === mod.key)
+              if (modArticles.length === 0) return null
+              return (
+                <div key={mod.key}>
+                  <p className="text-white/40 text-sm uppercase tracking-widest mb-6">{mod.label}</p>
+                  <div className="space-y-4">
+                    {modArticles.map((article: any) => (
+                      
+                        key={article.slug.current}
+                        href={`/learn/${article.slug.current}`}
+                        className="block border border-white/10 rounded-xl p-6 hover:border-white/30 transition"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h2 className="text-lg font-semibold">{article.title}</h2>
+                          {article.readTime && (
+                            <span className="text-white/30 text-sm ml-4 shrink-0">{article.readTime} min</span>
+                          )}
+                        </div>
+                        {article.excerpt && (
+                          <p className="text-white/50 text-sm leading-relaxed">{article.excerpt}</p>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </section>
+
       <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
         © {new Date().getFullYear()} Anshul Gupta
       </footer>
     </main>
-  );
+  )
 }
