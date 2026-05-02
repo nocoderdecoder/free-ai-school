@@ -16,5 +16,5 @@ export async function POST(req: NextRequest) {
     }),
   })
   const data = await res.json()
-  return NextResponse.json(data)
+  return NextResponse.json({ content: [{ text: data.content?.[0]?.text || '' }] })
 }
