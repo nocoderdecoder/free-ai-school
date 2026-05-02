@@ -319,7 +319,7 @@ function fmt(s: number) {
 
 function norm(w: string) { return w.toLowerCase().replace(/[^a-z0-9]/g, ""); }
 
-function findLastSpokenWord(passageWords, transcript) {
+function findLastSpokenWord(passageWords: string[], transcript: string) {
   if (!transcript || !transcript.trim()) return -1;
   const pNorm = passageWords.map(norm);
   const tNorm = transcript.toLowerCase().split(/\s+/).map(norm).filter(Boolean);
