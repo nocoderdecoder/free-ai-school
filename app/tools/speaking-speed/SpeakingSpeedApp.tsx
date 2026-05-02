@@ -386,7 +386,7 @@ export default function SpeakingSpeedApp() {
     const prompt = `Write a single 330-word passage specifically about: "${topic}". Write in ${level}. Do not use the topic as a title. Do not use bullet points or section breaks. Write one flowing, informative passage about that exact topic only.`;
 
     try {
-      const res = await fetch("/api/generate-passage", {
+      const res = await fetch("https://www.anshul.ai/api/generate-passage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
