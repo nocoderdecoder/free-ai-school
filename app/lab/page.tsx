@@ -1,5 +1,12 @@
 const projects = [
   {
+  name: "Speaking Speed Tester",
+  description: "Test how many words per minute you speak. Pick a difficulty, read aloud for 1-2 minutes, and get your WPM score instantly.",
+  url: "/tools/speaking-speed",
+  stack: "Next.js, Claude API, Web Speech API",
+  status: "Live"
+  },
+  {
     name: "PromptGrade",
     description: "AI prompt scoring and rewriting tool. Paste any prompt and get a quality score plus an improved version instantly.",
     url: "https://ratemyprompt.pro",
