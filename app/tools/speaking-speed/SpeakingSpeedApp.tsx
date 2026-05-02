@@ -396,6 +396,7 @@ export default function SpeakingSpeedApp() {
         })
       });
       const data = await res.json();
+      console.log("FULL DATA:", JSON.stringify(data));
       const text = (data?.content?.[0]?.text || "").trim();
       const w = text.split(/\s+/);
       wordsRef.current = w;
