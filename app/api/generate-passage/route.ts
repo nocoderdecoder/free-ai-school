@@ -17,9 +17,11 @@ export async function POST(req: NextRequest) {
       }),
     })
     const data = await res.json()
+    console.log("ANTHROPIC RAW:", JSON.stringify(data))
     const text = data?.content?.[0]?.text || ''
     return NextResponse.json({ content: [{ text }] })
   } catch (e) {
+    console.log("ROUTE ERROR:", e)
     return NextResponse.json({ content: [{ text: '' }] }, { status: 500 })
   }
 }
