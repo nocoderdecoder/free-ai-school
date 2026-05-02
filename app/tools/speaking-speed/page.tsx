@@ -1,5 +1,7 @@
 'use client'
-import SpeakingSpeedApp from './SpeakingSpeedApp'
+import dynamic from 'next/dynamic'
+
+const SpeakingSpeedApp = dynamic(() => import('./SpeakingSpeedApp'), { ssr: false })
 
 export default function SpeakingSpeedPage() {
   return <SpeakingSpeedApp />
