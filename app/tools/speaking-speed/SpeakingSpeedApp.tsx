@@ -302,7 +302,7 @@ const BENCHMARKS = [
   { label: "Very fast", range: "200+ WPM" },
 ];
 
-function getBenchmark(w) {
+function getBenchmark(w: number) {
   if (w < 110) return { label: "Slow paced", color: "#e24b4a", bg: "#fcebeb", desc: "Most speakers hit 120–150 WPM. Keep practicing!" };
   if (w < 130) return { label: "Below average", color: "#ba7517", bg: "#faeeda", desc: "You're getting there — average is 130–150 WPM." };
   if (w < 155) return { label: "Average speaker", color: "#639922", bg: "#eaf3de", desc: "Right in the conversational sweet spot." };
@@ -311,13 +311,13 @@ function getBenchmark(w) {
   return { label: "Very fast!", color: "#534ab7", bg: "#eeedfe", desc: "At this pace, focus on clarity and articulation." };
 }
 
-function fmt(s) {
+function fmt(s: number) {
   const m = Math.floor(s / 60);
   const sec = Math.round(s % 60);
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-function norm(w) { return w.toLowerCase().replace(/[^a-z0-9]/g, ""); }
+function norm(w: string) { return w.toLowerCase().replace(/[^a-z0-9]/g, ""); }
 
 function findLastSpokenWord(passageWords, transcript) {
   if (!transcript || !transcript.trim()) return -1;
