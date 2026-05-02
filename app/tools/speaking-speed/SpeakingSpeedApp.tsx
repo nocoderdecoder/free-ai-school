@@ -389,11 +389,7 @@ export default function SpeakingSpeedApp() {
       const res = await fetch("https://www.anshul.ai/api/generate-passage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 800,
-          messages: [{ role: "user", content: prompt }]
-        })
+       body: JSON.stringify({ prompt })
       });
       const data = await res.json();
       console.log("FULL DATA:", JSON.stringify(data));
