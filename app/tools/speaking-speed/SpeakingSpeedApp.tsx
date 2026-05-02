@@ -371,7 +371,7 @@ export default function SpeakingSpeedApp() {
   const transcriptRef = useRef("");
   const finalRef = useRef("");
 
-  const hasSpeechAPI = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  const hasSpeechAPI = !!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition;
 
   const generatePassage = async () => {
     setError("");
