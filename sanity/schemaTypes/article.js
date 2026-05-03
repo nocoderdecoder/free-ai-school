@@ -51,7 +51,26 @@ export default {
       name: 'body',
       title: 'Body',
       type: 'array',
-      of: [{ type: 'block' }]
+      of: [
+  { type: 'block' },
+  {
+    type: 'image',
+    options: { hotspot: true },
+    fields: [
+      {
+        name: 'alt',
+        title: 'Alt text',
+        type: 'string',
+        description: 'Describe the image for accessibility'
+      },
+      {
+        name: 'caption',
+        title: 'Caption',
+        type: 'string'
+      }
+    ]
+  }
+]
     }
   ]
 }

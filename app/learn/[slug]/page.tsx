@@ -70,6 +70,30 @@ const components = {
       <li className="text-white/80 text-lg leading-relaxed">{children}</li>
     ),
   },
+  types: {
+  image: ({ value }: any) => {
+    if (!value?.asset?._ref) return null
+    const projectId = '8w4exnl4'
+    const dataset = 'production'
+    const ref = value.asset._ref
+    const [, id, dimensions, format] = ref.split('-')
+    const url = `https://cdn.sanity.io/images/${projectId}/${dataset}/${id}-${dimensions}.${format}`
+    return (
+      <figure className="my-10">
+        <img
+          src={url}
+          alt={value.alt || ''}
+          className="w-full rounded-xl"
+        />
+        {value.caption && (
+          <figcaption className="text-center text-white/40 text-sm mt-3">
+            {value.caption}
+          </figcaption>
+        )}
+      </figure>
+    )
+  }
+},
 }
 
 export default async function Article({ params }: any) {
