@@ -20,7 +20,7 @@ export default function Home() {
           I build with AI.<br />I teach what I learn.
         </h1>
         <p className="text-white/60 text-xl leading-relaxed mb-10">
-          GTM Strategy at Google. Kellogg MBA. I am a non-engineer who ships real AI products and shares everything along the way.
+          GTM Strategy at Google. Kellogg MBA. I ship real AI products without an engineering background and share everything along the way.
         </p>
         <div className="flex gap-4 flex-wrap">
           <a href="/lab" className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-white/90 transition">
@@ -35,44 +35,62 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Credential strip */}
+      <section className="border-y border-white/10 py-5">
+        <div className="max-w-3xl mx-auto px-8 flex items-center gap-3 flex-wrap">
+          <span className="text-white/30 text-xs uppercase tracking-widest mr-1">Background</span>
+          <span className="text-white/70 text-sm font-medium">Google</span>
+          <span className="text-white/20 text-sm">·</span>
+          <span className="text-white/70 text-sm font-medium">Kellogg / Northwestern</span>
+          <span className="text-white/20 text-sm">·</span>
+          <span className="text-white/70 text-sm font-medium">Uber</span>
+        </div>
+      </section>
+
       {/* Three sections */}
-      <section className="border-t border-white/10 max-w-3xl mx-auto px-8 py-16 grid grid-cols-1 gap-12">
+      <section className="max-w-3xl mx-auto px-8 py-16 grid grid-cols-1 gap-0">
 
         {/* Lab */}
-        <div>
-          <p className="text-white/40 text-sm uppercase tracking-widest mb-3">Lab</p>
+        <div className="border-b border-white/10 py-12">
+          <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Lab</p>
           <h2 className="text-2xl font-bold mb-3">AI products I have built</h2>
-          <p className="text-white/60 leading-relaxed mb-4">
+          <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
             From prompt scoring tools to competitive intelligence scrapers. Real products built without writing a single line of code from scratch.
           </p>
-          <a href="/lab" className="text-white/40 text-sm hover:text-white transition">View all projects →</a>
+          <a href="/lab" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
+            View all projects →
+          </a>
         </div>
 
         {/* Learn */}
-        <div>
-          <p className="text-white/40 text-sm uppercase tracking-widest mb-3">Free AI School</p>
-          <h2 className="text-2xl font-bold mb-3">AI education for business leaders</h2>
-          <p className="text-white/60 leading-relaxed mb-4">
-            No fluff. No hype. Practical AI knowledge for people who run teams, make decisions, and want to actually use AI at work.
+        <div className="border-b border-white/10 py-12">
+          <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Free AI School</p>
+          <h2 className="text-2xl font-bold mb-3">AI education for business professionals</h2>
+          <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
+            No prerequisites. No engineering degree. A complete curriculum for the people who run teams, make decisions, and want to actually use AI at work.
           </p>
-          <a href="/learn" className="text-white/40 text-sm hover:text-white transition">Start learning →</a>
+          <a href="/learn" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
+            Start learning →
+          </a>
         </div>
 
         {/* Writing */}
-        <div>
-          <p className="text-white/40 text-sm uppercase tracking-widest mb-3">Writing</p>
+        <div className="py-12">
+          <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Writing</p>
           <h2 className="text-2xl font-bold mb-3">Honest takes on AI in business</h2>
-          <p className="text-white/60 leading-relaxed mb-4">
-            I write about what I am building, what is working, what failed, and what I think is actually happening in AI right now.
+          <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
+            What I am building, what is working, what failed, and what I think is actually happening in AI right now.
           </p>
-          <a href="/writing" className="text-white/40 text-sm hover:text-white transition">Read the writing →</a>
+          <a href="/writing" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
+            Read the writing →
+          </a>
         </div>
 
       </section>
 
       {/* Footer */}
       <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
-        © {new Date().getFullYear()} Anshul Gupta · Built with Next.js · Deployed on Vercel
+        © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
 
     </main>

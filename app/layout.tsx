@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Free AI School",
-  description: "Learn AI for business, built by Anshul Gupta",
+  title: "Anshul Gupta — AI Builder & Educator",
+  description: "GTM Strategy at Google. Kellogg MBA. I build AI products and teach practical AI to business professionals. No engineering background required.",
 };
 
 export default function RootLayout({

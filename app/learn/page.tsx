@@ -1,5 +1,32 @@
 export const revalidate = 0
 
+const modules = [
+  {
+    key: 'foundations',
+    label: 'Foundations',
+    tagline: 'What AI is and how it actually works',
+    description: 'Tokens, context windows, prompts, hallucinations, and the concepts every professional needs before using AI seriously.',
+  },
+  {
+    key: 'tools',
+    label: 'The Tools Layer',
+    tagline: 'The tools professionals are actually using',
+    description: 'ChatGPT, Claude, Gemini, Copilot, meeting AI, writing AI, and how to choose the right tool for each job.',
+  },
+  {
+    key: 'organization',
+    label: 'AI in Your Organization',
+    tagline: 'Strategy, adoption, and leadership',
+    description: 'How to evaluate AI vendors, build an AI policy, manage AI projects, and lead teams through the transition.',
+  },
+  {
+    key: 'hands-on',
+    label: 'Hands-On',
+    tagline: 'Building AI habits that actually stick',
+    description: 'Practical walkthroughs for writing, research, meetings, analysis, and building a personal AI workflow.',
+  },
+]
+
 export default async function Learn() {
   let articles: any[] = []
   try {
@@ -17,20 +44,10 @@ export default async function Learn() {
     articles = []
   }
 
-  const modules = [
-    { key: 'foundations', label: 'Module 1: Foundations' },
-    { key: 'tools', label: 'Module 2: The Tools Layer' },
-    { key: 'organization', label: 'Module 3: AI in Your Organization' },
-    { key: 'hands-on', label: 'Module 4: Hands-On for Non-Engineers' },
-  ]
-
-  // Get articles that match a module
-  const moduledArticles = articles.filter((a: any) => 
+  const moduledArticles = articles.filter((a: any) =>
     modules.some((m) => m.key === a.module)
   )
-
-  // Get articles with no module or unrecognized module - show them anyway
-  const unmatchedArticles = articles.filter((a: any) => 
+  const unmatchedArticles = articles.filter((a: any) =>
     !modules.some((m) => m.key === a.module)
   )
 
@@ -45,28 +62,52 @@ export default async function Learn() {
           <a href="/writing" className="hover:text-white transition">Writing</a>
         </div>
       </nav>
-      <section className="max-w-3xl mx-auto px-8 py-24">
-        <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Learn</p>
-        <h1 className="text-4xl font-bold mb-4">AI education for business leaders.</h1>
-        <p className="text-white/60 text-lg mb-16">Practical AI knowledge for people who run teams and make decisions. No engineering degree required.</p>
 
-        {articles.length === 0 && (
-          <div className="border border-white/10 rounded-xl p-8 text-center">
-            <p className="text-white/40 mb-2">First article coming soon.</p>
-            <p className="text-white/30 text-sm">Check back shortly.</p>
-          </div>
-        )}
+      {/* Hero */}
+      <section className="max-w-3xl mx-auto px-8 pt-20 pb-12">
+        <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Free AI School</p>
+        <h1 className="text-5xl font-bold leading-tight mb-6">
+          No prerequisites.<br />Start anywhere.
+        </h1>
+        <p className="text-white/60 text-xl leading-relaxed">
+          A complete AI curriculum for business professionals. No engineering background required — just the practical knowledge you need to use AI at work, lead AI projects, and stay ahead.
+        </p>
+      </section>
 
-        {articles.length > 0 && (
+      {/* Module cards */}
+      <section className="max-w-3xl mx-auto px-8 pb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {modules.map((mod) => {
+            const count = articles.filter((a: any) => a.module === mod.key).length
+            return (
+              <a
+                key={mod.key}
+                href={`#${mod.key}`}
+                className="group block border border-white/10 rounded-xl p-6 hover:border-white/30 transition"
+              >
+                <p className="text-white/40 text-xs uppercase tracking-widest mb-3">{mod.label}</p>
+                <h2 className="text-lg font-semibold mb-2 group-hover:text-white transition">{mod.tagline}</h2>
+                <p className="text-white/50 text-sm leading-relaxed">{mod.description}</p>
+                {count > 0 && (
+                  <p className="text-white/30 text-xs mt-4">{count} {count === 1 ? 'article' : 'articles'}</p>
+                )}
+              </a>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* Article list */}
+      {articles.length > 0 && (
+        <section className="border-t border-white/10 max-w-3xl mx-auto px-8 py-16">
           <div className="space-y-16">
-            {/* Render articles grouped by module */}
             {modules.map((mod) => {
               const modArticles = articles.filter((a: any) => a.module === mod.key)
               if (modArticles.length === 0) return null
               return (
-                <div key={mod.key}>
-                  <p className="text-white/40 text-sm uppercase tracking-widest mb-6">{mod.label}</p>
-                  <div className="space-y-4">
+                <div key={mod.key} id={mod.key}>
+                  <p className="text-white/40 text-xs uppercase tracking-widest mb-6">{mod.label}</p>
+                  <div className="space-y-3">
                     {modArticles.map((article: any) => (
                       <a
                         key={article.slug.current}
@@ -74,9 +115,9 @@ export default async function Learn() {
                         className="block border border-white/10 rounded-xl p-6 hover:border-white/30 transition"
                       >
                         <div className="flex justify-between items-start mb-2">
-                          <h2 className="text-lg font-semibold">{article.title}</h2>
+                          <h3 className="text-base font-semibold">{article.title}</h3>
                           {article.readTime && (
-                            <span className="text-white/30 text-sm ml-4 shrink-0">{article.readTime} min</span>
+                            <span className="text-white/30 text-xs ml-4 shrink-0">{article.readTime} min</span>
                           )}
                         </div>
                         {article.excerpt && (
@@ -89,11 +130,10 @@ export default async function Learn() {
               )
             })}
 
-            {/* Render any articles that don't match a module so nothing gets lost */}
             {unmatchedArticles.length > 0 && (
               <div>
-                <p className="text-white/40 text-sm uppercase tracking-widest mb-6">More Articles</p>
-                <div className="space-y-4">
+                <p className="text-white/40 text-xs uppercase tracking-widest mb-6">More Articles</p>
+                <div className="space-y-3">
                   {unmatchedArticles.map((article: any) => (
                     <a
                       key={article.slug.current}
@@ -101,9 +141,9 @@ export default async function Learn() {
                       className="block border border-white/10 rounded-xl p-6 hover:border-white/30 transition"
                     >
                       <div className="flex justify-between items-start mb-2">
-                        <h2 className="text-lg font-semibold">{article.title}</h2>
+                        <h3 className="text-base font-semibold">{article.title}</h3>
                         {article.readTime && (
-                          <span className="text-white/30 text-sm ml-4 shrink-0">{article.readTime} min</span>
+                          <span className="text-white/30 text-xs ml-4 shrink-0">{article.readTime} min</span>
                         )}
                       </div>
                       {article.excerpt && (
@@ -115,10 +155,11 @@ export default async function Learn() {
               </div>
             )}
           </div>
-        )}
-      </section>
+        </section>
+      )}
+
       <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
-        2026 Anshul Gupta
+        © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
     </main>
   )
