@@ -1,12 +1,8 @@
-import { CursorSpotlight } from './components/CursorSpotlight'
 import { ScrollReveal } from './components/ScrollReveal'
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-black text-white">
-
-      {/* Interactive effects — cursor glow + noise grain */}
-      <CursorSpotlight />
 
       {/* Nav */}
       <nav className="flex justify-between items-center px-8 py-6 border-b border-white/10">
