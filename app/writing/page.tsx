@@ -62,7 +62,7 @@ export default function Writing() {
             I publish daily on LinkedIn — shorter takes, tool discoveries, and things I am thinking about. Follow along there while longer pieces take shape here.
           </p>
           <a
-            href="https://www.linkedin.com/in/anshulgupta1512"
+            href="https://www.linkedin.com/in/anshul-gupta1/"
             target="_blank"
             className="inline-flex items-center gap-2 bg-white text-black px-6 py-3 rounded-full font-medium text-sm hover:bg-white/90 transition"
           >

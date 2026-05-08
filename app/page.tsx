@@ -51,7 +51,7 @@ export default function Home() {
           <a href="/learn" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition">
             Learn AI with me
           </a>
-          <a href="https://www.linkedin.com/in/anshulgupta1512" target="_blank" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition">
+          <a href="https://www.linkedin.com/in/anshul-gupta1/" target="_blank" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition">
             Follow on LinkedIn
           </a>
         </div>
@@ -84,7 +84,7 @@ export default function Home() {
                 <span>GitHub</span>
               </a>
               <a
-                href="https://www.linkedin.com/in/anshulgupta1512"
+                href="https://www.linkedin.com/in/anshul-gupta1/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-white/40 hover:text-white transition text-xs"
