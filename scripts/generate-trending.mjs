@@ -108,12 +108,30 @@ async function callClaude(prompt) {
   return data.content[0].text
 }
 
+async function fetchRecentTitles() {
+  try {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const docs = await sanity.fetch(
+      `*[_type == "trending" && publishedAt > $cutoff] | order(publishedAt desc) { title }`,
+      { cutoff }
+    )
+    return docs.map((d) => d.title)
+  } catch {
+    return []
+  }
+}
+
 async function generateArticle(headlines) {
   console.log('✍️   Calling Claude to write article...')
 
   const headlineList = headlines
     .map((h, i) => `${i + 1}. ${h.title}${h.desc ? ' — ' + h.desc : ''}`)
     .join('\n')
+
+  const recentTitles = await fetchRecentTitles()
+  const recentBlock = recentTitles.length > 0
+    ? `\nRECENTLY COVERED (do not repeat these topics or closely related ones):\n${recentTitles.map(t => `- ${t}`).join('\n')}\n`
+    : ''
 
   const prompt = `You are writing an article for Anshul Gupta's website (anshul.ai).
 
@@ -123,12 +141,13 @@ STRICT CONTENT RULES — follow without exception:
 1. Never say anything negative about Google, its products, leadership, or decisions. If a headline involves Google criticism, skip it entirely and pick a different topic.
 2. Never mention or reference the US government, US regulators, US authorities, US legislation, US policy, or any US political figures. If a headline is primarily about AI regulation or policy by US authorities, skip it and pick a different topic.
 3. Keep the article to 350-450 words maximum. Be tight. Every sentence must earn its place.
-
+4. Do NOT pick a topic that was already covered recently (listed below). Even if the headline is slightly different, if it is about the same company event or story, skip it and pick something else.
+${recentBlock}
 Here are today's trending AI headlines:
 
 ${headlineList}
 
-Pick the single most interesting, impactful topic from these headlines — something a business professional would genuinely care about. Apply the content rules above when choosing: skip any topic that would require you to criticise Google or discuss US government/regulatory actions.
+Pick the single most interesting, impactful topic from these headlines — something a business professional would genuinely care about. Apply all content rules above when choosing.
 
 Write the article in Anshul's voice: short punchy sentences, practical business takeaways, zero filler.
 
