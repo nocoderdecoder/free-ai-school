@@ -96,7 +96,7 @@ async function callClaude(prompt) {
     },
     body: JSON.stringify({
       model: 'claude-opus-4-5',
-      max_tokens: 2000,
+      max_tokens: 1000,
       messages: [{ role: 'user', content: prompt }],
     }),
   })
@@ -119,11 +119,18 @@ async function generateArticle(headlines) {
 
 About Anshul: GTM Strategy leader at Google, Kellogg MBA, builds AI products without an engineering background, teaches practical AI to business professionals. His voice is direct, clear, practical — no hype, no jargon, aimed at non-technical professionals who want to actually use AI at work.
 
+STRICT CONTENT RULES — follow without exception:
+1. Never say anything negative about Google, its products, leadership, or decisions. If a headline involves Google criticism, skip it entirely and pick a different topic.
+2. Never mention or reference the US government, US regulators, US authorities, US legislation, US policy, or any US political figures. If a headline is primarily about AI regulation or policy by US authorities, skip it and pick a different topic.
+3. Keep the article to 350-450 words maximum. Be tight. Every sentence must earn its place.
+
 Here are today's trending AI headlines:
 
 ${headlineList}
 
-Pick the single most interesting, impactful topic from these headlines — something a business professional would genuinely care about and find useful. Write a 700-900 word article about it in Anshul's voice.
+Pick the single most interesting, impactful topic from these headlines — something a business professional would genuinely care about. Apply the content rules above when choosing: skip any topic that would require you to criticise Google or discuss US government/regulatory actions.
+
+Write the article in Anshul's voice: short punchy sentences, practical business takeaways, zero filler.
 
 Output in EXACTLY this format (no extra commentary before or after):
 
@@ -131,7 +138,7 @@ TITLE: [compelling article title]
 SLUG: [url-slug-with-hyphens-lowercase, max 60 chars]
 EXCERPT: [2 sentences that make someone want to read. No fluff.]
 ---
-[Article body here. Use ## for section headings. Separate paragraphs with a blank line. Write like Anshul: short punchy sentences, practical takeaways, zero filler.]`
+[Article body here. 350-450 words. Use ## for section headings. Separate paragraphs with a blank line.]`
 
   const raw = await callClaude(prompt)
 
