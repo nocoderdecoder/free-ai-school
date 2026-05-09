@@ -145,7 +145,7 @@ export default function Home() {
         </ScrollReveal>
 
         <ScrollReveal delay={200}>
-          <div className="py-12">
+          <div className="border-b border-white/10 py-12">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Writing</p>
             <h2 className="text-2xl font-bold mb-3">Honest takes on AI in business</h2>
             <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
@@ -153,6 +153,25 @@ export default function Home() {
             </p>
             <a href="/writing" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
               Read the writing →
+            </a>
+          </div>
+        </ScrollReveal>
+
+        <ScrollReveal delay={300}>
+          <div className="py-12">
+            <div className="flex items-center gap-3 mb-4">
+              <p className="text-white/40 text-xs uppercase tracking-widest">Trending</p>
+              <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-emerald-400/70">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Daily
+              </span>
+            </div>
+            <h2 className="text-2xl font-bold mb-3">What's happening in AI. Today.</h2>
+            <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
+              Every morning, a new article on the most trending topic in AI — written for business professionals, published automatically.
+            </p>
+            <a href="/trending" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
+              Read today's article →
             </a>
           </div>
         </ScrollReveal>

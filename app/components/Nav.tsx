@@ -71,9 +71,10 @@ const MODULES = [
 ]
 
 const NAV_LINKS = [
-  { label: 'About',   href: '/about' },
-  { label: 'Lab',     href: '/lab' },
-  { label: 'Writing', href: '/writing' },
+  { label: 'About',    href: '/about' },
+  { label: 'Lab',      href: '/lab' },
+  { label: 'Trending', href: '/trending' },
+  { label: 'Writing',  href: '/writing' },
 ]
 
 export function Nav() {
