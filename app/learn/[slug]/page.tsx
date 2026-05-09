@@ -1,3 +1,4 @@
+import { Nav } from '../../components/Nav'
 import { createClient } from 'next-sanity'
 import { PortableText } from '@portabletext/react'
 
@@ -118,15 +119,7 @@ export default async function Article({ params }: any) {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <nav className="flex justify-between items-center px-8 py-6 border-b border-white/10">
-        <a href="/" className="font-bold text-lg">Anshul Gupta</a>
-        <div className="flex gap-6 text-sm text-white/60">
-          <a href="/about" className="hover:text-white transition">About</a>
-          <a href="/lab" className="hover:text-white transition">Lab</a>
-          <a href="/learn" className="hover:text-white transition">Learn</a>
-          <a href="/writing" className="hover:text-white transition">Writing</a>
-        </div>
-      </nav>
+      <Nav />
       <article className="max-w-2xl mx-auto px-8 py-24">
         <a href="/learn" className="text-white/40 text-sm hover:text-white transition mb-8 inline-block">
           ← Back to Learn
@@ -140,7 +133,7 @@ export default async function Article({ params }: any) {
         </div>
       </article>
       <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
-        2026 Anshul Gupta
+        © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
     </main>
   )

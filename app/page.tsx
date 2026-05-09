@@ -1,5 +1,6 @@
 import { ScrollReveal } from './components/ScrollReveal'
 import { ToolsMarquee } from './components/ToolsMarquee'
+import { Nav } from './components/Nav'
 
 function GitHubIcon() {
   return (
@@ -21,16 +22,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-black text-white">
 
-      {/* Nav */}
-      <nav className="flex justify-between items-center px-8 py-6 border-b border-white/10">
-        <a href="/" className="font-bold text-lg">Anshul Gupta</a>
-        <div className="flex gap-6 text-sm text-white/60">
-          <a href="/about" className="hover:text-white transition">About</a>
-          <a href="/lab" className="hover:text-white transition">Lab</a>
-          <a href="/learn" className="hover:text-white transition">Learn</a>
-          <a href="/writing" className="hover:text-white transition">Writing</a>
-        </div>
-      </nav>
+      <Nav />
 
       {/* Hero */}
       <section className="max-w-3xl mx-auto px-8 py-24">
