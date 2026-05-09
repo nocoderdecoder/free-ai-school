@@ -94,7 +94,7 @@ export function Nav() {
 
   return (
     <>
-      <nav className="flex justify-between items-center px-8 py-6 border-b border-white/10 relative z-50">
+      <nav className="sticky top-0 z-50 flex justify-between items-center px-8 py-6 border-b border-white/10 bg-black/90 backdrop-blur-md">
         <a href="/" className="font-bold text-lg">Anshul Gupta</a>
 
         {/* Desktop nav */}
