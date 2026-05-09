@@ -1,3 +1,20 @@
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Anshul Gupta — AI Builder & Educator',
+  description: 'GTM Strategy at Google. Kellogg MBA. I build AI products without an engineering degree and teach practical AI to business professionals.',
+  openGraph: {
+    title: 'Anshul Gupta — AI Builder & Educator',
+    description: 'GTM Strategy at Google. Kellogg MBA. I build AI products and teach practical AI to business professionals.',
+    url: 'https://anshul.ai',
+    type: 'website',
+  },
+  twitter: {
+    title: 'Anshul Gupta — AI Builder & Educator',
+    description: 'GTM Strategy at Google. Kellogg MBA. I build AI products and teach practical AI to business professionals.',
+  },
+}
+
 import { ScrollReveal } from './components/ScrollReveal'
 import { ToolsMarquee } from './components/ToolsMarquee'
 import { Nav } from './components/Nav'

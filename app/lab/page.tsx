@@ -1,4 +1,15 @@
+import type { Metadata } from 'next'
 import { Nav } from '../components/Nav'
+
+export const metadata: Metadata = {
+  title: 'Lab',
+  description: 'Real AI products and automations built without a traditional engineering background — from prompt scoring tools to competitive intelligence scrapers.',
+  openGraph: {
+    title: 'Lab — AI Products I Have Built',
+    description: 'Real AI products and automations built without a traditional engineering background.',
+    url: 'https://anshul.ai/lab',
+  },
+}
 
 const projects = [
   {

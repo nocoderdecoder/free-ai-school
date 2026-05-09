@@ -1,4 +1,15 @@
+import type { Metadata } from 'next'
 import { Nav } from '../components/Nav'
+
+export const metadata: Metadata = {
+  title: 'Writing',
+  description: 'Honest takes on AI in business — what I am building, what is working, what failed, and what is actually happening in AI from someone doing it daily.',
+  openGraph: {
+    title: 'Writing — Honest Takes on AI in Business',
+    description: 'What I am building, what is working, what failed, and what is actually happening in AI — from someone doing it daily, not just writing about it.',
+    url: 'https://anshul.ai/writing',
+  },
+}
 
 const upcomingTopics = [
   {

@@ -1,4 +1,15 @@
+import type { Metadata } from 'next'
 import { Nav } from '../components/Nav'
+
+export const metadata: Metadata = {
+  title: 'Free AI School',
+  description: 'A complete AI curriculum for business professionals. No prerequisites, no engineering degree — practical AI knowledge for the people who run teams and make decisions.',
+  openGraph: {
+    title: 'Free AI School — Practical AI for Business Professionals',
+    description: 'A complete AI curriculum for business professionals. No prerequisites, no engineering degree required.',
+    url: 'https://anshul.ai/learn',
+  },
+}
 
 export const revalidate = 0
 

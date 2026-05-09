@@ -15,8 +15,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Anshul Gupta — AI Builder & Educator",
-  description: "GTM Strategy at Google. Kellogg MBA. I build AI products and teach practical AI to business professionals. No engineering background required.",
+  metadataBase: new URL('https://anshul.ai'),
+  title: {
+    default: 'Anshul Gupta — AI Builder & Educator',
+    template: '%s | Anshul Gupta',
+  },
+  description: 'GTM Strategy at Google. Kellogg MBA. I build AI products and teach practical AI to business professionals. No engineering background required.',
+  openGraph: {
+    siteName: 'Anshul Gupta',
+    type: 'website',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@anshulai',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

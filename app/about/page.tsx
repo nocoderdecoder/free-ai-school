@@ -1,4 +1,15 @@
+import type { Metadata } from 'next'
 import { Nav } from '../components/Nav'
+
+export const metadata: Metadata = {
+  title: 'About',
+  description: 'GTM Strategy at Google, Kellogg MBA, former Uber and Unilever. I build real AI products and teach practical AI to business professionals worldwide.',
+  openGraph: {
+    title: 'About Anshul Gupta',
+    description: 'GTM Strategy at Google, Kellogg MBA, former Uber and Unilever. I build real AI products and teach practical AI to business professionals.',
+    url: 'https://anshul.ai/about',
+  },
+}
 
 const roles = [
   {
