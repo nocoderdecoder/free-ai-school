@@ -3,24 +3,6 @@ import { createClient } from 'next-sanity'
 import { ScrollReveal } from './components/ScrollReveal'
 import { ToolsMarquee } from './components/ToolsMarquee'
 import { Nav } from './components/Nav'
-import { siGoogle, siUber, siUnilever } from 'simple-icons'
-
-function BrandIcon({ icon, color }: { icon: { path: string }, color: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" style={{ fill: color }} aria-hidden="true">
-      <path d={icon.path} />
-    </svg>
-  )
-}
-
-// University monogram for schools not in simple-icons
-function UniMark({ initials, color }: { initials: string, color: string }) {
-  return (
-    <span className="text-[10px] font-bold leading-none shrink-0" style={{ color }}>
-      {initials}
-    </span>
-  )
-}
 
 export const metadata: Metadata = {
   title: 'Anshul Gupta — AI Builder & Educator',
@@ -115,67 +97,37 @@ export default async function Home() {
       {/* Credential strip */}
       <ScrollReveal>
         <section className="border-t border-white/10">
-          <div className="max-w-3xl mx-auto px-8 py-6 flex flex-col sm:flex-row sm:items-start gap-6 sm:gap-12">
-
-            {/* Experience */}
-            <div className="flex-1">
-              <p className="text-white/25 text-[10px] uppercase tracking-widest mb-3">Experience</p>
-              <div className="flex flex-col gap-2.5">
-                <div className="flex items-center gap-2.5">
-                  <BrandIcon icon={siGoogle} color="#4285F4" />
-                  <span className="text-white/70 text-sm font-medium">Google</span>
-                  <span className="text-white/25 text-xs">GTM Strategy</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <BrandIcon icon={siUber} color="#FFFFFF" />
-                  <span className="text-white/70 text-sm font-medium">Uber</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <BrandIcon icon={siUnilever} color="#1F36C7" />
-                  <span className="text-white/70 text-sm font-medium">Unilever</span>
-                </div>
-              </div>
+          <div className="max-w-3xl mx-auto px-8 py-5 flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-white/30 text-xs uppercase tracking-widest mr-1">Background</span>
+              <span className="text-white/70 text-sm font-medium">Google</span>
+              <span className="text-white/20 text-sm">·</span>
+              <span className="text-white/70 text-sm font-medium">Kellogg / Northwestern</span>
+              <span className="text-white/20 text-sm">·</span>
+              <span className="text-white/70 text-sm font-medium">Uber</span>
             </div>
-
-            {/* Divider */}
-            <div className="hidden sm:block w-px bg-white/10 self-stretch" />
-
-            {/* Education */}
-            <div className="flex-1">
-              <p className="text-white/25 text-[10px] uppercase tracking-widest mb-3">Education</p>
-              <div className="flex flex-col gap-2.5">
-                <div className="flex items-center gap-2.5">
-                  <UniMark initials="KW" color="#4E2A84" />
-                  <div>
-                    <span className="text-white/70 text-sm font-medium">Kellogg / Northwestern</span>
-                    <span className="text-white/25 text-xs ml-2">Full Time MBA</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <UniMark initials="PU" color="#CEB888" />
-                  <div>
-                    <span className="text-white/70 text-sm font-medium">Purdue University</span>
-                    <span className="text-white/25 text-xs ml-2">Applied Generative AI</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Social links — pushed right on desktop */}
-            <div className="flex sm:flex-col gap-4 sm:gap-3 sm:items-end justify-start">
-              <a href="https://github.com/nocoderdecoder" target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 text-white/40 hover:text-white transition text-xs">
-                <GitHubIcon /><span>GitHub</span>
+            <div className="flex items-center gap-4">
+              <a
+                href="https://github.com/nocoderdecoder"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-white/40 hover:text-white transition text-xs"
+              >
+                <GitHubIcon />
+                <span>GitHub</span>
               </a>
-              <a href="https://www.linkedin.com/in/anshul-gupta1/" target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 text-white/40 hover:text-white transition text-xs">
-                <LinkedInIcon /><span>LinkedIn</span>
+              <a
+                href="https://www.linkedin.com/in/anshul-gupta1/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-white/40 hover:text-white transition text-xs"
+              >
+                <LinkedInIcon />
+                <span>LinkedIn</span>
               </a>
             </div>
-
           </div>
 
-          {/* Tools marquee */}
           <div className="border-t border-white/10">
             <div className="max-w-3xl mx-auto px-8 pt-3 pb-1">
               <span className="text-white/25 text-xs uppercase tracking-widest">Tools</span>
