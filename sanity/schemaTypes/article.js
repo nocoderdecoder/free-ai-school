@@ -26,6 +26,7 @@ export default {
           { title: 'Module 2: The Tools Layer', value: 'tools' },
           { title: 'Module 3: AI in Your Organization', value: 'organization' },
           { title: 'Module 4: Hands-On for Non-Engineers', value: 'hands-on' },
+          { title: 'Module 5: Mastering Claude', value: 'claude' },
         ]
       },
       validation: Rule => Rule.required()

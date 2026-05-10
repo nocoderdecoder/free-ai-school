@@ -38,6 +38,12 @@ const modules = [
     tagline: 'Building AI habits that actually stick',
     description: 'Practical walkthroughs for writing, research, meetings, analysis, and building a personal AI workflow.',
   },
+  {
+    key: 'claude',
+    label: 'Mastering Claude',
+    tagline: 'Everything you need to know about Claude',
+    description: 'What Claude is, how the interface works, how to prompt it well, real work use cases, and how to go further with the API and Claude Code.',
+  },
 ]
 
 export default async function Learn() {

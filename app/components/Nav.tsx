@@ -68,6 +68,19 @@ const MODULES = [
       { title: 'Building Your Personal AI Stack',    slug: 'hands-on-building-your-personal-ai-stack' },
     ],
   },
+  {
+    key: 'claude',
+    label: 'Mastering Claude',
+    tagline: 'Everything you need to know about Claude',
+    href: '/learn#claude',
+    articles: [
+      { title: 'What Claude Actually Is',                          slug: 'claude-what-it-actually-is' },
+      { title: 'The Claude Interface: Everything Worth Knowing',   slug: 'claude-interface-everything-worth-knowing' },
+      { title: 'How to Prompt Claude Well',                        slug: 'claude-how-to-prompt-well' },
+      { title: 'Claude for Real Work: Use Cases That Deliver',     slug: 'claude-for-real-work-use-cases' },
+      { title: 'Claude Code and the API: What They Are',           slug: 'claude-code-and-api-what-they-are' },
+    ],
+  },
 ]
 
 const NAV_LINKS = [
@@ -126,7 +139,7 @@ export function Nav() {
             {dropdownOpen && (
               <div className="absolute right-0 top-full pt-3" onMouseEnter={cancelClose} onMouseLeave={scheduleClose}>
                 <div className="absolute right-5 top-[6px] w-3 h-3 rotate-45 bg-[#111] border-l border-t border-white/10" />
-                <div className="flex rounded-2xl overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 64px rgba(0,0,0,0.7)', minWidth: 560 }}>
+                <div className="flex rounded-2xl overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 64px rgba(0,0,0,0.7)', minWidth: 600 }}>
                   {/* Modules */}
                   <div className="flex flex-col py-3 border-r border-white/[0.06]" style={{ width: 220 }}>
                     <p className="text-white/25 text-[10px] uppercase tracking-widest px-5 py-2 mb-1">Modules</p>
