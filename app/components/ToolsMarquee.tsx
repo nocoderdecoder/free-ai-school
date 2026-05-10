@@ -5,6 +5,7 @@ import {
   siN8n, siZapier, siMake, siNextdotjs, siVercel,
   siPython, siSanity, siLangchain, siWindsurf,
   siNotion, siGooglecolab, siGradio, siGithub,
+  siReplit, siHuggingface, siCloudflare, siElevenlabs, siGooglecloud,
 } from 'simple-icons'
 
 type Tool = {
@@ -35,6 +36,14 @@ const tools: Tool[] = [
   { name: 'Google Colab', color: '#F9AB00', icon: siGooglecolab },
   { name: 'Gradio',       color: '#FF7C00', icon: siGradio },
   { name: 'GitHub',       color: '#FFFFFF', icon: siGithub },
+  { name: 'Replit',       color: '#F26207', icon: siReplit },
+  { name: 'Hugging Face', color: '#FFD21E', icon: siHuggingface },
+  { name: 'Cloudflare',   color: '#F48120', icon: siCloudflare },
+  { name: 'ElevenLabs',   color: '#FFFFFF', icon: siElevenlabs },
+  { name: 'Google Cloud', color: '#4285F4', icon: siGooglecloud },
+  { name: 'Lovable',      color: '#FF3366', initials: 'LV' },
+  { name: 'Descript',     color: '#7B61FF', initials: 'DE' },
+  { name: 'AWS',          color: '#FF9900', initials: 'AWS' },
 ]
 
 function ToolChip({ tool }: { tool: Tool }) {
