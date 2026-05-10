@@ -1,4 +1,8 @@
 import type { Metadata } from 'next'
+import { createClient } from 'next-sanity'
+import { ScrollReveal } from './components/ScrollReveal'
+import { ToolsMarquee } from './components/ToolsMarquee'
+import { Nav } from './components/Nav'
 
 export const metadata: Metadata = {
   title: 'Anshul Gupta — AI Builder & Educator',
@@ -15,9 +19,12 @@ export const metadata: Metadata = {
   },
 }
 
-import { ScrollReveal } from './components/ScrollReveal'
-import { ToolsMarquee } from './components/ToolsMarquee'
-import { Nav } from './components/Nav'
+const sanity = createClient({
+  projectId: '8w4exnl4',
+  dataset: 'production',
+  apiVersion: '2024-01-01',
+  useCdn: true,
+})
 
 function GitHubIcon() {
   return (
@@ -35,7 +42,20 @@ function LinkedInIcon() {
   )
 }
 
-export default function Home() {
+export default async function Home() {
+  // Fetch latest trending article for the date signal
+  let latestDate: string | null = null
+  try {
+    const latest = await sanity.fetch(
+      `*[_type == "trending"] | order(publishedAt desc)[0] { publishedAt }`
+    )
+    if (latest?.publishedAt) {
+      latestDate = new Date(latest.publishedAt).toLocaleDateString('en-US', {
+        month: 'long', day: 'numeric',
+      })
+    }
+  } catch {}
+
   return (
     <main className="min-h-screen bg-black text-white">
 
@@ -53,15 +73,23 @@ export default function Home() {
         <p className="hero-sub text-white/60 text-xl leading-relaxed mb-10">
           GTM Strategy at Google. Kellogg MBA. I ship real AI products without an engineering background and share everything along the way.
         </p>
-        <div className="hero-ctas flex gap-4 flex-wrap">
-          <a href="/lab" className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-white/90 transition">
-            See what I built
-          </a>
-          <a href="/learn" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition">
+
+        {/* CTAs — clear hierarchy */}
+        <div className="hero-ctas flex items-center gap-4 flex-wrap">
+          <a href="/learn" className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-white/90 transition">
             Learn AI with me
           </a>
-          <a href="https://www.linkedin.com/in/anshul-gupta1/" target="_blank" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition">
-            Follow on LinkedIn
+          <a href="/lab" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition">
+            See what I built
+          </a>
+          <a
+            href="https://www.linkedin.com/in/anshul-gupta1/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-white/40 hover:text-white transition text-sm"
+          >
+            <LinkedInIcon />
+            LinkedIn
           </a>
         </div>
       </section>
@@ -69,7 +97,6 @@ export default function Home() {
       {/* Credential strip */}
       <ScrollReveal>
         <section className="border-t border-white/10">
-          {/* Background + experience */}
           <div className="max-w-3xl mx-auto px-8 py-5 flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-white/30 text-xs uppercase tracking-widest mr-1">Background</span>
@@ -79,15 +106,12 @@ export default function Home() {
               <span className="text-white/20 text-sm">·</span>
               <span className="text-white/70 text-sm font-medium">Uber</span>
             </div>
-
-            {/* GitHub + LinkedIn icons */}
             <div className="flex items-center gap-4">
               <a
                 href="https://github.com/nocoderdecoder"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-white/40 hover:text-white transition text-xs"
-                aria-label="GitHub"
               >
                 <GitHubIcon />
                 <span>GitHub</span>
@@ -97,7 +121,6 @@ export default function Home() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-white/40 hover:text-white transition text-xs"
-                aria-label="LinkedIn"
               >
                 <LinkedInIcon />
                 <span>LinkedIn</span>
@@ -105,7 +128,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Tools marquee */}
           <div className="border-t border-white/10">
             <div className="max-w-3xl mx-auto px-8 pt-3 pb-1">
               <span className="text-white/25 text-xs uppercase tracking-widest">Tools</span>
@@ -115,10 +137,26 @@ export default function Home() {
         </section>
       </ScrollReveal>
 
-      {/* Three sections */}
+      {/* Sections */}
       <section className="max-w-3xl mx-auto px-8 py-16 grid grid-cols-1 gap-0">
 
+        {/* Learn — primary section, more visual weight */}
         <ScrollReveal delay={0}>
+          <div className="border-b border-white/10 py-12">
+            <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Free AI School</p>
+            <h2 className="text-3xl font-bold mb-3">AI education for business professionals</h2>
+            <p className="text-white/60 leading-relaxed mb-3 max-w-xl">
+              No prerequisites. No engineering degree. A complete curriculum for the people who run teams, make decisions, and want to actually use AI at work.
+            </p>
+            <p className="text-white/25 text-sm mb-6">5 modules · 99 articles · free</p>
+            <a href="/learn" className="inline-flex items-center gap-2 text-sm font-medium text-black bg-white px-5 py-2.5 rounded-full hover:bg-white/90 transition">
+              Start learning →
+            </a>
+          </div>
+        </ScrollReveal>
+
+        {/* Lab */}
+        <ScrollReveal delay={100}>
           <div className="border-b border-white/10 py-12">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Lab</p>
             <h2 className="text-2xl font-bold mb-3">AI products I have built</h2>
@@ -131,19 +169,7 @@ export default function Home() {
           </div>
         </ScrollReveal>
 
-        <ScrollReveal delay={100}>
-          <div className="border-b border-white/10 py-12">
-            <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Free AI School</p>
-            <h2 className="text-2xl font-bold mb-3">AI education for business professionals</h2>
-            <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
-              No prerequisites. No engineering degree. A complete curriculum for the people who run teams, make decisions, and want to actually use AI at work.
-            </p>
-            <a href="/learn" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
-              Start learning →
-            </a>
-          </div>
-        </ScrollReveal>
-
+        {/* Writing */}
         <ScrollReveal delay={200}>
           <div className="border-b border-white/10 py-12">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Writing</p>
@@ -157,19 +183,17 @@ export default function Home() {
           </div>
         </ScrollReveal>
 
+        {/* Trending */}
         <ScrollReveal delay={300}>
           <div className="py-12">
-            <div className="flex items-center gap-3 mb-4">
-              <p className="text-white/40 text-xs uppercase tracking-widest">Trending</p>
-              <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-emerald-400/70">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Daily
-              </span>
-            </div>
-            <h2 className="text-2xl font-bold mb-3">What's happening in AI. Today.</h2>
-            <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
-              Every morning, a new article on the most trending topic in AI — written for business professionals, published automatically.
+            <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Trending</p>
+            <h2 className="text-2xl font-bold mb-3">What is happening in AI. Today.</h2>
+            <p className="text-white/60 leading-relaxed mb-3 max-w-xl">
+              Every morning, a new article on the most trending topic in AI, written for business professionals.
             </p>
+            {latestDate && (
+              <p className="text-white/25 text-sm mb-6">Last published {latestDate}</p>
+            )}
             <a href="/trending" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
               Read today's article →
             </a>
@@ -179,8 +203,34 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
-        © {new Date().getFullYear()} Anshul Gupta · anshul.ai
+      <footer className="border-t border-white/10">
+        <div className="max-w-3xl mx-auto px-8 py-12 flex flex-col sm:flex-row justify-between gap-8">
+
+          {/* Left */}
+          <div>
+            <p className="font-semibold text-white mb-1">Anshul Gupta</p>
+            <p className="text-white/30 text-sm">GTM Strategy at Google · Kellogg MBA</p>
+            <p className="text-white/20 text-xs mt-4">© {new Date().getFullYear()} · anshul.ai</p>
+          </div>
+
+          {/* Right — nav links */}
+          <div className="flex gap-12">
+            <div className="flex flex-col gap-2">
+              <p className="text-white/25 text-xs uppercase tracking-widest mb-1">Pages</p>
+              <a href="/about"    className="text-white/40 text-sm hover:text-white transition">About</a>
+              <a href="/lab"      className="text-white/40 text-sm hover:text-white transition">Lab</a>
+              <a href="/learn"    className="text-white/40 text-sm hover:text-white transition">Learn</a>
+              <a href="/trending" className="text-white/40 text-sm hover:text-white transition">Trending</a>
+              <a href="/writing"  className="text-white/40 text-sm hover:text-white transition">Writing</a>
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="text-white/25 text-xs uppercase tracking-widest mb-1">Connect</p>
+              <a href="https://www.linkedin.com/in/anshul-gupta1/" target="_blank" rel="noopener noreferrer" className="text-white/40 text-sm hover:text-white transition">LinkedIn</a>
+              <a href="https://github.com/nocoderdecoder"           target="_blank" rel="noopener noreferrer" className="text-white/40 text-sm hover:text-white transition">GitHub</a>
+            </div>
+          </div>
+
+        </div>
       </footer>
 
     </main>
