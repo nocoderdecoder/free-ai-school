@@ -217,11 +217,12 @@ export default async function Home() {
           <div className="flex gap-12">
             <div className="flex flex-col gap-2">
               <p className="text-white/25 text-xs uppercase tracking-widest mb-1">Pages</p>
-              <a href="/about"    className="text-white/40 text-sm hover:text-white transition">About</a>
-              <a href="/lab"      className="text-white/40 text-sm hover:text-white transition">Lab</a>
-              <a href="/learn"    className="text-white/40 text-sm hover:text-white transition">Learn</a>
-              <a href="/trending" className="text-white/40 text-sm hover:text-white transition">Trending</a>
-              <a href="/writing"  className="text-white/40 text-sm hover:text-white transition">Writing</a>
+              <a href="/about"     className="text-white/40 text-sm hover:text-white transition">About</a>
+              <a href="/lab"       className="text-white/40 text-sm hover:text-white transition">Lab</a>
+              <a href="/learn"     className="text-white/40 text-sm hover:text-white transition">Learn</a>
+              <a href="/trending"  className="text-white/40 text-sm hover:text-white transition">Trending</a>
+              <a href="/writing"   className="text-white/40 text-sm hover:text-white transition">Writing</a>
+              <a href="/downloads" className="text-white/40 text-sm hover:text-white transition">Downloads</a>
             </div>
             <div className="flex flex-col gap-2">
               <p className="text-white/25 text-xs uppercase tracking-widest mb-1">Connect</p>

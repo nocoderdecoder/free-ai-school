@@ -25,7 +25,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: 'https://anshul.ai/learn',   lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.9 },
     { url: 'https://anshul.ai/lab',     lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },
     { url: 'https://anshul.ai/writing', lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.8 },
-    { url: 'https://anshul.ai/about',   lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
+    { url: 'https://anshul.ai/about',     lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
+    { url: 'https://anshul.ai/downloads', lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.7 },
     ...articleUrls,
   ]
 }
