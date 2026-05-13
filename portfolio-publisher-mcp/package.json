@@ -1,0 +1,24 @@
+{
+  "name": "portfolio-publisher-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local MCP server for safely inspecting and publishing portfolio Lab projects.",
+  "type": "module",
+  "bin": {
+    "portfolio-publisher-mcp": "./src/server.mjs"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "smoke": "node scripts/smoke-test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "mcp",
+    "portfolio",
+    "automation",
+    "lab"
+  ],
+  "license": "UNLICENSED"
+}
