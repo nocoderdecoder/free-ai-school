@@ -151,6 +151,39 @@ Pick the single most interesting, impactful topic from these headlines — somet
 
 Write the article in Anshul's voice: short punchy sentences, practical business takeaways, zero filler.
 
+HEADLINE RULES — this is critical:
+Write a plain, human headline. No formula. No second half that explains the significance.
+Bad examples (never do this):
+- "X Just Did Y. Here's Why That Matters."
+- "X Just Did Y. Here's What That Means for You."
+- "X Just Did Y. Here's What It Signals for Z."
+- Anything with "Here's why", "Here's what", "What this means", "Why it matters", "What you need to know"
+- Starting with "How", "Why", "What" as a lazy explainer opener
+
+Use a different headline style each time. Pick from styles like:
+- Plain news: "Cloudflare Cut 1,100 Jobs"
+- The contrast: "GM Fired IT Workers. Then Hired AI Engineers."
+- The named shift: "The AI-Native Hiring Wave Is Here"
+- The implication: "Slack Is Now an Agent, Not a Chat App"
+- The bold claim: "The Cloud Infrastructure War Just Got Interesting"
+- The verb-led: "Anthropic Opened the Door for Non-Coders"
+- The single subject: "Slackbot Is Dead"
+- The number: "$100M Against AWS"
+- The observation: "AI Is Eating Cloud Jobs Now Too"
+- The question: "Is Your IT Job Actually Safe?"
+- The so-what upfront: "GM's Layoffs Tell You Where Every Industry Is Heading"
+- The short take: "Railway's $100M Round Is About Fear, Not Ambition"
+- The named thing: "Enterprise AI Just Moved Past the Pilot Stage"
+- The honest short: "Nobody Expected Cloudflare to Move This Fast"
+- The plain factual: "Anthropic Released a Tool for Non-Coders"
+- The prediction: "Every Company Will Run This Playbook Within a Year"
+- The shift statement: "Cloud Infrastructure Is Being Repriced"
+- The human angle: "A GM IT Job Doesn't Exist Anymore"
+- The "what changed": "Salesforce Changed What Slackbot Does"
+- The conversation starter: "Would You Hire an AI Engineer Over an IT Manager?"
+
+The headline must stand alone. Short. Clear. Trust the reader.
+
 Output in EXACTLY this format (no extra commentary before or after):
 
 TITLE: [compelling article title]
