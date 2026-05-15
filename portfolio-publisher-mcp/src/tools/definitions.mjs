@@ -45,6 +45,22 @@ export const tools = [
     },
   },
   {
+    name: "publish_readiness_report",
+    title: "Publish Readiness Report",
+    description:
+      "Return a Markdown report that summarizes publish blockers and screenshot readiness (human-readable).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "Optional project name to report on. If omitted, all Lab projects are included.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: "suggest_next_lab_project",
     title: "Suggest Next Lab Project",
     description: "Suggest technically distinct future Lab projects based on what already exists.",

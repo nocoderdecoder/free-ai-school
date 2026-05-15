@@ -23,6 +23,7 @@ send(1, "initialize", {
 send(2, "tools/list");
 send(3, "tools/call", { name: "list_lab_projects", arguments: {} });
 send(4, "tools/call", { name: "validate_lab_assets", arguments: {} });
+send(5, "tools/call", { name: "publish_readiness_report", arguments: {} });
 
 await new Promise((resolve) => setTimeout(resolve, 400));
 server.kill();
@@ -33,14 +34,17 @@ const listedTools = responses.find((response) => response.id === 2)?.result?.too
 const listedProjects = JSON.parse(
   responses.find((response) => response.id === 3)?.result?.content?.[0]?.text ?? "{}"
 ).count;
+const readinessReport = responses.find((response) => response.id === 5)?.result?.content?.[0]?.text ?? "";
+const readinessReportOk = typeof readinessReport === "string" && readinessReport.includes("# Publish readiness report");
 
 console.log(JSON.stringify({
   failed,
   responses: responses.length,
   listedTools,
   listedProjects,
+  readinessReportOk,
 }, null, 2));
 
-if (failed || listedTools < 1 || listedProjects < 1) {
+if (failed || listedTools < 1 || listedProjects < 1 || !readinessReportOk) {
   process.exitCode = 1;
 }
