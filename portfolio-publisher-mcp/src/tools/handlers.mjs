@@ -1,5 +1,6 @@
 import { listLabProjects, getProjectAssetStatus } from "../lib/labParser.mjs";
 import { paths } from "../lib/paths.mjs";
+import { tools as toolDefinitions } from "./definitions.mjs";
 
 function textResult(value) {
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
@@ -9,8 +10,53 @@ function textResult(value) {
   };
 }
 
+function errorResult(message) {
+  return {
+    content: [{ type: "text", text: message }],
+    isError: true,
+  };
+}
+
 function idea(name, angle, why) {
   return { name, angle, why };
+}
+
+function getToolDefinition(name) {
+  return toolDefinitions.find((tool) => tool.name === name) ?? null;
+}
+
+function validateToolArguments(toolName, args) {
+  const tool = getToolDefinition(toolName);
+  if (!tool) return null;
+
+  const schema = tool.inputSchema;
+  if (!schema || schema.type !== "object") return null;
+
+  if (args == null) return null;
+  if (typeof args !== "object" || Array.isArray(args)) {
+    return `Arguments must be an object.`;
+  }
+
+  const properties = schema.properties ?? {};
+  const allowAdditional = schema.additionalProperties !== false;
+
+  const issues = [];
+  if (!allowAdditional) {
+    for (const key of Object.keys(args)) {
+      if (!(key in properties)) issues.push(`Unexpected argument: ${key}`);
+    }
+  }
+
+  for (const [key, value] of Object.entries(args)) {
+    const expected = properties[key]?.type;
+    if (!expected) continue;
+    if (expected === "string" && typeof value !== "string") issues.push(`${key} must be a string`);
+    if (expected === "number" && typeof value !== "number") issues.push(`${key} must be a number`);
+    if (expected === "boolean" && typeof value !== "boolean") issues.push(`${key} must be a boolean`);
+  }
+
+  if (issues.length === 0) return null;
+  return issues.join("; ");
 }
 
 function slugifyProjectName(name) {
@@ -108,6 +154,9 @@ function formatReadinessReport({ checked, ready, checks, projectName }) {
 }
 
 export async function callTool(name, args = {}) {
+  const argIssue = validateToolArguments(name, args);
+  if (argIssue) return errorResult(`Invalid arguments for ${name}: ${argIssue}`);
+
   if (name === "list_lab_projects") {
     const projects = await listLabProjects();
     return textResult({
