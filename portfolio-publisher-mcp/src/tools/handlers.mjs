@@ -74,6 +74,39 @@ function suggestedScreenshotPath(projectName) {
   return slug ? `/projects/${slug}.png` : "/projects/<project-slug>.png";
 }
 
+function normalizeProjectQuery(value) {
+  return String(value ?? "").trim();
+}
+
+function findMatchingProjects(projects, query) {
+  const normalized = normalizeProjectQuery(query);
+  if (!normalized) {
+    return { matches: projects, query: normalized, issue: null };
+  }
+
+  const lowered = normalized.toLowerCase();
+  const slugged = slugifyProjectName(normalized);
+
+  const exact = projects.filter((project) => project.name.toLowerCase() === lowered);
+  if (exact.length > 0) return { matches: exact, query: normalized, issue: null };
+
+  const slugMatches = projects.filter((project) => slugifyProjectName(project.name) === slugged);
+  if (slugMatches.length > 0) return { matches: slugMatches, query: normalized, issue: null };
+
+  const contains = projects.filter((project) => project.name.toLowerCase().includes(lowered));
+  if (contains.length === 1) return { matches: contains, query: normalized, issue: null };
+
+  if (contains.length > 1) {
+    return {
+      matches: [],
+      query: normalized,
+      issue: `Project name is ambiguous. Matches: ${contains.map((project) => project.name).join(", ")}`,
+    };
+  }
+
+  return { matches: [], query: normalized, issue: "Project is not listed on the Lab page." };
+}
+
 async function computeReadinessChecks(projects) {
   const checks = await Promise.all(projects.map(async (project) => {
     const asset = await getProjectAssetStatus(project);
@@ -84,7 +117,9 @@ async function computeReadinessChecks(projects) {
     if (!project.status) blockers.push("Missing status.");
     if (!project.url) blockers.push("Missing URL or route.");
     if (!project.image) blockers.push("Missing screenshot image path.");
-    if (project.image && !asset.exists) blockers.push(`Screenshot file not found: ${asset.file}`);
+    if (project.image && !asset.exists) {
+      blockers.push(`Screenshot file not found: ${asset.file ?? project.image}`);
+    }
 
     const screenshotSuggested =
       !project.image || (project.image && !asset.exists)
@@ -176,7 +211,7 @@ export async function callTool(name, args = {}) {
       allowedReadScope: [
         paths.labPage,
         paths.publicDir,
-        paths.projectDir,
+        paths.projectsDir,
       ],
     });
   }
@@ -193,47 +228,43 @@ export async function callTool(name, args = {}) {
 
   if (name === "publish_readiness_check") {
     const projects = await listLabProjects();
-    const target = args.projectName
-      ? projects.filter((project) => project.name.toLowerCase() === String(args.projectName).toLowerCase())
-      : projects;
+    const { matches, issue, query } = findMatchingProjects(projects, args.projectName);
 
-    if (args.projectName && target.length === 0) {
+    if (issue) {
       return textResult({
-        projectName: args.projectName,
+        projectName: query,
         ready: false,
-        blockers: ["Project is not listed on the Lab page."],
+        blockers: [issue],
       });
     }
 
-    return textResult(await computeReadinessChecks(target));
+    return textResult(await computeReadinessChecks(matches));
   }
 
   if (name === "publish_readiness_report") {
     const projects = await listLabProjects();
-    const projectName = args.projectName ? String(args.projectName) : "";
-    const target = projectName
-      ? projects.filter((project) => project.name.toLowerCase() === projectName.toLowerCase())
-      : projects;
+    const projectName = normalizeProjectQuery(args.projectName);
+    const { matches, issue, query } = findMatchingProjects(projects, projectName);
 
-    if (projectName && target.length === 0) {
+    if (issue) {
       return textResult(
         [
           "# Publish readiness report",
           "",
           `Generated: ${new Date().toISOString()}`,
-          `Project: ${projectName}`,
+          `Project: ${query}`,
           "",
           "Ready: 0/0",
           "",
           "## Blockers",
           "",
-          "- Project is not listed on the Lab page.",
+          `- ${issue}`,
           "",
         ].join("\n")
       );
     }
 
-    const readiness = await computeReadinessChecks(target);
+    const readiness = await computeReadinessChecks(matches);
     return textResult(formatReadinessReport({ ...readiness, projectName: projectName || null }));
   }
 
