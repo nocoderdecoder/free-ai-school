@@ -195,7 +195,7 @@ export default async function Home() {
               Significant acquisitions and conferences — analysed when they happen.
             </p>
             <a href="/deals-events" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
-              → View all
+              View all →
             </a>
           </div>
         </ScrollReveal>
