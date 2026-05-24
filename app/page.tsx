@@ -185,7 +185,7 @@ export default async function Home() {
 
         {/* Trending */}
         <ScrollReveal delay={300}>
-          <div className="py-12">
+          <div className="border-b border-white/10 py-12">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Trending</p>
             <h2 className="text-2xl font-bold mb-3">What is happening in AI. Today.</h2>
             <p className="text-white/60 leading-relaxed mb-3 max-w-xl">
@@ -196,6 +196,20 @@ export default async function Home() {
             )}
             <a href="/trending" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
               Read today's article →
+            </a>
+          </div>
+        </ScrollReveal>
+
+        {/* Deals & Events */}
+        <ScrollReveal delay={400}>
+          <div className="py-12">
+            <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Deals & Events</p>
+            <h2 className="text-2xl font-bold mb-3">Major AI events and acquisitions.</h2>
+            <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
+              Significant acquisitions and conferences — analysed when they happen.
+            </p>
+            <a href="/deals-events" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
+              → View all
             </a>
           </div>
         </ScrollReveal>
@@ -220,9 +234,10 @@ export default async function Home() {
               <a href="/about"     className="text-white/40 text-sm hover:text-white transition">About</a>
               <a href="/lab"       className="text-white/40 text-sm hover:text-white transition">Lab</a>
               <a href="/learn"     className="text-white/40 text-sm hover:text-white transition">Learn</a>
-              <a href="/trending"  className="text-white/40 text-sm hover:text-white transition">Trending</a>
-              <a href="/writing"   className="text-white/40 text-sm hover:text-white transition">Writing</a>
-              <a href="/downloads" className="text-white/40 text-sm hover:text-white transition">Downloads</a>
+              <a href="/trending"     className="text-white/40 text-sm hover:text-white transition">Trending</a>
+              <a href="/deals-events" className="text-white/40 text-sm hover:text-white transition">Deals & Events</a>
+              <a href="/writing"      className="text-white/40 text-sm hover:text-white transition">Writing</a>
+              <a href="/downloads"    className="text-white/40 text-sm hover:text-white transition">Downloads</a>
             </div>
             <div className="flex flex-col gap-2">
               <p className="text-white/25 text-xs uppercase tracking-widest mb-1">Connect</p>

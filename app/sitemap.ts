@@ -20,13 +20,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }))
 
+  const dealEvents = await client
+    .fetch(`*[_type == "deal-event"] { "slug": slug.current, publishedAt }`)
+    .catch(() => [])
+
+  const dealEventUrls: MetadataRoute.Sitemap = dealEvents.map((d: any) => ({
+    url: `https://anshul.ai/deals-events/${d.slug}`,
+    lastModified: d.publishedAt ? new Date(d.publishedAt) : new Date(),
+    changeFrequency: 'weekly',
+    priority: 0.8,
+  }))
+
   return [
-    { url: 'https://anshul.ai',         lastModified: new Date(), changeFrequency: 'weekly',  priority: 1.0 },
-    { url: 'https://anshul.ai/learn',   lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.9 },
-    { url: 'https://anshul.ai/lab',     lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },
-    { url: 'https://anshul.ai/writing', lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.8 },
-    { url: 'https://anshul.ai/about',     lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
-    { url: 'https://anshul.ai/downloads', lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.7 },
+    { url: 'https://anshul.ai',              lastModified: new Date(), changeFrequency: 'weekly',  priority: 1.0 },
+    { url: 'https://anshul.ai/learn',        lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.9 },
+    { url: 'https://anshul.ai/lab',          lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },
+    { url: 'https://anshul.ai/writing',      lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.8 },
+    { url: 'https://anshul.ai/deals-events', lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.8 },
+    { url: 'https://anshul.ai/about',        lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
+    { url: 'https://anshul.ai/downloads',    lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.7 },
     ...articleUrls,
+    ...dealEventUrls,
   ]
 }

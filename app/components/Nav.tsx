@@ -86,8 +86,9 @@ const MODULES = [
 const NAV_LINKS = [
   { label: 'About',    href: '/about' },
   { label: 'Lab',      href: '/lab' },
-  { label: 'Trending', href: '/trending' },
-  { label: 'Writing',  href: '/writing' },
+  { label: 'Trending',      href: '/trending' },
+  { label: 'Deals & Events', href: '/deals-events' },
+  { label: 'Writing',       href: '/writing' },
 ]
 
 const DOWNLOADS_LINK = { label: 'Downloads', href: '/downloads' }
