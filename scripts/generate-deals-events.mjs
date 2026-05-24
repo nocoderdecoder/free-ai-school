@@ -357,6 +357,11 @@ async function main() {
     process.exit(0)
   }
 
+  if (!significance.type || !significance.topic) {
+    console.log('Significance check returned found=true but missing type or topic — skipping.')
+    process.exit(0)
+  }
+
   const { type, topic, eventName } = significance
   console.log(`\nFound: ${type} — "${topic}"`)
   if (eventName) console.log(`   Event name: ${eventName}`)
