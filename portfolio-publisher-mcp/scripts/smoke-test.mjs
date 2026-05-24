@@ -9,10 +9,37 @@ const server = spawn(process.execPath, ["src/server.mjs"], {
 
 const rl = readline.createInterface({ input: server.stdout });
 const responses = [];
-rl.on("line", (line) => responses.push(JSON.parse(line)));
+const responseById = new Map();
+rl.on("line", (line) => {
+  const response = JSON.parse(line);
+  responses.push(response);
+  if (response && typeof response === "object" && "id" in response) {
+    responseById.set(response.id, response);
+  }
+});
 
 function send(id, method, params = {}) {
   server.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
+}
+
+function slugify(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-+/g, "-");
+}
+
+async function waitForResponse(id, timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const existing = responseById.get(id);
+    if (existing) return existing;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  return null;
 }
 
 send(1, "initialize", {
@@ -23,34 +50,40 @@ send(1, "initialize", {
 send(2, "tools/list");
 send(3, "tools/call", { name: "list_lab_projects", arguments: {} });
 send(4, "tools/call", { name: "validate_lab_assets", arguments: {} });
-send(5, "tools/call", { name: "publish_readiness_report", arguments: {} });
-send(6, "tools/call", { name: "list_lab_projects", arguments: { extra: true } });
 
-const deadline = Date.now() + 2000;
-while (responses.length < 6 && Date.now() < deadline) {
-  await new Promise((resolve) => setTimeout(resolve, 50));
-}
+await waitForResponse(3);
+const listedProjectsText = responseById.get(3)?.result?.content?.[0]?.text ?? "{}";
+const firstProjectName = JSON.parse(listedProjectsText).projects?.[0]?.name ?? "";
+const firstProjectSlug = slugify(firstProjectName);
+
+send(5, "tools/call", { name: "publish_readiness_check", arguments: { projectName: firstProjectSlug } });
+send(6, "tools/call", { name: "publish_readiness_report", arguments: { projectName: firstProjectSlug } });
+send(7, "tools/call", { name: "list_lab_projects", arguments: { extra: true } });
+
+await waitForResponse(7);
 server.kill();
 await once(server, "exit");
 
 const failed = responses.some((response) => response.error);
-const listedTools = responses.find((response) => response.id === 2)?.result?.tools?.length ?? 0;
-const listedProjects = JSON.parse(
-  responses.find((response) => response.id === 3)?.result?.content?.[0]?.text ?? "{}"
-).count;
-const readinessReport = responses.find((response) => response.id === 5)?.result?.content?.[0]?.text ?? "";
+const listedTools = responseById.get(2)?.result?.tools?.length ?? 0;
+const listedProjects = JSON.parse(listedProjectsText).count ?? 0;
+const readinessCheckText = responseById.get(5)?.result?.content?.[0]?.text ?? "{}";
+const readinessCheck = JSON.parse(readinessCheckText);
+const readinessCheckSlugOk = readinessCheck?.checked === 1 && Array.isArray(readinessCheck?.checks);
+const readinessReport = responseById.get(6)?.result?.content?.[0]?.text ?? "";
 const readinessReportOk = typeof readinessReport === "string" && readinessReport.includes("# Publish readiness report");
-const argValidationOk = responses.find((response) => response.id === 6)?.result?.isError === true;
+const argValidationOk = responseById.get(7)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
-  responses: responses.length,
+  responses: responseById.size,
   listedTools,
   listedProjects,
+  readinessCheckSlugOk,
   readinessReportOk,
   argValidationOk,
 }, null, 2));
 
-if (failed || listedTools < 1 || listedProjects < 1 || !readinessReportOk || !argValidationOk) {
+if (failed || listedTools < 1 || listedProjects < 1 || !readinessCheckSlugOk || !readinessReportOk || !argValidationOk) {
   process.exitCode = 1;
 }
