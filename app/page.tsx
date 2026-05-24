@@ -169,22 +169,8 @@ export default async function Home() {
           </div>
         </ScrollReveal>
 
-        {/* Writing */}
-        <ScrollReveal delay={200}>
-          <div className="border-b border-white/10 py-12">
-            <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Writing</p>
-            <h2 className="text-2xl font-bold mb-3">Honest takes on AI in business</h2>
-            <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
-              What I am building, what is working, what failed, and what I think is actually happening in AI right now.
-            </p>
-            <a href="/writing" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
-              Read the writing →
-            </a>
-          </div>
-        </ScrollReveal>
-
         {/* Trending */}
-        <ScrollReveal delay={300}>
+        <ScrollReveal delay={200}>
           <div className="border-b border-white/10 py-12">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Trending</p>
             <h2 className="text-2xl font-bold mb-3">What is happening in AI. Today.</h2>
@@ -201,15 +187,29 @@ export default async function Home() {
         </ScrollReveal>
 
         {/* Deals & Events */}
-        <ScrollReveal delay={400}>
-          <div className="py-12">
+        <ScrollReveal delay={300}>
+          <div className="border-b border-white/10 py-12">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Deals & Events</p>
-            <h2 className="text-2xl font-bold mb-3">Major AI events and acquisitions.</h2>
+            <h2 className="text-2xl font-bold mb-3">Major moves in AI.</h2>
             <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
               Significant acquisitions and conferences — analysed when they happen.
             </p>
             <a href="/deals-events" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
               → View all
+            </a>
+          </div>
+        </ScrollReveal>
+
+        {/* Writing */}
+        <ScrollReveal delay={400}>
+          <div className="py-12">
+            <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Writing</p>
+            <h2 className="text-2xl font-bold mb-3">Honest takes on AI in business</h2>
+            <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
+              What I am building, what is working, what failed, and what I think is actually happening in AI right now.
+            </p>
+            <a href="/writing" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
+              Read the writing →
             </a>
           </div>
         </ScrollReveal>
