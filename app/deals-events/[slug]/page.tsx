@@ -3,6 +3,7 @@ import { Nav } from '../../components/Nav'
 import { ReadingProgress } from '../../components/ReadingProgress'
 import { createClient } from 'next-sanity'
 import { PortableText } from '@portabletext/react'
+import { components } from '../../components/PortableTextComponents'
 
 const client = createClient({
   projectId: '8w4exnl4',
@@ -57,34 +58,6 @@ function TypeBadge({ type }: { type: 'event' | 'deal' }) {
   )
 }
 
-const components = {
-  block: {
-    normal:     ({ children }: any) => <p className="mb-6 leading-relaxed text-white/80 text-lg">{children}</p>,
-    h2:         ({ children }: any) => <h2 className="text-2xl font-bold mt-10 mb-4 text-white">{children}</h2>,
-    h3:         ({ children }: any) => <h3 className="text-xl font-semibold mt-8 mb-3 text-white">{children}</h3>,
-    blockquote: ({ children }: any) => <blockquote className="border-l-2 border-white/20 pl-6 my-8 text-white/50 italic">{children}</blockquote>,
-  },
-  marks: {
-    strong: ({ children }: any) => <strong className="font-semibold text-white">{children}</strong>,
-    em:     ({ children }: any) => <em className="italic text-white/70">{children}</em>,
-    link:   ({ children, value }: any) => (
-      <a href={value?.href} target="_blank" rel="noopener noreferrer" className="text-white underline underline-offset-4 hover:text-white/70 transition">
-        {children}
-      </a>
-    ),
-  },
-  list: {
-    bullet: ({ children }: any) => <ul className="mb-6 space-y-2 list-none pl-0">{children}</ul>,
-  },
-  listItem: {
-    bullet: ({ children }: any) => (
-      <li className="text-white/80 text-lg leading-relaxed flex gap-3">
-        <span className="text-white/30 mt-1 shrink-0">—</span>
-        <span>{children}</span>
-      </li>
-    ),
-  },
-}
 
 export default async function DealEventArticle({ params }: any) {
   const { slug } = await params
@@ -94,8 +67,8 @@ export default async function DealEventArticle({ params }: any) {
     article = await client.fetch(
       `*[_type == "deal-event" && slug.current == $slug][0] {
         title, excerpt, publishedAt, body, type, eventName, readTime,
-        "prev": *[_type == "deal-event" && _createdAt < ^._createdAt] | order(_createdAt desc)[0] { title, "slug": slug.current },
-        "next": *[_type == "deal-event" && _createdAt > ^._createdAt] | order(_createdAt asc)[0]  { title, "slug": slug.current }
+        "prev": *[_type == "deal-event" && publishedAt < ^.publishedAt] | order(publishedAt desc)[0] { title, "slug": slug.current },
+        "next": *[_type == "deal-event" && publishedAt > ^.publishedAt] | order(publishedAt asc)[0]  { title, "slug": slug.current }
       }`,
       { slug }
     )
@@ -128,7 +101,7 @@ export default async function DealEventArticle({ params }: any) {
         {/* Badge + date */}
         <div className="flex items-center gap-3 mb-6">
           <TypeBadge type={article.type} />
-          {article.eventName && (
+          {article.type === 'event' && article.eventName && (
             <span className="text-white/40 text-xs">{article.eventName}</span>
           )}
           {article.publishedAt && (
