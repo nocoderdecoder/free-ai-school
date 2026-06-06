@@ -1,0 +1,250 @@
+From dcaaa62ae00b73f3c45740af9490c0429f57a40c Mon Sep 17 00:00:00 2001
+From: Anshul Gupta <anshulgupta78w@gmail.com>
+Date: Thu, 14 May 2026 20:32:23 -0700
+Subject: [PATCH 1/2] portfolio-publisher-mcp: add readiness report tool
+
+---
+ portfolio-publisher-mcp/README.md             |   1 +
+ .../scripts/smoke-test.mjs                    |   6 +-
+ .../src/tools/definitions.mjs                 |  16 ++
+ .../src/tools/handlers.mjs                    | 146 +++++++++++++++---
+ 4 files changed, 145 insertions(+), 24 deletions(-)
+
+diff --git a/portfolio-publisher-mcp/README.md b/portfolio-publisher-mcp/README.md
+index 6de628d..ae1ee20 100644
+--- a/portfolio-publisher-mcp/README.md
++++ b/portfolio-publisher-mcp/README.md
+@@ -14,6 +14,7 @@ This first version is intentionally read-only. It can inspect the Lab page, vali
+ - `inspect_lab_format`: explains the current Lab card format and conventions.
+ - `validate_lab_assets`: checks whether screenshot paths point to real files.
+ - `publish_readiness_check`: checks whether Lab projects have the basics needed for publishing.
++- `publish_readiness_report`: returns a human-readable Markdown publish-readiness report.
+ - `suggest_next_lab_project`: suggests technically distinct future Lab projects.
+ 
+ ## Run Locally
+diff --git a/portfolio-publisher-mcp/scripts/smoke-test.mjs b/portfolio-publisher-mcp/scripts/smoke-test.mjs
+index a796d49..de6208b 100644
+--- a/portfolio-publisher-mcp/scripts/smoke-test.mjs
++++ b/portfolio-publisher-mcp/scripts/smoke-test.mjs
+@@ -23,6 +23,7 @@ send(1, "initialize", {
+ send(2, "tools/list");
+ send(3, "tools/call", { name: "list_lab_projects", arguments: {} });
+ send(4, "tools/call", { name: "validate_lab_assets", arguments: {} });
++send(5, "tools/call", { name: "publish_readiness_report", arguments: {} });
+ 
+ await new Promise((resolve) => setTimeout(resolve, 400));
+ server.kill();
+@@ -33,14 +34,17 @@ const listedTools = responses.find((response) => response.id === 2)?.result?.too
+ const listedProjects = JSON.parse(
+   responses.find((response) => response.id === 3)?.result?.content?.[0]?.text ?? "{}"
+ ).count;
++const readinessReport = responses.find((response) => response.id === 5)?.result?.content?.[0]?.text ?? "";
++const readinessReportOk = typeof readinessReport === "string" && readinessReport.includes("# Publish readiness report");
+ 
+ console.log(JSON.stringify({
+   failed,
+   responses: responses.length,
+   listedTools,
+   listedProjects,
++  readinessReportOk,
+ }, null, 2));
+ 
+-if (failed || listedTools < 1 || listedProjects < 1) {
++if (failed || listedTools < 1 || listedProjects < 1 || !readinessReportOk) {
+   process.exitCode = 1;
+ }
+diff --git a/portfolio-publisher-mcp/src/tools/definitions.mjs b/portfolio-publisher-mcp/src/tools/definitions.mjs
+index 11c371b..1fbe6d9 100644
+--- a/portfolio-publisher-mcp/src/tools/definitions.mjs
++++ b/portfolio-publisher-mcp/src/tools/definitions.mjs
+@@ -44,6 +44,22 @@ export const tools = [
+       additionalProperties: false,
+     },
+   },
++  {
++    name: "publish_readiness_report",
++    title: "Publish Readiness Report",
++    description:
++      "Return a Markdown report that summarizes publish blockers and screenshot readiness (human-readable).",
++    inputSchema: {
++      type: "object",
++      properties: {
++        projectName: {
++          type: "string",
++          description: "Optional project name to report on. If omitted, all Lab projects are included.",
++        },
++      },
++      additionalProperties: false,
++    },
++  },
+   {
+     name: "suggest_next_lab_project",
+     title: "Suggest Next Lab Project",
+diff --git a/portfolio-publisher-mcp/src/tools/handlers.mjs b/portfolio-publisher-mcp/src/tools/handlers.mjs
+index 897ba7d..2f4d6af 100644
+--- a/portfolio-publisher-mcp/src/tools/handlers.mjs
++++ b/portfolio-publisher-mcp/src/tools/handlers.mjs
+@@ -13,6 +13,100 @@ function idea(name, angle, why) {
+   return { name, angle, why };
+ }
+ 
++function slugifyProjectName(name) {
++  return String(name)
++    .trim()
++    .toLowerCase()
++    .replace(/['"]/g, "")
++    .replace(/[^a-z0-9]+/g, "-")
++    .replace(/^-+|-+$/g, "")
++    .replace(/-+/g, "-");
++}
++
++function suggestedScreenshotPath(projectName) {
++  const slug = slugifyProjectName(projectName);
++  return slug ? `/projects/${slug}.png` : "/projects/<project-slug>.png";
++}
++
++async function computeReadinessChecks(projects) {
++  const checks = await Promise.all(projects.map(async (project) => {
++    const asset = await getProjectAssetStatus(project);
++    const blockers = [];
++
++    if (!project.name) blockers.push("Missing project name.");
++    if (!project.tagline) blockers.push("Missing tagline.");
++    if (!project.status) blockers.push("Missing status.");
++    if (!project.url) blockers.push("Missing URL or route.");
++    if (!project.image) blockers.push("Missing screenshot image path.");
++    if (project.image && !asset.exists) blockers.push(`Screenshot file not found: ${asset.file}`);
++
++    const screenshotSuggested =
++      !project.image || (project.image && !asset.exists)
++        ? suggestedScreenshotPath(project.name)
++        : null;
++
++    return {
++      project: project.name,
++      ready: blockers.length === 0,
++      blockers,
++      url: project.url,
++      image: project.image,
++      screenshotSuggested,
++    };
++  }));
++
++  return {
++    checked: checks.length,
++    ready: checks.filter((check) => check.ready).length,
++    checks,
++  };
++}
++
++function formatReadinessReport({ checked, ready, checks, projectName }) {
++  const lines = [];
++  const now = new Date().toISOString();
++  const scopeLabel = projectName ? `Project: ${projectName}` : "Scope: all Lab projects";
++
++  lines.push("# Publish readiness report");
++  lines.push("");
++  lines.push(`Generated: ${now}`);
++  lines.push(scopeLabel);
++  lines.push("");
++  lines.push(`Ready: ${ready}/${checked}`);
++  lines.push("");
++
++  const notReady = checks.filter((check) => !check.ready);
++  if (notReady.length === 0) {
++    lines.push("All checked projects look publish-ready.");
++    return lines.join("\n");
++  }
++
++  lines.push("## Blockers");
++  lines.push("");
++
++  for (const check of notReady) {
++    lines.push(`### ${check.project}`);
++    lines.push("");
++    for (const blocker of check.blockers) {
++      lines.push(`- ${blocker}`);
++    }
++    if (check.screenshotSuggested) {
++      lines.push(`- Suggested screenshot path: ${check.screenshotSuggested}`);
++    }
++    if (check.url) lines.push(`- URL: ${check.url}`);
++    if (check.image) lines.push(`- Image: ${check.image}`);
++    lines.push("");
++  }
++
++  lines.push("## Next actions");
++  lines.push("");
++  lines.push("- Capture missing screenshots and add them under `public/projects/`.");
++  lines.push("- Ensure each Lab project has: `name`, `tagline`, `status`, `url`, `image`.");
++  lines.push("");
++
++  return lines.join("\n");
++}
++
+ export async function callTool(name, args = {}) {
+   if (name === "list_lab_projects") {
+     const projects = await listLabProjects();
+@@ -62,30 +156,36 @@ export async function callTool(name, args = {}) {
+       });
+     }
+ 
+-    const checks = await Promise.all(target.map(async (project) => {
+-      const asset = await getProjectAssetStatus(project);
+-      const blockers = [];
+-      if (!project.name) blockers.push("Missing project name.");
+-      if (!project.tagline) blockers.push("Missing tagline.");
+-      if (!project.status) blockers.push("Missing status.");
+-      if (!project.url) blockers.push("Missing URL or route.");
+-      if (!project.image) blockers.push("Missing screenshot image path.");
+-      if (project.image && !asset.exists) blockers.push(`Screenshot file not found: ${asset.file}`);
+-
+-      return {
+-        project: project.name,
+-        ready: blockers.length === 0,
+-        blockers,
+-        url: project.url,
+-        image: project.image,
+-      };
+-    }));
++    return textResult(await computeReadinessChecks(target));
++  }
+ 
+-    return textResult({
+-      checked: checks.length,
+-      ready: checks.filter((check) => check.ready).length,
+-      checks,
+-    });
++  if (name === "publish_readiness_report") {
++    const projects = await listLabProjects();
++    const projectName = args.projectName ? String(args.projectName) : "";
++    const target = projectName
++      ? projects.filter((project) => project.name.toLowerCase() === projectName.toLowerCase())
++      : projects;
++
++    if (projectName && target.length === 0) {
++      return textResult(
++        [
++          "# Publish readiness report",
++          "",
++          `Generated: ${new Date().toISOString()}`,
++          `Project: ${projectName}`,
++          "",
++          "Ready: 0/0",
++          "",
++          "## Blockers",
++          "",
++          "- Project is not listed on the Lab page.",
++          "",
++        ].join("\n")
++      );
++    }
++
++    const readiness = await computeReadinessChecks(target);
++    return textResult(formatReadinessReport({ ...readiness, projectName: projectName || null }));
+   }
+ 
+   if (name === "suggest_next_lab_project") {
+-- 
+2.39.5 (Apple Git-154)
+

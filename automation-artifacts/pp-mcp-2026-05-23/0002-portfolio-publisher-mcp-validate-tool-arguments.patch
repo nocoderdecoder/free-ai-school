@@ -1,0 +1,127 @@
+From 8018bb5cbcaf9a4d4da489b00b4cb9084f924165 Mon Sep 17 00:00:00 2001
+From: Anshul Gupta <anshulgupta78w@gmail.com>
+Date: Sat, 23 May 2026 08:37:21 -0700
+Subject: [PATCH 2/2] portfolio-publisher-mcp: validate tool arguments
+
+---
+ .../scripts/smoke-test.mjs                    | 10 +++-
+ .../src/tools/handlers.mjs                    | 49 +++++++++++++++++++
+ 2 files changed, 57 insertions(+), 2 deletions(-)
+
+diff --git a/portfolio-publisher-mcp/scripts/smoke-test.mjs b/portfolio-publisher-mcp/scripts/smoke-test.mjs
+index de6208b..e7b8fa7 100644
+--- a/portfolio-publisher-mcp/scripts/smoke-test.mjs
++++ b/portfolio-publisher-mcp/scripts/smoke-test.mjs
+@@ -24,8 +24,12 @@ send(2, "tools/list");
+ send(3, "tools/call", { name: "list_lab_projects", arguments: {} });
+ send(4, "tools/call", { name: "validate_lab_assets", arguments: {} });
+ send(5, "tools/call", { name: "publish_readiness_report", arguments: {} });
++send(6, "tools/call", { name: "list_lab_projects", arguments: { extra: true } });
+ 
+-await new Promise((resolve) => setTimeout(resolve, 400));
++const deadline = Date.now() + 2000;
++while (responses.length < 6 && Date.now() < deadline) {
++  await new Promise((resolve) => setTimeout(resolve, 50));
++}
+ server.kill();
+ await once(server, "exit");
+ 
+@@ -36,6 +40,7 @@ const listedProjects = JSON.parse(
+ ).count;
+ const readinessReport = responses.find((response) => response.id === 5)?.result?.content?.[0]?.text ?? "";
+ const readinessReportOk = typeof readinessReport === "string" && readinessReport.includes("# Publish readiness report");
++const argValidationOk = responses.find((response) => response.id === 6)?.result?.isError === true;
+ 
+ console.log(JSON.stringify({
+   failed,
+@@ -43,8 +48,9 @@ console.log(JSON.stringify({
+   listedTools,
+   listedProjects,
+   readinessReportOk,
++  argValidationOk,
+ }, null, 2));
+ 
+-if (failed || listedTools < 1 || listedProjects < 1 || !readinessReportOk) {
++if (failed || listedTools < 1 || listedProjects < 1 || !readinessReportOk || !argValidationOk) {
+   process.exitCode = 1;
+ }
+diff --git a/portfolio-publisher-mcp/src/tools/handlers.mjs b/portfolio-publisher-mcp/src/tools/handlers.mjs
+index 2f4d6af..7a7817f 100644
+--- a/portfolio-publisher-mcp/src/tools/handlers.mjs
++++ b/portfolio-publisher-mcp/src/tools/handlers.mjs
+@@ -1,5 +1,6 @@
+ import { listLabProjects, getProjectAssetStatus } from "../lib/labParser.mjs";
+ import { paths } from "../lib/paths.mjs";
++import { tools as toolDefinitions } from "./definitions.mjs";
+ 
+ function textResult(value) {
+   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+@@ -9,10 +10,55 @@ function textResult(value) {
+   };
+ }
+ 
++function errorResult(message) {
++  return {
++    content: [{ type: "text", text: message }],
++    isError: true,
++  };
++}
++
+ function idea(name, angle, why) {
+   return { name, angle, why };
+ }
+ 
++function getToolDefinition(name) {
++  return toolDefinitions.find((tool) => tool.name === name) ?? null;
++}
++
++function validateToolArguments(toolName, args) {
++  const tool = getToolDefinition(toolName);
++  if (!tool) return null;
++
++  const schema = tool.inputSchema;
++  if (!schema || schema.type !== "object") return null;
++
++  if (args == null) return null;
++  if (typeof args !== "object" || Array.isArray(args)) {
++    return `Arguments must be an object.`;
++  }
++
++  const properties = schema.properties ?? {};
++  const allowAdditional = schema.additionalProperties !== false;
++
++  const issues = [];
++  if (!allowAdditional) {
++    for (const key of Object.keys(args)) {
++      if (!(key in properties)) issues.push(`Unexpected argument: ${key}`);
++    }
++  }
++
++  for (const [key, value] of Object.entries(args)) {
++    const expected = properties[key]?.type;
++    if (!expected) continue;
++    if (expected === "string" && typeof value !== "string") issues.push(`${key} must be a string`);
++    if (expected === "number" && typeof value !== "number") issues.push(`${key} must be a number`);
++    if (expected === "boolean" && typeof value !== "boolean") issues.push(`${key} must be a boolean`);
++  }
++
++  if (issues.length === 0) return null;
++  return issues.join("; ");
++}
++
+ function slugifyProjectName(name) {
+   return String(name)
+     .trim()
+@@ -108,6 +154,9 @@ function formatReadinessReport({ checked, ready, checks, projectName }) {
+ }
+ 
+ export async function callTool(name, args = {}) {
++  const argIssue = validateToolArguments(name, args);
++  if (argIssue) return errorResult(`Invalid arguments for ${name}: ${argIssue}`);
++
+   if (name === "list_lab_projects") {
+     const projects = await listLabProjects();
+     return textResult({
+-- 
+2.39.5 (Apple Git-154)
+

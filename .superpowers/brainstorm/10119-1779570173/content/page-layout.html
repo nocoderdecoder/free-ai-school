@@ -1,0 +1,97 @@
+<h2>How should the Deals & Events page be laid out?</h2>
+<p class="subtitle">Both content types live here — events (Google I/O, OpenAI DevDay) and deals (acquisitions, mergers). Pick how they're presented.</p>
+
+<div class="options">
+
+  <div class="option" data-choice="unified-feed" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Unified feed with type badges</h3>
+      <p>All articles in one chronological list. Each entry has a colored badge — <span style="background:#7C3AED22;color:#A78BFA;padding:1px 7px;border-radius:20px;font-size:11px;border:1px solid #7C3AED44">EVENT</span> or <span style="background:#0F766E22;color:#2DD4BF;padding:1px 7px;border-radius:20px;font-size:11px;border:1px solid #0F766E44">DEAL</span> — so readers can scan at a glance. Simple, no tabs.</p>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">anshul.ai/deals-events</div>
+        <div class="mockup-body" style="padding:16px;display:flex;flex-direction:column;gap:10px">
+          <div style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span style="background:#7C3AED22;color:#A78BFA;padding:1px 8px;border-radius:20px;font-size:10px;border:1px solid #7C3AED44">EVENT</span>
+              <span style="opacity:0.3;font-size:10px">May 14</span>
+            </div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px">Google I/O 2026: Everything That Matters for Business</div>
+            <div style="font-size:11px;opacity:0.4">~800 words · full coverage</div>
+          </div>
+          <div style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span style="background:#0F766E22;color:#2DD4BF;padding:1px 8px;border-radius:20px;font-size:10px;border:1px solid #0F766E44">DEAL</span>
+              <span style="opacity:0.3;font-size:10px">May 12</span>
+            </div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px">Microsoft Acquires Inflection AI for $650M</div>
+            <div style="font-size:11px;opacity:0.4">~450 words · deal analysis</div>
+          </div>
+          <div style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span style="background:#0F766E22;color:#2DD4BF;padding:1px 8px;border-radius:20px;font-size:10px;border:1px solid #0F766E44">DEAL</span>
+              <span style="opacity:0.3;font-size:10px">May 9</span>
+            </div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px">Salesforce Buys an AI Startup Nobody Heard Of</div>
+            <div style="font-size:11px;opacity:0.4">~400 words · deal analysis</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="two-tabs" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Two tabs — Events / Deals</h3>
+      <p>Separate tabs let readers go to what they care about. Events tab shows conference/product coverage, Deals tab shows M&A analysis. Cleaner separation, slightly more navigation.</p>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">anshul.ai/deals-events</div>
+        <div class="mockup-body" style="padding:16px">
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <div style="padding:5px 14px;border-radius:20px;background:white;color:black;font-size:11px;font-weight:600">Events</div>
+            <div style="padding:5px 14px;border-radius:20px;border:1px solid rgba(255,255,255,0.2);font-size:11px;opacity:0.5">Deals</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px">
+              <div style="font-size:12px;font-weight:600;margin-bottom:3px">Google I/O 2026: Everything That Matters</div>
+              <div style="font-size:10px;opacity:0.4">May 14 · 800 words</div>
+            </div>
+            <div style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px">
+              <div style="font-size:12px;font-weight:600;margin-bottom:3px">OpenAI Spring Update: What Actually Changed</div>
+              <div style="font-size:10px;opacity:0.4">May 7 · 750 words</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="two-sections" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Two stacked sections on one page</h3>
+      <p>Page scrolls through "Latest Events" first (2–3 cards), then "Latest Deals" below. No tabs — everything visible on one scroll. Good for when content volume is low initially.</p>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">anshul.ai/deals-events</div>
+        <div class="mockup-body" style="padding:16px;display:flex;flex-direction:column;gap:14px">
+          <div>
+            <div style="font-size:9px;opacity:0.3;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Events</div>
+            <div style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px">
+              <div style="font-size:12px;font-weight:600">Google I/O 2026: Everything That Matters</div>
+              <div style="font-size:10px;opacity:0.4;margin-top:3px">May 14 · 800 words</div>
+            </div>
+          </div>
+          <div style="border-top:1px solid rgba(255,255,255,0.07);padding-top:14px">
+            <div style="font-size:9px;opacity:0.3;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Deals</div>
+            <div style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px">
+              <div style="font-size:12px;font-weight:600">Microsoft Acquires Inflection AI for $650M</div>
+              <div style="font-size:10px;opacity:0.4;margin-top:3px">May 12 · 450 words</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
