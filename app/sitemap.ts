@@ -31,15 +31,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }))
 
+  const trendingArticles = await client
+    .fetch(`*[_type == "trending"] { "slug": slug.current, publishedAt }`)
+    .catch(() => [])
+
+  const trendingUrls: MetadataRoute.Sitemap = trendingArticles.map((t: any) => ({
+    url: `https://anshul.ai/trending/${t.slug}`,
+    lastModified: t.publishedAt ? new Date(t.publishedAt) : new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.7,
+  }))
+
   return [
     { url: 'https://anshul.ai',              lastModified: new Date(), changeFrequency: 'weekly',  priority: 1.0 },
+    { url: 'https://anshul.ai/work',         lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
+    { url: 'https://anshul.ai/projects',     lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
     { url: 'https://anshul.ai/learn',        lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.9 },
-    { url: 'https://anshul.ai/lab',          lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },
+    { url: 'https://anshul.ai/analysis',     lastModified: new Date(), changeFrequency: 'daily',   priority: 0.9 },
     { url: 'https://anshul.ai/writing',      lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.8 },
-    { url: 'https://anshul.ai/deals-events', lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.8 },
-    { url: 'https://anshul.ai/about',        lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
     { url: 'https://anshul.ai/downloads',    lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.7 },
+    { url: 'https://anshul.ai/about',        lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
+    { url: 'https://anshul.ai/contact',      lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.4 },
     ...articleUrls,
     ...dealEventUrls,
+    ...trendingUrls,
   ]
 }
