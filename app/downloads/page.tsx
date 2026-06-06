@@ -50,7 +50,7 @@ export default function Downloads() {
       <Nav />
 
       {/* Hero */}
-      <section className="max-w-3xl mx-auto px-8 pt-20 pb-12">
+      <section className="max-w-3xl mx-auto px-8 pt-28 pb-20">
         <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Free Resources</p>
         <h1 className="text-5xl font-bold leading-tight mb-6">
           One-pagers.<br />Take them.

@@ -62,7 +62,7 @@ export default async function Home() {
       <Nav />
 
       {/* Hero */}
-      <section className="max-w-3xl mx-auto px-8 py-24">
+      <section className="max-w-3xl mx-auto px-8 pt-32 pb-24">
         <p className="hero-label text-white/40 text-sm mb-4 uppercase tracking-widest">
           anshul.ai
         </p>
@@ -142,7 +142,7 @@ export default async function Home() {
 
         {/* Learn — primary section, more visual weight */}
         <ScrollReveal delay={0}>
-          <div className="border-b border-white/10 py-12">
+          <div className="border-b border-white/10 py-16">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Free AI School</p>
             <h2 className="text-3xl font-bold mb-3">AI education for business professionals</h2>
             <p className="text-white/60 leading-relaxed mb-3 max-w-xl">
@@ -157,7 +157,7 @@ export default async function Home() {
 
         {/* Projects */}
         <ScrollReveal delay={100}>
-          <div className="border-b border-white/10 py-12">
+          <div className="border-b border-white/10 py-16">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Projects</p>
             <h2 className="text-2xl font-bold mb-3">AI products I have built</h2>
             <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
@@ -171,7 +171,7 @@ export default async function Home() {
 
         {/* Trending */}
         <ScrollReveal delay={200}>
-          <div className="border-b border-white/10 py-12">
+          <div className="border-b border-white/10 py-16">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Trending</p>
             <h2 className="text-2xl font-bold mb-3">What is happening in AI. Today.</h2>
             <p className="text-white/60 leading-relaxed mb-3 max-w-xl">
@@ -188,7 +188,7 @@ export default async function Home() {
 
         {/* Deals & Events */}
         <ScrollReveal delay={300}>
-          <div className="border-b border-white/10 py-12">
+          <div className="border-b border-white/10 py-16">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Deals & Events</p>
             <h2 className="text-2xl font-bold mb-3">Major moves in AI.</h2>
             <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
@@ -202,7 +202,7 @@ export default async function Home() {
 
         {/* Writing */}
         <ScrollReveal delay={400}>
-          <div className="py-12">
+          <div className="py-16">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Writing</p>
             <h2 className="text-2xl font-bold mb-3">Honest takes on AI in business</h2>
             <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
@@ -218,7 +218,7 @@ export default async function Home() {
 
       {/* Footer */}
       <footer className="border-t border-white/10">
-        <div className="max-w-3xl mx-auto px-8 py-12 flex flex-col sm:flex-row justify-between gap-8">
+        <div className="max-w-3xl mx-auto px-8 py-16 flex flex-col sm:flex-row justify-between gap-8">
 
           {/* Left */}
           <div>

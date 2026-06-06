@@ -43,7 +43,7 @@ export default function About() {
     <main className="min-h-screen bg-black text-white">
       <Nav />
 
-      <section className="max-w-3xl mx-auto px-8 pt-20 pb-16">
+      <section className="max-w-3xl mx-auto px-8 pt-28 pb-20">
         <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">About</p>
         <h1 className="text-5xl font-bold leading-tight mb-10">
           Builder. Educator.<br />Business leader.

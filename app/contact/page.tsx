@@ -16,7 +16,7 @@ export default function Contact() {
     <main className="min-h-screen bg-black text-white">
       <Nav />
 
-      <section className="max-w-xl mx-auto px-8 pt-20 pb-20">
+      <section className="max-w-xl mx-auto px-8 pt-28 pb-20">
         <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Contact</p>
         <h1 className="text-5xl font-bold leading-tight mb-6">
           Get in touch.

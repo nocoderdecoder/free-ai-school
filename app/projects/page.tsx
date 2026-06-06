@@ -142,7 +142,7 @@ export default function Projects() {
       <Nav />
 
       {/* Hero — narrow */}
-      <section className="max-w-3xl mx-auto px-8 pt-20 pb-12">
+      <section className="max-w-3xl mx-auto px-8 pt-28 pb-20">
         <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Projects</p>
         <h1 className="text-5xl font-bold leading-tight mb-6">Things I have built with AI.</h1>
         <p className="text-white/60 text-xl leading-relaxed">
@@ -151,7 +151,7 @@ export default function Projects() {
       </section>
 
       {/* Grid — wider */}
-      <section className="max-w-5xl mx-auto px-8 pb-20">
+      <section className="max-w-5xl mx-auto px-8 pb-32">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((project) => (
             <ProjectCard key={project.name} project={project} />

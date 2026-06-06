@@ -43,7 +43,7 @@ export default function Work() {
     <main className="min-h-screen bg-black text-white">
       <Nav />
 
-      <section className="max-w-3xl mx-auto px-8 pt-20 pb-12">
+      <section className="max-w-3xl mx-auto px-8 pt-28 pb-20">
         <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Work</p>
         <h1 className="text-5xl font-bold leading-tight mb-6">
           Professional<br />impact.
@@ -53,7 +53,7 @@ export default function Work() {
         </p>
       </section>
 
-      <section className="max-w-3xl mx-auto px-8 pb-20">
+      <section className="max-w-3xl mx-auto px-8 pb-32">
         <div className="space-y-6">
           {accomplishments.map((item, i) => (
             <div

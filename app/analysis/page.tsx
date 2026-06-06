@@ -86,7 +86,7 @@ export default async function Analysis() {
     <main className="min-h-screen bg-black text-white">
       <Nav />
 
-      <section className="max-w-3xl mx-auto px-8 pt-20 pb-12">
+      <section className="max-w-3xl mx-auto px-8 pt-28 pb-20">
         <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Analysis</p>
         <h1 className="text-5xl font-bold leading-tight mb-6">
           AI trends, deals<br />& events.
@@ -96,7 +96,7 @@ export default async function Analysis() {
         </p>
       </section>
 
-      <section className="max-w-3xl mx-auto px-8 pb-20">
+      <section className="max-w-3xl mx-auto px-8 pb-32">
         {items.length === 0 ? (
           <div className="border border-white/10 rounded-xl p-10 text-center">
             <p className="text-white/30 text-sm">Analysis articles coming soon.</p>
