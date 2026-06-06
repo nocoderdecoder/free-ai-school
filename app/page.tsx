@@ -4,6 +4,7 @@ import { ScrollSection } from './components/ScrollSection'
 import { ToolsMarquee } from './components/ToolsMarquee'
 import { Nav } from './components/Nav'
 import { AnimatedHero, HeroItem } from './components/AnimatedHero'
+import { MetricsStrip } from './components/MetricsStrip'
 
 export const metadata: Metadata = {
   title: 'Anshul Gupta — AI Builder & Educator',
@@ -143,6 +144,15 @@ export default async function Home() {
           </div>
         </section>
       </ScrollSection>
+
+      <MetricsStrip
+        metrics={[
+          { value: 94, suffix: '+', label: 'Articles published' },
+          { value: 5, label: 'Learning modules' },
+          { value: 6, label: 'Tools built' },
+          { value: 365, label: 'Daily AI analysis' },
+        ]}
+      />
 
       {/* Sections */}
       <section className="max-w-3xl mx-auto px-8 py-16 grid grid-cols-1 gap-0">
