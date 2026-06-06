@@ -2,21 +2,37 @@ import { Nav } from './components/Nav'
 
 export default function NotFound() {
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen text-white" style={{ backgroundColor: 'var(--bg-deep)' }}>
       <Nav />
-      <section className="max-w-3xl mx-auto px-8 py-40 text-center">
-        <p className="text-white/20 text-xs uppercase tracking-widest mb-6">404</p>
-        <h1 className="text-5xl font-bold mb-6">Page not found.</h1>
-        <p className="text-white/50 text-xl leading-relaxed mb-12 max-w-xl mx-auto">
-          This page does not exist — or was moved. Try one of these instead.
+
+      <section className="max-w-xl mx-auto px-8 pt-32 pb-20 text-center">
+        <p className="text-8xl font-bold mb-6" style={{ color: 'var(--text-ghost)' }}>
+          404
         </p>
-        <div className="flex gap-4 justify-center flex-wrap">
-          <a href="/learn"   className="bg-white text-black px-6 py-3 rounded-full font-medium text-sm hover:bg-white/90 transition">Start learning</a>
-          <a href="/lab"     className="border border-white/20 px-6 py-3 rounded-full font-medium text-sm hover:border-white/40 transition">See what I built</a>
-          <a href="/writing" className="border border-white/20 px-6 py-3 rounded-full font-medium text-sm hover:border-white/40 transition">Read the writing</a>
+        <h1 className="text-2xl font-bold mb-4" style={{ letterSpacing: '-0.02em' }}>
+          This page wandered off.
+        </h1>
+        <p className="mb-8" style={{ color: 'var(--text-tertiary)' }}>
+          Maybe it is being built by an AI agent right now.
+          <br />In the meantime, here are some places that do exist:
+        </p>
+        <div className="flex flex-col items-center gap-3">
+          <a href="/" className="text-sm hover:text-white transition" style={{ color: 'var(--text-secondary)' }}>
+            Home
+          </a>
+          <a href="/projects" className="text-sm hover:text-white transition" style={{ color: 'var(--text-secondary)' }}>
+            Projects
+          </a>
+          <a href="/learn" className="text-sm hover:text-white transition" style={{ color: 'var(--text-secondary)' }}>
+            AI School
+          </a>
+          <a href="/analysis" className="text-sm hover:text-white transition" style={{ color: 'var(--text-secondary)' }}>
+            Analysis
+          </a>
         </div>
       </section>
-      <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
+
+      <footer className="border-t px-8 py-8 text-center text-sm" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
         © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
     </main>
