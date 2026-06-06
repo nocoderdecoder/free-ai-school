@@ -5,6 +5,11 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  background-color: var(--bg-deep);
+  color: var(--text-primary);
+}
+
 /* ─── Noise overlay ─────────────────────────────────────────────── */
 .noise-overlay {
   position: fixed;

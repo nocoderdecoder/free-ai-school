@@ -57,7 +57,7 @@ export default async function Home() {
   } catch {}
 
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen" style={{ backgroundColor: 'var(--bg-deep)' }}>
 
       <Nav />
 
@@ -96,7 +96,7 @@ export default async function Home() {
 
       {/* Credential strip */}
       <ScrollReveal>
-        <section className="border-t border-white/10">
+        <section className="border-t" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-base)' }}>
           <div className="max-w-3xl mx-auto px-8 py-5 flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-white/30 text-xs uppercase tracking-widest mr-1">Background</span>
