@@ -85,10 +85,11 @@ const MODULES = [
 
 const NAV_LINKS = [
   { label: 'About',    href: '/about' },
-  { label: 'Lab',      href: '/lab' },
-  { label: 'Trending',      href: '/trending' },
-  { label: 'Deals & Events', href: '/deals-events' },
-  { label: 'Writing',       href: '/writing' },
+  { label: 'Work',     href: '/work' },
+  { label: 'Projects', href: '/projects' },
+  { label: 'Analysis', href: '/analysis' },
+  { label: 'Writing',  href: '/writing' },
+  { label: 'Contact',  href: '/contact' },
 ]
 
 const DOWNLOADS_LINK = { label: 'Downloads', href: '/downloads' }
