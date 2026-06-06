@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://anshul.ai'),
+  verification: {
+    google: 'PLACEHOLDER_VERIFICATION_CODE',
+  },
   title: {
     default: 'Anshul Gupta — AI Builder & Educator',
     template: '%s | Anshul Gupta',
