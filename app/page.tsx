@@ -79,7 +79,7 @@ export default async function Home() {
           <a href="/learn" className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-white/90 transition">
             Learn AI with me
           </a>
-          <a href="/lab" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition">
+          <a href="/projects" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition">
             See what I built
           </a>
           <a
@@ -155,15 +155,15 @@ export default async function Home() {
           </div>
         </ScrollReveal>
 
-        {/* Lab */}
+        {/* Projects */}
         <ScrollReveal delay={100}>
           <div className="border-b border-white/10 py-12">
-            <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Lab</p>
+            <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Projects</p>
             <h2 className="text-2xl font-bold mb-3">AI products I have built</h2>
             <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
               From prompt scoring tools to competitive intelligence scrapers. Real products built without writing a single line of code from scratch.
             </p>
-            <a href="/lab" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
+            <a href="/projects" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
               View all projects →
             </a>
           </div>
@@ -180,7 +180,7 @@ export default async function Home() {
             {latestDate && (
               <p className="text-white/25 text-sm mb-6">Last published {latestDate}</p>
             )}
-            <a href="/trending" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
+            <a href="/analysis" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
               Read today's article →
             </a>
           </div>
@@ -194,7 +194,7 @@ export default async function Home() {
             <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
               Significant acquisitions and conferences — analysed when they happen.
             </p>
-            <a href="/deals-events" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
+            <a href="/analysis" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
               View all →
             </a>
           </div>
@@ -232,12 +232,13 @@ export default async function Home() {
             <div className="flex flex-col gap-2">
               <p className="text-white/25 text-xs uppercase tracking-widest mb-1">Pages</p>
               <a href="/about"     className="text-white/40 text-sm hover:text-white transition">About</a>
-              <a href="/lab"       className="text-white/40 text-sm hover:text-white transition">Lab</a>
-              <a href="/learn"     className="text-white/40 text-sm hover:text-white transition">Learn</a>
-              <a href="/trending"     className="text-white/40 text-sm hover:text-white transition">Trending</a>
-              <a href="/deals-events" className="text-white/40 text-sm hover:text-white transition">Deals & Events</a>
-              <a href="/writing"      className="text-white/40 text-sm hover:text-white transition">Writing</a>
-              <a href="/downloads"    className="text-white/40 text-sm hover:text-white transition">Downloads</a>
+              <a href="/work"      className="text-white/40 text-sm hover:text-white transition">Work</a>
+              <a href="/projects"  className="text-white/40 text-sm hover:text-white transition">Projects</a>
+              <a href="/learn"     className="text-white/40 text-sm hover:text-white transition">AI School</a>
+              <a href="/analysis"  className="text-white/40 text-sm hover:text-white transition">Analysis</a>
+              <a href="/writing"   className="text-white/40 text-sm hover:text-white transition">Writing</a>
+              <a href="/downloads" className="text-white/40 text-sm hover:text-white transition">Downloads</a>
+              <a href="/contact"   className="text-white/40 text-sm hover:text-white transition">Contact</a>
             </div>
             <div className="flex flex-col gap-2">
               <p className="text-white/25 text-xs uppercase tracking-widest mb-1">Connect</p>
