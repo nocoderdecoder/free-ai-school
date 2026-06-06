@@ -23,25 +23,25 @@ body {
 }
 
 /* ─── Shimmer text (hero headline) ──────────────────────────────── */
-@keyframes shimmer {
-  0%   { background-position: -200% center; }
-  100% { background-position:  200% center; }
+@keyframes shimmer-shift {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
 }
 
 .shimmer-text {
   background: linear-gradient(
     90deg,
-    #ffffff 0%,
-    #ffffff 30%,
-    #93c5fd 50%,
-    #ffffff 70%,
-    #ffffff 100%
+    var(--text-primary) 0%,
+    var(--accent) 25%,
+    var(--text-primary) 50%,
+    var(--accent) 75%,
+    var(--text-primary) 100%
   );
   background-size: 200% auto;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: shimmer 5s linear infinite;
+  animation: shimmer-shift 6s linear infinite;
 }
 
 /* ─── Tools marquee ─────────────────────────────────────────────── */
@@ -68,3 +68,27 @@ body {
 .hero-heading { animation: fadeUp 0.7s ease 0.15s both; }
 .hero-sub     { animation: fadeUp 0.7s ease 0.30s both; }
 .hero-ctas    { animation: fadeUp 0.7s ease 0.45s both; }
+
+/* ─── Hero gradient glow ─────────────────────────────────────────── */
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.hero-gradient {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 40%,
+    var(--accent-glow) 0%,
+    transparent 70%
+  );
+  opacity: 0.4;
+  animation: gradient-shift 8s ease-in-out infinite;
+  background-size: 200% 200%;
+  pointer-events: none;
+}
