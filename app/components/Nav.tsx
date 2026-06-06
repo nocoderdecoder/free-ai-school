@@ -112,7 +112,13 @@ export function Nav() {
 
   return (
     <>
-      <nav className="sticky top-0 z-50 flex justify-between items-center px-8 py-6 border-b border-white/10 bg-black/90 backdrop-blur-md">
+      <nav
+        className="sticky top-0 z-50 flex justify-between items-center px-8 py-5 border-b backdrop-blur-xl"
+        style={{
+          backgroundColor: 'var(--glass-bg)',
+          borderColor: 'var(--glass-border)',
+        }}
+      >
         <a href="/" className="font-bold text-lg">Anshul Gupta</a>
 
         {/* Desktop nav */}
@@ -158,7 +164,15 @@ export function Nav() {
             {dropdownOpen && (
               <div className="absolute right-0 top-full pt-3" onMouseEnter={cancelClose} onMouseLeave={scheduleClose}>
                 <div className="absolute right-5 top-[6px] w-3 h-3 rotate-45 bg-[#111] border-l border-t border-white/10" />
-                <div className="flex rounded-2xl overflow-hidden" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 64px rgba(0,0,0,0.7)', minWidth: 600 }}>
+                <div
+                  className="flex rounded-2xl overflow-hidden backdrop-blur-xl"
+                  style={{
+                    background: 'var(--glass-bg)',
+                    border: '1px solid var(--glass-border)',
+                    boxShadow: '0 24px 80px rgba(0,0,0,0.8), 0 0 1px rgba(255,255,255,0.05) inset',
+                    minWidth: 600,
+                  }}
+                >
                   {/* Modules */}
                   <div className="flex flex-col py-3 border-r border-white/[0.06]" style={{ width: 220 }}>
                     <p className="text-white/25 text-[10px] uppercase tracking-widest px-5 py-2 mb-1">Modules</p>
