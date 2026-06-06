@@ -58,7 +58,7 @@ export default function Work() {
           {accomplishments.map((item, i) => (
             <div
               key={i}
-              className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition"
+              className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover"
             >
               <div className="flex items-center gap-3 mb-4">
                 <span className="text-white/40 text-xs uppercase tracking-widest">{item.org}</span>

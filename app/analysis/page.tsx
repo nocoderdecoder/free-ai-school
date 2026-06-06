@@ -115,7 +115,7 @@ export default async function Analysis() {
                 <a
                   key={`${item.source}-${item.slug}`}
                   href={href}
-                  className="group block border border-white/10 rounded-xl p-6 hover:border-white/25 transition"
+                  className="group block border border-white/10 rounded-xl p-6 hover:border-white/25 transition card-hover"
                 >
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex-1 min-w-0">

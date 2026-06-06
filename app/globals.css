@@ -92,3 +92,45 @@ body {
   background-size: 200% 200%;
   pointer-events: none;
 }
+
+/* ── Card hover lift ── */
+.card-hover {
+  transition: transform var(--duration-base) var(--ease-out-expo),
+              border-color var(--duration-base) var(--ease-in-out),
+              box-shadow var(--duration-base) var(--ease-in-out);
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Button press ── */
+.btn-press {
+  transition: transform var(--duration-fast) var(--ease-out-expo),
+              background-color var(--duration-fast);
+}
+
+.btn-press:active {
+  transform: scale(0.97);
+}
+
+/* ── Link underline slide ── */
+.link-slide {
+  position: relative;
+}
+
+.link-slide::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--text-primary);
+  transition: width var(--duration-base) var(--ease-out-expo);
+}
+
+.link-slide:hover::after {
+  width: 100%;
+}

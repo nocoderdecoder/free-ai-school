@@ -94,7 +94,7 @@ export default async function Learn() {
               <a
                 key={mod.key}
                 href={`#${mod.key}`}
-                className="group block border border-white/10 rounded-xl p-6 hover:border-white/30 transition"
+                className="group block border border-white/10 rounded-xl p-6 hover:border-white/30 transition card-hover"
               >
                 <p className="text-white/40 text-xs uppercase tracking-widest mb-3">{mod.label}</p>
                 <h2 className="text-lg font-semibold mb-2 group-hover:text-white transition">{mod.tagline}</h2>
@@ -123,7 +123,7 @@ export default async function Learn() {
                       <a
                         key={article.slug.current}
                         href={'/learn/' + article.slug.current}
-                        className="block border border-white/10 rounded-xl p-6 hover:border-white/30 transition"
+                        className="block border border-white/10 rounded-xl p-6 hover:border-white/30 transition card-hover"
                       >
                         <div className="flex justify-between items-start mb-2">
                           <h3 className="text-base font-semibold">{article.title}</h3>

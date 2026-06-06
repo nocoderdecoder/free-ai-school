@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from 'next-sanity'
-import { ScrollReveal } from './components/ScrollReveal'
+import { ScrollSection } from './components/ScrollSection'
 import { ToolsMarquee } from './components/ToolsMarquee'
 import { Nav } from './components/Nav'
 import { AnimatedHero, HeroItem } from './components/AnimatedHero'
@@ -82,10 +82,10 @@ export default async function Home() {
         </HeroItem>
         <HeroItem>
           <div className="flex items-center gap-4 flex-wrap">
-            <a href="/learn" className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-white/90 transition">
+            <a href="/learn" className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-white/90 transition btn-press">
               Learn AI with me
             </a>
-            <a href="/projects" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition">
+            <a href="/projects" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition btn-press">
               See what I built
             </a>
             <a
@@ -102,7 +102,7 @@ export default async function Home() {
       </AnimatedHero>
 
       {/* Credential strip */}
-      <ScrollReveal>
+      <ScrollSection>
         <section className="border-t" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-base)' }}>
           <div className="max-w-3xl mx-auto px-8 py-5 flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3 flex-wrap">
@@ -142,13 +142,13 @@ export default async function Home() {
             <ToolsMarquee />
           </div>
         </section>
-      </ScrollReveal>
+      </ScrollSection>
 
       {/* Sections */}
       <section className="max-w-3xl mx-auto px-8 py-16 grid grid-cols-1 gap-0">
 
         {/* Learn — primary section, more visual weight */}
-        <ScrollReveal delay={0}>
+        <ScrollSection delay={0}>
           <div className="border-b border-white/10 py-16">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Free AI School</p>
             <h2 className="text-3xl font-bold mb-3">AI education for business professionals</h2>
@@ -156,14 +156,14 @@ export default async function Home() {
               No prerequisites. No engineering degree. A complete curriculum for the people who run teams, make decisions, and want to actually use AI at work.
             </p>
             <p className="text-white/25 text-sm mb-6">5 modules · 99 articles · free</p>
-            <a href="/learn" className="inline-flex items-center gap-2 text-sm font-medium text-black bg-white px-5 py-2.5 rounded-full hover:bg-white/90 transition">
+            <a href="/learn" className="inline-flex items-center gap-2 text-sm font-medium text-black bg-white px-5 py-2.5 rounded-full hover:bg-white/90 transition btn-press">
               Start learning →
             </a>
           </div>
-        </ScrollReveal>
+        </ScrollSection>
 
         {/* Projects */}
-        <ScrollReveal delay={100}>
+        <ScrollSection delay={100}>
           <div className="border-b border-white/10 py-16">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Projects</p>
             <h2 className="text-2xl font-bold mb-3">AI products I have built</h2>
@@ -174,10 +174,10 @@ export default async function Home() {
               View all projects →
             </a>
           </div>
-        </ScrollReveal>
+        </ScrollSection>
 
         {/* Trending */}
-        <ScrollReveal delay={200}>
+        <ScrollSection delay={200}>
           <div className="border-b border-white/10 py-16">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Trending</p>
             <h2 className="text-2xl font-bold mb-3">What is happening in AI. Today.</h2>
@@ -191,10 +191,10 @@ export default async function Home() {
               Read today's article →
             </a>
           </div>
-        </ScrollReveal>
+        </ScrollSection>
 
         {/* Deals & Events */}
-        <ScrollReveal delay={300}>
+        <ScrollSection delay={300}>
           <div className="border-b border-white/10 py-16">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Deals & Events</p>
             <h2 className="text-2xl font-bold mb-3">Major moves in AI.</h2>
@@ -205,10 +205,10 @@ export default async function Home() {
               View all →
             </a>
           </div>
-        </ScrollReveal>
+        </ScrollSection>
 
         {/* Writing */}
-        <ScrollReveal delay={400}>
+        <ScrollSection delay={400}>
           <div className="py-16">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Writing</p>
             <h2 className="text-2xl font-bold mb-3">Honest takes on AI in business</h2>
@@ -219,7 +219,7 @@ export default async function Home() {
               Read the writing →
             </a>
           </div>
-        </ScrollReveal>
+        </ScrollSection>
 
       </section>
 

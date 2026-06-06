@@ -118,7 +118,7 @@ function ProjectCard({ project }: { project: typeof projects[number] }) {
     </>
   )
 
-  const shared = "block border border-white/10 rounded-xl overflow-hidden hover:border-white/25 transition group"
+  const shared = "block border border-white/10 rounded-xl overflow-hidden hover:border-white/25 transition group card-hover"
 
   if (project.url) {
     return (
