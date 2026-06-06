@@ -1,0 +1,65 @@
+:root {
+  /* ── Surfaces ── */
+  --bg-deep:    #050505;
+  --bg-base:    #0a0a0a;
+  --bg-raised:  #111111;
+  --bg-overlay: #1a1a1a;
+  --bg-card:    rgba(255, 255, 255, 0.03);
+  --bg-card-hover: rgba(255, 255, 255, 0.06);
+
+  /* ── Glass ── */
+  --glass-bg:   rgba(10, 10, 10, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: 16px;
+
+  /* ── Accent ── */
+  --accent:       #3B82F6;
+  --accent-glow:  rgba(59, 130, 246, 0.15);
+  --accent-muted: rgba(59, 130, 246, 0.4);
+
+  /* ── Text ── */
+  --text-primary:    rgba(255, 255, 255, 1);
+  --text-secondary:  rgba(255, 255, 255, 0.7);
+  --text-tertiary:   rgba(255, 255, 255, 0.4);
+  --text-muted:      rgba(255, 255, 255, 0.25);
+  --text-ghost:      rgba(255, 255, 255, 0.12);
+
+  /* ── Borders ── */
+  --border-subtle:  rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-hover:   rgba(255, 255, 255, 0.20);
+  --border-active:  rgba(255, 255, 255, 0.30);
+
+  /* ── Typography scale ── */
+  --text-xs:   0.75rem;
+  --text-sm:   0.875rem;
+  --text-base: 1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.25rem;
+  --text-2xl:  1.5rem;
+  --text-3xl:  2rem;
+  --text-4xl:  2.5rem;
+  --text-5xl:  3.5rem;
+  --text-hero: 4.5rem;
+
+  /* ── Spacing rhythm ── */
+  --space-section: 10rem;
+  --space-block:   5rem;
+  --space-element: 2rem;
+  --space-tight:   1rem;
+
+  /* ── Timing ── */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out:   cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast:  150ms;
+  --duration-base:  300ms;
+  --duration-slow:  600ms;
+  --duration-enter: 800ms;
+
+  /* ── Radius ── */
+  --radius-sm:  0.5rem;
+  --radius-md:  0.75rem;
+  --radius-lg:  1rem;
+  --radius-xl:  1.5rem;
+  --radius-full: 9999px;
+}
