@@ -89,6 +89,7 @@ const NAV_LINKS = [
   { label: 'Projects', href: '/projects' },
   { label: 'Analysis', href: '/analysis' },
   { label: 'Writing',  href: '/writing' },
+  { label: 'Tools',    href: '/tools' },
   { label: 'Contact',  href: '/contact' },
 ]
 
