@@ -42,6 +42,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }))
 
+  const posts = await client
+    .fetch(`*[_type == "post" && status == "published" && defined(slug.current)] { "slug": slug.current, publishedAt }`)
+    .catch(() => [])
+
+  const projects = await client
+    .fetch(`*[_type == "project" && defined(slug.current)] { "slug": slug.current, _updatedAt }`)
+    .catch(() => [])
+
   return [
     { url: 'https://anshul.ai',              lastModified: new Date(), changeFrequency: 'weekly',  priority: 1.0 },
     { url: 'https://anshul.ai/work',         lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
@@ -55,5 +63,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...articleUrls,
     ...dealEventUrls,
     ...trendingUrls,
+    ...posts.map((p: any) => ({
+      url: `https://anshul.ai/writing/${p.slug}`,
+      lastModified: p.publishedAt ? new Date(p.publishedAt) : new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    })),
+    ...projects.map((p: any) => ({
+      url: `https://anshul.ai/projects/${p.slug}`,
+      lastModified: p._updatedAt ? new Date(p._updatedAt) : new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    })),
   ]
 }
