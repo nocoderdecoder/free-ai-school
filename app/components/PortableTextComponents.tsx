@@ -26,3 +26,6 @@ export const components = {
     ),
   },
 }
+
+// Alias for named import compatibility
+export const portableTextComponents = components
