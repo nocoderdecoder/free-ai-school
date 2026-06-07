@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Nav } from '../components/Nav'
+import { createClient } from 'next-sanity'
 
 export const metadata: Metadata = {
   title: 'Writing',
@@ -11,7 +12,16 @@ export const metadata: Metadata = {
   },
 }
 
-const upcomingTopics = [
+export const revalidate = 3600
+
+const client = createClient({
+  projectId: '8w4exnl4',
+  dataset: 'production',
+  apiVersion: '2024-01-01',
+  useCdn: true,
+})
+
+const UPCOMING_TOPICS = [
   {
     title: "Why your company's AI strategy is backwards",
     preview: "Most organisations are asking 'what can AI do?' The question that produces results is different.",
@@ -28,48 +38,134 @@ const upcomingTopics = [
     title: "How to evaluate an AI vendor without a technical team",
     preview: "The questions that expose whether a product is real, the red flags that do not show up in demos.",
   },
+  {
+    title: "How I built a 94-article AI school without writing content manually",
+    preview: "The automation pipeline, the tools, the decisions — and what it means for content creation at scale.",
+  },
+  {
+    title: "The real ROI of AI in business — a framework",
+    preview: "Executives want numbers. Here is how I think about measuring AI impact when the outcomes are messy.",
+  },
 ]
 
-export default function Writing() {
+type Post = {
+  title: string
+  slug?: string
+  excerpt: string
+  publishedAt?: string
+  readTime?: number
+  status: 'published' | 'coming-soon' | 'draft'
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+}
+
+export default async function Writing() {
+  let published: Post[] = []
+  let comingSoon: Post[] = []
+
+  try {
+    const posts = await client.fetch(
+      `*[_type == "post" && status != "draft"] | order(publishedAt desc) {
+        title,
+        "slug": slug.current,
+        excerpt,
+        publishedAt,
+        readTime,
+        status,
+      }`
+    )
+
+    if (posts?.length > 0) {
+      published = posts.filter((p: Post) => p.status === 'published')
+      comingSoon = posts.filter((p: Post) => p.status === 'coming-soon')
+    }
+  } catch {}
+
+  if (comingSoon.length === 0 && published.length === 0) {
+    comingSoon = UPCOMING_TOPICS.map(t => ({
+      title: t.title,
+      excerpt: t.preview,
+      status: 'coming-soon' as const,
+    }))
+  }
+
   return (
     <main className="min-h-screen bg-black text-white">
       <Nav />
 
       <section className="max-w-3xl mx-auto px-8 pt-28 pb-20">
-        <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Writing</p>
-        <h1 className="text-5xl font-bold leading-tight mb-6">
+        <p className="section-label mb-4">Writing</p>
+        <h1 className="heading-page mb-6">
           Honest takes on<br />AI in business.
         </h1>
-        <p className="text-white/60 text-xl leading-relaxed mb-16">
+        <p className="text-white/60 text-xl leading-relaxed">
           What I am building, what is working, what failed, and what I think is actually happening in AI — from someone doing it daily, not just writing about it.
         </p>
+      </section>
 
-        {/* Coming soon state with previews */}
-        <div className="mb-16">
-          <p className="text-white/40 text-xs uppercase tracking-widest mb-8">Coming soon</p>
-          <div className="space-y-0">
-            {upcomingTopics.map((topic, i) => (
-              <div
-                key={topic.title}
-                className={`py-7 ${i < upcomingTopics.length - 1 ? 'border-b border-white/10' : ''}`}
-              >
-                <h2 className="text-lg font-semibold mb-2 text-white/80">{topic.title}</h2>
-                <p className="text-white/40 text-sm leading-relaxed">{topic.preview}</p>
-              </div>
-            ))}
+      <section className="max-w-3xl mx-auto px-8 pb-32 space-y-16">
+
+        {published.length > 0 && (
+          <div>
+            <p className="section-label mb-8">Published</p>
+            <div className="space-y-3">
+              {published.map((post) => (
+                <a
+                  key={post.slug ?? post.title}
+                  href={`/writing/${post.slug}`}
+                  className="group block border border-white/10 rounded-xl p-6 hover:border-white/25 transition card-hover"
+                >
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1">
+                      <h2 className="text-base font-semibold mb-2 text-white/90 group-hover:text-white transition leading-snug">
+                        {post.title}
+                      </h2>
+                      <p className="text-white/40 text-sm leading-relaxed">{post.excerpt}</p>
+                    </div>
+                    <div className="text-right shrink-0 ml-4">
+                      {post.publishedAt && (
+                        <p className="text-white/25 text-xs">{formatDate(post.publishedAt)}</p>
+                      )}
+                      {post.readTime && (
+                        <p className="text-white/20 text-xs mt-1">{post.readTime} min read</p>
+                      )}
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* LinkedIn bridge */}
+        {comingSoon.length > 0 && (
+          <div>
+            <p className="section-label mb-8">{published.length > 0 ? 'Coming soon' : 'Upcoming'}</p>
+            <div className="space-y-0">
+              {comingSoon.map((post, i) => (
+                <div
+                  key={post.title}
+                  className={`py-7 ${i < comingSoon.length - 1 ? 'border-b border-white/10' : ''}`}
+                >
+                  <h2 className="text-lg font-semibold mb-2 text-white/60">{post.title}</h2>
+                  <p className="text-white/35 text-sm leading-relaxed">{post.excerpt}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="border border-white/10 rounded-xl p-8">
-          <p className="text-white/40 text-xs uppercase tracking-widest mb-4">In the meantime</p>
+          <p className="section-label mb-4">In the meantime</p>
           <p className="text-white/70 leading-relaxed mb-6">
-            I publish daily on LinkedIn — shorter takes, tool discoveries, and things I am thinking about. Follow along there while longer pieces take shape here.
+            Shorter takes, tool discoveries, and things I am thinking about appear more frequently on LinkedIn. Follow along there while longer pieces take shape here.
           </p>
           <a
             href="https://www.linkedin.com/in/anshul-gupta1/"
             target="_blank"
-            className="inline-flex items-center gap-2 bg-white text-black px-6 py-3 rounded-full font-medium text-sm hover:bg-white/90 transition"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-white text-black px-6 py-3 rounded-full font-medium text-sm hover:bg-white/90 transition btn-press"
           >
             Follow on LinkedIn →
           </a>
