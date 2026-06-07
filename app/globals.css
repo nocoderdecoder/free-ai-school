@@ -223,3 +223,29 @@ h3 {
   letter-spacing: -0.02em;
   line-height: 1.15;
 }
+
+/* ── Mobile typography ── */
+@media (max-width: 640px) {
+  :root {
+    --text-hero: 2.75rem;
+    --text-5xl:  2.25rem;
+    --space-section: 6rem;
+    --space-block: 3rem;
+  }
+
+  .heading-hero {
+    font-size: var(--text-hero);
+  }
+
+  .heading-page {
+    font-size: var(--text-5xl);
+  }
+}
+
+/* ── Touch-friendly tap targets ── */
+@media (pointer: coarse) {
+  a, button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
