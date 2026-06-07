@@ -155,11 +155,11 @@ export default async function Home() {
       />
 
       {/* Sections */}
-      <section className="max-w-3xl mx-auto px-8 py-16 grid grid-cols-1 gap-0">
+      <section className="max-w-3xl mx-auto px-8 py-16 grid grid-cols-1 gap-6">
 
         {/* Learn — primary section, more visual weight */}
         <ScrollSection delay={0}>
-          <div className="border-b border-white/10 py-16">
+          <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Free AI School</p>
             <h2 className="text-3xl font-bold mb-3">AI education for business professionals</h2>
             <p className="text-white/60 leading-relaxed mb-3 max-w-xl">
@@ -174,7 +174,7 @@ export default async function Home() {
 
         {/* Projects */}
         <ScrollSection delay={100}>
-          <div className="border-b border-white/10 py-16">
+          <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Projects</p>
             <h2 className="text-2xl font-bold mb-3">AI products I have built</h2>
             <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
@@ -188,7 +188,7 @@ export default async function Home() {
 
         {/* Trending */}
         <ScrollSection delay={200}>
-          <div className="border-b border-white/10 py-16">
+          <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Trending</p>
             <h2 className="text-2xl font-bold mb-3">What is happening in AI. Today.</h2>
             <p className="text-white/60 leading-relaxed mb-3 max-w-xl">
@@ -205,7 +205,7 @@ export default async function Home() {
 
         {/* Deals & Events */}
         <ScrollSection delay={300}>
-          <div className="border-b border-white/10 py-16">
+          <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Deals & Events</p>
             <h2 className="text-2xl font-bold mb-3">Major moves in AI.</h2>
             <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
@@ -219,7 +219,7 @@ export default async function Home() {
 
         {/* Writing */}
         <ScrollSection delay={400}>
-          <div className="py-16">
+          <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Writing</p>
             <h2 className="text-2xl font-bold mb-3">Honest takes on AI in business</h2>
             <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
