@@ -175,3 +175,51 @@ body {
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-md);
 }
+
+/* ── Typography ── */
+h1 {
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
+h2 {
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+h3 {
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+/* ── Section labels (uppercase tracking) ── */
+.section-label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-tertiary);
+}
+
+/* ── Hero heading ── */
+.heading-hero {
+  font-size: var(--text-hero);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+/* ── Page heading ── */
+.heading-page {
+  font-size: var(--text-5xl);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
+/* ── Section heading ── */
+.heading-section {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}

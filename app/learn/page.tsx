@@ -76,8 +76,8 @@ export default async function Learn() {
 
       {/* Hero */}
       <section className="max-w-3xl mx-auto px-8 pt-28 pb-20">
-        <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Free AI School</p>
-        <h1 className="text-5xl font-bold leading-tight mb-6">
+        <p className="section-label mb-4">Free AI School</p>
+        <h1 className="heading-page mb-6">
           No prerequisites.<br />Start anywhere.
         </h1>
         <p className="text-white/60 text-xl leading-relaxed">

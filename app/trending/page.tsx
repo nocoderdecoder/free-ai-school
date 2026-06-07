@@ -40,8 +40,8 @@ export default async function Trending() {
       <Nav />
 
       <section className="max-w-3xl mx-auto px-8 pt-20 pb-12">
-        <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Trending</p>
-        <h1 className="text-5xl font-bold leading-tight mb-6">
+        <p className="section-label mb-4">Trending</p>
+        <h1 className="heading-page mb-6">
           What's happening<br />in AI. Today.
         </h1>
         <p className="text-white/60 text-xl leading-relaxed">

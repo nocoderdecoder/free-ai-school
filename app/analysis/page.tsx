@@ -87,8 +87,8 @@ export default async function Analysis() {
       <Nav />
 
       <section className="max-w-3xl mx-auto px-8 pt-28 pb-20">
-        <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Analysis</p>
-        <h1 className="text-5xl font-bold leading-tight mb-6">
+        <p className="section-label mb-4">Analysis</p>
+        <h1 className="heading-page mb-6">
           AI trends, deals<br />& events.
         </h1>
         <p className="text-white/60 text-xl leading-relaxed">
@@ -115,6 +115,7 @@ export default async function Analysis() {
                 <a
                   key={`${item.source}-${item.slug}`}
                   href={href}
+                  data-cursor="Read"
                   className="group block border border-white/10 rounded-xl p-6 hover:border-white/25 transition card-hover"
                 >
                   <div className="flex justify-between items-start gap-4">

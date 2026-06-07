@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { CursorSpotlight } from "./components/CursorSpotlight";
+import { CustomCursor } from "./components/CustomCursor";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
@@ -49,7 +49,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} h-full antialiased grain`}
       >
-        <CursorSpotlight />
+        <CustomCursor />
+        <div className="noise-overlay" />
         {children}
         <Analytics />
       </body>

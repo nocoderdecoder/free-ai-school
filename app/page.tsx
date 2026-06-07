@@ -66,7 +66,7 @@ export default async function Home() {
       {/* Hero */}
       <AnimatedHero>
         <HeroItem>
-          <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">
+          <p className="section-label mb-4">
             anshul.ai
           </p>
         </HeroItem>
@@ -160,7 +160,7 @@ export default async function Home() {
         {/* Learn — primary section, more visual weight */}
         <ScrollSection delay={0}>
           <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
-            <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Free AI School</p>
+            <p className="section-label mb-4">Free AI School</p>
             <h2 className="text-3xl font-bold mb-3">AI education for business professionals</h2>
             <p className="text-white/60 leading-relaxed mb-3 max-w-xl">
               No prerequisites. No engineering degree. A complete curriculum for the people who run teams, make decisions, and want to actually use AI at work.
@@ -175,7 +175,7 @@ export default async function Home() {
         {/* Projects */}
         <ScrollSection delay={100}>
           <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
-            <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Projects</p>
+            <p className="section-label mb-4">Projects</p>
             <h2 className="text-2xl font-bold mb-3">AI products I have built</h2>
             <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
               From prompt scoring tools to competitive intelligence scrapers. Real products built without writing a single line of code from scratch.
@@ -189,7 +189,7 @@ export default async function Home() {
         {/* Trending */}
         <ScrollSection delay={200}>
           <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
-            <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Trending</p>
+            <p className="section-label mb-4">Trending</p>
             <h2 className="text-2xl font-bold mb-3">What is happening in AI. Today.</h2>
             <p className="text-white/60 leading-relaxed mb-3 max-w-xl">
               Every morning, a new article on the most trending topic in AI, written for business professionals.
@@ -206,7 +206,7 @@ export default async function Home() {
         {/* Deals & Events */}
         <ScrollSection delay={300}>
           <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
-            <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Deals & Events</p>
+            <p className="section-label mb-4">Deals & Events</p>
             <h2 className="text-2xl font-bold mb-3">Major moves in AI.</h2>
             <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
               Significant acquisitions and conferences — analysed when they happen.
@@ -220,7 +220,7 @@ export default async function Home() {
         {/* Writing */}
         <ScrollSection delay={400}>
           <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
-            <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Writing</p>
+            <p className="section-label mb-4">Writing</p>
             <h2 className="text-2xl font-bold mb-3">Honest takes on AI in business</h2>
             <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
               What I am building, what is working, what failed, and what I think is actually happening in AI right now.

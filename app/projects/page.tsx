@@ -126,6 +126,7 @@ function ProjectCard({ project }: { project: typeof projects[number] }) {
         href={project.url}
         target={isExternal ? '_blank' : undefined}
         rel={isExternal ? 'noopener noreferrer' : undefined}
+        data-cursor="View"
         className={shared}
       >
         {inner}
@@ -143,8 +144,8 @@ export default function Projects() {
 
       {/* Hero — narrow */}
       <section className="max-w-3xl mx-auto px-8 pt-28 pb-20">
-        <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Projects</p>
-        <h1 className="text-5xl font-bold leading-tight mb-6">Things I have built with AI.</h1>
+        <p className="section-label mb-4">Projects</p>
+        <h1 className="heading-page mb-6">Things I have built with AI.</h1>
         <p className="text-white/60 text-xl leading-relaxed">
           Real products, platforms, and automations — built at the intersection of AI and business strategy, without a traditional engineering background.
         </p>

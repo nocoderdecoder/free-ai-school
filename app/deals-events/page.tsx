@@ -57,8 +57,8 @@ export default async function DealsEvents() {
       <Nav />
 
       <section className="max-w-3xl mx-auto px-8 pt-20 pb-12">
-        <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Deals & Events</p>
-        <h1 className="text-5xl font-bold leading-tight mb-6">
+        <p className="section-label mb-4">Deals & Events</p>
+        <h1 className="heading-page mb-6">
           Major moves<br />in AI.
         </h1>
         <p className="text-white/60 text-xl leading-relaxed">
