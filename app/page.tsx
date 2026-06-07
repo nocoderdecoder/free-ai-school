@@ -72,31 +72,25 @@ export default async function Home() {
         </HeroItem>
         <HeroItem>
           <h1 style={{ fontSize: 'var(--text-hero)', lineHeight: 1.05, letterSpacing: '-0.03em' }} className="font-bold mb-6">
-            <span className="shimmer-text">I build with AI.</span>
-            <br />I teach what I learn.
+            <span className="shimmer-text">AI strategy.</span>
+            <br />Built in public.
           </h1>
         </HeroItem>
         <HeroItem>
           <p className="text-white/60 text-xl leading-relaxed mb-10">
-            GTM Strategy at Google. Kellogg MBA. I ship real AI products without an engineering background and share everything along the way.
+            GTM Strategy at Google. Kellogg MBA. Building AI tools and education for business professionals — and sharing everything openly.
           </p>
         </HeroItem>
         <HeroItem>
           <div className="flex items-center gap-4 flex-wrap">
-            <a href="/learn" className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-white/90 transition btn-press">
-              Learn AI with me
-            </a>
-            <a href="/projects" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition btn-press">
+            <a href="/projects" className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-white/90 transition btn-press">
               See what I built
             </a>
-            <a
-              href="https://www.linkedin.com/in/anshul-gupta1/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-white/40 hover:text-white transition text-sm"
-            >
-              <LinkedInIcon />
-              LinkedIn
+            <a href="/work" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition btn-press">
+              Professional work
+            </a>
+            <a href="/learn" className="flex items-center gap-1 text-white/40 hover:text-white transition text-sm">
+              AI School →
             </a>
           </div>
         </HeroItem>
