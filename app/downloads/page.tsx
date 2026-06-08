@@ -105,7 +105,7 @@ export default function Downloads() {
                             <span className="text-white/25 text-xs">PDF</span>
                           )}
                           <a
-                            href={`/downloads/${resource.filename}`}
+                            href={`/api/pdf/${resource.filename}`}
                             download={resource.filename}
                             className="flex items-center gap-1.5 text-sm font-medium text-black bg-white px-4 py-1.5 rounded-full hover:bg-white/90 transition"
                           >
