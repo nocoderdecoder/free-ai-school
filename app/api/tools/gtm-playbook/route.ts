@@ -53,7 +53,7 @@ List 5 metrics that matter for this stage and motion.
 Recommend 3-4 AI tools specifically for this GTM motion and explain how to use each.`
 
   const stream = anthropic.messages.stream({
-    model: 'claude-3-5-sonnet-20241022',
+    model: 'claude-sonnet-4-5-20250929',
     max_tokens: 1500,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userPrompt }],

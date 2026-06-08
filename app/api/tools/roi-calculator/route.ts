@@ -56,7 +56,7 @@ Week 1-2: getting started. Month 1: first wins. Month 3: full ROI realised.
 How long until the tool costs are covered by time savings, using the numbers provided.`
 
   const stream = anthropic.messages.stream({
-    model: 'claude-3-5-sonnet-20241022',
+    model: 'claude-sonnet-4-5-20250929',
     max_tokens: 1500,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userPrompt }],

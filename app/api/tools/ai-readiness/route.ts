@@ -52,7 +52,7 @@ Concrete actions in priority order. For each: what to do, how long it takes, exp
 The most likely mistake organisations like this make with AI adoption.`
 
   const stream = anthropic.messages.stream({
-    model: 'claude-3-5-sonnet-20241022',
+    model: 'claude-sonnet-4-5-20250929',
     max_tokens: 1500,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userPrompt }],
