@@ -25,6 +25,9 @@ export const metadata: Metadata = {
   },
   description: 'GTM Strategy at Google. Kellogg MBA. I build AI products and teach practical AI to business professionals. No engineering background required.',
   openGraph: {
+    title: 'Anshul Gupta | AI Strategy & GTM Leader',
+    description: 'Building AI tools and strategies for business professionals',
+    url: 'https://anshul.ai',
     siteName: 'Anshul Gupta',
     type: 'website',
     locale: 'en_US',
