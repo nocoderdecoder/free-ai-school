@@ -42,18 +42,25 @@ const TOOLS = [
     icon: '💰',
   },
   {
-    slug: 'tool-recommender',
+    slug: 'ai-tool-recommender',
     name: 'AI Tool Recommender',
     tagline: 'Tell me your use case, budget, and skill level. Get a curated tool shortlist.',
-    status: 'Soon' as const,
+    status: 'Live' as const,
     icon: '🔍',
   },
   {
     slug: 'meeting-brief',
     name: 'Meeting Brief Generator',
     tagline: 'Walk into any meeting with a sharp, AI-generated prep brief in seconds.',
-    status: 'Soon' as const,
+    status: 'Live' as const,
     icon: '📝',
+  },
+  {
+    slug: 'competitive-analysis',
+    name: 'Competitive Analysis Generator',
+    tagline: 'Enter your product and a competitor. Get a sharp competitive brief with battle card talking points.',
+    status: 'Live' as const,
+    icon: '⚔️',
   },
 ]
 
