@@ -6,11 +6,15 @@
  * GTM professionals — practical, specific, and ready to act on.
  */
 
+import type { PdfSection } from './PdfTemplate'
+
 type Guide = {
   title: string
   subtitle: string
   category: string
-  sections: Array<{ heading: string; bullets: string[] }>
+  // Most guides use the legacy bullets-only shape; richer guides use typed
+  // PdfSection variants (table, grid, ratings, flow, callout).
+  sections: Array<{ heading: string; bullets: string[] } | PdfSection>
 }
 
 export const GUIDES: Record<string, Guide> = {
@@ -434,59 +438,98 @@ export const GUIDES: Record<string, Guide> = {
   // COMPARISON (3)
   // ─────────────────────────────────────────────────────────────
   'chatgpt-vs-claude-vs-gemini': {
-    title: 'ChatGPT vs Claude vs Gemini: Complete Comparison',
+    title: 'ChatGPT vs Claude vs Gemini: The Definitive Comparison',
     subtitle:
-      'A clear, practical comparison of the three leading AI assistants — what each does best, where each falls short, and how to choose for your team.',
+      'Which AI should you use — and when. A practical decision guide for business professionals.',
     category: 'Comparison',
     sections: [
       {
-        heading: 'The One-Line Summary',
-        bullets: [
-          'ChatGPT: the versatile all-rounder with the richest ecosystem and feature set.',
-          'Claude: the best for nuanced writing, long-document work, and careful reasoning.',
-          'Gemini: the natural choice if your work lives inside Google Workspace.',
-          'All three are excellent; the right pick depends on your workflow, not raw benchmarks.',
-          'Most power users keep two and route tasks to the stronger tool.',
+        type: 'table',
+        heading: 'Head-to-Head: Core Capabilities',
+        columns: ['Capability', 'ChatGPT', 'Claude', 'Gemini'],
+        rows: [
+          ['Reasoning', 'Strong', 'Best', 'Strong'],
+          ['Writing', 'Strong', 'Best', 'Good'],
+          ['Coding', 'Best', 'Best', 'Strong'],
+          ['Data / Analysis', 'Best', 'Good', 'Best'],
+          ['Image understanding', 'Strong', 'Good', 'Best'],
+          ['Context window', '128K', '200K', '1M+'],
+          ['Real-time web', 'Yes', 'Limited', 'Yes (native)'],
+          ['Free tier', 'Generous', 'Good', 'Generous'],
+          ['Best for', 'All-rounder', 'Writing + docs', 'Google + data'],
         ],
       },
       {
-        heading: 'Where Each One Shines',
-        bullets: [
-          'ChatGPT: broad capability, strong tooling (custom GPTs, data analysis, voice), large plugin/app ecosystem.',
-          'Claude: writing quality and tone, handling very long inputs, structured critique and editing.',
-          'Gemini: deep Google integration, search-grounded answers, large context windows.',
-          'ChatGPT and Gemini have strong web research; Claude focuses on reasoning over provided material.',
-          'For coding, all three are capable; preferences vary by task and team.',
+        type: 'flow',
+        heading: 'The Decision Flowchart: Which Tool to Use',
+        steps: [
+          {
+            label: 'Writing & Communication',
+            description:
+              'Use Claude. Best for long-form writing, editing, and nuance.',
+          },
+          {
+            label: 'Data & Research',
+            description:
+              'Use ChatGPT or Gemini. Strong data interpretation plus web search.',
+          },
+          {
+            label: 'Code & Technical Work',
+            description:
+              'Use ChatGPT (GPT-4o) or Claude (Sonnet). Both excellent.',
+          },
+          {
+            label: 'Google Workspace',
+            description:
+              'Use Gemini. Native integration with Docs, Sheets, and Gmail.',
+          },
+          {
+            label: 'Long Documents',
+            description:
+              'Use Claude. A 200K context window handles entire books.',
+          },
         ],
       },
       {
-        heading: 'Where Each One Struggles',
-        bullets: [
-          'ChatGPT: can be overconfident; outputs sometimes feel generic without strong prompting.',
-          'Claude: more cautious and may hedge; fewer built-in integrations than competitors.',
-          'Gemini: quality can vary by app surface; best value requires Workspace adoption.',
-          'All three can hallucinate facts, names, and citations — verification is non-negotiable.',
-          'Feature parity shifts monthly, so any single "winner" claim ages quickly.',
+        type: 'grid',
+        heading: 'Best Use Cases by Tool',
+        cells: [
+          { label: 'ChatGPT', value: 'Strategy memos', color: '#10b981' },
+          { label: 'ChatGPT', value: 'Data analysis', color: '#10b981' },
+          { label: 'ChatGPT', value: 'Plugin ecosystem', color: '#10b981' },
+          { label: 'Claude', value: 'Long documents', color: '#f59e0b' },
+          { label: 'Claude', value: 'Precise writing', color: '#f59e0b' },
+          { label: 'Claude', value: 'Complex reasoning', color: '#f59e0b' },
+          { label: 'Gemini', value: 'Google Workspace', color: '#3b82f6' },
+          { label: 'Gemini', value: 'Multimodal tasks', color: '#3b82f6' },
+          { label: 'Gemini', value: 'Real-time info', color: '#3b82f6' },
         ],
       },
       {
-        heading: 'How to Choose for Your Team',
-        bullets: [
-          'On Google Workspace? Start with Gemini for in-app productivity.',
-          'On Microsoft 365? Consider Copilot first, then add ChatGPT or Claude.',
-          'Writing- and analysis-heavy team? Claude earns its seat.',
-          'Want maximum flexibility and tooling? ChatGPT is the safe default.',
-          'Pilot with two tools and measure real task outcomes before committing.',
+        type: 'table',
+        heading: 'Pricing Comparison (2025)',
+        columns: ['Plan', 'ChatGPT', 'Claude', 'Gemini'],
+        rows: [
+          ['Free tier', 'GPT-4o (limited)', 'Sonnet (limited)', 'Flash (generous)'],
+          ['Pro / Plus', '$20/mo', '$20/mo', '$20/mo'],
+          ['Context limit', '128K tokens', '200K tokens', '1M+ tokens'],
+          ['Best value pick', 'Power users', 'Writers', 'Workspace users'],
         ],
       },
       {
-        heading: 'Buying and Rollout Notes',
+        type: 'callout',
+        style: 'tip',
+        text: 'Pro tip: Most power users maintain accounts on all three. Use Claude for drafting, ChatGPT for research and code, and Gemini when you need real-time data or are working in Google Workspace.',
+      },
+      {
+        type: 'bullets',
+        heading: 'Common Mistakes to Avoid',
         bullets: [
-          'Choose enterprise/business tiers for data privacy and admin controls.',
-          'Confirm data is excluded from training on your plan.',
-          'Budget for both licenses and enablement — training drives adoption.',
-          'Standardize on shared prompts and use cases to scale value.',
-          'Revisit the decision quarterly; capabilities move fast.',
+          'Using only one tool for everything — each has genuine specializations.',
+          'Assuming the free tier is enough for business-critical work.',
+          'Ignoring context window differences for document-heavy workflows.',
+          'Not testing prompts across tools — the same prompt can yield very different quality.',
+          'Overlooking Gemini for Google Workspace users (deep native integration).',
         ],
       },
     ],
