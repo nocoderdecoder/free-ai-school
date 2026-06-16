@@ -45,13 +45,15 @@ function LinkedInIcon() {
 }
 
 export default async function Home() {
-  // Fetch latest trending article for the date signal
+  // Fetch latest trending article for the banner + date signal
+  let latestArticle: { title: string; slug: string; publishedAt: string } | null = null
   let latestDate: string | null = null
   try {
     const latest = await sanity.fetch(
-      `*[_type == "trending"] | order(publishedAt desc)[0] { publishedAt }`
+      `*[_type == "trending"] | order(publishedAt desc)[0] { title, "slug": slug.current, publishedAt }`
     )
     if (latest?.publishedAt) {
+      latestArticle = latest
       latestDate = new Date(latest.publishedAt).toLocaleDateString('en-US', {
         month: 'long', day: 'numeric',
       })
@@ -148,6 +150,33 @@ export default async function Home() {
         ]}
       />
 
+      {/* Trending banner */}
+      {latestArticle && (
+        <ScrollSection>
+          <a
+            href={`/trending/${latestArticle.slug}`}
+            className="group block border-y"
+            style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-base)' }}
+          >
+            <div className="max-w-3xl mx-auto px-8 py-5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4 min-w-0">
+                <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-emerald-400/80 shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Today
+                </span>
+                <span className="text-white/80 font-medium truncate group-hover:text-white transition">
+                  {latestArticle.title}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-white/25 text-xs hidden sm:inline">{latestDate}</span>
+                <span className="text-white/40 text-sm group-hover:text-white transition">Read →</span>
+              </div>
+            </div>
+          </a>
+        </ScrollSection>
+      )}
+
       {/* Sections */}
       <section className="max-w-3xl mx-auto px-8 py-16 grid grid-cols-1 gap-6">
 
@@ -180,19 +209,19 @@ export default async function Home() {
           </div>
         </ScrollSection>
 
-        {/* Trending */}
+        {/* Trending — all daily articles */}
         <ScrollSection delay={200}>
           <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
             <p className="section-label mb-4">Trending</p>
-            <h2 className="text-2xl font-bold mb-3">What is happening in AI. Today.</h2>
+            <h2 className="text-2xl font-bold mb-3">Daily AI analysis</h2>
             <p className="text-white/60 leading-relaxed mb-3 max-w-xl">
-              Every morning, a new article on the most trending topic in AI, written for business professionals.
+              Every morning, a new article on the most trending topic in AI — written for business professionals, not researchers.
             </p>
             {latestDate && (
               <p className="text-white/25 text-sm mb-6">Last published {latestDate}</p>
             )}
-            <a href="/analysis" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
-              Read today's article →
+            <a href="/trending" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
+              Browse all articles →
             </a>
           </div>
         </ScrollSection>
