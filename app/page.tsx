@@ -109,35 +109,39 @@ export default async function Home() {
           {/* Right — trending article card */}
           {latestArticle && (
             <HeroItem>
-              <a
-                href={`/trending/${latestArticle.slug}`}
-                className="group block mt-10 lg:mt-0 lg:w-[300px] shrink-0 rounded-xl border border-white/10 p-6 hover:border-white/20 transition"
+              <div
+                className="mt-10 lg:mt-0 lg:w-[300px] shrink-0 rounded-xl border border-white/10 overflow-hidden"
                 style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-emerald-400/80 font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Trending today
-                  </span>
-                  <span className="text-white/20 text-xs">{latestDate}</span>
-                </div>
-                <h2 className="text-base font-semibold text-white/90 leading-snug mb-2 group-hover:text-white transition">
-                  {latestArticle.title}
-                </h2>
-                {latestArticle.excerpt && (
-                  <p className="text-white/35 text-sm leading-relaxed mb-4 line-clamp-3">
-                    {latestArticle.excerpt}
-                  </p>
-                )}
-                <span className="text-white/40 text-sm group-hover:text-white/70 transition">
-                  Read today's article →
-                </span>
-                {totalTrending > 1 && (
-                  <div className="border-t border-white/[0.06] mt-4 pt-3">
-                    <span className="text-white/20 text-xs">Browse all {totalTrending} articles →</span>
+                <a
+                  href={`/trending/${latestArticle.slug}`}
+                  className="group block p-6 hover:bg-white/[0.02] transition"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-emerald-400/80 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Trending today
+                    </span>
+                    <span className="text-white/20 text-xs">{latestDate}</span>
                   </div>
+                  <h2 className="text-base font-semibold text-white/90 leading-snug mb-2 group-hover:text-white transition">
+                    {latestArticle.title}
+                  </h2>
+                  {latestArticle.excerpt && (
+                    <p className="text-white/35 text-sm leading-relaxed mb-4 line-clamp-3">
+                      {latestArticle.excerpt}
+                    </p>
+                  )}
+                  <span className="text-white/40 text-sm group-hover:text-white/70 transition">
+                    Read today's article →
+                  </span>
+                </a>
+                {totalTrending > 1 && (
+                  <a href="/trending" className="block border-t border-white/[0.06] px-6 py-3 hover:bg-white/[0.02] transition">
+                    <span className="text-white/25 text-xs hover:text-white/50 transition">Browse all {totalTrending} articles →</span>
+                  </a>
                 )}
-              </a>
+              </div>
             </HeroItem>
           )}
         </div>
