@@ -45,19 +45,24 @@ function LinkedInIcon() {
 }
 
 export default async function Home() {
-  // Fetch latest trending article for the banner + date signal
-  let latestArticle: { title: string; slug: string; publishedAt: string } | null = null
+  // Fetch latest trending article for the hero card
+  let latestArticle: { title: string; slug: string; publishedAt: string; excerpt?: string } | null = null
   let latestDate: string | null = null
+  let totalTrending = 0
   try {
-    const latest = await sanity.fetch(
-      `*[_type == "trending"] | order(publishedAt desc)[0] { title, "slug": slug.current, publishedAt }`
-    )
+    const [latest, countResult] = await Promise.all([
+      sanity.fetch(
+        `*[_type == "trending"] | order(publishedAt desc)[0] { title, "slug": slug.current, publishedAt, excerpt }`
+      ),
+      sanity.fetch(`count(*[_type == "trending"])`),
+    ])
     if (latest?.publishedAt) {
       latestArticle = latest
       latestDate = new Date(latest.publishedAt).toLocaleDateString('en-US', {
         month: 'long', day: 'numeric',
       })
     }
+    totalTrending = countResult || 0
   } catch {}
 
   return (
@@ -67,35 +72,75 @@ export default async function Home() {
 
       {/* Hero */}
       <AnimatedHero>
-        <HeroItem>
-          <p className="section-label mb-4">
-            anshul.ai
-          </p>
-        </HeroItem>
-        <HeroItem>
-          <h1 style={{ fontSize: 'var(--text-hero)', lineHeight: 1.05, letterSpacing: '-0.03em' }} className="font-bold mb-6">
-            <span className="shimmer-text">AI strategy.</span>
-            <br />Built in public.
-          </h1>
-        </HeroItem>
-        <HeroItem>
-          <p className="text-white/60 text-xl leading-relaxed mb-10">
-            GTM Strategy at Google. Kellogg MBA. Building AI tools and education for business professionals — and sharing everything openly.
-          </p>
-        </HeroItem>
-        <HeroItem>
-          <div className="flex items-center gap-4 flex-wrap">
-            <a href="/projects" className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-white/90 transition btn-press">
-              See what I built
-            </a>
-            <a href="/work" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition btn-press">
-              Professional work
-            </a>
-            <a href="/learn" className="flex items-center gap-1 text-white/40 hover:text-white transition text-sm">
-              AI School →
-            </a>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:gap-12">
+          {/* Left — hero copy */}
+          <div className="flex-1 min-w-0">
+            <HeroItem>
+              <p className="section-label mb-4">
+                anshul.ai
+              </p>
+            </HeroItem>
+            <HeroItem>
+              <h1 style={{ fontSize: 'var(--text-hero)', lineHeight: 1.05, letterSpacing: '-0.03em' }} className="font-bold mb-6">
+                <span className="shimmer-text">AI strategy.</span>
+                <br />Built in public.
+              </h1>
+            </HeroItem>
+            <HeroItem>
+              <p className="text-white/60 text-xl leading-relaxed mb-10">
+                GTM Strategy at Google. Kellogg MBA. Building AI tools and education for business professionals — and sharing everything openly.
+              </p>
+            </HeroItem>
+            <HeroItem>
+              <div className="flex items-center gap-4 flex-wrap">
+                <a href="/projects" className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-white/90 transition btn-press">
+                  See what I built
+                </a>
+                <a href="/work" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition btn-press">
+                  Professional work
+                </a>
+                <a href="/learn" className="flex items-center gap-1 text-white/40 hover:text-white transition text-sm">
+                  AI School →
+                </a>
+              </div>
+            </HeroItem>
           </div>
-        </HeroItem>
+
+          {/* Right — trending article card */}
+          {latestArticle && (
+            <HeroItem>
+              <a
+                href={`/trending/${latestArticle.slug}`}
+                className="group block mt-10 lg:mt-0 lg:w-[300px] shrink-0 rounded-xl border border-white/10 p-6 hover:border-white/20 transition"
+                style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-emerald-400/80 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Trending today
+                  </span>
+                  <span className="text-white/20 text-xs">{latestDate}</span>
+                </div>
+                <h2 className="text-base font-semibold text-white/90 leading-snug mb-2 group-hover:text-white transition">
+                  {latestArticle.title}
+                </h2>
+                {latestArticle.excerpt && (
+                  <p className="text-white/35 text-sm leading-relaxed mb-4 line-clamp-3">
+                    {latestArticle.excerpt}
+                  </p>
+                )}
+                <span className="text-white/40 text-sm group-hover:text-white/70 transition">
+                  Read today's article →
+                </span>
+                {totalTrending > 1 && (
+                  <div className="border-t border-white/[0.06] mt-4 pt-3">
+                    <span className="text-white/20 text-xs">Browse all {totalTrending} articles →</span>
+                  </div>
+                )}
+              </a>
+            </HeroItem>
+          )}
+        </div>
       </AnimatedHero>
 
       {/* Credential strip */}
@@ -149,33 +194,6 @@ export default async function Home() {
           { value: 365, label: 'Daily AI analysis' },
         ]}
       />
-
-      {/* Trending banner */}
-      {latestArticle && (
-        <ScrollSection>
-          <a
-            href={`/trending/${latestArticle.slug}`}
-            className="group block border-y"
-            style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-base)' }}
-          >
-            <div className="max-w-3xl mx-auto px-8 py-5 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4 min-w-0">
-                <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-emerald-400/80 shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Today
-                </span>
-                <span className="text-white/80 font-medium truncate group-hover:text-white transition">
-                  {latestArticle.title}
-                </span>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="text-white/25 text-xs hidden sm:inline">{latestDate}</span>
-                <span className="text-white/40 text-sm group-hover:text-white transition">Read →</span>
-              </div>
-            </div>
-          </a>
-        </ScrollSection>
-      )}
 
       {/* Sections */}
       <section className="max-w-3xl mx-auto px-8 py-16 grid grid-cols-1 gap-6">

@@ -21,7 +21,7 @@ const fadeUp = {
 export function AnimatedHero({ children }: { children: React.ReactNode }) {
   return (
     <motion.section
-      className="relative max-w-3xl mx-auto px-8 pt-32 pb-24"
+      className="relative max-w-5xl mx-auto px-8 pt-32 pb-24"
       variants={container}
       initial="hidden"
       animate="show"
