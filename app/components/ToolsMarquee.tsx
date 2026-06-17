@@ -1,5 +1,3 @@
-'use client'
-
 import {
   siAnthropic, siGooglegemini, siPerplexity,
   siN8n, siZapier, siMake, siNextdotjs, siVercel,
@@ -16,16 +14,16 @@ type Tool = {
 }
 
 const tools: Tool[] = [
+  { name: 'n8n',          color: '#EA4B71', icon: siN8n },
+  { name: 'Zapier',       color: '#FF4A00', icon: siZapier },
+  { name: 'Vercel',       color: '#FFFFFF', icon: siVercel },
+  { name: 'Make',         color: '#9B51E0', icon: siMake },
+  { name: 'Next.js',      color: '#FFFFFF', icon: siNextdotjs },
   { name: 'Claude',       color: '#D97559', icon: siAnthropic },
   { name: 'ChatGPT',      color: '#10A37F', initials: 'AI' },
   { name: 'Gemini',       color: '#4285F4', icon: siGooglegemini },
   { name: 'Perplexity',   color: '#5561EB', icon: siPerplexity },
   { name: 'Midjourney',   color: '#FFFFFF', initials: 'MJ' },
-  { name: 'n8n',          color: '#EA4B71', icon: siN8n },
-  { name: 'Zapier',       color: '#FF4A00', icon: siZapier },
-  { name: 'Make',         color: '#9B51E0', icon: siMake },
-  { name: 'Next.js',      color: '#FFFFFF', icon: siNextdotjs },
-  { name: 'Vercel',       color: '#FFFFFF', icon: siVercel },
   { name: 'Python',       color: '#3776AB', icon: siPython },
   { name: 'Sanity',       color: '#F03E2F', icon: siSanity },
   { name: 'LangChain',    color: '#1C7C54', icon: siLangchain },
@@ -49,7 +47,7 @@ const tools: Tool[] = [
 function ToolChip({ tool }: { tool: Tool }) {
   return (
     <div
-      className="flex items-center gap-2 px-3 py-1.5 rounded-full shrink-0"
+      className="flex items-center gap-2 px-3 py-1.5 rounded-full"
       style={{
         border: `1px solid ${tool.color}28`,
         background: `${tool.color}0d`,
@@ -78,19 +76,11 @@ function ToolChip({ tool }: { tool: Tool }) {
 }
 
 export function ToolsMarquee() {
-  const doubled = [...tools, ...tools]
-
   return (
-    <div
-      className="overflow-hidden py-6"
-      style={{
-        maskImage: 'linear-gradient(to right, transparent, black 12%, black 88%, transparent)',
-        WebkitMaskImage: 'linear-gradient(to right, transparent, black 12%, black 88%, transparent)',
-      }}
-    >
-      <div className="marquee-track flex gap-3 w-max">
-        {doubled.map((tool, i) => (
-          <ToolChip key={`${tool.name}-${i}`} tool={tool} />
+    <div className="max-w-3xl mx-auto px-8 py-6">
+      <div className="flex flex-wrap gap-2.5">
+        {tools.map((tool) => (
+          <ToolChip key={tool.name} tool={tool} />
         ))}
       </div>
     </div>
