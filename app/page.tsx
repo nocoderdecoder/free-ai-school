@@ -21,11 +21,13 @@ export const metadata: Metadata = {
   },
 }
 
+export const revalidate = 60
+
 const sanity = createClient({
   projectId: '8w4exnl4',
   dataset: 'production',
   apiVersion: '2024-01-01',
-  useCdn: true,
+  useCdn: false,
 })
 
 function GitHubIcon() {
