@@ -1,10 +1,11 @@
 const tools = [
-  'n8n', 'Zapier', 'Vercel', 'Make', 'Next.js',
+  'n8n', 'Zapier', 'Vercel', 'Make', 'Next.js', 'React',
   'Claude', 'ChatGPT', 'Gemini', 'Perplexity', 'Midjourney',
-  'Python', 'Sanity', 'LangChain', 'Windsurf', 'HeyGen',
-  'Notion', 'Fireflies', 'Google Colab', 'Gradio', 'GitHub',
-  'Replit', 'Hugging Face', 'Cloudflare', 'ElevenLabs', 'Google Cloud',
-  'Lovable', 'Descript', 'AWS',
+  'Python', 'Sanity', 'LangChain', 'Windsurf', 'Cursor',
+  'HeyGen', 'Notion', 'Fireflies', 'Google Colab', 'Gradio',
+  'GitHub', 'Replit', 'Hugging Face', 'Cloudflare', 'ElevenLabs',
+  'Google Cloud', 'Lovable', 'Descript', 'AWS', 'Tailwind CSS',
+  'Supabase', 'Framer Motion', 'TypeScript', 'Resend',
 ]
 
 export function ToolsMarquee() {

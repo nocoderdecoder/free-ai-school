@@ -182,9 +182,6 @@ export default async function Home() {
           </div>
 
           <div className="border-t border-white/10">
-            <div className="max-w-3xl mx-auto px-8 pt-3 pb-1">
-              <span className="text-white/25 text-xs uppercase tracking-widest">Tools</span>
-            </div>
             <ToolsMarquee />
           </div>
         </section>
