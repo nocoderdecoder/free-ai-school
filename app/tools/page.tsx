@@ -14,6 +14,13 @@ export const metadata: Metadata = {
 
 const TOOLS = [
   {
+    slug: 'ai-learning-compass',
+    name: 'AI Learning Compass',
+    tagline: 'Answer five questions by voice or text. Get a personal 30-day AI learning roadmap.',
+    status: 'Live' as const,
+    icon: '🧭',
+  },
+  {
     slug: 'speaking-speed',
     name: 'Speaking Speed Tester',
     tagline: 'Measure your words per minute in real time. Know if you speak too fast or too slow.',
