@@ -4,10 +4,10 @@ import { CompassApp } from './CompassApp'
 
 export const metadata: Metadata = {
   title: 'AI Learning Compass',
-  description: 'Answer five questions by voice or text and get a focused, personal 30-day AI learning roadmap.',
+  description: 'A five-question adaptive voice assessment that creates a specific 30-day AI learning prescription from your goals, evidence, domain, and constraints.',
   openGraph: {
-    title: 'AI Learning Compass — What should you learn next?',
-    description: 'Talk through where you are. Leave with a focused 30-day AI learning roadmap.',
+    title: 'AI Learning Compass — Get your specific 30-day AI path',
+    description: 'Answer five adaptive questions by voice or text. Get exact capabilities, tasks, deliverables, and proof to build next.',
     url: 'https://anshul.ai/tools/ai-learning-compass',
   },
 }
