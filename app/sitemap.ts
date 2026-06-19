@@ -59,6 +59,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: 'https://anshul.ai/writing',      lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.8 },
     { url: 'https://anshul.ai/downloads',    lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.7 },
     { url: 'https://anshul.ai/tools',        lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },
+    { url: 'https://anshul.ai/tools/ai-learning-compass', lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },
     { url: 'https://anshul.ai/tools/speaking-speed', lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
     { url: 'https://anshul.ai/tools/gtm-playbook',   lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
     { url: 'https://anshul.ai/tools/ai-readiness',   lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
