@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  buildProfile,
-  getQuestion,
-  makeAcknowledgement,
+  initialQuestion,
+  isCompassAnalysis,
+  isInterviewTurn,
   questionCount,
-  serializeProfile,
-  type Answer,
-  type CompassProfile,
+  serializeAnalysis,
+  type CompassAnalysis,
+  type CompassAnswer,
+  type CompassQuestion,
+  type InterviewProfile,
 } from '../../lib/aiCompass'
 
 type SpeechResult = { readonly isFinal: boolean; readonly 0: { transcript: string } }
@@ -25,6 +27,15 @@ type Recognition = {
   stop: () => void
 }
 type RecognitionConstructor = new () => Recognition
+type View = 'landing' | 'questions' | 'synthesis' | 'result'
+
+const synthesisPhases = [
+  'Separating goals from assumptions',
+  'Calibrating your current capability',
+  'Finding the highest-leverage gaps',
+  'Building tasks, evidence, and sequence',
+  'Stress-testing the 30-day plan',
+]
 
 function recognitionConstructor(): RecognitionConstructor | undefined {
   if (typeof window === 'undefined') return undefined
@@ -49,33 +60,79 @@ function CompassMark() {
   return <span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-300 text-black"><svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z" /></svg></span>
 }
 
+function delay(milliseconds: number) {
+  return new Promise(resolve => window.setTimeout(resolve, milliseconds))
+}
+
+async function requestCompass(mode: 'next' | 'analysis', answers: CompassAnswer[]) {
+  const response = await fetch('/api/tools/ai-learning-compass', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode, answers }),
+  })
+  const data = await response.json() as unknown
+  if (!response.ok) {
+    const message = data && typeof data === 'object' && 'error' in data ? String(data.error) : 'Something went wrong.'
+    throw new Error(message)
+  }
+  return data
+}
+
+function TaskCard({ task, number }: { task: { action: string; deliverable: string; successCheck: string; time: string }; number?: number }) {
+  return <div className="rounded-xl border border-white/10 bg-black/25 p-5">
+    <div className="flex items-start justify-between gap-4">
+      <p className="text-sm font-semibold leading-relaxed">{number ? `${number}. ` : ''}{task.action}</p>
+      <span className="shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-[10px] text-white/50">{task.time}</span>
+    </div>
+    <dl className="mt-4 grid gap-3 text-xs leading-relaxed sm:grid-cols-2">
+      <div><dt className="font-semibold text-emerald-300">Deliverable</dt><dd className="mt-1 text-white/45">{task.deliverable}</dd></div>
+      <div><dt className="font-semibold text-blue-300">Done when</dt><dd className="mt-1 text-white/45">{task.successCheck}</dd></div>
+    </dl>
+  </div>
+}
+
 export function CompassApp() {
-  const [view, setView] = useState<'landing' | 'questions' | 'result'>('landing')
+  const [view, setView] = useState<View>('landing')
   const [questionIndex, setQuestionIndex] = useState(0)
-  const [answers, setAnswers] = useState<Answer[]>([])
+  const [question, setQuestion] = useState<CompassQuestion>(initialQuestion)
+  const [answers, setAnswers] = useState<CompassAnswer[]>([])
   const [answer, setAnswer] = useState('')
   const [acknowledgement, setAcknowledgement] = useState('')
+  const [interpretation, setInterpretation] = useState('')
+  const [interviewProfile, setInterviewProfile] = useState<InterviewProfile | null>(null)
+  const [analysis, setAnalysis] = useState<CompassAnalysis | null>(null)
   const [recording, setRecording] = useState(false)
   const [elapsed, setElapsed] = useState(0)
-  const [profile, setProfile] = useState<CompassProfile | null>(null)
+  const [synthesisElapsed, setSynthesisElapsed] = useState(0)
+  const [loading, setLoading] = useState(false)
   const [notice, setNotice] = useState('')
   const recognitionRef = useRef<Recognition | null>(null)
   const wantsRecordingRef = useRef(false)
   const transcriptRef = useRef('')
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const synthesisTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const speechAvailable = useMemo(() => Boolean(recognitionConstructor()), [])
-  const question = getQuestion(questionIndex, answers)
   const words = answer.trim().split(/\s+/).filter(Boolean).length
 
   useEffect(() => () => {
     wantsRecordingRef.current = false
     recognitionRef.current?.stop()
     if (timerRef.current) clearInterval(timerRef.current)
+    if (synthesisTimerRef.current) clearInterval(synthesisTimerRef.current)
   }, [])
 
   const flash = (message: string) => {
     setNotice(message)
-    window.setTimeout(() => setNotice(''), 2200)
+    window.setTimeout(() => setNotice(''), 2600)
+  }
+
+  const stopRecording = () => {
+    wantsRecordingRef.current = false
+    recognitionRef.current?.stop()
+    recognitionRef.current = null
+    setRecording(false)
+    if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = null
   }
 
   const createRecognition = () => {
@@ -117,60 +174,94 @@ export function CompassApp() {
     createRecognition()
   }
 
-  const stopRecording = () => {
-    wantsRecordingRef.current = false
-    recognitionRef.current?.stop()
-    recognitionRef.current = null
-    setRecording(false)
-    if (timerRef.current) clearInterval(timerRef.current)
-    timerRef.current = null
-  }
-
-  const submitAnswer = () => {
-    if (answer.trim().length < 12) return
-    if (recording) stopRecording()
-    const completed = { questionId: question.id, text: answer.trim() }
-    const nextAnswers = [...answers, completed]
-    setAnswers(nextAnswers)
-    setAcknowledgement(makeAcknowledgement(completed, nextAnswers))
-    setAnswer('')
-    transcriptRef.current = ''
-
-    if (questionIndex + 1 === questionCount) {
-      setProfile(buildProfile(nextAnswers))
+  const runFinalAnalysis = async (completedAnswers: CompassAnswer[]) => {
+    setView('synthesis')
+    setSynthesisElapsed(0)
+    synthesisTimerRef.current = setInterval(() => setSynthesisElapsed(value => value + 1), 1000)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    try {
+      const [data] = await Promise.all([requestCompass('analysis', completedAnswers), delay(15000)])
+      if (!isCompassAnalysis(data)) throw new Error('The roadmap response was incomplete. Please try again.')
+      setAnalysis(data)
       setView('result')
       window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (error) {
+      setView('questions')
+      setQuestionIndex(questionCount - 1)
+      flash(error instanceof Error ? error.message : 'I could not build the roadmap. Please try again.')
+    } finally {
+      if (synthesisTimerRef.current) clearInterval(synthesisTimerRef.current)
+      synthesisTimerRef.current = null
+      setLoading(false)
+    }
+  }
+
+  const submitAnswer = async () => {
+    const trimmed = answer.trim()
+    if (trimmed.length < 20 || loading) return
+    if (recording) stopRecording()
+    const completed: CompassAnswer = {
+      questionId: question.id,
+      question: question.prompt,
+      focus: question.focus,
+      text: trimmed,
+    }
+    const nextAnswers = [...answers, completed]
+    setAnswers(nextAnswers)
+    setLoading(true)
+
+    if (nextAnswers.length === questionCount) {
+      await runFinalAnalysis(nextAnswers)
       return
     }
-    setQuestionIndex(index => index + 1)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+
+    try {
+      const data = await requestCompass('next', nextAnswers)
+      if (!isInterviewTurn(data)) throw new Error('The next question was incomplete. Please try again.')
+      setAcknowledgement(data.acknowledgement)
+      setInterpretation(data.interpretation)
+      setInterviewProfile(data.profile)
+      setQuestion(data.nextQuestion)
+      setQuestionIndex(nextAnswers.length)
+      setAnswer('')
+      transcriptRef.current = ''
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (error) {
+      setAnswers(answers)
+      flash(error instanceof Error ? error.message : 'I could not generate the next question. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const restart = () => {
     stopRecording()
     setQuestionIndex(0)
+    setQuestion(initialQuestion)
     setAnswers([])
     setAnswer('')
     setAcknowledgement('')
-    setProfile(null)
+    setInterpretation('')
+    setInterviewProfile(null)
+    setAnalysis(null)
     setView('questions')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const copyRoadmap = async () => {
-    if (!profile) return
-    await navigator.clipboard.writeText(serializeProfile(profile))
+    if (!analysis) return
+    await navigator.clipboard.writeText(serializeAnalysis(analysis))
     flash('Roadmap copied')
   }
 
   const shareRoadmap = async () => {
-    if (!profile) return
-    const share = { title: 'My AI Learning Compass', text: serializeProfile(profile), url: window.location.href }
+    if (!analysis) return
+    const share = { title: 'My AI Learning Compass', text: `${analysis.headline}\n${analysis.subhead}`, url: window.location.href }
     if (navigator.share) {
       try { await navigator.share(share) } catch { return }
     } else {
-      await navigator.clipboard.writeText(share.text)
-      window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(share.url)}`, '_blank', 'noopener,noreferrer')
+      await navigator.clipboard.writeText(`${share.text}\n${share.url}`)
+      flash('Share text copied')
     }
   }
 
@@ -181,75 +272,129 @@ export function CompassApp() {
       <div className="mx-auto grid max-w-6xl items-center gap-16 lg:grid-cols-[1.06fr_.94fr]">
         <div>
           <div className="mb-8 flex items-center gap-3 text-sm font-medium text-white/60"><CompassMark /> AI Learning Compass</div>
-          <p className="section-label mb-5">A five-question voice assessment</p>
-          <h1 className="max-w-4xl text-5xl font-bold leading-[.97] tracking-[-.055em] sm:text-7xl lg:text-[86px]">Find your next move in <span className="text-emerald-300">AI.</span></h1>
-          <p className="mt-7 max-w-2xl text-lg leading-relaxed text-white/55 sm:text-xl">Talk through where you are, what you have tried, and what you want to build. Leave with a focused 30-day learning map—not another endless list of tools.</p>
+          <p className="section-label mb-5">An adaptive five-question voice assessment</p>
+          <h1 className="max-w-4xl text-5xl font-bold leading-[.97] tracking-[-.055em] sm:text-7xl lg:text-[86px]">Find the AI path that fits <span className="text-emerald-300">your work.</span></h1>
+          <p className="mt-7 max-w-2xl text-lg leading-relaxed text-white/55 sm:text-xl">Every question changes based on your answer. You will leave with exact capabilities to learn, tasks to complete, proof to produce, and a focused 30-day plan.</p>
           <div className="mt-9 flex flex-wrap items-center gap-4">
-            <button onClick={() => setView('questions')} className="btn-press inline-flex items-center gap-3 rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-black transition hover:bg-emerald-200">Start your compass <ArrowIcon /></button>
-            <span className="text-xs text-white/35">About 5 minutes · Voice or text · No sign-up</span>
+            <button onClick={() => setView('questions')} className="btn-press inline-flex items-center gap-3 rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-black transition hover:bg-emerald-200">Start your assessment <ArrowIcon /></button>
+            <span className="text-xs text-white/35">About 7 minutes · Voice or text · No sign-up</span>
           </div>
         </div>
         <div className="rotate-1 rounded-3xl border border-white/10 bg-white/[.055] p-7 shadow-2xl backdrop-blur-xl sm:p-9">
-          <div className="flex items-center justify-between border-b border-white/10 pb-5"><span className="section-label">Example result</span><span className="grid h-14 w-14 place-items-center rounded-full bg-emerald-300 text-2xl font-bold text-black">3</span></div>
-          <h2 className="mt-7 text-4xl font-semibold">Workflow builder</h2>
-          <p className="mt-3 text-sm leading-relaxed text-white/50">Your fastest path is not “learn all of AI.” It is learning to turn one valuable workflow into a reliable system.</p>
+          <p className="section-label">Not a personality quiz</p>
+          <h2 className="mt-5 text-3xl font-semibold">A prescription built from evidence</h2>
           <div className="mt-7 space-y-3">
-            {['Map the work', 'Structure the output', 'Ship one loop'].map((step, index) => <div key={step} className="flex items-center gap-4 rounded-xl border border-white/5 bg-black/30 p-4"><span className="grid h-8 w-8 place-items-center rounded-full bg-white/10 text-xs font-bold">{index + 1}</span><span className="text-sm font-medium">{step}</span></div>)}
+            {[
+              ['1', 'Adaptive interview', 'The next question targets what is still unclear.'],
+              ['2', 'Deep synthesis', 'Your goal, proof, constraints, and domain are analyzed together.'],
+              ['3', 'Inspectable plan', 'Every task has a deliverable and a definition of done.'],
+            ].map(([number, title, copy]) => <div key={number} className="grid grid-cols-[36px_1fr] gap-4 rounded-xl border border-white/5 bg-black/30 p-4"><span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-300 text-xs font-bold text-black">{number}</span><div><p className="text-sm font-semibold">{title}</p><p className="mt-1 text-xs leading-relaxed text-white/40">{copy}</p></div></div>)}
           </div>
         </div>
       </div>
     </section>
   )
 
+  if (view === 'synthesis') {
+    const activePhase = Math.min(Math.floor(synthesisElapsed / 3), synthesisPhases.length - 1)
+    return <section className="relative isolate min-h-[72vh] overflow-hidden px-6 py-20 sm:px-8 sm:py-28">
+      <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-300/10 blur-[100px]" />
+      <div className="mx-auto max-w-3xl text-center">
+        <div className="mx-auto grid h-20 w-20 place-items-center rounded-full border border-emerald-300/30 bg-emerald-300/10">
+          <span className="h-10 w-10 animate-spin rounded-full border-2 border-emerald-300/20 border-t-emerald-300" />
+        </div>
+        <p className="section-label mt-8">Building your learning prescription</p>
+        <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-6xl">Your answers deserve more than an instant template.</h1>
+        <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-white/45">I’m comparing your destination, demonstrated experience, domain workflow, technical baseline, and constraints before deciding what belongs in your plan.</p>
+        <div className="mx-auto mt-10 max-w-xl rounded-2xl border border-white/10 bg-white/[.04] p-6 text-left">
+          <div className="flex items-center justify-between text-xs"><span className="font-medium text-white/65">Analysis in progress</span><span className="tabular-nums text-white/35">{synthesisElapsed < 18 ? `${18 - synthesisElapsed}s` : 'Finishing…'}</span></div>
+          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-emerald-300 transition-all duration-1000" style={{ width: `${Math.min(96, ((synthesisElapsed + 1) / 18) * 100)}%` }} /></div>
+          <ol className="mt-6 space-y-3">
+            {synthesisPhases.map((phase, index) => <li key={phase} className={`flex items-center gap-3 text-sm transition ${index < activePhase ? 'text-emerald-300' : index === activePhase ? 'text-white' : 'text-white/25'}`}><span className={`grid h-6 w-6 place-items-center rounded-full border text-[10px] ${index <= activePhase ? 'border-emerald-300/50' : 'border-white/10'}`}>{index < activePhase ? '✓' : index + 1}</span>{phase}</li>)}
+          </ol>
+        </div>
+      </div>
+    </section>
+  }
+
   if (view === 'questions') return (
     <section className="px-6 py-12 sm:px-8 sm:py-20">
-      <div className="mx-auto grid max-w-5xl gap-12 lg:grid-cols-[210px_1fr] lg:gap-20">
+      <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[250px_1fr] lg:gap-20">
         <aside>
-          <div className="flex justify-between text-xs font-medium text-white/55"><span>Your conversation</span><span>{questionIndex + 1} of {questionCount}</span></div>
+          <div className="flex justify-between text-xs font-medium text-white/55"><span>Adaptive interview</span><span>{questionIndex + 1} of {questionCount}</span></div>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-emerald-300 transition-all" style={{ width: `${((questionIndex + 1) / questionCount) * 100}%` }} /></div>
-          <ol className="mt-8 hidden space-y-4 text-xs lg:block">
-            {['Destination', 'Experience', 'Technical comfort', 'Real-life constraints', 'Your project'].map((label, index) => <li key={label} className={`flex items-center gap-3 ${index === questionIndex ? 'text-white' : index < questionIndex ? 'text-emerald-300' : 'text-white/30'}`}><span className={`grid h-6 w-6 place-items-center rounded-full border ${index === questionIndex ? 'border-emerald-300 bg-emerald-300 text-black' : 'border-white/15'}`}>{index < questionIndex ? '✓' : index + 1}</span>{label}</li>)}
-          </ol>
-          <p className="mt-9 hidden border-t border-white/10 pt-5 text-xs leading-relaxed text-white/30 lg:block">Text and recommendations are processed locally. Voice transcription is provided by your browser and may use its speech service. This site does not store your answers.</p>
+          {interviewProfile && <div className="mt-7 rounded-2xl border border-white/10 bg-white/[.04] p-5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">What I understand</p>
+            <p className="mt-3 text-sm font-medium leading-relaxed">{interviewProfile.oneLineGoal}</p>
+            <dl className="mt-4 space-y-3">{interviewProfile.knownSignals.slice(0, 4).map(signal => <div key={`${signal.label}-${signal.value}`}><dt className="text-[10px] uppercase tracking-wide text-white/30">{signal.label}</dt><dd className="mt-0.5 text-xs leading-relaxed text-white/55">{signal.value}</dd></div>)}</dl>
+          </div>}
+          <p className="mt-6 border-t border-white/10 pt-5 text-[11px] leading-relaxed text-white/30">Your text is sent securely to the assessment model to generate the next question and roadmap. This site does not save your answers.</p>
         </aside>
         <div>
           <p className="section-label mb-5"><span className="mr-2 inline-block h-2 w-2 rounded-full bg-emerald-300" />{question.eyebrow}</p>
           <h1 className="max-w-3xl text-4xl font-semibold leading-tight tracking-tight sm:text-6xl">{question.prompt}</h1>
           <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/45">{question.helper}</p>
-          {acknowledgement && <div className="mt-7 rounded-r-xl border-l-2 border-emerald-300 bg-emerald-300/[.07] px-5 py-4 text-sm leading-relaxed text-white/65">{acknowledgement}</div>}
+          {acknowledgement && <div className="mt-7 rounded-2xl border border-emerald-300/15 bg-emerald-300/[.06] p-5">
+            <p className="text-sm leading-relaxed text-white/70"><span className="font-semibold text-emerald-300">What I heard: </span>{acknowledgement}</p>
+            <p className="mt-2 text-xs leading-relaxed text-white/40"><span className="font-semibold text-white/55">Why I’m asking this next: </span>{interpretation}</p>
+          </div>}
           <div className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-white/[.04] shadow-2xl">
-            <textarea aria-label="Your answer" value={answer} onChange={event => setAnswer(event.target.value)} placeholder={question.placeholder} className="min-h-52 w-full resize-y bg-transparent p-6 text-base leading-relaxed text-white outline-none placeholder:text-white/20" />
+            <textarea aria-label="Your answer" disabled={loading} value={answer} onChange={event => setAnswer(event.target.value)} placeholder={question.placeholder} className="min-h-56 w-full resize-y bg-transparent p-6 text-base leading-relaxed text-white outline-none placeholder:text-white/20 disabled:opacity-50" />
             <div className="flex flex-col gap-4 border-t border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
-                <button type="button" disabled={!speechAvailable} onClick={recording ? stopRecording : startRecording} aria-label={recording ? 'Stop voice answer' : 'Start voice answer'} className={`grid h-12 w-12 place-items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-30 ${recording ? 'animate-pulse bg-red-400 text-black' : 'bg-emerald-300 text-black hover:bg-emerald-200'}`}><MicIcon stop={recording} /></button>
+                <button type="button" disabled={!speechAvailable || loading} onClick={recording ? stopRecording : startRecording} aria-label={recording ? 'Stop voice answer' : 'Start voice answer'} className={`grid h-12 w-12 place-items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-30 ${recording ? 'animate-pulse bg-red-400 text-black' : 'bg-emerald-300 text-black hover:bg-emerald-200'}`}><MicIcon stop={recording} /></button>
                 <div><p className="text-sm font-medium">{recording ? 'Listening…' : speechAvailable ? 'Answer by voice' : 'Voice unavailable'}</p><p className="mt-0.5 text-[11px] text-white/30">{recording ? `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')} · tap stop when finished` : speechAvailable ? 'Speak as long as you like, then stop' : 'Type your answer in this browser'}</p></div>
               </div>
-              <div className="flex items-center justify-between gap-4 sm:justify-end"><span className="text-[11px] text-white/30">{words} words</span><button type="button" disabled={answer.trim().length < 12} onClick={submitAnswer} className="btn-press inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-30">Continue <ArrowIcon /></button></div>
+              <div className="flex items-center justify-between gap-4 sm:justify-end"><span className="text-[11px] text-white/30">{words} words</span><button type="button" disabled={answer.trim().length < 20 || loading} onClick={submitAnswer} className="btn-press inline-flex min-w-32 items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-30">{loading ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-black/20 border-t-black" />Thinking</> : questionIndex === questionCount - 1 ? <>Build my plan <ArrowIcon /></> : <>Continue <ArrowIcon /></>}</button></div>
             </div>
           </div>
-          <p className="mt-3 text-[11px] text-white/25">You can edit the transcript before continuing.</p>
+          <p className="mt-3 text-[11px] text-white/25">Long answers are welcome. You can edit the transcript before continuing.</p>
         </div>
       </div>
       {notice && <div role="status" className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-medium text-black shadow-xl">{notice}</div>}
     </section>
   )
 
-  if (!profile) return null
+  if (!analysis) return null
   return (
     <section className="px-6 py-10 sm:px-8 sm:py-16">
       <div className="mx-auto max-w-6xl">
         <div className="relative overflow-hidden rounded-3xl border border-emerald-300/20 bg-emerald-300 p-7 text-black sm:p-12">
           <div className="absolute -right-28 -top-32 h-80 w-80 rounded-full border-[60px] border-black/10" />
-          <div className="relative flex items-start justify-between gap-8"><div><p className="text-[11px] font-bold uppercase tracking-[.17em] text-black/55">Your AI Learning Compass</p><h1 className="mt-4 text-5xl font-bold tracking-[-.05em] sm:text-7xl">Stage {profile.stageNumber}: {profile.stage}</h1><p className="mt-6 max-w-3xl text-base leading-relaxed text-black/65 sm:text-lg">{profile.summary}</p></div><span className="hidden h-24 w-24 shrink-0 place-items-center rounded-full border border-black/20 text-4xl font-bold sm:grid">{profile.stageNumber}</span></div>
+          <div className="relative max-w-4xl"><p className="text-[11px] font-bold uppercase tracking-[.17em] text-black/55">Your AI Learning Prescription · {analysis.confidence} confidence</p><h1 className="mt-4 text-4xl font-bold leading-[.98] tracking-[-.05em] sm:text-7xl">{analysis.headline}</h1><p className="mt-6 max-w-3xl text-base leading-relaxed text-black/65 sm:text-lg">{analysis.subhead}</p></div>
           <div className="relative mt-8 flex flex-wrap gap-2"><button onClick={copyRoadmap} className="rounded-full border border-black/20 px-4 py-2 text-sm font-medium hover:bg-black/5">Copy roadmap</button><button onClick={shareRoadmap} className="rounded-full border border-black/20 px-4 py-2 text-sm font-medium hover:bg-black/5">Share</button><button onClick={() => window.print()} className="rounded-full border border-black/20 px-4 py-2 text-sm font-medium hover:bg-black/5">Save as PDF</button></div>
         </div>
-        <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_300px]">
-          <div className="space-y-5">
-            <article className="rounded-2xl border border-white/10 bg-white/[.04] p-6 sm:p-9"><p className="section-label">Learn these next</p><h2 className="mt-3 text-3xl font-semibold">Your three highest-leverage moves</h2><div className="mt-6 divide-y divide-white/10">{profile.priorities.map((priority, index) => <div key={priority.title} className="grid gap-4 py-6 sm:grid-cols-[44px_1fr]"><span className="grid h-11 w-11 place-items-center rounded-full bg-emerald-300 font-bold text-black">{index + 1}</span><div><h3 className="font-semibold">{priority.title}</h3><p className="mt-2 text-sm leading-relaxed text-white/45">{priority.why}</p><p className="mt-3 text-sm font-medium text-emerald-300">Do this: {priority.action}</p></div></div>)}</div></article>
-            <article className="rounded-2xl border border-white/10 bg-white/[.04] p-6 sm:p-9"><p className="section-label">A realistic pace</p><h2 className="mt-3 text-3xl font-semibold">Your 30-day learning plan</h2><div className="mt-7 grid gap-3 sm:grid-cols-2">{profile.weeks.map(week => <div key={week.week} className="rounded-xl border border-white/5 bg-black/30 p-5"><span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">{week.week}</span><h3 className="mt-2 font-semibold">{week.focus}</h3><p className="mt-2 text-xs leading-relaxed text-white/40">{week.outcome}</p></div>)}</div></article>
-            <article className="rounded-2xl border border-blue-300/20 bg-blue-300 p-7 text-black sm:p-9"><p className="text-[10px] font-bold uppercase tracking-widest text-black/50">Build this, don’t just study</p><h2 className="mt-3 text-3xl font-bold">{profile.project.title}</h2><p className="mt-4 leading-relaxed text-black/65">{profile.project.brief}</p><p className="mt-6 border-t border-black/15 pt-5 text-sm"><strong>Evidence you learned it:</strong> {profile.project.proof}</p></article>
-          </div>
-          <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start"><div className="rounded-2xl border border-white/10 bg-white/[.04] p-5"><p className="text-xs font-semibold">Your path</p><p className="mt-3 text-sm font-medium text-emerald-300">{profile.trackName}</p><p className="mt-2 text-xs leading-relaxed text-white/40">{profile.weeklyHours}<br />{profile.learningStyle}</p></div><div className="rounded-2xl border border-white/10 bg-white/[.04] p-5"><p className="text-xs font-semibold">Not yet</p><ul className="mt-4 space-y-3">{profile.notYet.map(item => <li key={item} className="flex gap-2 text-xs leading-relaxed text-white/40"><span className="text-emerald-300">→</span>{item}</li>)}</ul></div><button onClick={restart} className="w-full rounded-full border border-white/15 px-4 py-3 text-sm text-white/60 transition hover:border-white/30 hover:text-white">Start over</button></aside>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          <article className="rounded-2xl border border-white/10 bg-white/[.04] p-6 sm:p-8"><p className="section-label">Where you are</p><p className="mt-4 text-sm leading-relaxed text-white/60">{analysis.currentPosition}</p></article>
+          <article className="rounded-2xl border border-blue-300/15 bg-blue-300/[.07] p-6 sm:p-8"><p className="section-label text-blue-300">Your 30-day destination</p><p className="mt-4 text-sm leading-relaxed text-white/60">{analysis.targetPosition}</p></article>
+        </div>
+
+        <article className="mt-5 rounded-2xl border border-white/10 bg-white/[.04] p-6 sm:p-9">
+          <p className="section-label">The evidence behind this plan</p><h2 className="mt-3 text-3xl font-semibold">What your answers signal</h2>
+          <div className="mt-7 grid gap-3 md:grid-cols-3">{analysis.profileSignals.map(signal => <div key={`${signal.label}-${signal.finding}`} className="rounded-xl border border-white/5 bg-black/25 p-5"><p className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">{signal.label}</p><p className="mt-3 text-sm font-medium leading-relaxed">{signal.finding}</p><p className="mt-3 text-xs leading-relaxed text-white/35">Evidence: {signal.evidence}</p></div>)}</div>
+        </article>
+
+        <article className="mt-5 rounded-2xl border border-amber-300/15 bg-amber-300/[.06] p-6 sm:p-9">
+          <p className="section-label text-amber-200">Start here</p><h2 className="mt-3 text-3xl font-semibold">Your first 72 hours</h2>
+          <div className="mt-7 grid gap-3">{analysis.first72Hours.map((task, index) => <TaskCard key={`${task.action}-${index}`} task={task} number={index + 1} />)}</div>
+        </article>
+
+        <article className="mt-5 rounded-2xl border border-white/10 bg-white/[.04] p-6 sm:p-9">
+          <p className="section-label">Learn these next—in this order</p><h2 className="mt-3 text-3xl font-semibold">Your highest-leverage capabilities</h2>
+          <div className="mt-8 space-y-5">{analysis.priorities.map((priority, index) => <section key={priority.title} className="rounded-2xl border border-white/10 bg-black/25 p-5 sm:p-7">
+            <div className="grid gap-4 sm:grid-cols-[48px_1fr]"><span className="grid h-12 w-12 place-items-center rounded-full bg-emerald-300 text-lg font-bold text-black">{index + 1}</span><div><h3 className="text-xl font-semibold">{priority.title}</h3><p className="mt-2 text-sm leading-relaxed text-white/45">{priority.whyThisFits}</p></div></div>
+            <div className="mt-6 grid gap-6 lg:grid-cols-[.7fr_1.3fr]"><div><p className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">Learn</p><ul className="mt-3 space-y-2">{priority.learn.map(item => <li key={item} className="flex gap-2 text-xs leading-relaxed text-white/50"><span className="text-emerald-300">→</span>{item}</li>)}</ul><p className="mt-5 border-t border-white/10 pt-4 text-xs leading-relaxed text-amber-200/60"><strong>Avoid:</strong> {priority.skipTrap}</p></div><div className="space-y-3">{priority.tasks.map((task, taskIndex) => <TaskCard key={`${task.action}-${taskIndex}`} task={task} />)}</div></div>
+          </section>)}</div>
+        </article>
+
+        <article className="mt-5 rounded-2xl border border-white/10 bg-white/[.04] p-6 sm:p-9"><p className="section-label">A realistic sequence</p><h2 className="mt-3 text-3xl font-semibold">Your 30-day plan</h2><div className="mt-7 grid gap-3 sm:grid-cols-2">{analysis.weeks.map(week => <div key={week.week} className="rounded-xl border border-white/5 bg-black/30 p-5"><span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">{week.week}</span><h3 className="mt-2 text-lg font-semibold">{week.objective}</h3><dl className="mt-4 space-y-3 text-xs leading-relaxed"><div><dt className="font-semibold text-white/65">Learn</dt><dd className="mt-1 text-white/40">{week.learn}</dd></div><div><dt className="font-semibold text-white/65">Build</dt><dd className="mt-1 text-white/40">{week.build}</dd></div><div><dt className="font-semibold text-blue-300">Evidence</dt><dd className="mt-1 text-white/40">{week.evidence}</dd></div></dl></div>)}</div></article>
+
+        <article className="mt-5 rounded-2xl border border-blue-300/20 bg-blue-300 p-7 text-black sm:p-10"><p className="text-[10px] font-bold uppercase tracking-widest text-black/50">Build this, don’t just study</p><h2 className="mt-3 text-3xl font-bold sm:text-5xl">{analysis.capstone.title}</h2><p className="mt-5 max-w-4xl leading-relaxed text-black/65">{analysis.capstone.brief}</p><div className="mt-7 grid gap-6 border-t border-black/15 pt-6 md:grid-cols-2"><div><h3 className="text-sm font-bold">Non-negotiable requirements</h3><ul className="mt-3 space-y-2">{analysis.capstone.requirements.map(item => <li key={item} className="flex gap-2 text-sm leading-relaxed text-black/60"><span>→</span>{item}</li>)}</ul></div><div><h3 className="text-sm font-bold">Proof you can do it</h3><ul className="mt-3 space-y-2">{analysis.capstone.proof.map(item => <li key={item} className="flex gap-2 text-sm leading-relaxed text-black/60"><span>✓</span>{item}</li>)}</ul></div></div></article>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-[1.35fr_.65fr]">
+          <article className="rounded-2xl border border-white/10 bg-white/[.04] p-6 sm:p-9"><p className="section-label">What to study</p><h2 className="mt-3 text-3xl font-semibold">Targeted learning searches</h2><p className="mt-3 text-sm text-white/40">Specific search briefs beat a pile of generic course links—and remain useful as tools change.</p><div className="mt-6 divide-y divide-white/10">{analysis.resources.map(resource => <div key={resource.topic} className="py-5"><h3 className="font-semibold">{resource.topic}</h3><p className="mt-2 text-xs leading-relaxed text-white/40">{resource.why}</p><p className="mt-3 rounded-lg bg-black/30 px-3 py-2 text-xs text-emerald-300">Search: “{resource.searchFor}”</p><p className="mt-2 text-[11px] text-white/30">Best format: {resource.format}</p></div>)}</div></article>
+          <aside className="space-y-5"><div className="rounded-2xl border border-white/10 bg-white/[.04] p-6"><p className="text-sm font-semibold">Your useful advantages</p><ul className="mt-4 space-y-3">{analysis.strengths.map(item => <li key={item} className="flex gap-2 text-xs leading-relaxed text-white/45"><span className="text-emerald-300">✓</span>{item}</li>)}</ul></div><div className="rounded-2xl border border-white/10 bg-white/[.04] p-6"><p className="text-sm font-semibold">Not now</p><ul className="mt-4 space-y-3">{analysis.notNow.map(item => <li key={item} className="flex gap-2 text-xs leading-relaxed text-white/45"><span className="text-amber-200">→</span>{item}</li>)}</ul></div>{analysis.assumptions.length > 0 && <div className="rounded-2xl border border-white/10 bg-white/[.04] p-6"><p className="text-sm font-semibold">Assumptions to verify</p><ul className="mt-4 space-y-3">{analysis.assumptions.map(item => <li key={item} className="text-xs leading-relaxed text-white/40">{item}</li>)}</ul></div>}<button onClick={restart} className="w-full rounded-full border border-white/15 px-4 py-3 text-sm text-white/60 transition hover:border-white/30 hover:text-white">Start over</button></aside>
         </div>
       </div>
       {notice && <div role="status" className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-medium text-black shadow-xl">{notice}</div>}
