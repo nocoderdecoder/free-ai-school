@@ -36,3 +36,25 @@ Example result from `publish_readiness_check`:
   ]
 }
 ```
+
+Example result from `list_screenshot_queue`:
+
+```json
+{
+  "queued": 5,
+  "captureReady": 1,
+  "blocked": 4,
+  "queue": [
+    {
+      "project": "Speaking Speed Tester",
+      "reason": "Project has no screenshot image path.",
+      "currentImage": null,
+      "suggestedImage": "/projects/speaking-speed-tester.png",
+      "captureTarget": "/tools/speaking-speed",
+      "captureType": "local-route",
+      "captureReady": true,
+      "blocker": null
+    }
+  ]
+}
+```

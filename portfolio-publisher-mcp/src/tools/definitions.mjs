@@ -30,6 +30,17 @@ export const tools = [
     },
   },
   {
+    name: "list_screenshot_queue",
+    title: "List Screenshot Queue",
+    description:
+      "List Lab projects that need a screenshot, including capture targets, suggested image paths, and blockers.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "publish_readiness_check",
     title: "Publish Readiness Check",
     description: "Check whether a project has the basics needed before it is published to the Lab.",

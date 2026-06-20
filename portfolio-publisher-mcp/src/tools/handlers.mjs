@@ -74,6 +74,31 @@ function suggestedScreenshotPath(projectName) {
   return slug ? `/projects/${slug}.png` : "/projects/<project-slug>.png";
 }
 
+function getScreenshotCapture(project, asset) {
+  const captureTarget = project.url || null;
+  const captureType = captureTarget
+    ? captureTarget.startsWith("http")
+      ? "external-url"
+      : "local-route"
+    : "unavailable";
+  const reason = asset.status === "missing-file"
+    ? `Image path is set, but the file does not exist: ${asset.file}`
+    : "Project has no screenshot image path.";
+  const suggestedImage = project.image || suggestedScreenshotPath(project.name);
+  const captureReady = Boolean(captureTarget);
+
+  return {
+    project: project.name,
+    reason,
+    currentImage: project.image || null,
+    suggestedImage,
+    captureTarget,
+    captureType,
+    captureReady,
+    blocker: captureReady ? null : "Add a project URL or local route before capturing a screenshot.",
+  };
+}
+
 function normalizeProjectQuery(value) {
   return String(value ?? "").trim();
 }
@@ -223,6 +248,22 @@ export async function callTool(name, args = {}) {
       checked: assets.length,
       missing: assets.filter((asset) => !asset.exists).length,
       assets,
+    });
+  }
+
+  if (name === "list_screenshot_queue") {
+    const projects = await listLabProjects();
+    const assets = await Promise.all(projects.map(getProjectAssetStatus));
+    const queue = projects
+      .map((project, index) => ({ project, asset: assets[index] }))
+      .filter(({ asset }) => !asset.exists)
+      .map(({ project, asset }) => getScreenshotCapture(project, asset));
+
+    return textResult({
+      queued: queue.length,
+      captureReady: queue.filter((item) => item.captureReady).length,
+      blocked: queue.filter((item) => !item.captureReady).length,
+      queue,
     });
   }
 
