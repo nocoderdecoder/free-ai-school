@@ -1,10 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from 'next-sanity'
-import { ScrollSection } from './components/ScrollSection'
-import { ToolsMarquee } from './components/ToolsMarquee'
 import { Nav } from './components/Nav'
-import { AnimatedHero, HeroItem } from './components/AnimatedHero'
-import { MetricsStrip } from './components/MetricsStrip'
 
 export const metadata: Metadata = {
   title: 'Anshul Gupta — AI Builder & Educator',
@@ -30,287 +26,191 @@ const sanity = createClient({
   useCdn: false,
 })
 
-function GitHubIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" aria-hidden="true">
-      <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c.998.005 2.046.137 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
-    </svg>
-  )
-}
-
-function LinkedInIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" aria-hidden="true">
-      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-    </svg>
-  )
-}
-
 export default async function Home() {
-  // Fetch latest trending article for the hero card
-  let latestArticle: { title: string; slug: string; publishedAt: string; excerpt?: string } | null = null
-  let latestDate: string | null = null
+  let trendingArticles: { title: string; slug: string; publishedAt: string }[] = []
   let totalTrending = 0
   try {
-    const [latest, countResult] = await Promise.all([
+    const [articles, count] = await Promise.all([
       sanity.fetch(
-        `*[_type == "trending"] | order(publishedAt desc)[0] { title, "slug": slug.current, publishedAt, excerpt }`
+        `*[_type == "trending"] | order(publishedAt desc)[0...4] { title, "slug": slug.current, publishedAt }`
       ),
       sanity.fetch(`count(*[_type == "trending"])`),
     ])
-    if (latest?.publishedAt) {
-      latestArticle = latest
-      latestDate = new Date(latest.publishedAt).toLocaleDateString('en-US', {
-        month: 'long', day: 'numeric',
-      })
-    }
-    totalTrending = countResult || 0
+    trendingArticles = articles || []
+    totalTrending = count || 0
   } catch {}
 
   return (
-    <main className="min-h-screen" style={{ backgroundColor: 'var(--bg-deep)' }}>
-
-      <Nav />
+    <main style={{ backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)' }}>
+      <Nav variant="light" />
 
       {/* Hero */}
-      <AnimatedHero>
-        <div className="flex flex-col lg:flex-row lg:items-center lg:gap-12">
-          {/* Left — hero copy */}
-          <div className="flex-1 min-w-0">
-            <HeroItem>
-              <p className="section-label mb-4">
-                anshul.ai
-              </p>
-            </HeroItem>
-            <HeroItem>
-              <h1 style={{ fontSize: 'var(--text-hero)', lineHeight: 1.05, letterSpacing: '-0.03em' }} className="font-bold mb-6">
-                <span className="shimmer-text">AI strategy.</span>
-                <br />Built in public.
-              </h1>
-            </HeroItem>
-            <HeroItem>
-              <p className="text-white/60 text-xl leading-relaxed mb-10">
-                GTM Strategy at Google. Kellogg MBA. Building AI tools and education for business professionals — and sharing everything openly.
-              </p>
-            </HeroItem>
-            <HeroItem>
-              <div className="flex items-center gap-4 flex-wrap">
-                <a href="/projects" className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-white/90 transition btn-press">
-                  See what I built
-                </a>
-                <a href="/work" className="border border-white/20 px-6 py-3 rounded-full font-medium hover:border-white/40 transition btn-press">
-                  Professional work
-                </a>
-                <a href="/learn" className="flex items-center gap-1 text-white/40 hover:text-white transition text-sm">
-                  AI School →
-                </a>
-              </div>
-            </HeroItem>
-          </div>
-
-          {/* Right — trending article card */}
-          {latestArticle && (
-            <HeroItem>
-              <div
-                className="mt-10 lg:mt-0 lg:w-[300px] shrink-0 rounded-xl border border-white/10 overflow-hidden"
-                style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
-              >
-                <a
-                  href={`/trending/${latestArticle.slug}`}
-                  className="group block p-6 hover:bg-white/[0.02] transition"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-emerald-400/80 font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      Trending today
-                    </span>
-                    <span className="text-white/20 text-xs">{latestDate}</span>
-                  </div>
-                  <h2 className="text-base font-semibold text-white/90 leading-snug mb-2 group-hover:text-white transition">
-                    {latestArticle.title}
-                  </h2>
-                  {latestArticle.excerpt && (
-                    <p className="text-white/35 text-sm leading-relaxed mb-4 line-clamp-3">
-                      {latestArticle.excerpt}
-                    </p>
-                  )}
-                  <span className="text-white/40 text-sm group-hover:text-white/70 transition">
-                    Read today's article →
-                  </span>
-                </a>
-                {totalTrending > 1 && (
-                  <a href="/trending" className="block border-t border-white/[0.06] px-6 py-3 hover:bg-white/[0.02] transition">
-                    <span className="text-white/25 text-xs hover:text-white/50 transition">Browse all {totalTrending} articles →</span>
-                  </a>
-                )}
-              </div>
-            </HeroItem>
-          )}
-        </div>
-      </AnimatedHero>
-
-      {/* Credential strip */}
-      <ScrollSection>
-        <section className="border-t" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-base)' }}>
-          <div className="max-w-3xl mx-auto px-8 py-5 flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-white/30 text-xs uppercase tracking-widest mr-1">Background</span>
-              <span className="text-white/70 text-sm font-medium">Google</span>
-              <span className="text-white/20 text-sm">·</span>
-              <span className="text-white/70 text-sm font-medium">Kellogg / Northwestern</span>
-              <span className="text-white/20 text-sm">·</span>
-              <span className="text-white/70 text-sm font-medium">Uber</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <a
-                href="https://github.com/nocoderdecoder"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-white/40 hover:text-white transition text-xs"
-              >
-                <GitHubIcon />
-                <span>GitHub</span>
-              </a>
-              <a
-                href="https://www.linkedin.com/in/anshul-gupta1/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-white/40 hover:text-white transition text-xs"
-              >
-                <LinkedInIcon />
-                <span>LinkedIn</span>
-              </a>
-            </div>
-          </div>
-
-          <div className="border-t border-white/10">
-            <ToolsMarquee />
-          </div>
-        </section>
-      </ScrollSection>
-
-      <MetricsStrip
-        metrics={[
-          { value: 94, suffix: '+', label: 'Articles published' },
-          { value: 5, label: 'Learning modules' },
-          { value: 6, label: 'Tools built' },
-          { value: 365, label: 'Daily AI analysis' },
-        ]}
-      />
-
-      {/* Sections */}
-      <section className="max-w-3xl mx-auto px-8 py-16 grid grid-cols-1 gap-6">
-
-        {/* Learn — primary section, more visual weight */}
-        <ScrollSection delay={0}>
-          <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
-            <p className="section-label mb-4">Free AI School</p>
-            <h2 className="text-3xl font-bold mb-3">AI education for business professionals</h2>
-            <p className="text-white/60 leading-relaxed mb-3 max-w-xl">
-              No prerequisites. No engineering degree. A complete curriculum for the people who run teams, make decisions, and want to actually use AI at work.
-            </p>
-            <p className="text-white/25 text-sm mb-6">5 modules · 99 articles · free</p>
-            <a href="/learn" className="inline-flex items-center gap-2 text-sm font-medium text-black bg-white px-5 py-2.5 rounded-full hover:bg-white/90 transition btn-press">
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 360px',
+          gap: '56px',
+          alignItems: 'start',
+          maxWidth: '1080px',
+          margin: '0 auto',
+          padding: '80px 48px 64px',
+        }}
+        className="ed-hero"
+      >
+        {/* Left */}
+        <div>
+          <h1
+            style={{
+              fontFamily: 'var(--font-serif)',
+              fontSize: '54px',
+              fontWeight: 400,
+              lineHeight: 1.08,
+              letterSpacing: '-0.01em',
+              color: 'var(--ed-text-dark)',
+              marginBottom: '20px',
+            }}
+          >
+            Building AI tools for people who run things.
+          </h1>
+          <p style={{ fontSize: '17px', lineHeight: 1.7, color: 'var(--ed-text-muted)', marginBottom: '32px', maxWidth: '480px' }}>
+            GTM Strategy at Google. Kellogg MBA. I build AI products without an engineering degree and teach what I learn — all of it, openly.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '40px' }}>
+            <a
+              href="/projects"
+              style={{ background: 'var(--ed-cta)', color: 'var(--ed-bg)', padding: '12px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, textDecoration: 'none', transition: 'background 0.15s' }}
+            >
+              See what I&apos;ve built
+            </a>
+            <a
+              href="/learn"
+              style={{ background: 'var(--ed-card-warm)', color: 'var(--ed-text-secondary)', padding: '12px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, textDecoration: 'none', transition: 'background 0.15s' }}
+            >
               Start learning →
             </a>
           </div>
-        </ScrollSection>
-
-        {/* Projects */}
-        <ScrollSection delay={100}>
-          <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
-            <p className="section-label mb-4">Projects</p>
-            <h2 className="text-2xl font-bold mb-3">AI products I have built</h2>
-            <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
-              From prompt scoring tools to competitive intelligence scrapers. Real products built without writing a single line of code from scratch.
-            </p>
-            <a href="/projects" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
-              View all projects →
-            </a>
+          <div
+            style={{
+              display: 'flex',
+              gap: '32px',
+              fontSize: '13px',
+              color: 'var(--ed-text-light)',
+              paddingTop: '24px',
+              borderTop: '1px solid var(--ed-border)',
+            }}
+          >
+            <div><strong style={{ color: 'var(--ed-text-secondary)', fontWeight: 600, display: 'block', marginBottom: '1px' }}>Google</strong>GTM Strategy</div>
+            <div><strong style={{ color: 'var(--ed-text-secondary)', fontWeight: 600, display: 'block', marginBottom: '1px' }}>Kellogg</strong>Northwestern MBA</div>
+            <div><strong style={{ color: 'var(--ed-text-secondary)', fontWeight: 600, display: 'block', marginBottom: '1px' }}>Previously</strong>Uber</div>
           </div>
-        </ScrollSection>
+        </div>
 
-        {/* Trending — all daily articles */}
-        <ScrollSection delay={200}>
-          <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
-            <p className="section-label mb-4">Trending</p>
-            <h2 className="text-2xl font-bold mb-3">Daily AI analysis</h2>
-            <p className="text-white/60 leading-relaxed mb-3 max-w-xl">
-              Every morning, a new article on the most trending topic in AI — written for business professionals, not researchers.
-            </p>
-            {latestDate && (
-              <p className="text-white/25 text-sm mb-6">Last published {latestDate}</p>
-            )}
-            <a href="/trending" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
-              Browse all articles →
-            </a>
+        {/* Right — Trending sidebar */}
+        <aside
+          style={{
+            background: 'var(--ed-card-warm)',
+            borderRadius: '14px',
+            padding: '28px',
+          }}
+        >
+          <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--ed-text-faint)', fontWeight: 600, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--ed-trending-dot)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+            Trending today
           </div>
-        </ScrollSection>
-
-        {/* Deals & Events */}
-        <ScrollSection delay={300}>
-          <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
-            <p className="section-label mb-4">Deals & Events</p>
-            <h2 className="text-2xl font-bold mb-3">Major moves in AI.</h2>
-            <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
-              Significant acquisitions and conferences — analysed when they happen.
-            </p>
-            <a href="/analysis" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
-              View all →
+          {trendingArticles.map((article, i) => (
+            <a
+              key={article.slug}
+              href={`/trending/${article.slug}`}
+              className="ed-trend-item"
+              style={{
+                display: 'block',
+                padding: '14px 0',
+                borderTop: i === 0 ? 'none' : '1px solid #E0DCD6',
+                textDecoration: 'none',
+                color: 'inherit',
+                transition: 'padding-left 0.15s',
+              }}
+            >
+              <h4 style={{ fontSize: '14px', fontWeight: 500, color: '#333', lineHeight: 1.4, marginBottom: '3px' }}>
+                {article.title}
+              </h4>
+              <span style={{ fontSize: '11px', color: 'var(--ed-text-light)' }}>
+                {new Date(article.publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+              </span>
             </a>
-          </div>
-        </ScrollSection>
-
-        {/* Writing */}
-        <ScrollSection delay={400}>
-          <div className="border border-white/10 rounded-xl p-8 hover:border-white/20 transition card-hover" style={{ backgroundColor: 'var(--bg-card)' }}>
-            <p className="section-label mb-4">Writing</p>
-            <h2 className="text-2xl font-bold mb-3">Honest takes on AI in business</h2>
-            <p className="text-white/60 leading-relaxed mb-6 max-w-xl">
-              What I am building, what is working, what failed, and what I think is actually happening in AI right now.
-            </p>
-            <a href="/writing" className="inline-flex items-center gap-2 text-sm text-white hover:text-white/70 transition border border-white/20 px-4 py-2 rounded-full hover:border-white/40">
-              Read the writing →
+          ))}
+          {totalTrending > 4 && (
+            <a
+              href="/trending"
+              style={{
+                display: 'block',
+                fontSize: '12px',
+                color: 'var(--ed-text-faint)',
+                fontWeight: 500,
+                textDecoration: 'none',
+                marginTop: '16px',
+                paddingTop: '14px',
+                borderTop: '1px solid #E0DCD6',
+                transition: 'color 0.15s',
+              }}
+              className="ed-trend-all"
+            >
+              Browse all {totalTrending}+ articles →
             </a>
-          </div>
-        </ScrollSection>
+          )}
+        </aside>
+      </section>
 
+      {/* Featured cards */}
+      <section style={{ maxWidth: '1080px', margin: '0 auto', padding: '0 48px 32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }} className="ed-cards">
+        <a href="/learn" className="ed-feat-card" style={{ padding: '44px', borderRadius: '14px', background: 'var(--ed-card-school)', textDecoration: 'none', color: 'var(--ed-text)', display: 'flex', flexDirection: 'column', transition: 'filter 0.25s, transform 0.25s' }}>
+          <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginBottom: '16px', opacity: 0.5 }}>Education</span>
+          <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', fontWeight: 400, lineHeight: 1.2, marginBottom: '12px' }}>Free AI School</h3>
+          <p style={{ fontSize: '14px', lineHeight: 1.65, color: 'var(--ed-text-muted)', marginBottom: '20px', flex: 1 }}>
+            Five modules, ninety-nine articles. A complete curriculum for business professionals — no prerequisites, no engineering degree.
+          </p>
+          <span className="ed-feat-link" style={{ fontSize: '13px', color: 'var(--ed-text)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>Start learning →</span>
+        </a>
+        <a href="/projects" className="ed-feat-card" style={{ padding: '44px', borderRadius: '14px', background: 'var(--ed-card-projects)', textDecoration: 'none', color: 'var(--ed-text)', display: 'flex', flexDirection: 'column', transition: 'filter 0.25s, transform 0.25s' }}>
+          <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginBottom: '16px', opacity: 0.5 }}>Projects</span>
+          <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', fontWeight: 400, lineHeight: 1.2, marginBottom: '12px' }}>AI tools I&apos;ve built</h3>
+          <p style={{ fontSize: '14px', lineHeight: 1.65, color: 'var(--ed-text-muted)', marginBottom: '20px', flex: 1 }}>
+            Prompt scoring, competitive intelligence, learning compass — real products I built and shipped in public.
+          </p>
+          <span className="ed-feat-link" style={{ fontSize: '13px', color: 'var(--ed-text)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>View all projects →</span>
+        </a>
+      </section>
+
+      {/* Bottom cards */}
+      <section style={{ maxWidth: '1080px', margin: '0 auto', padding: '0 48px 80px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }} className="ed-cards">
+        <a href="/writing" className="ed-bottom-card" style={{ padding: '36px', background: 'var(--ed-card-warm)', borderRadius: '14px', textDecoration: 'none', color: 'var(--ed-text)', display: 'flex', flexDirection: 'column', transition: 'background 0.25s, transform 0.25s' }}>
+          <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', fontWeight: 400, marginBottom: '8px', lineHeight: 1.25 }}>Writing</h3>
+          <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--ed-text-muted)', marginBottom: '18px', flex: 1 }}>
+            Honest takes on building with AI. What&apos;s working, what failed, and what I think is actually happening right now.
+          </p>
+          <span style={{ fontSize: '12px', color: 'var(--ed-text-secondary)', fontWeight: 600 }}>Read the essays →</span>
+        </a>
+        <a href="/lab" className="ed-bottom-card" style={{ padding: '36px', background: 'var(--ed-card-warm)', borderRadius: '14px', textDecoration: 'none', color: 'var(--ed-text)', display: 'flex', flexDirection: 'column', transition: 'background 0.25s, transform 0.25s' }}>
+          <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', fontWeight: 400, marginBottom: '8px', lineHeight: 1.25 }}>Lab</h3>
+          <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--ed-text-muted)', marginBottom: '18px', flex: 1 }}>
+            Interactive AI tools you can try right now — prompt scorer, learning compass, and more.
+          </p>
+          <span style={{ fontSize: '12px', color: 'var(--ed-text-secondary)', fontWeight: 600 }}>Open the lab →</span>
+        </a>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/10">
-        <div className="max-w-3xl mx-auto px-8 py-16 flex flex-col sm:flex-row justify-between gap-8">
-
-          {/* Left */}
-          <div>
-            <p className="font-semibold text-white mb-1">Anshul Gupta</p>
-            <p className="text-white/30 text-sm">GTM Strategy at Google · Kellogg MBA</p>
-            <p className="text-white/20 text-xs mt-4">© {new Date().getFullYear()} · anshul.ai</p>
-          </div>
-
-          {/* Right — nav links */}
-          <div className="flex gap-12">
-            <div className="flex flex-col gap-2">
-              <p className="text-white/25 text-xs uppercase tracking-widest mb-1">Pages</p>
-              <a href="/about"     className="text-white/40 text-sm hover:text-white transition">About</a>
-              <a href="/work"      className="text-white/40 text-sm hover:text-white transition">Work</a>
-              <a href="/projects"  className="text-white/40 text-sm hover:text-white transition">Projects</a>
-              <a href="/learn"     className="text-white/40 text-sm hover:text-white transition">AI School</a>
-              <a href="/analysis"  className="text-white/40 text-sm hover:text-white transition">Analysis</a>
-              <a href="/writing"   className="text-white/40 text-sm hover:text-white transition">Writing</a>
-              <a href="/downloads" className="text-white/40 text-sm hover:text-white transition">Downloads</a>
-              <a href="/contact"   className="text-white/40 text-sm hover:text-white transition">Contact</a>
-            </div>
-            <div className="flex flex-col gap-2">
-              <p className="text-white/25 text-xs uppercase tracking-widest mb-1">Connect</p>
-              <a href="https://www.linkedin.com/in/anshul-gupta1/" target="_blank" rel="noopener noreferrer" className="text-white/40 text-sm hover:text-white transition">LinkedIn</a>
-              <a href="https://github.com/nocoderdecoder"           target="_blank" rel="noopener noreferrer" className="text-white/40 text-sm hover:text-white transition">GitHub</a>
-            </div>
-          </div>
-
+      <footer style={{ borderTop: '1px solid var(--ed-border)', maxWidth: '1080px', margin: '0 auto', padding: '40px 48px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: '13px', color: 'var(--ed-text-light)' }}>
+          <strong style={{ color: 'var(--ed-text-secondary)', fontWeight: 600, display: 'block', marginBottom: '2px' }}>Anshul Gupta</strong>
+          © {new Date().getFullYear()} · anshul.ai
+        </div>
+        <div style={{ display: 'flex', gap: '24px' }}>
+          <a href="https://github.com/nocoderdecoder" target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', color: 'var(--ed-text-faint)', textDecoration: 'none', transition: 'color 0.15s' }} className="ed-footer-link">GitHub</a>
+          <a href="https://www.linkedin.com/in/anshul-gupta1/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', color: 'var(--ed-text-faint)', textDecoration: 'none', transition: 'color 0.15s' }} className="ed-footer-link">LinkedIn</a>
+          <a href="/contact" style={{ fontSize: '13px', color: 'var(--ed-text-faint)', textDecoration: 'none', transition: 'color 0.15s' }} className="ed-footer-link">Contact</a>
         </div>
       </footer>
-
     </main>
   )
 }

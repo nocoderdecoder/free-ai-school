@@ -93,9 +93,18 @@ const NAV_LINKS = [
   { label: 'Contact',  href: '/contact' },
 ]
 
+const LIGHT_NAV_LINKS = [
+  { label: 'AI School', href: '/learn' },
+  { label: 'Projects',  href: '/projects' },
+  { label: 'Trending',  href: '/trending' },
+  { label: 'Writing',   href: '/writing' },
+  { label: 'About',     href: '/about' },
+]
+
 const DOWNLOADS_LINK = { label: 'Downloads', href: '/downloads' }
 
-export function Nav() {
+export function Nav({ variant = 'dark' }: { variant?: 'dark' | 'light' }) {
+  const isLight = variant === 'light'
   const pathname = usePathname()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [activeModule, setActiveModule] = useState(MODULES[0].key)
@@ -116,13 +125,39 @@ export function Nav() {
       <nav
         className="sticky top-0 z-50 flex justify-between items-center px-8 py-5 border-b backdrop-blur-xl"
         style={{
-          backgroundColor: 'var(--glass-bg)',
-          borderColor: 'var(--glass-border)',
+          backgroundColor: isLight ? 'rgba(253,252,250,0.92)' : 'var(--glass-bg)',
+          borderColor: isLight ? 'var(--ed-border)' : 'var(--glass-border)',
         }}
       >
-        <a href="/" className="font-bold text-lg">Anshul Gupta</a>
+        <a
+          href="/"
+          className={isLight ? '' : 'font-bold text-lg'}
+          style={isLight ? { fontFamily: 'var(--font-serif)', fontSize: '22px', color: '#222' } : undefined}
+        >
+          Anshul Gupta
+        </a>
 
         {/* Desktop nav */}
+        {isLight ? (
+          <div className="hidden md:flex gap-6 text-sm items-center">
+            {LIGHT_NAV_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className={`transition ${isActive(link.href) ? 'text-[#222]' : 'text-[#999] hover:text-[#222]'}`}
+              >
+                {link.label}
+              </a>
+            ))}
+            <a
+              href="/contact"
+              className="text-xs font-semibold px-5 py-2 rounded-md transition"
+              style={{ background: '#222', color: '#FDFCFA', fontSize: '12px' }}
+            >
+              Contact
+            </a>
+          </div>
+        ) : (
         <div className="hidden md:flex gap-6 text-sm items-center">
           {NAV_LINKS.map((link) => (
             <a
@@ -213,10 +248,11 @@ export function Nav() {
             )}
           </div>
         </div>
+        )}
 
         {/* Mobile hamburger */}
         <button
-          className="md:hidden text-white/60 hover:text-white transition p-1"
+          className={`md:hidden transition p-1 ${isLight ? 'text-[#999] hover:text-[#222]' : 'text-white/60 hover:text-white'}`}
           onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
         >
@@ -227,7 +263,36 @@ export function Nav() {
       </nav>
 
       {/* Mobile menu overlay */}
-      {mobileOpen && (
+      {mobileOpen && isLight && (
+        <div className="fixed inset-0 z-[100] bg-[#FDFCFA] flex flex-col">
+          {/* Header */}
+          <div className="flex justify-between items-center px-8 py-6 border-b border-[#E8E5E0]">
+            <a href="/" className="text-[#222]" style={{ fontFamily: 'var(--font-serif)', fontSize: '22px' }} onClick={() => setMobileOpen(false)}>Anshul Gupta</a>
+            <button className="text-[#999] hover:text-[#222] transition" onClick={() => setMobileOpen(false)} aria-label="Close menu">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Links */}
+          <div className="flex flex-col px-8 py-8 gap-1 overflow-y-auto">
+            {LIGHT_NAV_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={() => setMobileOpen(false)}
+                className={`py-3 text-xl font-medium border-b border-[#E8E5E0] transition ${isActive(link.href) ? 'text-[#222]' : 'text-[#999]'}`}
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile menu overlay */}
+      {mobileOpen && !isLight && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col">
           {/* Header */}
           <div className="flex justify-between items-center px-8 py-6 border-b border-white/10">

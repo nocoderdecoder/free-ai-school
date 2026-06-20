@@ -249,3 +249,58 @@ h3 {
     min-width: 44px;
   }
 }
+
+/* ── Editorial homepage styles ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.ed-feat-card:hover {
+  filter: brightness(0.96);
+  transform: translateY(-2px);
+}
+
+.ed-bottom-card:hover {
+  background: var(--ed-card-hover) !important;
+  transform: translateY(-1px);
+}
+
+.ed-trend-item:hover {
+  padding-left: 6px;
+}
+
+.ed-trend-item:hover h4 {
+  color: #111 !important;
+}
+
+.ed-trend-all:hover {
+  color: var(--ed-text) !important;
+}
+
+.ed-feat-card:hover .ed-feat-link {
+  gap: 10px;
+}
+
+.ed-footer-link:hover {
+  color: var(--ed-text) !important;
+}
+
+/* Editorial responsive */
+@media (max-width: 900px) {
+  .ed-hero {
+    grid-template-columns: 1fr !important;
+    padding: 48px 24px 40px !important;
+    gap: 32px !important;
+  }
+
+  .ed-hero h1 {
+    font-size: 38px !important;
+  }
+
+  .ed-cards {
+    grid-template-columns: 1fr !important;
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+  }
+}

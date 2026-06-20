@@ -62,4 +62,23 @@
   --radius-lg:  1rem;
   --radius-xl:  1.5rem;
   --radius-full: 9999px;
+
+  /* ── Editorial theme (homepage) ── */
+  --ed-bg:           #FDFCFA;
+  --ed-card-warm:    #F3F0EB;
+  --ed-card-school:  #E8F0FE;
+  --ed-card-projects:#F3E8FF;
+  --ed-text:         #222222;
+  --ed-text-dark:    #1a1a1a;
+  --ed-text-secondary:#555555;
+  --ed-text-muted:   #888888;
+  --ed-text-faint:   #999999;
+  --ed-text-light:   #bbbbbb;
+  --ed-border:       #E8E5E0;
+  --ed-card-hover:   #EBE7E0;
+  --ed-cta:          #222222;
+  --ed-trending-dot: #4CAF50;
+
+  --font-serif:      var(--font-instrument-serif), serif;
+  --font-sans:       var(--font-dm-sans), sans-serif;
 }
