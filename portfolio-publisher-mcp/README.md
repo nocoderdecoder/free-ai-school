@@ -13,7 +13,6 @@ This first version is intentionally read-only. It can inspect the Lab page, vali
 - `list_lab_projects`: lists the projects currently shown on `/lab`.
 - `inspect_lab_format`: explains the current Lab card format and conventions.
 - `validate_lab_assets`: checks whether screenshot paths point to real files.
-- `list_screenshot_queue`: lists projects needing screenshots, separates capture-ready items from blocked ones, and suggests image paths.
 - `publish_readiness_check`: checks whether Lab projects have the basics needed for publishing (supports exact name, slug, or partial match via `projectName`).
 - `publish_readiness_report`: returns a human-readable Markdown publish-readiness report (supports exact name, slug, or partial match via `projectName`).
 - `suggest_next_lab_project`: suggests technically distinct future Lab projects.

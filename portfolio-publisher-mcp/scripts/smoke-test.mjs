@@ -59,9 +59,8 @@ const firstProjectSlug = slugify(firstProjectName);
 send(5, "tools/call", { name: "publish_readiness_check", arguments: { projectName: firstProjectSlug } });
 send(6, "tools/call", { name: "publish_readiness_report", arguments: { projectName: firstProjectSlug } });
 send(7, "tools/call", { name: "list_lab_projects", arguments: { extra: true } });
-send(8, "tools/call", { name: "list_screenshot_queue", arguments: {} });
 
-await Promise.all([waitForResponse(7), waitForResponse(8)]);
+await waitForResponse(7);
 server.kill();
 await once(server, "exit");
 
@@ -74,16 +73,6 @@ const readinessCheckSlugOk = readinessCheck?.checked === 1 && Array.isArray(read
 const readinessReport = responseById.get(6)?.result?.content?.[0]?.text ?? "";
 const readinessReportOk = typeof readinessReport === "string" && readinessReport.includes("# Publish readiness report");
 const argValidationOk = responseById.get(7)?.result?.isError === true;
-const screenshotQueueText = responseById.get(8)?.result?.content?.[0]?.text ?? "{}";
-const screenshotQueue = JSON.parse(screenshotQueueText);
-const screenshotQueueOk =
-  screenshotQueue?.queued >= 1 &&
-  screenshotQueue?.queued === screenshotQueue?.captureReady + screenshotQueue?.blocked &&
-  screenshotQueue?.queue?.every((item) =>
-    typeof item.project === "string" &&
-    typeof item.suggestedImage === "string" &&
-    typeof item.captureReady === "boolean"
-  );
 
 console.log(JSON.stringify({
   failed,
@@ -93,9 +82,8 @@ console.log(JSON.stringify({
   readinessCheckSlugOk,
   readinessReportOk,
   argValidationOk,
-  screenshotQueueOk,
 }, null, 2));
 
-if (failed || listedTools < 1 || listedProjects < 1 || !readinessCheckSlugOk || !readinessReportOk || !argValidationOk || !screenshotQueueOk) {
+if (failed || listedTools < 1 || listedProjects < 1 || !readinessCheckSlugOk || !readinessReportOk || !argValidationOk) {
   process.exitCode = 1;
 }
