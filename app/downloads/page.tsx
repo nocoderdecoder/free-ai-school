@@ -22,13 +22,12 @@ function DownloadIcon() {
 
 function FileIcon() {
   return (
-    <svg className="w-8 h-8 text-white/20" fill="none" stroke="currentColor" strokeWidth="1" viewBox="0 0 24 24">
+    <svg className="w-8 h-8" style={{ color: 'var(--ed-text-light)' }} fill="none" stroke="currentColor" strokeWidth="1" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
     </svg>
   )
 }
 
-// Get unique categories in the order they first appear
 function getCategories(resources: typeof import('./documents').resources) {
   const seen = new Set<string>()
   const cats: string[] = []
@@ -46,68 +45,64 @@ export default function Downloads() {
   const isEmpty = resources.length === 0
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <Nav />
+    <main className="min-h-screen" style={{ backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)' }}>
+      <Nav variant="light" />
 
-      {/* Hero */}
       <section className="max-w-3xl mx-auto px-8 pt-28 pb-20">
-        <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Free Resources</p>
-        <h1 className="text-5xl font-bold leading-tight mb-6">
+        <p className="section-label text-sm mb-4 uppercase tracking-widest" style={{ color: 'var(--ed-text-faint)' }}>Free Resources</p>
+        <h1 className="text-5xl leading-tight mb-6" style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, color: 'var(--ed-text-dark)' }}>
           One-pagers.<br />Take them.
         </h1>
-        <p className="text-white/60 text-xl leading-relaxed">
+        <p className="text-xl leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>
           Cheat sheets, quick references, and guides on AI tools and workflows.
           Free to download, no email required.
         </p>
       </section>
 
-      {/* Content */}
       <section className="max-w-3xl mx-auto px-8 pb-24">
 
         {isEmpty ? (
-          /* Empty state */
-          <div className="border border-white/10 rounded-2xl p-16 text-center">
+          <div className="rounded-2xl p-16 text-center" style={{ background: 'var(--ed-card-warm)' }}>
             <div className="flex justify-center mb-4">
               <FileIcon />
             </div>
-            <p className="text-white/40 text-sm">Resources coming soon.</p>
-            <p className="text-white/25 text-xs mt-2">Check back shortly.</p>
+            <p className="text-sm" style={{ color: 'var(--ed-text-muted)' }}>Resources coming soon.</p>
+            <p className="text-xs mt-2" style={{ color: 'var(--ed-text-light)' }}>Check back shortly.</p>
           </div>
         ) : (
-          /* Resource grid — grouped by category */
           <div className="space-y-14">
             {categories.map((cat) => {
               const catResources = resources.filter((r) => r.category === cat)
               return (
                 <div key={cat}>
-                  <p className="text-white/30 text-xs uppercase tracking-widest mb-5">{cat}</p>
+                  <p className="text-xs uppercase tracking-widest mb-5" style={{ color: 'var(--ed-text-faint)' }}>{cat}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {catResources.map((resource) => (
                       <div
                         key={resource.filename}
-                        className="group border border-white/10 rounded-xl p-6 hover:border-white/25 transition flex flex-col gap-4"
+                        className="group rounded-xl p-6 transition flex flex-col gap-4 ed-list-card"
+                        style={{ background: 'var(--ed-card-warm)', borderRadius: '14px' }}
                       >
-                        {/* Text */}
                         <div className="flex-1">
-                          <h2 className="text-base font-semibold mb-2 group-hover:text-white transition">
+                          <h2 className="text-base font-semibold mb-2" style={{ color: 'var(--ed-text)' }}>
                             {resource.title}
                           </h2>
-                          <p className="text-white/50 text-sm leading-relaxed">
+                          <p className="text-sm leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>
                             {resource.description}
                           </p>
                         </div>
 
-                        {/* Footer row */}
-                        <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
+                        <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--ed-border)' }}>
                           {resource.fileSize ? (
-                            <span className="text-white/25 text-xs">{resource.fileSize} · PDF</span>
+                            <span className="text-xs" style={{ color: 'var(--ed-text-light)' }}>{resource.fileSize} · PDF</span>
                           ) : (
-                            <span className="text-white/25 text-xs">PDF</span>
+                            <span className="text-xs" style={{ color: 'var(--ed-text-light)' }}>PDF</span>
                           )}
                           <a
                             href={`/api/pdf/${resource.filename}`}
                             download={resource.filename}
-                            className="flex items-center gap-1.5 text-sm font-medium text-black bg-white px-4 py-1.5 rounded-full hover:bg-white/90 transition"
+                            className="flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-full transition"
+                            style={{ background: 'var(--ed-cta)', color: '#FDFCFA' }}
                           >
                             <DownloadIcon />
                             Download
@@ -123,30 +118,29 @@ export default function Downloads() {
         )}
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/10">
+      <footer style={{ borderTop: '1px solid var(--ed-border)' }}>
         <div className="max-w-3xl mx-auto px-8 py-12 flex flex-col sm:flex-row justify-between gap-8">
           <div>
-            <p className="font-semibold text-white mb-1">Anshul Gupta</p>
-            <p className="text-white/30 text-sm">GTM Strategy at Google · Kellogg MBA</p>
-            <p className="text-white/20 text-xs mt-4">© {new Date().getFullYear()} · anshul.ai</p>
+            <p className="font-semibold mb-1" style={{ color: 'var(--ed-text-dark)' }}>Anshul Gupta</p>
+            <p className="text-sm" style={{ color: 'var(--ed-text-faint)' }}>GTM Strategy at Google · Kellogg MBA</p>
+            <p className="text-xs mt-4" style={{ color: 'var(--ed-text-light)' }}>© {new Date().getFullYear()} · anshul.ai</p>
           </div>
           <div className="flex gap-12">
             <div className="flex flex-col gap-2">
-              <p className="text-white/25 text-xs uppercase tracking-widest mb-1">Pages</p>
-              <a href="/about"     className="text-white/40 text-sm hover:text-white transition">About</a>
-              <a href="/work"      className="text-white/40 text-sm hover:text-white transition">Work</a>
-              <a href="/projects"  className="text-white/40 text-sm hover:text-white transition">Projects</a>
-              <a href="/learn"     className="text-white/40 text-sm hover:text-white transition">AI School</a>
-              <a href="/analysis"  className="text-white/40 text-sm hover:text-white transition">Analysis</a>
-              <a href="/writing"   className="text-white/40 text-sm hover:text-white transition">Writing</a>
-              <a href="/downloads" className="text-white/40 text-sm hover:text-white transition">Downloads</a>
-              <a href="/contact"   className="text-white/40 text-sm hover:text-white transition">Contact</a>
+              <p className="text-xs uppercase tracking-widest mb-1" style={{ color: 'var(--ed-text-light)' }}>Pages</p>
+              <a href="/about" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>About</a>
+              <a href="/work" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>Work</a>
+              <a href="/projects" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>Projects</a>
+              <a href="/learn" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>AI School</a>
+              <a href="/analysis" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>Analysis</a>
+              <a href="/writing" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>Writing</a>
+              <a href="/downloads" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>Downloads</a>
+              <a href="/contact" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>Contact</a>
             </div>
             <div className="flex flex-col gap-2">
-              <p className="text-white/25 text-xs uppercase tracking-widest mb-1">Connect</p>
-              <a href="https://www.linkedin.com/in/anshul-gupta1/" target="_blank" rel="noopener noreferrer" className="text-white/40 text-sm hover:text-white transition">LinkedIn</a>
-              <a href="https://github.com/nocoderdecoder"           target="_blank" rel="noopener noreferrer" className="text-white/40 text-sm hover:text-white transition">GitHub</a>
+              <p className="text-xs uppercase tracking-widest mb-1" style={{ color: 'var(--ed-text-light)' }}>Connect</p>
+              <a href="https://www.linkedin.com/in/anshul-gupta1/" target="_blank" rel="noopener noreferrer" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>LinkedIn</a>
+              <a href="https://github.com/nocoderdecoder" target="_blank" rel="noopener noreferrer" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>GitHub</a>
             </div>
           </div>
         </div>

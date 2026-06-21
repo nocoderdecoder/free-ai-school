@@ -36,23 +36,23 @@ export default async function Trending() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <Nav />
+    <main className="min-h-screen" style={{ backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)' }}>
+      <Nav variant="light" />
 
       <section className="max-w-3xl mx-auto px-8 pt-20 pb-12">
-        <p className="section-label mb-4">Trending</p>
-        <h1 className="heading-page mb-6">
-          What's happening<br />in AI. Today.
+        <p className="section-label mb-4" style={{ color: 'var(--ed-text-faint)' }}>Trending</p>
+        <h1 className="mb-6 text-5xl leading-tight" style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, color: 'var(--ed-text-dark)' }}>
+          What&apos;s happening<br />in AI. Today.
         </h1>
-        <p className="text-white/60 text-xl leading-relaxed">
+        <p className="text-xl leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>
           Every morning, a new article on the most trending topic in AI — written for business professionals, not researchers.
         </p>
       </section>
 
       <section className="max-w-3xl mx-auto px-8 pb-20">
         {articles.length === 0 ? (
-          <div className="border border-white/10 rounded-xl p-10 text-center">
-            <p className="text-white/30 text-sm">First article drops tomorrow morning.</p>
+          <div className="rounded-xl p-10 text-center" style={{ background: 'var(--ed-card-warm)', borderRadius: '14px' }}>
+            <p className="text-sm" style={{ color: 'var(--ed-text-light)' }}>First article drops tomorrow morning.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -60,27 +60,28 @@ export default async function Trending() {
               <a
                 key={article.slug.current}
                 href={`/trending/${article.slug.current}`}
-                className="group block border border-white/10 rounded-xl p-6 hover:border-white/25 transition"
+                className="group block rounded-xl p-6 transition ed-list-card"
+                style={{ background: 'var(--ed-card-warm)', borderRadius: '14px' }}
               >
                 <div className="flex justify-between items-start gap-4">
                   <div className="flex-1 min-w-0">
                     {i === 0 && (
-                      <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-emerald-400/80 mb-3">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-widest mb-3" style={{ color: 'var(--ed-trending-dot)' }}>
+                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'var(--ed-trending-dot)' }} />
                         Latest
                       </span>
                     )}
-                    <h2 className="text-base font-semibold mb-2 group-hover:text-white transition text-white/90 leading-snug">
+                    <h2 className="text-base font-semibold mb-2 leading-snug" style={{ color: 'var(--ed-text)' }}>
                       {article.title}
                     </h2>
                     {article.excerpt && (
-                      <p className="text-white/40 text-sm leading-relaxed line-clamp-2">
+                      <p className="text-sm leading-relaxed line-clamp-2" style={{ color: 'var(--ed-text-muted)' }}>
                         {article.excerpt}
                       </p>
                     )}
                   </div>
                   {article.publishedAt && (
-                    <p className="text-white/25 text-xs shrink-0 mt-0.5">
+                    <p className="text-xs shrink-0 mt-0.5" style={{ color: 'var(--ed-text-light)' }}>
                       {formatDate(article.publishedAt)}
                     </p>
                   )}
@@ -91,7 +92,7 @@ export default async function Trending() {
         )}
       </section>
 
-      <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
+      <footer className="px-8 py-8 text-center text-sm" style={{ borderTop: '1px solid var(--ed-border)', color: 'var(--ed-text-faint)' }}>
         © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
     </main>

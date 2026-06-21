@@ -71,21 +71,19 @@ export default async function Learn() {
   )
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <Nav />
+    <main className="min-h-screen" style={{ backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)' }}>
+      <Nav variant="light" />
 
-      {/* Hero */}
       <section className="max-w-3xl mx-auto px-8 pt-28 pb-20">
-        <p className="section-label mb-4">Free AI School</p>
-        <h1 className="heading-page mb-6">
+        <p className="section-label mb-4" style={{ color: 'var(--ed-text-faint)' }}>Free AI School</p>
+        <h1 className="mb-6 text-5xl leading-tight" style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, color: 'var(--ed-text-dark)' }}>
           No prerequisites.<br />Start anywhere.
         </h1>
-        <p className="text-white/60 text-xl leading-relaxed">
+        <p className="text-xl leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>
           A complete AI curriculum for business professionals. No engineering background required — just the practical knowledge you need to use AI at work, lead AI projects, and stay ahead.
         </p>
       </section>
 
-      {/* Module cards */}
       <section className="max-w-3xl mx-auto px-8 pb-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {modules.map((mod) => {
@@ -94,13 +92,14 @@ export default async function Learn() {
               <a
                 key={mod.key}
                 href={`#${mod.key}`}
-                className="group block border border-white/10 rounded-xl p-6 hover:border-white/30 transition card-hover"
+                className="group block rounded-xl p-6 transition ed-list-card"
+                style={{ background: 'var(--ed-card-warm)', borderRadius: '14px' }}
               >
-                <p className="text-white/40 text-xs uppercase tracking-widest mb-3">{mod.label}</p>
-                <h2 className="text-lg font-semibold mb-2 group-hover:text-white transition">{mod.tagline}</h2>
-                <p className="text-white/50 text-sm leading-relaxed">{mod.description}</p>
+                <p className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--ed-text-faint)' }}>{mod.label}</p>
+                <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--ed-text)' }}>{mod.tagline}</h2>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>{mod.description}</p>
                 {count > 0 && (
-                  <p className="text-white/30 text-xs mt-4">{count} {count === 1 ? 'article' : 'articles'}</p>
+                  <p className="text-xs mt-4" style={{ color: 'var(--ed-text-light)' }}>{count} {count === 1 ? 'article' : 'articles'}</p>
                 )}
               </a>
             )
@@ -108,31 +107,31 @@ export default async function Learn() {
         </div>
       </section>
 
-      {/* Article list */}
       {articles.length > 0 && (
-        <section className="border-t border-white/10 max-w-3xl mx-auto px-8 py-16">
+        <section className="max-w-3xl mx-auto px-8 py-16" style={{ borderTop: '1px solid var(--ed-border)' }}>
           <div className="space-y-16">
             {modules.map((mod) => {
               const modArticles = articles.filter((a: any) => a.module === mod.key)
               if (modArticles.length === 0) return null
               return (
                 <div key={mod.key} id={mod.key}>
-                  <p className="text-white/40 text-xs uppercase tracking-widest mb-6">{mod.label}</p>
+                  <p className="text-xs uppercase tracking-widest mb-6" style={{ color: 'var(--ed-text-faint)' }}>{mod.label}</p>
                   <div className="space-y-3">
                     {modArticles.map((article: any) => (
                       <a
                         key={article.slug.current}
                         href={'/learn/' + article.slug.current}
-                        className="block border border-white/10 rounded-xl p-6 hover:border-white/30 transition card-hover"
+                        className="block rounded-xl p-6 transition ed-list-card"
+                        style={{ background: 'var(--ed-card-warm)', borderRadius: '14px' }}
                       >
                         <div className="flex justify-between items-start mb-2">
-                          <h3 className="text-base font-semibold">{article.title}</h3>
+                          <h3 className="text-base font-semibold" style={{ color: 'var(--ed-text)' }}>{article.title}</h3>
                           {article.readTime && (
-                            <span className="text-white/30 text-xs ml-4 shrink-0">{article.readTime} min</span>
+                            <span className="text-xs ml-4 shrink-0" style={{ color: 'var(--ed-text-light)' }}>{article.readTime} min</span>
                           )}
                         </div>
                         {article.excerpt && (
-                          <p className="text-white/50 text-sm leading-relaxed">{article.excerpt}</p>
+                          <p className="text-sm leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>{article.excerpt}</p>
                         )}
                       </a>
                     ))}
@@ -143,22 +142,23 @@ export default async function Learn() {
 
             {unmatchedArticles.length > 0 && (
               <div>
-                <p className="text-white/40 text-xs uppercase tracking-widest mb-6">More Articles</p>
+                <p className="text-xs uppercase tracking-widest mb-6" style={{ color: 'var(--ed-text-faint)' }}>More Articles</p>
                 <div className="space-y-3">
                   {unmatchedArticles.map((article: any) => (
                     <a
                       key={article.slug.current}
                       href={'/learn/' + article.slug.current}
-                      className="block border border-white/10 rounded-xl p-6 hover:border-white/30 transition"
+                      className="block rounded-xl p-6 transition ed-list-card"
+                      style={{ background: 'var(--ed-card-warm)', borderRadius: '14px' }}
                     >
                       <div className="flex justify-between items-start mb-2">
-                        <h3 className="text-base font-semibold">{article.title}</h3>
+                        <h3 className="text-base font-semibold" style={{ color: 'var(--ed-text)' }}>{article.title}</h3>
                         {article.readTime && (
-                          <span className="text-white/30 text-xs ml-4 shrink-0">{article.readTime} min</span>
+                          <span className="text-xs ml-4 shrink-0" style={{ color: 'var(--ed-text-light)' }}>{article.readTime} min</span>
                         )}
                       </div>
                       {article.excerpt && (
-                        <p className="text-white/50 text-sm leading-relaxed">{article.excerpt}</p>
+                        <p className="text-sm leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>{article.excerpt}</p>
                       )}
                     </a>
                   ))}
@@ -169,7 +169,7 @@ export default async function Learn() {
         </section>
       )}
 
-      <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
+      <footer className="px-8 py-8 text-center text-sm" style={{ borderTop: '1px solid var(--ed-border)', color: 'var(--ed-text-faint)' }}>
         © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
     </main>

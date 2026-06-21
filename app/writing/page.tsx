@@ -92,15 +92,15 @@ export default async function Writing() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <Nav />
+    <main className="min-h-screen" style={{ backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)' }}>
+      <Nav variant="light" />
 
       <section className="max-w-3xl mx-auto px-8 pt-28 pb-20">
-        <p className="section-label mb-4">Writing</p>
-        <h1 className="heading-page mb-6">
+        <p className="section-label mb-4" style={{ color: 'var(--ed-text-faint)' }}>Writing</p>
+        <h1 className="mb-6 text-5xl leading-tight" style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, color: 'var(--ed-text-dark)' }}>
           Honest takes on<br />AI in business.
         </h1>
-        <p className="text-white/60 text-xl leading-relaxed">
+        <p className="text-xl leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>
           What I am building, what is working, what failed, and what I think is actually happening in AI — from someone doing it daily, not just writing about it.
         </p>
       </section>
@@ -109,27 +109,28 @@ export default async function Writing() {
 
         {published.length > 0 && (
           <div>
-            <p className="section-label mb-8">Published</p>
+            <p className="section-label mb-8" style={{ color: 'var(--ed-text-faint)' }}>Published</p>
             <div className="space-y-3">
               {published.map((post) => (
                 <a
                   key={post.slug ?? post.title}
                   href={`/writing/${post.slug}`}
-                  className="group block border border-white/10 rounded-xl p-6 hover:border-white/25 transition card-hover"
+                  className="group block rounded-xl p-6 transition ed-list-card"
+                  style={{ background: 'var(--ed-card-warm)', borderRadius: '14px' }}
                 >
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex-1">
-                      <h2 className="text-base font-semibold mb-2 text-white/90 group-hover:text-white transition leading-snug">
+                      <h2 className="text-base font-semibold mb-2 leading-snug" style={{ color: 'var(--ed-text)' }}>
                         {post.title}
                       </h2>
-                      <p className="text-white/40 text-sm leading-relaxed">{post.excerpt}</p>
+                      <p className="text-sm leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>{post.excerpt}</p>
                     </div>
                     <div className="text-right shrink-0 ml-4">
                       {post.publishedAt && (
-                        <p className="text-white/25 text-xs">{formatDate(post.publishedAt)}</p>
+                        <p className="text-xs" style={{ color: 'var(--ed-text-light)' }}>{formatDate(post.publishedAt)}</p>
                       )}
                       {post.readTime && (
-                        <p className="text-white/20 text-xs mt-1">{post.readTime} min read</p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--ed-text-light)' }}>{post.readTime} min read</p>
                       )}
                     </div>
                   </div>
@@ -141,31 +142,33 @@ export default async function Writing() {
 
         {comingSoon.length > 0 && (
           <div>
-            <p className="section-label mb-8">{published.length > 0 ? 'Coming soon' : 'Upcoming'}</p>
+            <p className="section-label mb-8" style={{ color: 'var(--ed-text-faint)' }}>{published.length > 0 ? 'Coming soon' : 'Upcoming'}</p>
             <div className="space-y-0">
               {comingSoon.map((post, i) => (
                 <div
                   key={post.title}
-                  className={`py-7 ${i < comingSoon.length - 1 ? 'border-b border-white/10' : ''}`}
+                  className="py-7"
+                  style={i < comingSoon.length - 1 ? { borderBottom: '1px solid var(--ed-border)' } : undefined}
                 >
-                  <h2 className="text-lg font-semibold mb-2 text-white/60">{post.title}</h2>
-                  <p className="text-white/35 text-sm leading-relaxed">{post.excerpt}</p>
+                  <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--ed-text-muted)' }}>{post.title}</h2>
+                  <p className="text-sm leading-relaxed" style={{ color: 'var(--ed-text-faint)' }}>{post.excerpt}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <div className="border border-white/10 rounded-xl p-8">
-          <p className="section-label mb-4">In the meantime</p>
-          <p className="text-white/70 leading-relaxed mb-6">
+        <div className="rounded-xl p-8" style={{ background: 'var(--ed-card-warm)', borderRadius: '14px' }}>
+          <p className="section-label mb-4" style={{ color: 'var(--ed-text-faint)' }}>In the meantime</p>
+          <p className="leading-relaxed mb-6" style={{ color: 'var(--ed-text-secondary)' }}>
             Shorter takes, tool discoveries, and things I am thinking about appear more frequently on LinkedIn. Follow along there while longer pieces take shape here.
           </p>
           <a
             href="https://www.linkedin.com/in/anshul-gupta1/"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-white text-black px-6 py-3 rounded-full font-medium text-sm hover:bg-white/90 transition btn-press"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-medium text-sm transition btn-press"
+            style={{ background: 'var(--ed-cta)', color: '#FDFCFA' }}
           >
             Follow on LinkedIn →
           </a>
@@ -173,7 +176,7 @@ export default async function Writing() {
 
       </section>
 
-      <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
+      <footer className="px-8 py-8 text-center text-sm" style={{ borderTop: '1px solid var(--ed-border)', color: 'var(--ed-text-faint)' }}>
         © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
     </main>
