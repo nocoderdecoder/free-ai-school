@@ -32,15 +32,24 @@ function validateToolArguments(toolName, args) {
   const schema = tool.inputSchema;
   if (!schema || schema.type !== "object") return null;
 
-  if (args == null) return null;
+  if (args == null) {
+    return schema.required?.length
+      ? schema.required.map((key) => `Missing required argument: ${key}`).join("; ")
+      : null;
+  }
   if (typeof args !== "object" || Array.isArray(args)) {
     return `Arguments must be an object.`;
   }
 
   const properties = schema.properties ?? {};
+  const required = schema.required ?? [];
   const allowAdditional = schema.additionalProperties !== false;
 
   const issues = [];
+  for (const key of required) {
+    if (!(key in args)) issues.push(`Missing required argument: ${key}`);
+  }
+
   if (!allowAdditional) {
     for (const key of Object.keys(args)) {
       if (!(key in properties)) issues.push(`Unexpected argument: ${key}`);
@@ -72,6 +81,85 @@ function slugifyProjectName(name) {
 function suggestedScreenshotPath(projectName) {
   const slug = slugifyProjectName(projectName);
   return slug ? `/projects/${slug}.png` : "/projects/<project-slug>.png";
+}
+
+function getScreenshotCapture(project, asset) {
+  const captureTarget = project.url || null;
+  const captureType = captureTarget
+    ? captureTarget.startsWith("http")
+      ? "external-url"
+      : "local-route"
+    : "unavailable";
+  const reason = asset.status === "missing-file"
+    ? `Image path is set, but the file does not exist: ${asset.file}`
+    : "Project has no screenshot image path.";
+  const suggestedImage = project.image || suggestedScreenshotPath(project.name);
+  const captureReady = Boolean(captureTarget);
+
+  return {
+    project: project.name,
+    reason,
+    currentImage: project.image || null,
+    suggestedImage,
+    captureTarget,
+    captureType,
+    captureReady,
+    blocker: captureReady ? null : "Add a project URL or local route before capturing a screenshot.",
+  };
+}
+
+function normalizeDraftValue(value) {
+  return String(value ?? "").trim();
+}
+
+function escapeProjectString(value) {
+  return normalizeDraftValue(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function formatProjectObject(project) {
+  return [
+    "  {",
+    `    name: "${escapeProjectString(project.name)}",`,
+    `    tagline: "${escapeProjectString(project.tagline)}",`,
+    `    image: "${escapeProjectString(project.image)}",`,
+    `    url: "${escapeProjectString(project.url)}",`,
+    `    status: "${escapeProjectString(project.status)}",`,
+    "  },",
+  ].join("\n");
+}
+
+function draftLabProjectCard(projects, args) {
+  const name = normalizeDraftValue(args.name);
+  const tagline = normalizeDraftValue(args.tagline);
+  const slug = slugifyProjectName(name);
+  const status = normalizeDraftValue(args.status) || "Built";
+  const image = normalizeDraftValue(args.image) || suggestedScreenshotPath(name);
+  const url = normalizeDraftValue(args.url) || (slug ? `/tools/${slug}` : "");
+  const warnings = [];
+
+  if (!name) warnings.push("Project name is blank.");
+  if (!tagline) warnings.push("Tagline is blank.");
+  if (!slug) warnings.push("Could not derive a slug from the project name.");
+  if (projects.some((project) => project.name.toLowerCase() === name.toLowerCase())) {
+    warnings.push("A Lab project with this name already exists.");
+  }
+  if (!image.startsWith("/projects/")) {
+    warnings.push("Screenshot path should usually live under /projects/.");
+  }
+  if (url.startsWith("/tools/")) {
+    warnings.push(`Create the local route before publishing: app${url}/page.tsx`);
+  }
+
+  const project = { name, tagline, image, url, status };
+
+  return {
+    slug,
+    suggestedScreenshot: image,
+    suggestedRoute: url.startsWith("/tools/") ? `app${url}/page.tsx` : null,
+    project,
+    labCardSnippet: formatProjectObject(project),
+    warnings,
+  };
 }
 
 function normalizeProjectQuery(value) {
@@ -224,6 +312,27 @@ export async function callTool(name, args = {}) {
       missing: assets.filter((asset) => !asset.exists).length,
       assets,
     });
+  }
+
+  if (name === "list_screenshot_queue") {
+    const projects = await listLabProjects();
+    const assets = await Promise.all(projects.map(getProjectAssetStatus));
+    const queue = projects
+      .map((project, index) => ({ project, asset: assets[index] }))
+      .filter(({ asset }) => !asset.exists)
+      .map(({ project, asset }) => getScreenshotCapture(project, asset));
+
+    return textResult({
+      queued: queue.length,
+      captureReady: queue.filter((item) => item.captureReady).length,
+      blocked: queue.filter((item) => !item.captureReady).length,
+      queue,
+    });
+  }
+
+  if (name === "draft_lab_project_card") {
+    const projects = await listLabProjects();
+    return textResult(draftLabProjectCard(projects, args));
   }
 
   if (name === "publish_readiness_check") {

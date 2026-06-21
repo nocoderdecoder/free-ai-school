@@ -30,6 +30,50 @@ export const tools = [
     },
   },
   {
+    name: "list_screenshot_queue",
+    title: "List Screenshot Queue",
+    description:
+      "List Lab projects that need a screenshot, including capture targets, suggested image paths, and blockers.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "draft_lab_project_card",
+    title: "Draft Lab Project Card",
+    description:
+      "Create a read-only Lab card draft with a slug, suggested screenshot path, and copy-pasteable project object.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Project name as it should appear on the Lab page.",
+        },
+        tagline: {
+          type: "string",
+          description: "Short one-line project description.",
+        },
+        url: {
+          type: "string",
+          description: "Optional external URL or local route. Defaults to /tools/<slug>.",
+        },
+        status: {
+          type: "string",
+          description: "Optional Lab status. Defaults to Built.",
+        },
+        image: {
+          type: "string",
+          description: "Optional screenshot path. Defaults to /projects/<slug>.png.",
+        },
+      },
+      required: ["name", "tagline"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "publish_readiness_check",
     title: "Publish Readiness Check",
     description: "Check whether a project has the basics needed before it is published to the Lab.",
