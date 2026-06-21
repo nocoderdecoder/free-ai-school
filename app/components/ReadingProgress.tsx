@@ -2,8 +2,13 @@
 
 import { useEffect, useState } from 'react'
 
-export function ReadingProgress() {
+type ReadingProgressProps = {
+  variant?: 'dark' | 'light'
+}
+
+export function ReadingProgress({ variant = 'dark' }: ReadingProgressProps) {
   const [progress, setProgress] = useState(0)
+  const isLight = variant === 'light'
 
   useEffect(() => {
     const update = () => {
@@ -17,10 +22,13 @@ export function ReadingProgress() {
   }, [])
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[200] h-[2px] bg-white/10">
+    <div
+      className={isLight ? 'fixed top-0 left-0 right-0 z-[200] h-[2px]' : 'fixed top-0 left-0 right-0 z-[200] h-[2px] bg-white/10'}
+      style={isLight ? { backgroundColor: 'var(--ed-border)' } : undefined}
+    >
       <div
-        className="h-full bg-white transition-none"
-        style={{ width: `${progress}%` }}
+        className={isLight ? 'h-full transition-none' : 'h-full bg-white transition-none'}
+        style={isLight ? { width: `${progress}%`, backgroundColor: 'var(--ed-cta)' } : { width: `${progress}%` }}
       />
     </div>
   )

@@ -256,3 +256,13 @@ h3 {
     padding-right: 24px !important;
   }
 }
+
+/* ── Shared editorial list-card hover (used across list/article/static pages) ── */
+.ed-list-card {
+  transition: background 0.2s, transform 0.2s;
+}
+
+.ed-list-card:hover {
+  background: var(--ed-card-hover) !important;
+  transform: translateY(-1px);
+}
