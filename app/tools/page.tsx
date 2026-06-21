@@ -74,25 +74,30 @@ const TOOLS = [
 function ToolCard({ tool }: { tool: typeof TOOLS[0] }) {
   const isLive = tool.status === 'Live'
   return (
-    <div className={`border rounded-xl p-6 transition ${isLive ? 'border-white/10 hover:border-white/25 card-hover' : 'border-white/5 opacity-50'}`}
-      style={{ backgroundColor: 'var(--bg-card)' }}>
+    <div
+      className={`rounded-xl p-6 transition ${isLive ? 'ed-list-card' : 'opacity-50'}`}
+      style={{ background: 'var(--ed-card-warm)', borderRadius: 14 }}
+    >
       <div className="flex items-start justify-between mb-4">
         <span className="text-2xl">{tool.icon}</span>
-        <span className={`text-[10px] uppercase tracking-widest px-2.5 py-0.5 rounded-full border ${
-          isLive
-            ? 'text-emerald-400/80 border-emerald-400/30 bg-emerald-400/10'
-            : 'text-white/30 border-white/10'
-        }`}>
+        <span
+          className="text-[10px] uppercase tracking-widest px-2.5 py-0.5 rounded-full"
+          style={
+            isLive
+              ? { backgroundColor: '#E6F4EA', color: '#2E7D4F' }
+              : { backgroundColor: 'var(--ed-card-warm)', color: 'var(--ed-text-light)' }
+          }
+        >
           {tool.status === 'Live' ? 'Live' : 'Coming Soon'}
         </span>
       </div>
-      <h2 className="font-semibold text-base mb-2 text-white">{tool.name}</h2>
-      <p className="text-white/50 text-sm leading-relaxed mb-5">{tool.tagline}</p>
+      <h2 className="font-semibold text-base mb-2" style={{ color: 'var(--ed-text-dark)' }}>{tool.name}</h2>
+      <p className="text-sm leading-relaxed mb-5" style={{ color: 'var(--ed-text-muted)' }}>{tool.tagline}</p>
       {isLive && (
         <a
           href={`/tools/${tool.slug}`}
-          data-cursor="Try"
-          className="inline-flex items-center gap-2 text-sm border border-white/20 px-4 py-2 rounded-full hover:border-white/40 hover:text-white text-white/70 transition btn-press"
+          className="inline-flex items-center gap-2 text-sm px-4 py-2 rounded-full transition btn-press"
+          style={{ background: 'var(--ed-card-warm)', color: 'var(--ed-text-secondary)', border: '1px solid var(--ed-border)' }}
         >
           Try it free →
         </a>
@@ -103,13 +108,13 @@ function ToolCard({ tool }: { tool: typeof TOOLS[0] }) {
 
 export default function Tools() {
   return (
-    <main className="min-h-screen bg-black text-white">
-      <Nav />
+    <main className="min-h-screen" style={{backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)'}}>
+      <Nav variant="light" />
 
       <section className="max-w-3xl mx-auto px-8 pt-28 pb-16">
-        <p className="section-label mb-4">Tools</p>
-        <h1 className="heading-page mb-6">AI tools for business professionals.</h1>
-        <p className="text-white/60 text-xl leading-relaxed">
+        <p className="section-label mb-4" style={{ color: 'var(--ed-text-faint)' }}>Tools</p>
+        <h1 className="heading-page mb-6" style={{fontFamily: 'var(--font-serif)', fontWeight: 400, color: 'var(--ed-text-dark)'}}>AI tools for business professionals.</h1>
+        <p className="text-xl leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>
           Practical tools built on Claude. Free to use. No account required.
         </p>
       </section>
@@ -124,7 +129,7 @@ export default function Tools() {
         </div>
       </section>
 
-      <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
+      <footer className="px-8 py-8 text-center text-sm" style={{ borderTop: '1px solid var(--ed-border)', color: 'var(--ed-text-faint)' }}>
         © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
     </main>

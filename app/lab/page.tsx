@@ -61,7 +61,7 @@ const statusColor: Record<string, string> = {
   Running:  "bg-blue-500",
   Internal: "bg-amber-500",
   Demo:     "bg-purple-500",
-  Built:    "bg-white/40",
+  Built:    "bg-[var(--ed-text-light)]",
 }
 
 function initials(name: string) {
@@ -73,8 +73,7 @@ function ProjectCard({ project }: { project: typeof projects[number] }) {
 
   const inner = (
     <>
-      {/* Image / placeholder — fixed 16:9 */}
-      <div className="relative w-full aspect-video overflow-hidden bg-white/[0.03]">
+      <div className="relative w-full aspect-video overflow-hidden" style={{ background: 'var(--ed-card-warm)' }}>
         {project.image ? (
           <img
             src={project.image}
@@ -86,32 +85,31 @@ function ProjectCard({ project }: { project: typeof projects[number] }) {
             className="w-full h-full flex items-center justify-center"
             style={{
               backgroundImage:
-                'repeating-linear-gradient(0deg,transparent,transparent 23px,rgba(255,255,255,0.04) 24px),' +
-                'repeating-linear-gradient(90deg,transparent,transparent 23px,rgba(255,255,255,0.04) 24px)',
+                'repeating-linear-gradient(0deg,transparent,transparent 23px,rgba(0,0,0,0.04) 24px),' +
+                'repeating-linear-gradient(90deg,transparent,transparent 23px,rgba(0,0,0,0.04) 24px)',
             }}
           >
-            <span className="text-3xl font-bold text-white/10 tracking-widest select-none">
+            <span className="text-3xl font-bold tracking-widest select-none" style={{ color: 'var(--ed-text-light)' }}>
               {initials(project.name)}
             </span>
           </div>
         )}
 
-        {/* Status badge */}
         <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded-full">
           <span className={`w-1.5 h-1.5 rounded-full ${statusColor[project.status] ?? 'bg-white/20'}`} />
           <span className="text-[10px] text-white/50">{project.status}</span>
         </div>
       </div>
 
-      {/* Text */}
       <div className="p-4">
-        <h2 className="font-semibold text-sm mb-1 group-hover:text-white transition">{project.name}</h2>
-        <p className="text-white/40 text-xs leading-relaxed">{project.tagline}</p>
+        <h2 className="font-semibold text-sm mb-1" style={{ color: 'var(--ed-text-dark)' }}>{project.name}</h2>
+        <p className="text-xs leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>{project.tagline}</p>
       </div>
     </>
   )
 
-  const shared = "block border border-white/10 rounded-xl overflow-hidden hover:border-white/25 transition group"
+  const sharedStyle = { background: 'var(--ed-card-warm)', borderRadius: 14 }
+  const sharedClass = "ed-list-card block overflow-hidden transition group"
 
   if (project.url) {
     return (
@@ -119,31 +117,30 @@ function ProjectCard({ project }: { project: typeof projects[number] }) {
         href={project.url}
         target={isExternal ? '_blank' : undefined}
         rel={isExternal ? 'noopener noreferrer' : undefined}
-        className={shared}
+        className={sharedClass}
+        style={sharedStyle}
       >
         {inner}
       </a>
     )
   }
 
-  return <div className={shared}>{inner}</div>
+  return <div className={sharedClass} style={sharedStyle}>{inner}</div>
 }
 
 export default function Lab() {
   return (
-    <main className="min-h-screen bg-black text-white">
-      <Nav />
+    <main className="min-h-screen" style={{backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)'}}>
+      <Nav variant="light" />
 
-      {/* Hero — narrow */}
       <section className="max-w-3xl mx-auto px-8 pt-20 pb-12">
-        <p className="text-white/40 text-sm mb-4 uppercase tracking-widest">Lab</p>
-        <h1 className="text-5xl font-bold leading-tight mb-6">Things I have<br />built with AI.</h1>
-        <p className="text-white/60 text-xl leading-relaxed">
+        <p className="text-sm mb-4 uppercase tracking-widest" style={{ color: 'var(--ed-text-faint)' }}>Lab</p>
+        <h1 className="text-5xl leading-tight mb-6" style={{fontFamily: 'var(--font-serif)', fontWeight: 400, color: 'var(--ed-text-dark)'}}>Things I have<br />built with AI.</h1>
+        <p className="text-xl leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>
           Real products and automations. Some are live, some run internally, all built without a traditional engineering background.
         </p>
       </section>
 
-      {/* Grid — wider */}
       <section className="max-w-5xl mx-auto px-8 pb-20">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((project) => (
@@ -152,7 +149,7 @@ export default function Lab() {
         </div>
       </section>
 
-      <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
+      <footer className="px-8 py-8 text-center text-sm" style={{ borderTop: '1px solid var(--ed-border)', color: 'var(--ed-text-faint)' }}>
         © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
     </main>

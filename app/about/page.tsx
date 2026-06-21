@@ -45,73 +45,71 @@ const timeline = [
 
 export default function About() {
   return (
-    <main className="min-h-screen bg-black text-white">
-      <Nav />
+    <main className="min-h-screen" style={{backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)'}}>
+      <Nav variant="light" />
 
-      {/* Hero */}
       <section className="max-w-3xl mx-auto px-8 pt-28 pb-16">
         <div className="flex flex-col sm:flex-row gap-10 items-start">
-          {/* Headshot placeholder */}
           <div
-            className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl border border-white/10 flex-shrink-0 flex items-center justify-center"
-            style={{ backgroundColor: 'var(--bg-card)' }}
+            className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl flex-shrink-0 flex items-center justify-center"
+            style={{ backgroundColor: 'var(--ed-card-warm)', border: '1px solid var(--ed-border)' }}
             aria-label="Headshot"
           >
-            <span className="text-white/20 text-2xl font-bold">AG</span>
+            <span style={{ color: 'var(--ed-text-light)' }} className="text-2xl font-bold">AG</span>
           </div>
 
           <div className="flex-1">
-            <p className="section-label mb-3">About</p>
-            <h1 className="heading-page mb-4">
+            <p className="section-label mb-3" style={{ color: 'var(--ed-text-faint)' }}>About</p>
+            <h1 className="heading-page mb-4" style={{fontFamily: 'var(--font-serif)', fontWeight: 400, color: 'var(--ed-text-dark)'}}>
               Anshul Gupta
             </h1>
-            <p className="text-white/50 text-lg leading-relaxed">
+            <p className="text-lg leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>
               GTM Strategy at Google · Kellogg MBA · Builder
             </p>
           </div>
         </div>
       </section>
 
-      {/* Endeavor framing */}
       <ScrollSection>
         <section className="max-w-3xl mx-auto px-8 pb-16">
           <div className="space-y-5">
-            <p className="text-white/80 text-lg leading-relaxed">
+            <p className="text-lg leading-relaxed" style={{ color: 'var(--ed-text)' }}>
               I am working on democratizing AI for business and GTM professionals. The gap I keep seeing: most people in commercial roles know AI exists but do not know how to use it in their actual work — how to evaluate it, how to build with it, or how to lead a team through adopting it.
             </p>
-            <p className="text-white/70 text-lg leading-relaxed">
+            <p className="text-lg leading-relaxed" style={{ color: 'var(--ed-text-secondary)' }}>
               My answer is to build tools and education in public, share the process openly, and prove that meaningful AI products can be built by business-minded people without an engineering background.
             </p>
-            <p className="text-white/70 text-lg leading-relaxed">
+            <p className="text-lg leading-relaxed" style={{ color: 'var(--ed-text-secondary)' }}>
               This site is both the work and the evidence — a live platform built and operated by one person using AI tools, reaching learners and practitioners who want to actually use AI, not just read about it.
             </p>
           </div>
         </section>
       </ScrollSection>
 
-      {/* Career arc */}
       <ScrollSection>
         <section className="max-w-3xl mx-auto px-8 pb-16">
-          <p className="section-label mb-10">Career</p>
+          <p className="section-label mb-10" style={{ color: 'var(--ed-text-faint)' }}>Career</p>
           <div className="space-y-0">
             {timeline.map((item, i) => (
               <div
                 key={item.org}
-                className={`py-8 ${i < timeline.length - 1 ? 'border-b border-white/10' : ''}`}
+                className="py-8"
+                style={i < timeline.length - 1 ? { borderBottom: '1px solid var(--ed-border)' } : undefined}
               >
                 <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-0 sm:justify-between mb-3">
                   <div>
-                    <span className="text-white font-semibold">{item.org}</span>
-                    <span className="text-white/40 text-sm ml-3">{item.role}</span>
+                    <span className="font-semibold" style={{ color: 'var(--ed-text-dark)' }}>{item.org}</span>
+                    <span className="text-sm ml-3" style={{ color: 'var(--ed-text-muted)' }}>{item.role}</span>
                   </div>
-                  <span className="text-white/25 text-xs sm:ml-4 shrink-0">{item.period}</span>
+                  <span className="text-xs sm:ml-4 shrink-0" style={{ color: 'var(--ed-text-light)' }}>{item.period}</span>
                 </div>
-                <p className="text-white/55 text-sm leading-relaxed mb-4">{item.detail}</p>
+                <p className="text-sm leading-relaxed mb-4" style={{ color: 'var(--ed-text-muted)' }}>{item.detail}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {item.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="text-[10px] uppercase tracking-widest text-white/25 border border-white/10 px-2 py-0.5 rounded-full"
+                      className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: 'var(--ed-card-warm)', color: 'var(--ed-text-faint)' }}
                     >
                       {tag}
                     </span>
@@ -123,10 +121,9 @@ export default function About() {
         </section>
       </ScrollSection>
 
-      {/* Evidence links */}
       <ScrollSection>
         <section className="max-w-3xl mx-auto px-8 pb-32">
-          <p className="section-label mb-8">Explore</p>
+          <p className="section-label mb-8" style={{ color: 'var(--ed-text-faint)' }}>Explore</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
               { href: '/work',      label: 'Professional work',      desc: 'AI dashboards, GTM transformation, strategic impact at scale' },
@@ -139,17 +136,18 @@ export default function About() {
               <a
                 key={link.href}
                 href={link.href}
-                className="border border-white/10 rounded-xl p-6 hover:border-white/25 transition card-hover group"
+                className="ed-list-card rounded-xl p-6 transition group"
+                style={{ background: 'var(--ed-card-warm)', borderRadius: 14 }}
               >
-                <h2 className="font-semibold text-sm mb-1.5 group-hover:text-white transition">{link.label} →</h2>
-                <p className="text-white/40 text-xs leading-relaxed">{link.desc}</p>
+                <h2 className="font-semibold text-sm mb-1.5" style={{ color: 'var(--ed-text-dark)' }}>{link.label} →</h2>
+                <p className="text-xs leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>{link.desc}</p>
               </a>
             ))}
           </div>
         </section>
       </ScrollSection>
 
-      <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
+      <footer className="px-8 py-8 text-center text-sm" style={{ borderTop: '1px solid var(--ed-border)', color: 'var(--ed-text-faint)' }}>
         © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
     </main>
