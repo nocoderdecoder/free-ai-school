@@ -14,10 +14,10 @@ export const metadata: Metadata = {
 
 export default function AILearningCompassPage() {
   return (
-    <main className="min-h-screen bg-black text-white">
-      <Nav />
+    <main className="min-h-screen" style={{backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)'}}>
+      <Nav variant="light" />
       <CompassApp />
-      <footer className="border-t border-white/10 px-8 py-8 text-center text-sm text-white/30">
+      <footer className="border-t px-8 py-8 text-center text-sm" style={{borderColor: 'var(--ed-border)', color: 'var(--ed-text-faint)'}}>
         © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
     </main>

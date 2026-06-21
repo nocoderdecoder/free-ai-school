@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { Nav } from '../../components/Nav'
 import { ToolShell } from '../../components/ToolShell'
 
-const inputClass = "bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-white/30 focus:border-white/30 focus:outline-none transition w-full text-sm"
-const selectClass = "bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-white/30 focus:outline-none transition w-full text-sm appearance-none cursor-pointer"
-const labelClass = "block text-xs text-white/50 uppercase tracking-widest mb-2"
+const inputStyle: React.CSSProperties = { backgroundColor: 'var(--ed-card-warm)', border: '1px solid var(--ed-border)', color: 'var(--ed-text)' }
+const inputClass = "rounded-lg px-4 py-3 focus:outline-none transition w-full text-sm"
+const selectClass = "rounded-lg px-4 py-3 focus:outline-none transition w-full text-sm appearance-none cursor-pointer"
+const labelClass = "block text-xs uppercase tracking-widest mb-2"
 
 export default function MeetingBrief() {
   const [form, setForm] = useState({
@@ -21,12 +22,13 @@ export default function MeetingBrief() {
     setForm(prev => ({ ...prev, [key]: e.target.value }))
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <Nav />
+    <main className="min-h-screen" style={{backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)'}}>
+      <Nav variant="light" />
       <ToolShell
         name="Meeting Brief Generator"
         description="Enter your meeting details. Get a battle-ready brief with talking points, anticipated objections, and your ideal opening line."
         estimatedTime="Results in ~15 seconds"
+        variant="light"
       >
         {({ onSubmit, isLoading, isComplete }) => (
           <form
@@ -42,8 +44,8 @@ export default function MeetingBrief() {
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
-                <label className={labelClass}>Meeting type</label>
-                <select className={selectClass} value={form.meetingType} onChange={set('meetingType')}>
+                <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Meeting type</label>
+                <select className={selectClass} style={inputStyle} value={form.meetingType} onChange={set('meetingType')}>
                   <option>Client presentation</option>
                   <option>Internal strategy</option>
                   <option>Sales discovery</option>
@@ -55,8 +57,8 @@ export default function MeetingBrief() {
                 </select>
               </div>
               <div>
-                <label className={labelClass}>Duration</label>
-                <select className={selectClass} value={form.duration} onChange={set('duration')}>
+                <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Duration</label>
+                <select className={selectClass} style={inputStyle} value={form.duration} onChange={set('duration')}>
                   <option>30 minutes</option>
                   <option>45 minutes</option>
                   <option>60 minutes</option>
@@ -66,10 +68,11 @@ export default function MeetingBrief() {
             </div>
 
             <div>
-              <label className={labelClass}>Meeting objective *</label>
+              <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Meeting objective *</label>
               <input
                 required
                 className={inputClass}
+                style={inputStyle}
                 placeholder="e.g. Win the renewal, Align on Q3 budget"
                 value={form.objective}
                 onChange={set('objective')}
@@ -77,9 +80,10 @@ export default function MeetingBrief() {
             </div>
 
             <div>
-              <label className={labelClass}>Who's attending</label>
+              <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Who's attending</label>
               <input
                 className={inputClass}
+                style={inputStyle}
                 placeholder="e.g. VP Sales, 2 engineers, external client"
                 value={form.attendees}
                 onChange={set('attendees')}
@@ -87,10 +91,11 @@ export default function MeetingBrief() {
             </div>
 
             <div>
-              <label className={labelClass}>Background / context</label>
+              <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Background / context</label>
               <textarea
                 rows={3}
                 className={inputClass}
+                style={inputStyle}
                 placeholder="e.g. 2-year customer, churn risk, last met in March"
                 value={form.context}
                 onChange={set('context')}
@@ -100,7 +105,8 @@ export default function MeetingBrief() {
             <button
               type="submit"
               disabled={isLoading || isComplete}
-              className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-white/90 transition btn-press disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="px-6 py-3 rounded-full font-medium transition btn-press disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              style={{backgroundColor: 'var(--ed-cta)', color: 'var(--ed-bg)'}}
             >
               {isLoading ? 'Generating…' : 'Generate brief →'}
             </button>
@@ -108,7 +114,7 @@ export default function MeetingBrief() {
         )}
       </ToolShell>
 
-      <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
+      <footer className="border-t px-8 py-8 text-center text-sm" style={{borderColor: 'var(--ed-border)', color: 'var(--ed-text-faint)'}}>
         © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
     </main>

@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { Nav } from '../../components/Nav'
 import { ToolShell } from '../../components/ToolShell'
 
-const inputClass = "bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-white/30 focus:border-white/30 focus:outline-none transition w-full text-sm"
-const selectClass = "bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-white/30 focus:outline-none transition w-full text-sm appearance-none cursor-pointer"
-const labelClass = "block text-xs text-white/50 uppercase tracking-widest mb-2"
+const inputStyle: React.CSSProperties = { backgroundColor: 'var(--ed-card-warm)', border: '1px solid var(--ed-border)', color: 'var(--ed-text)' }
+const inputClass = "rounded-lg px-4 py-3 focus:outline-none transition w-full text-sm"
+const selectClass = "rounded-lg px-4 py-3 focus:outline-none transition w-full text-sm appearance-none cursor-pointer"
+const labelClass = "block text-xs uppercase tracking-widest mb-2"
 
 export default function GTMPlaybook() {
   const [form, setForm] = useState({
@@ -22,12 +23,13 @@ export default function GTMPlaybook() {
     setForm(prev => ({ ...prev, [key]: e.target.value }))
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <Nav />
+    <main className="min-h-screen" style={{backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)'}}>
+      <Nav variant="light" />
       <ToolShell
         name="GTM Playbook Generator"
         description="Describe your product and target market. Get a tailored go-to-market strategy built by Claude."
         estimatedTime="Results in ~20 seconds"
+        variant="light"
       >
         {({ onSubmit, isLoading, isComplete }) => (
           <form
@@ -43,20 +45,22 @@ export default function GTMPlaybook() {
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
-                <label className={labelClass}>Product / Company *</label>
+                <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Product / Company *</label>
                 <input
                   required
                   className={inputClass}
+                  style={inputStyle}
                   placeholder="e.g. AI contract review for legal teams"
                   value={form.product}
                   onChange={set('product')}
                 />
               </div>
               <div>
-                <label className={labelClass}>Industry / Market *</label>
+                <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Industry / Market *</label>
                 <input
                   required
                   className={inputClass}
+                  style={inputStyle}
                   placeholder="e.g. B2B SaaS, Healthcare, Fintech"
                   value={form.industry}
                   onChange={set('industry')}
@@ -66,8 +70,8 @@ export default function GTMPlaybook() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
-                <label className={labelClass}>Company Stage</label>
-                <select className={selectClass} value={form.stage} onChange={set('stage')}>
+                <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Company Stage</label>
+                <select className={selectClass} style={inputStyle} value={form.stage} onChange={set('stage')}>
                   <option>Early-stage (0–10 employees)</option>
                   <option>Growth (10–100)</option>
                   <option>Scale-up (100–500)</option>
@@ -75,8 +79,8 @@ export default function GTMPlaybook() {
                 </select>
               </div>
               <div>
-                <label className={labelClass}>Primary GTM Motion</label>
-                <select className={selectClass} value={form.motion} onChange={set('motion')}>
+                <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Primary GTM Motion</label>
+                <select className={selectClass} style={inputStyle} value={form.motion} onChange={set('motion')}>
                   <option>Product-Led Growth (PLG)</option>
                   <option>Sales-Led Growth (SLG)</option>
                   <option>Channel / Partner</option>
@@ -87,11 +91,12 @@ export default function GTMPlaybook() {
             </div>
 
             <div>
-              <label className={labelClass}>Ideal Customer Profile *</label>
+              <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Ideal Customer Profile *</label>
               <textarea
                 required
                 rows={3}
                 className={`${inputClass} resize-none`}
+                style={inputStyle}
                 placeholder="e.g. Head of Legal at mid-market financial services firms, 200–1000 employees, struggling with contract review bottlenecks"
                 value={form.icp}
                 onChange={set('icp')}
@@ -99,8 +104,8 @@ export default function GTMPlaybook() {
             </div>
 
             <div>
-              <label className={labelClass}>Biggest GTM Challenge</label>
-              <select className={selectClass} value={form.challenge} onChange={set('challenge')}>
+              <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Biggest GTM Challenge</label>
+              <select className={selectClass} style={inputStyle} value={form.challenge} onChange={set('challenge')}>
                 <option>Finding the right ICP</option>
                 <option>Differentiation from competitors</option>
                 <option>Converting trials to paid</option>
@@ -113,7 +118,8 @@ export default function GTMPlaybook() {
             <button
               type="submit"
               disabled={isLoading || isComplete}
-              className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-white/90 transition btn-press disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="px-6 py-3 rounded-full font-medium transition btn-press disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              style={{backgroundColor: 'var(--ed-cta)', color: 'var(--ed-bg)'}}
             >
               {isLoading ? 'Generating…' : 'Generate playbook →'}
             </button>
@@ -121,7 +127,7 @@ export default function GTMPlaybook() {
         )}
       </ToolShell>
 
-      <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
+      <footer className="border-t px-8 py-8 text-center text-sm" style={{borderColor: 'var(--ed-border)', color: 'var(--ed-text-faint)'}}>
         © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
     </main>

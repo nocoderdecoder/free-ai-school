@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { Nav } from '../../components/Nav'
 import { ToolShell } from '../../components/ToolShell'
 
-const inputClass = "bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-white/30 focus:border-white/30 focus:outline-none transition w-full text-sm"
-const selectClass = "bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-white/30 focus:outline-none transition w-full text-sm appearance-none cursor-pointer"
-const labelClass = "block text-xs text-white/50 uppercase tracking-widest mb-2"
+const inputStyle: React.CSSProperties = { backgroundColor: 'var(--ed-card-warm)', border: '1px solid var(--ed-border)', color: 'var(--ed-text)' }
+const inputClass = "rounded-lg px-4 py-3 focus:outline-none transition w-full text-sm"
+const selectClass = "rounded-lg px-4 py-3 focus:outline-none transition w-full text-sm appearance-none cursor-pointer"
+const labelClass = "block text-xs uppercase tracking-widest mb-2"
 
 export default function ROICalculator() {
   const [form, setForm] = useState({
@@ -20,19 +21,19 @@ export default function ROICalculator() {
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(prev => ({ ...prev, [key]: e.target.value }))
 
-  // Live preview calculation
   const weeklyHours = parseFloat(form.hoursPerWeek) || 0
   const team = parseInt(form.teamSize) || 1
   const rate = parseFloat(form.hourlyCost) || 0
   const annualCost = Math.round(weeklyHours * team * rate * 52)
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <Nav />
+    <main className="min-h-screen" style={{backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)'}}>
+      <Nav variant="light" />
       <ToolShell
         name="AI ROI Calculator"
         description="Tell me how you spend your time. I'll calculate exactly how much AI could save you — in hours and dollars."
         estimatedTime="Results in ~20 seconds"
+        variant="light"
       >
         {({ onSubmit, isLoading, isComplete }) => (
           <form
@@ -47,10 +48,11 @@ export default function ROICalculator() {
             className="space-y-5"
           >
             <div>
-              <label className={labelClass}>Your Role *</label>
+              <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Your Role *</label>
               <input
                 required
                 className={inputClass}
+                style={inputStyle}
                 placeholder="e.g. Marketing Manager, Sales Director, Ops Lead"
                 value={form.role}
                 onChange={set('role')}
@@ -59,26 +61,28 @@ export default function ROICalculator() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
-                <label className={labelClass}>Hours / Week on Manual Tasks *</label>
+                <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Hours / Week on Manual Tasks *</label>
                 <input
                   required
                   type="number"
                   min={1}
                   max={60}
                   className={inputClass}
+                  style={inputStyle}
                   placeholder="10"
                   value={form.hoursPerWeek}
                   onChange={set('hoursPerWeek')}
                 />
               </div>
               <div>
-                <label className={labelClass}>Team Size *</label>
+                <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Team Size *</label>
                 <input
                   required
                   type="number"
                   min={1}
                   max={1000}
                   className={inputClass}
+                  style={inputStyle}
                   placeholder="1"
                   value={form.teamSize}
                   onChange={set('teamSize')}
@@ -87,8 +91,8 @@ export default function ROICalculator() {
             </div>
 
             <div>
-              <label className={labelClass}>Primary Task Type</label>
-              <select className={selectClass} value={form.taskType} onChange={set('taskType')}>
+              <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Primary Task Type</label>
+              <select className={selectClass} style={inputStyle} value={form.taskType} onChange={set('taskType')}>
                 <option>Content &amp; Writing</option>
                 <option>Research &amp; Analysis</option>
                 <option>Data &amp; Reporting</option>
@@ -100,31 +104,32 @@ export default function ROICalculator() {
             </div>
 
             <div>
-              <label className={labelClass}>Hourly Cost, incl. Overhead ($) *</label>
+              <label className={labelClass} style={{color: 'var(--ed-text-faint)'}}>Hourly Cost, incl. Overhead ($) *</label>
               <input
                 required
                 type="number"
                 min={1}
                 className={inputClass}
+                style={inputStyle}
                 placeholder="50"
                 value={form.hourlyCost}
                 onChange={set('hourlyCost')}
               />
-              <p className="text-white/25 text-xs mt-1.5">Salary ÷ 2,080 hours × 1.3 for benefits &amp; overhead</p>
+              <p className="text-xs mt-1.5" style={{color: 'var(--ed-text-faint)'}}>Salary ÷ 2,080 hours × 1.3 for benefits &amp; overhead</p>
             </div>
 
-            {/* Live preview */}
             {annualCost > 0 && (
-              <div className="border border-white/5 rounded-lg p-4 bg-white/[0.02]">
-                <p className="text-white/30 text-xs uppercase tracking-widest mb-1">Current annual cost of these tasks</p>
-                <p className="text-white font-semibold text-lg">${annualCost.toLocaleString()}</p>
+              <div className="rounded-lg p-4" style={{border: '1px solid var(--ed-border)', backgroundColor: 'var(--ed-card-warm)'}}>
+                <p className="text-xs uppercase tracking-widest mb-1" style={{color: 'var(--ed-text-faint)'}}>Current annual cost of these tasks</p>
+                <p className="font-semibold text-lg" style={{color: 'var(--ed-text-dark)'}}>${annualCost.toLocaleString()}</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={isLoading || isComplete}
-              className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-white/90 transition btn-press disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="px-6 py-3 rounded-full font-medium transition btn-press disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              style={{backgroundColor: 'var(--ed-cta)', color: 'var(--ed-bg)'}}
             >
               {isLoading ? 'Calculating…' : 'Calculate my AI ROI →'}
             </button>
@@ -132,7 +137,7 @@ export default function ROICalculator() {
         )}
       </ToolShell>
 
-      <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
+      <footer className="border-t px-8 py-8 text-center text-sm" style={{borderColor: 'var(--ed-border)', color: 'var(--ed-text-faint)'}}>
         © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
     </main>
