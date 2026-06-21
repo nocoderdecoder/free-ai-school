@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { Nav } from '../../components/Nav'
 import { createClient } from 'next-sanity'
 import { PortableText } from '@portabletext/react'
-import { portableTextComponents } from '../../components/PortableTextComponents'
+import { editorialComponents } from '../../components/PortableTextComponents'
 
 export const revalidate = 3600
 
@@ -67,39 +67,39 @@ export default async function WritingPost({ params }: { params: Promise<{ slug: 
   if (!post) notFound()
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <Nav />
+    <main className="min-h-screen" style={{backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)'}}>
+      <Nav variant="light" />
 
       <article className="max-w-3xl mx-auto px-8 pt-28 pb-32">
-        <a href="/writing" className="section-label mb-8 inline-block hover:text-white transition">
+        <a href="/writing" className="section-label mb-8 inline-block" style={{color: 'var(--ed-text-faint)'}}>
           ← Writing
         </a>
 
         <header className="mt-4 mb-12">
-          <h1 className="heading-page mb-6">{post.title}</h1>
+          <h1 className="heading-page mb-6" style={{fontFamily: 'var(--font-serif)', fontWeight: 400, color: 'var(--ed-text-dark)'}}>{post.title}</h1>
           <div className="flex items-center gap-4">
             {post.publishedAt && (
-              <span className="text-white/30 text-sm">{formatDate(post.publishedAt)}</span>
+              <span className="text-sm" style={{color: 'var(--ed-text-light)'}}>{formatDate(post.publishedAt)}</span>
             )}
             {post.readTime && (
-              <span className="text-white/20 text-sm">{post.readTime} min read</span>
+              <span className="text-sm" style={{color: 'var(--ed-text-light)'}}>{post.readTime} min read</span>
             )}
           </div>
           {post.excerpt && (
-            <p className="text-white/60 text-xl leading-relaxed mt-6 border-l-2 border-white/10 pl-6">
+            <p className="text-xl leading-relaxed mt-6 pl-6" style={{color: 'var(--ed-text-muted)', borderLeft: '2px solid var(--ed-border)'}}>
               {post.excerpt}
             </p>
           )}
         </header>
 
         {post.body && (
-          <div className="prose prose-invert prose-lg max-w-none">
-            <PortableText value={post.body} components={portableTextComponents} />
+          <div className="prose prose-lg max-w-none">
+            <PortableText value={post.body} components={editorialComponents} />
           </div>
         )}
       </article>
 
-      <footer className="border-t border-white/10 px-8 py-8 text-center text-white/30 text-sm">
+      <footer className="px-8 py-8 text-center text-sm" style={{borderTop: '1px solid var(--ed-border)', color: 'var(--ed-text-faint)'}}>
         © {new Date().getFullYear()} Anshul Gupta · anshul.ai
       </footer>
     </main>
