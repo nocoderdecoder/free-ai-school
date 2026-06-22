@@ -130,7 +130,7 @@ function ProjectCard({ project }: { project: Project }) {
     </>
   )
 
-  const shared = "block rounded-xl overflow-hidden transition group ed-list-card"
+  const shared = "block rounded-xl overflow-hidden transition group ed-list-card card-hover"
   const sharedStyle = { background: 'var(--ed-card-warm)', borderRadius: '14px' }
 
   if (href) {

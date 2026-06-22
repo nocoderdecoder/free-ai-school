@@ -80,7 +80,7 @@ export default function Downloads() {
                     {catResources.map((resource) => (
                       <div
                         key={resource.filename}
-                        className="group rounded-xl p-6 transition flex flex-col gap-4 ed-list-card"
+                        className="group rounded-xl p-6 transition flex flex-col gap-4 ed-list-card card-hover"
                         style={{ background: 'var(--ed-card-warm)', borderRadius: '14px' }}
                       >
                         <div className="flex-1">
@@ -101,7 +101,8 @@ export default function Downloads() {
                           <a
                             href={`/api/pdf/${resource.filename}`}
                             download={resource.filename}
-                            className="flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-full transition"
+                            data-cursor="Download"
+                            className="flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-full transition btn-press"
                             style={{ background: 'var(--ed-cta)', color: '#FDFCFA' }}
                           >
                             <DownloadIcon />
@@ -128,19 +129,19 @@ export default function Downloads() {
           <div className="flex gap-12">
             <div className="flex flex-col gap-2">
               <p className="text-xs uppercase tracking-widest mb-1" style={{ color: 'var(--ed-text-light)' }}>Pages</p>
-              <a href="/about" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>About</a>
-              <a href="/work" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>Work</a>
-              <a href="/projects" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>Projects</a>
-              <a href="/learn" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>AI School</a>
-              <a href="/analysis" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>Analysis</a>
-              <a href="/writing" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>Writing</a>
-              <a href="/downloads" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>Downloads</a>
-              <a href="/contact" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>Contact</a>
+              <a href="/about" className="text-sm transition link-slide" style={{ color: 'var(--ed-text-faint)' }}>About</a>
+              <a href="/work" className="text-sm transition link-slide" style={{ color: 'var(--ed-text-faint)' }}>Work</a>
+              <a href="/projects" className="text-sm transition link-slide" style={{ color: 'var(--ed-text-faint)' }}>Projects</a>
+              <a href="/learn" className="text-sm transition link-slide" style={{ color: 'var(--ed-text-faint)' }}>AI School</a>
+              <a href="/analysis" className="text-sm transition link-slide" style={{ color: 'var(--ed-text-faint)' }}>Analysis</a>
+              <a href="/writing" className="text-sm transition link-slide" style={{ color: 'var(--ed-text-faint)' }}>Writing</a>
+              <a href="/downloads" className="text-sm transition link-slide" style={{ color: 'var(--ed-text-faint)' }}>Downloads</a>
+              <a href="/contact" className="text-sm transition link-slide" style={{ color: 'var(--ed-text-faint)' }}>Contact</a>
             </div>
             <div className="flex flex-col gap-2">
               <p className="text-xs uppercase tracking-widest mb-1" style={{ color: 'var(--ed-text-light)' }}>Connect</p>
-              <a href="https://www.linkedin.com/in/anshul-gupta1/" target="_blank" rel="noopener noreferrer" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>LinkedIn</a>
-              <a href="https://github.com/nocoderdecoder" target="_blank" rel="noopener noreferrer" className="text-sm transition" style={{ color: 'var(--ed-text-faint)' }}>GitHub</a>
+              <a href="https://www.linkedin.com/in/anshul-gupta1/" target="_blank" rel="noopener noreferrer" data-cursor="Visit" className="text-sm transition link-slide" style={{ color: 'var(--ed-text-faint)' }}>LinkedIn</a>
+              <a href="https://github.com/nocoderdecoder" target="_blank" rel="noopener noreferrer" data-cursor="Visit" className="text-sm transition link-slide" style={{ color: 'var(--ed-text-faint)' }}>GitHub</a>
             </div>
           </div>
         </div>

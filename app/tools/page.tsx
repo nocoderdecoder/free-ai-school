@@ -75,7 +75,7 @@ function ToolCard({ tool }: { tool: typeof TOOLS[0] }) {
   const isLive = tool.status === 'Live'
   return (
     <div
-      className={`rounded-xl p-6 transition ${isLive ? 'ed-list-card' : 'opacity-50'}`}
+      className={`rounded-xl p-6 transition ${isLive ? 'ed-list-card card-hover' : 'opacity-50'}`}
       style={{ background: 'var(--ed-card-warm)', borderRadius: 14 }}
     >
       <div className="flex items-start justify-between mb-4">
@@ -96,6 +96,7 @@ function ToolCard({ tool }: { tool: typeof TOOLS[0] }) {
       {isLive && (
         <a
           href={`/tools/${tool.slug}`}
+          data-cursor="Try it"
           className="inline-flex items-center gap-2 text-sm px-4 py-2 rounded-full transition btn-press"
           style={{ background: 'var(--ed-card-warm)', color: 'var(--ed-text-secondary)', border: '1px solid var(--ed-border)' }}
         >

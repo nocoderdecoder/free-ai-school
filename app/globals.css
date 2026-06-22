@@ -6,8 +6,8 @@
 @tailwind utilities;
 
 body {
-  background-color: var(--bg-deep);
-  color: var(--text-primary);
+  background-color: var(--ed-bg);
+  color: var(--ed-text);
 }
 
 /* ─── Page-load hero fade-up ─────────────────────────────────────── */
@@ -79,7 +79,7 @@ body {
   left: 0;
   width: 0;
   height: 1px;
-  background: var(--text-primary);
+  background: var(--ed-text);
   transition: width var(--duration-base) var(--ease-out-expo);
 }
 
@@ -119,9 +119,9 @@ body {
 .skeleton {
   background: linear-gradient(
     90deg,
-    var(--bg-card) 25%,
-    rgba(255, 255, 255, 0.06) 50%,
-    var(--bg-card) 75%
+    var(--ed-card-warm) 25%,
+    var(--ed-card-hover) 50%,
+    var(--ed-card-warm) 75%
   );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
@@ -149,7 +149,7 @@ h3 {
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  color: var(--text-tertiary);
+  color: var(--ed-text-faint);
 }
 
 /* ── Hero heading ── */
@@ -255,6 +255,24 @@ h3 {
     padding-left: 24px !important;
     padding-right: 24px !important;
   }
+}
+
+/* ── Spacing rhythm utilities ── */
+.space-section-y {
+  padding-top: var(--space-block);
+  padding-bottom: var(--space-block);
+}
+
+.space-section-t {
+  padding-top: var(--space-block);
+}
+
+.space-section-b {
+  padding-bottom: var(--space-block);
+}
+
+.space-block-gap {
+  gap: var(--space-element);
 }
 
 /* ── Shared editorial list-card hover (used across list/article/static pages) ── */

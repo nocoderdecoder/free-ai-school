@@ -1,10 +1,14 @@
 import type { Metadata } from 'next'
 import { createClient } from 'next-sanity'
 import { Nav } from './components/Nav'
+import { JsonLd, personSchema, organizationSchema } from './components/JsonLd'
 
 export const metadata: Metadata = {
   title: 'Anshul Gupta — AI Builder & Educator',
   description: 'GTM Strategy at Google. Kellogg MBA. I build AI products without an engineering degree and teach practical AI to business professionals.',
+  alternates: {
+    canonical: 'https://anshul.ai',
+  },
   openGraph: {
     title: 'Anshul Gupta — AI Builder & Educator',
     description: 'GTM Strategy at Google. Kellogg MBA. I build AI products and teach practical AI to business professionals.',
@@ -42,6 +46,8 @@ export default async function Home() {
 
   return (
     <main style={{ backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)' }}>
+      <JsonLd data={personSchema()} />
+      <JsonLd data={organizationSchema()} />
       <Nav variant="light" />
 
       {/* Hero */}
@@ -53,9 +59,10 @@ export default async function Home() {
           alignItems: 'start',
           maxWidth: '1080px',
           margin: '0 auto',
-          padding: '80px 48px 64px',
+          paddingLeft: '48px',
+          paddingRight: '48px',
         }}
-        className="ed-hero"
+        className="ed-hero space-section-t"
       >
         {/* Left */}
         <div>
@@ -78,12 +85,16 @@ export default async function Home() {
           <div style={{ display: 'flex', gap: '12px', marginBottom: '40px' }}>
             <a
               href="/projects"
+              data-cursor="View"
+              className="btn-press"
               style={{ background: 'var(--ed-cta)', color: 'var(--ed-bg)', padding: '12px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, textDecoration: 'none', transition: 'background 0.15s' }}
             >
               See what I&apos;ve built
             </a>
             <a
               href="/learn"
+              data-cursor="Learn"
+              className="btn-press"
               style={{ background: 'var(--ed-card-warm)', color: 'var(--ed-text-secondary)', padding: '12px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, textDecoration: 'none', transition: 'background 0.15s' }}
             >
               Start learning →
@@ -163,7 +174,7 @@ export default async function Home() {
 
       {/* Featured cards */}
       <section style={{ maxWidth: '1080px', margin: '0 auto', padding: '0 48px 32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }} className="ed-cards">
-        <a href="/learn" className="ed-feat-card" style={{ padding: '44px', borderRadius: '14px', background: 'var(--ed-card-school)', textDecoration: 'none', color: 'var(--ed-text)', display: 'flex', flexDirection: 'column', transition: 'filter 0.25s, transform 0.25s' }}>
+        <a href="/learn" data-cursor="Explore" className="ed-feat-card" style={{ padding: '44px', borderRadius: '14px', background: 'var(--ed-card-school)', textDecoration: 'none', color: 'var(--ed-text)', display: 'flex', flexDirection: 'column', transition: 'filter 0.25s, transform 0.25s' }}>
           <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginBottom: '16px', opacity: 0.5 }}>Education</span>
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', fontWeight: 400, lineHeight: 1.2, marginBottom: '12px' }}>Free AI School</h3>
           <p style={{ fontSize: '14px', lineHeight: 1.65, color: 'var(--ed-text-muted)', marginBottom: '20px', flex: 1 }}>
@@ -171,7 +182,7 @@ export default async function Home() {
           </p>
           <span className="ed-feat-link" style={{ fontSize: '13px', color: 'var(--ed-text)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>Start learning →</span>
         </a>
-        <a href="/projects" className="ed-feat-card" style={{ padding: '44px', borderRadius: '14px', background: 'var(--ed-card-projects)', textDecoration: 'none', color: 'var(--ed-text)', display: 'flex', flexDirection: 'column', transition: 'filter 0.25s, transform 0.25s' }}>
+        <a href="/projects" data-cursor="Explore" className="ed-feat-card" style={{ padding: '44px', borderRadius: '14px', background: 'var(--ed-card-projects)', textDecoration: 'none', color: 'var(--ed-text)', display: 'flex', flexDirection: 'column', transition: 'filter 0.25s, transform 0.25s' }}>
           <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginBottom: '16px', opacity: 0.5 }}>Projects</span>
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', fontWeight: 400, lineHeight: 1.2, marginBottom: '12px' }}>AI tools I&apos;ve built</h3>
           <p style={{ fontSize: '14px', lineHeight: 1.65, color: 'var(--ed-text-muted)', marginBottom: '20px', flex: 1 }}>
@@ -182,15 +193,15 @@ export default async function Home() {
       </section>
 
       {/* Bottom cards */}
-      <section style={{ maxWidth: '1080px', margin: '0 auto', padding: '0 48px 80px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }} className="ed-cards">
-        <a href="/writing" className="ed-bottom-card" style={{ padding: '36px', background: 'var(--ed-card-warm)', borderRadius: '14px', textDecoration: 'none', color: 'var(--ed-text)', display: 'flex', flexDirection: 'column', transition: 'background 0.25s, transform 0.25s' }}>
+      <section style={{ maxWidth: '1080px', margin: '0 auto', paddingLeft: '48px', paddingRight: '48px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }} className="ed-cards space-section-b">
+        <a href="/writing" data-cursor="Read" className="ed-bottom-card" style={{ padding: '36px', background: 'var(--ed-card-warm)', borderRadius: '14px', textDecoration: 'none', color: 'var(--ed-text)', display: 'flex', flexDirection: 'column', transition: 'background 0.25s, transform 0.25s' }}>
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', fontWeight: 400, marginBottom: '8px', lineHeight: 1.25 }}>Writing</h3>
           <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--ed-text-muted)', marginBottom: '18px', flex: 1 }}>
             Honest takes on building with AI. What&apos;s working, what failed, and what I think is actually happening right now.
           </p>
           <span style={{ fontSize: '12px', color: 'var(--ed-text-secondary)', fontWeight: 600 }}>Read the essays →</span>
         </a>
-        <a href="/lab" className="ed-bottom-card" style={{ padding: '36px', background: 'var(--ed-card-warm)', borderRadius: '14px', textDecoration: 'none', color: 'var(--ed-text)', display: 'flex', flexDirection: 'column', transition: 'background 0.25s, transform 0.25s' }}>
+        <a href="/lab" data-cursor="Open" className="ed-bottom-card" style={{ padding: '36px', background: 'var(--ed-card-warm)', borderRadius: '14px', textDecoration: 'none', color: 'var(--ed-text)', display: 'flex', flexDirection: 'column', transition: 'background 0.25s, transform 0.25s' }}>
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', fontWeight: 400, marginBottom: '8px', lineHeight: 1.25 }}>Lab</h3>
           <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--ed-text-muted)', marginBottom: '18px', flex: 1 }}>
             Interactive AI tools you can try right now — prompt scorer, learning compass, and more.
@@ -206,9 +217,9 @@ export default async function Home() {
           © {new Date().getFullYear()} · anshul.ai
         </div>
         <div style={{ display: 'flex', gap: '24px' }}>
-          <a href="https://github.com/nocoderdecoder" target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', color: 'var(--ed-text-faint)', textDecoration: 'none', transition: 'color 0.15s' }} className="ed-footer-link">GitHub</a>
-          <a href="https://www.linkedin.com/in/anshul-gupta1/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', color: 'var(--ed-text-faint)', textDecoration: 'none', transition: 'color 0.15s' }} className="ed-footer-link">LinkedIn</a>
-          <a href="/contact" style={{ fontSize: '13px', color: 'var(--ed-text-faint)', textDecoration: 'none', transition: 'color 0.15s' }} className="ed-footer-link">Contact</a>
+          <a href="https://github.com/nocoderdecoder" target="_blank" rel="noopener noreferrer" data-cursor="Visit" style={{ fontSize: '13px', color: 'var(--ed-text-faint)', textDecoration: 'none', transition: 'color 0.15s' }} className="ed-footer-link">GitHub</a>
+          <a href="https://www.linkedin.com/in/anshul-gupta1/" target="_blank" rel="noopener noreferrer" data-cursor="Visit" style={{ fontSize: '13px', color: 'var(--ed-text-faint)', textDecoration: 'none', transition: 'color 0.15s' }} className="ed-footer-link">LinkedIn</a>
+          <a href="/contact" data-cursor="Contact" style={{ fontSize: '13px', color: 'var(--ed-text-faint)', textDecoration: 'none', transition: 'color 0.15s' }} className="ed-footer-link">Contact</a>
         </div>
       </footer>
     </main>

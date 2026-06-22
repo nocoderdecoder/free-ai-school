@@ -96,7 +96,7 @@ export function ToolShell({ name, description, estimatedTime, variant = 'dark', 
   const isLight = variant === 'light'
 
   const cardClass = isLight ? 'rounded-xl p-6 mb-6' : 'border border-white/10 rounded-xl p-6 mb-6'
-  const cardStyle = isLight ? { background: 'var(--ed-card-warm)', border: '1px solid var(--ed-border)' } : { backgroundColor: 'var(--bg-card)' }
+  const cardStyle = isLight ? { background: 'var(--ed-card-warm)', border: '1px solid var(--ed-border)' } : { backgroundColor: 'var(--ed-card-warm)' }
 
   const loadingCardClass = isLight ? 'rounded-xl p-8 text-center mb-6' : 'border border-white/10 rounded-xl p-8 text-center mb-6'
   const loadingTextClass = isLight ? 'flex items-center justify-center gap-3' : 'flex items-center justify-center gap-3 text-white/40'

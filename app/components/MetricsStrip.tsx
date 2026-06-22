@@ -40,7 +40,7 @@ export function MetricsStrip({ metrics }: { metrics: Metric[] }) {
   return (
     <motion.div
       className="border-y py-8"
-      style={{ borderColor: 'var(--border-subtle)' }}
+      style={{ borderColor: 'var(--ed-border)' }}
       initial={{ opacity: 0 }}
       whileInView={{ opacity: 1 }}
       viewport={{ once: true }}
@@ -52,7 +52,7 @@ export function MetricsStrip({ metrics }: { metrics: Metric[] }) {
             <p className="text-2xl font-bold tracking-tight">
               <AnimatedNumber value={metric.value} suffix={metric.suffix} />
             </p>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+            <p className="text-xs mt-1" style={{ color: 'var(--ed-text-faint)' }}>
               {metric.label}
             </p>
           </div>

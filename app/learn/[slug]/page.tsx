@@ -4,6 +4,7 @@ import { createClient } from 'next-sanity'
 import { PortableText } from '@portabletext/react'
 import type { Metadata } from 'next'
 import { editorialComponents } from '../../components/PortableTextComponents'
+import { JsonLd, articleSchema } from '../../components/JsonLd'
 
 const client = createClient({
   projectId: '8w4exnl4',
@@ -24,6 +25,9 @@ export async function generateMetadata({ params }: any): Promise<Metadata> {
   return {
     title: article.title,
     description: article.excerpt || undefined,
+    alternates: {
+      canonical: `https://anshul.ai/learn/${slug}`,
+    },
     openGraph: {
       title: article.title,
       description: article.excerpt || undefined,
@@ -77,6 +81,14 @@ export default async function Article({ params }: any) {
 
   return (
     <main className="min-h-screen" style={{backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)'}}>
+      <JsonLd
+        data={articleSchema({
+          title: article.title,
+          description: article.excerpt,
+          url: `https://anshul.ai/learn/${slug}`,
+          publishedAt: article.publishedAt,
+        })}
+      />
       <ReadingProgress variant="light" />
       <Nav variant="light" />
 

@@ -4,6 +4,7 @@ import { Nav } from '../../components/Nav'
 import { createClient } from 'next-sanity'
 import { PortableText } from '@portabletext/react'
 import { editorialComponents } from '../../components/PortableTextComponents'
+import { JsonLd, articleSchema } from '../../components/JsonLd'
 
 export const revalidate = 3600
 
@@ -36,6 +37,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     return {
       title: post.title,
       description: post.excerpt,
+      alternates: {
+        canonical: `https://anshul.ai/writing/${slug}`,
+      },
       openGraph: {
         title: `${post.title} — Anshul Gupta`,
         description: post.excerpt,
@@ -68,6 +72,14 @@ export default async function WritingPost({ params }: { params: Promise<{ slug: 
 
   return (
     <main className="min-h-screen" style={{backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)'}}>
+      <JsonLd
+        data={articleSchema({
+          title: post.title,
+          description: post.excerpt,
+          url: `https://anshul.ai/writing/${slug}`,
+          publishedAt: post.publishedAt,
+        })}
+      />
       <Nav variant="light" />
 
       <article className="max-w-3xl mx-auto px-8 pt-28 pb-32">
