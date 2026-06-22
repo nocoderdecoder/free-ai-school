@@ -155,16 +155,12 @@ const styles = StyleSheet.create({
 
   // ── Table ─────────────────────────────────────────────────────────────────
   table: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 3,
   },
   tableHeaderRow: {
     flexDirection: 'row',
     backgroundColor: COLORS.accent,
   },
   tableHeaderCell: {
-    flex: 1,
     paddingTop: 7,
     paddingBottom: 7,
     paddingLeft: 8,
@@ -172,11 +168,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
     fontSize: 9,
     color: COLORS.white,
-    borderRightWidth: 1,
-    borderRightColor: '#0ea572',
   },
   tableHeaderCellLast: {
-    flex: 1,
     paddingTop: 7,
     paddingBottom: 7,
     paddingLeft: 8,
@@ -191,7 +184,6 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.border,
   },
   tableCell: {
-    flex: 1,
     paddingTop: 6,
     paddingBottom: 6,
     paddingLeft: 8,
@@ -199,11 +191,8 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: COLORS.text,
     lineHeight: 1.4,
-    borderRightWidth: 1,
-    borderRightColor: COLORS.border,
   },
   tableCellLast: {
-    flex: 1,
     paddingTop: 6,
     paddingBottom: 6,
     paddingLeft: 8,
@@ -223,19 +212,21 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   gridCard: {
-    flex: 1,
+    width: 163,
     marginRight: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 4,
     padding: 10,
+    overflow: 'hidden',
   },
   gridCardLast: {
-    flex: 1,
+    width: 163,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 4,
     padding: 10,
+    overflow: 'hidden',
   },
   gridLabelRow: {
     flexDirection: 'row',
@@ -430,44 +421,29 @@ function Table({
   columns: string[]
   rows: string[][]
 }) {
+  const usableWidth = 507
+  const colWidth = Math.floor(usableWidth / columns.length)
+  const cellFontSize = columns.length >= 3 ? 8 : 9
   return (
     <View style={styles.section}>
       <Text style={styles.sectionHeading}>{heading}</Text>
-      <View style={styles.table}>
-        {/* Header row — fixed so it repeats if table spans pages */}
-        <View style={styles.tableHeaderRow} fixed>
+      <View>
+        <View style={{ flexDirection: 'row', backgroundColor: COLORS.accent }} fixed>
           {columns.map((col, i) => (
-            <Text
-              key={i}
-              style={
-                i === columns.length - 1
-                  ? styles.tableHeaderCellLast
-                  : styles.tableHeaderCell
-              }
-            >
-              {col}
-            </Text>
+            <View key={i} style={{ width: colWidth, padding: 7, paddingLeft: 8, paddingRight: 8 }}>
+              <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: cellFontSize, color: COLORS.white }}>{col}</Text>
+            </View>
           ))}
         </View>
         {rows.map((row, r) => (
           <View
             key={r}
-            style={[
-              styles.tableRow,
-              { backgroundColor: r % 2 === 0 ? COLORS.white : COLORS.rowAlt },
-            ]}
-            wrap={false}
+            style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: COLORS.border, backgroundColor: r % 2 === 0 ? COLORS.white : COLORS.rowAlt }}
           >
             {row.map((cell, c) => (
-              <Text
-                key={c}
-                style={[
-                  c === row.length - 1 ? styles.tableCellLast : styles.tableCell,
-                  ...(c === 0 ? [styles.tableCellBold] : []),
-                ]}
-              >
-                {cell}
-              </Text>
+              <View key={c} style={{ width: colWidth, padding: 6, paddingLeft: 8, paddingRight: 8 }}>
+                <Text style={[{ fontSize: cellFontSize, color: COLORS.text, lineHeight: 1.4 }, ...(c === 0 ? [{ fontFamily: 'Helvetica-Bold' as const }] : [])]}>{cell}</Text>
+              </View>
             ))}
           </View>
         ))}
@@ -660,7 +636,7 @@ export function PdfDocument({ title, subtitle, category, sections }: PdfDocProps
           <Text style={styles.subtitle}>{subtitle}</Text>
         </View>
 
-        {normalized.map((section, i) => renderSection(section, i))}
+        {normalized.slice(0, 19).map((section, i) => renderSection(section, i))}
 
         {/* Fixed footer */}
         <View style={styles.footer} fixed>
