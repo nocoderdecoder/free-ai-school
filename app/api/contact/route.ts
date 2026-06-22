@@ -28,8 +28,9 @@ export async function POST(request: Request) {
 
   try {
     await resend.emails.send({
-      from: 'Contact Form <onboarding@resend.dev>',
-      to: 'anshulgupta1512@gmail.com',
+      // NOTE: sandbox sender — update RESEND_FROM_EMAIL once a custom domain is verified in Resend.
+      from: process.env.RESEND_FROM_EMAIL || 'Contact Form <onboarding@resend.dev>',
+      to: process.env.CONTACT_EMAIL_TO || 'anshulgupta1512@gmail.com',
       replyTo: email,
       subject: `[anshul.ai] ${category || 'Contact'}: ${name}`,
       html: `

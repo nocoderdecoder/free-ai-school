@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { checkRateLimit, rateLimitResponse } from '../../../lib/rateLimit'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -8,6 +9,9 @@ export async function POST(request: Request) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return new Response('API key not configured', { status: 503 })
   }
+
+  const rate = await checkRateLimit(request, { tool: 'ai-tool-recommender', limit: 10, windowMs: 60 * 60 * 1000 })
+  if (!rate.allowed) return rateLimitResponse(rate)
 
   let body: Record<string, string>
   try {

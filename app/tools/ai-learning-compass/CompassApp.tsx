@@ -371,7 +371,7 @@ export function CompassApp() {
 
         <div className="mt-5 grid gap-5 lg:grid-cols-2">
           <article className="rounded-2xl p-6 sm:p-8" style={cardStyle}><p className="section-label" style={{ color: 'var(--ed-text-faint)' }}>Where you are</p><p className="mt-4 text-sm leading-relaxed" style={{ color: 'var(--ed-text-secondary)' }}>{analysis.currentPosition}</p></article>
-          <article className="rounded-2xl border border-blue-200 bg-blue-50 p-6 sm:p-8"><p className="section-label text-blue-700">Your 30-day destination</p><p className="mt-4 text-sm leading-relaxed" style={{ color: 'var(--ed-text-secondary)' }}>{analysis.targetPosition}</p></article>
+          <article className="rounded-2xl border border-blue-200 bg-blue-50 p-6 sm:p-8"><p className="section-label" style={{ color: '#1d4ed8' }}>Your 30-day destination</p><p className="mt-4 text-sm leading-relaxed" style={{ color: 'var(--ed-text-secondary)' }}>{analysis.targetPosition}</p></article>
         </div>
 
         <article className="mt-5 rounded-2xl p-6 sm:p-9" style={cardStyle}>
@@ -380,7 +380,7 @@ export function CompassApp() {
         </article>
 
         <article className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-6 sm:p-9">
-          <p className="section-label text-amber-700">Start here</p><h2 className="mt-3 text-3xl font-semibold" style={{ color: 'var(--ed-text-dark)' }}>Your first 72 hours</h2>
+          <p className="section-label" style={{ color: '#b45309' }}>Start here</p><h2 className="mt-3 text-3xl font-semibold" style={{ color: 'var(--ed-text-dark)' }}>Your first 72 hours</h2>
           <div className="mt-7 grid gap-3">{analysis.first72Hours.map((task, index) => <TaskCard key={`${task.action}-${index}`} task={task} number={index + 1} />)}</div>
         </article>
 

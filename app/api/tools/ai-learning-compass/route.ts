@@ -6,6 +6,7 @@ import {
   questionCount,
   type CompassAnswer,
 } from '../../../lib/aiCompass'
+import { checkRateLimit, rateLimitResponse } from '../../../lib/rateLimit'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -209,6 +210,11 @@ export async function POST(request: Request) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'The assessment service is not configured.' }, { status: 503 })
   }
+
+  // Haiku-based and cheaper than the other tools, but a full interview is
+  // up to 6 calls (5 questions + 1 analysis), so allow more headroom.
+  const rate = await checkRateLimit(request, { tool: 'ai-learning-compass', limit: 30, windowMs: 60 * 60 * 1000 })
+  if (!rate.allowed) return rateLimitResponse(rate)
 
   try {
     const body = await request.json() as { mode?: unknown; answers?: unknown }

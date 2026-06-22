@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkRateLimit, rateLimitResponse } from '../../lib/rateLimit'
 
 export async function POST(req: NextRequest) {
+  const rate = await checkRateLimit(req, { tool: 'generate-passage', limit: 10, windowMs: 60 * 60 * 1000 })
+  if (!rate.allowed) return rateLimitResponse(rate)
+
   try {
     const { prompt } = await req.json()
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -17,11 +21,10 @@ export async function POST(req: NextRequest) {
       }),
     })
     const data = await res.json()
-    console.log("ANTHROPIC RAW:", JSON.stringify(data))
     const text = data?.content?.[0]?.text || ''
     return NextResponse.json({ content: [{ text }] })
   } catch (e) {
-    console.log("ROUTE ERROR:", e)
+    console.error('generate-passage error:', e)
     return NextResponse.json({ content: [{ text: '' }] }, { status: 500 })
   }
 }
