@@ -1,5 +1,13 @@
 import type { Metadata } from 'next'
 import { Nav } from '../components/Nav'
+import {
+  PromptGradeIcon,
+  SpeakingSpeedIcon,
+  AiNewsPipelineIcon,
+  CompetitiveIntelIcon,
+  HrChatbotIcon,
+  CvTailoringIcon,
+} from '../components/LabThumbnails'
 
 export const metadata: Metadata = {
   title: 'Lab',
@@ -18,6 +26,7 @@ const projects = [
     image: "/projects/promptgrade.png",
     url: "https://ratemyprompt.pro",
     status: "Live",
+    Icon: PromptGradeIcon,
   },
   {
     name: "Speaking Speed Tester",
@@ -25,13 +34,15 @@ const projects = [
     image: "",
     url: "/tools/speaking-speed",
     status: "Live",
+    Icon: SpeakingSpeedIcon,
   },
   {
-    name: "AI News → LinkedIn Pipeline",
-    tagline: "Automated content from signal to draft",
+    name: "Daily AI News Pipeline",
+    tagline: "RSS headlines, written by Claude, auto-published to Sanity",
     image: "",
     url: "",
     status: "Running",
+    Icon: AiNewsPipelineIcon,
   },
   {
     name: "Competitive Intelligence Scraper",
@@ -39,6 +50,7 @@ const projects = [
     image: "",
     url: "",
     status: "Internal",
+    Icon: CompetitiveIntelIcon,
   },
   {
     name: "HR Assistant Chatbot",
@@ -46,6 +58,7 @@ const projects = [
     image: "",
     url: "",
     status: "Demo",
+    Icon: HrChatbotIcon,
   },
   {
     name: "CV Tailoring System",
@@ -53,6 +66,7 @@ const projects = [
     image: "",
     url: "",
     status: "Built",
+    Icon: CvTailoringIcon,
   },
 ]
 
@@ -62,10 +76,6 @@ const statusColor: Record<string, string> = {
   Internal: "bg-amber-500",
   Demo:     "bg-purple-500",
   Built:    "bg-[var(--ed-text-light)]",
-}
-
-function initials(name: string) {
-  return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
 }
 
 function ProjectCard({ project }: { project: typeof projects[number] }) {
@@ -89,15 +99,13 @@ function ProjectCard({ project }: { project: typeof projects[number] }) {
                 'repeating-linear-gradient(90deg,transparent,transparent 23px,rgba(0,0,0,0.04) 24px)',
             }}
           >
-            <span className="text-3xl font-bold tracking-widest select-none" style={{ color: 'var(--ed-text-light)' }}>
-              {initials(project.name)}
-            </span>
+            <project.Icon />
           </div>
         )}
 
-        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded-full">
-          <span className={`w-1.5 h-1.5 rounded-full ${statusColor[project.status] ?? 'bg-white/20'}`} />
-          <span className="text-[10px] text-white/50">{project.status}</span>
+        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 backdrop-blur-sm px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.85)' }}>
+          <span className={`w-1.5 h-1.5 rounded-full ${statusColor[project.status] ?? 'bg-[var(--ed-text-light)]'}`} />
+          <span className="text-[10px]" style={{ color: 'var(--ed-text-muted)' }}>{project.status}</span>
         </div>
       </div>
 
@@ -109,7 +117,7 @@ function ProjectCard({ project }: { project: typeof projects[number] }) {
   )
 
   const sharedStyle = { background: 'var(--ed-card-warm)', borderRadius: 14 }
-  const sharedClass = "ed-list-card block overflow-hidden transition group"
+  const sharedClass = "ed-list-card card-hover block overflow-hidden transition group"
 
   if (project.url) {
     return (
@@ -117,6 +125,7 @@ function ProjectCard({ project }: { project: typeof projects[number] }) {
         href={project.url}
         target={isExternal ? '_blank' : undefined}
         rel={isExternal ? 'noopener noreferrer' : undefined}
+        data-cursor={isExternal ? 'Visit' : 'View'}
         className={sharedClass}
         style={sharedStyle}
       >
