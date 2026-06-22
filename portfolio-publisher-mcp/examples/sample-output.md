@@ -79,3 +79,24 @@ Example result from `draft_lab_project_card`:
   ]
 }
 ```
+
+Example result from `create_publish_handoff`:
+
+```markdown
+# Portfolio Lab publish handoff
+
+Generated: 2026-06-22T00:00:00.000Z
+Project: speaking-speed-tester
+
+## Status
+
+- Ready projects: 0/1
+- Projects needing work: 1
+
+## Owner checklist
+
+- [ ] Confirm every listed project should appear on the Lab page.
+- [ ] Capture or replace each missing screenshot under `public/projects/`.
+- [ ] Open every project URL or route and confirm it loads cleanly.
+- [ ] Re-run `npm run smoke` from `portfolio-publisher-mcp` before publishing.
+```

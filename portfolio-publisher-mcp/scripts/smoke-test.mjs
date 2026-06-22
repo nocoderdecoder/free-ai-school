@@ -68,8 +68,9 @@ send(9, "tools/call", {
   },
 });
 send(10, "tools/call", { name: "draft_lab_project_card", arguments: { name: "Missing Tagline" } });
+send(11, "tools/call", { name: "create_publish_handoff", arguments: { projectName: firstProjectSlug } });
 
-await Promise.all([waitForResponse(7), waitForResponse(8), waitForResponse(9), waitForResponse(10)]);
+await Promise.all([waitForResponse(7), waitForResponse(8), waitForResponse(9), waitForResponse(10), waitForResponse(11)]);
 server.kill();
 await once(server, "exit");
 
@@ -100,6 +101,12 @@ const draftOk =
   draft?.project?.url === "/tools/website-change-monitor" &&
   draft?.labCardSnippet?.includes('name: "Website Change Monitor"');
 const requiredValidationOk = responseById.get(10)?.result?.isError === true;
+const handoff = responseById.get(11)?.result?.content?.[0]?.text ?? "";
+const handoffOk =
+  typeof handoff === "string" &&
+  handoff.includes("# Portfolio Lab publish handoff") &&
+  handoff.includes("## Owner checklist") &&
+  handoff.includes("npm run smoke");
 
 console.log(JSON.stringify({
   failed,
@@ -112,6 +119,7 @@ console.log(JSON.stringify({
   screenshotQueueOk,
   draftOk,
   requiredValidationOk,
+  handoffOk,
 }, null, 2));
 
 if (
@@ -123,7 +131,8 @@ if (
   !argValidationOk ||
   !screenshotQueueOk ||
   !draftOk ||
-  !requiredValidationOk
+  !requiredValidationOk ||
+  !handoffOk
 ) {
   process.exitCode = 1;
 }

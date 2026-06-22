@@ -105,6 +105,22 @@ export const tools = [
     },
   },
   {
+    name: "create_publish_handoff",
+    title: "Create Publish Handoff",
+    description:
+      "Create a copy-pasteable Markdown handoff with readiness status, screenshot tasks, and owner next actions.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "Optional project name to include. If omitted, all Lab projects are included.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: "suggest_next_lab_project",
     title: "Suggest Next Lab Project",
     description: "Suggest technically distinct future Lab projects based on what already exists.",

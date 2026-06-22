@@ -17,6 +17,7 @@ This first version is intentionally read-only. It can inspect the Lab page, vali
 - `draft_lab_project_card`: creates a read-only Lab card draft with a slug, suggested screenshot path, route, and copy-pasteable project object.
 - `publish_readiness_check`: checks whether Lab projects have the basics needed for publishing (supports exact name, slug, or partial match via `projectName`).
 - `publish_readiness_report`: returns a human-readable Markdown publish-readiness report (supports exact name, slug, or partial match via `projectName`).
+- `create_publish_handoff`: creates a copy-pasteable Markdown handoff with readiness status, screenshot tasks, and owner next actions.
 - `suggest_next_lab_project`: suggests technically distinct future Lab projects.
 
 ## Run Locally

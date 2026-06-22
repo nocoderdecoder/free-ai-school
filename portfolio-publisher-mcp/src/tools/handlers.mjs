@@ -276,6 +276,75 @@ function formatReadinessReport({ checked, ready, checks, projectName }) {
   return lines.join("\n");
 }
 
+function formatPublishHandoff({ checks, projectName }) {
+  const lines = [];
+  const now = new Date().toISOString();
+  const notReady = checks.filter((check) => !check.ready);
+  const ready = checks.length - notReady.length;
+  const scopeLabel = projectName ? `Project: ${projectName}` : "Scope: all Lab projects";
+
+  lines.push("# Portfolio Lab publish handoff");
+  lines.push("");
+  lines.push(`Generated: ${now}`);
+  lines.push(scopeLabel);
+  lines.push("");
+  lines.push("## Status");
+  lines.push("");
+  lines.push(`- Ready projects: ${ready}/${checks.length}`);
+  lines.push(`- Projects needing work: ${notReady.length}`);
+  lines.push("");
+
+  if (checks.length === 0) {
+    lines.push("## Blockers");
+    lines.push("");
+    lines.push("- No matching Lab projects were found.");
+    lines.push("");
+    return lines.join("\n");
+  }
+
+  lines.push("## Owner checklist");
+  lines.push("");
+  lines.push("- [ ] Confirm every listed project should appear on the Lab page.");
+  lines.push("- [ ] Capture or replace each missing screenshot under `public/projects/`.");
+  lines.push("- [ ] Open every project URL or route and confirm it loads cleanly.");
+  lines.push("- [ ] Re-run `npm run smoke` from `portfolio-publisher-mcp` before publishing.");
+  lines.push("");
+
+  lines.push("## Project tasks");
+  lines.push("");
+
+  for (const check of checks) {
+    lines.push(`### ${check.project}`);
+    lines.push("");
+    lines.push(`- Status: ${check.ready ? "Ready" : "Needs work"}`);
+    if (check.url) lines.push(`- URL: ${check.url}`);
+    if (check.image) lines.push(`- Image: ${check.image}`);
+    if (check.screenshotSuggested) {
+      lines.push(`- Suggested screenshot path: ${check.screenshotSuggested}`);
+    }
+
+    if (check.blockers.length > 0) {
+      for (const blocker of check.blockers) {
+        lines.push(`- [ ] ${blocker}`);
+      }
+    } else {
+      lines.push("- [x] Required Lab card fields and screenshot file are present.");
+    }
+
+    lines.push("");
+  }
+
+  lines.push("## Verification");
+  lines.push("");
+  lines.push("```bash");
+  lines.push("cd portfolio-publisher-mcp");
+  lines.push("npm run smoke");
+  lines.push("```");
+  lines.push("");
+
+  return lines.join("\n");
+}
+
 export async function callTool(name, args = {}) {
   const argIssue = validateToolArguments(name, args);
   if (argIssue) return errorResult(`Invalid arguments for ${name}: ${argIssue}`);
@@ -375,6 +444,31 @@ export async function callTool(name, args = {}) {
 
     const readiness = await computeReadinessChecks(matches);
     return textResult(formatReadinessReport({ ...readiness, projectName: projectName || null }));
+  }
+
+  if (name === "create_publish_handoff") {
+    const projects = await listLabProjects();
+    const projectName = normalizeProjectQuery(args.projectName);
+    const { matches, issue, query } = findMatchingProjects(projects, projectName);
+
+    if (issue) {
+      return textResult(
+        formatPublishHandoff({
+          checks: [{
+            project: query || "Unknown project",
+            ready: false,
+            blockers: [issue],
+            url: "",
+            image: "",
+            screenshotSuggested: null,
+          }],
+          projectName: query || null,
+        })
+      );
+    }
+
+    const readiness = await computeReadinessChecks(matches);
+    return textResult(formatPublishHandoff({ checks: readiness.checks, projectName: projectName || null }));
   }
 
   if (name === "suggest_next_lab_project") {
