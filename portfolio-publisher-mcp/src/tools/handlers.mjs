@@ -345,6 +345,91 @@ function formatPublishHandoff({ checks, projectName }) {
   return lines.join("\n");
 }
 
+function classifyNextPublishTask(project, asset, readiness) {
+  const capture = getScreenshotCapture(project, asset);
+  const missingFieldBlockers = readiness.blockers.filter((blocker) => !blocker.startsWith("Screenshot file not found"));
+  const actions = [];
+  let focus = "Ready for owner review";
+  let priorityScore = 0;
+
+  if (!project.url) {
+    focus = "Add URL or route";
+    priorityScore += 90;
+    actions.push("Add a working external URL or local route to the Lab card.");
+  }
+
+  if (!project.image) {
+    focus = project.url ? "Add screenshot path and capture image" : focus;
+    priorityScore += project.url ? 100 : 60;
+    actions.push(`Set image to ${capture.suggestedImage}.`);
+  } else if (!asset.exists) {
+    focus = project.url ? "Capture missing screenshot" : focus;
+    priorityScore += project.url ? 110 : 70;
+    actions.push(`Create the screenshot file at ${asset.file ?? capture.suggestedImage}.`);
+  }
+
+  for (const blocker of missingFieldBlockers) {
+    if (blocker.includes("Missing project name")) actions.push("Add the project name.");
+    if (blocker.includes("Missing tagline")) actions.push("Add a one-line tagline.");
+    if (blocker.includes("Missing status")) actions.push("Add a Lab status.");
+  }
+
+  if (readiness.ready) {
+    actions.push("Open the project URL and confirm the visible experience is ready to publish.");
+  } else if (actions.length === 0) {
+    actions.push("Resolve the listed blockers, then re-run the smoke test.");
+  }
+
+  if (capture.captureReady && !asset.exists) priorityScore += 20;
+  priorityScore += readiness.blockers.length * 5;
+
+  return {
+    project: project.name,
+    priorityScore,
+    ready: readiness.ready,
+    focus,
+    blockers: readiness.blockers,
+    captureTarget: capture.captureTarget,
+    captureType: capture.captureType,
+    suggestedScreenshot: readiness.screenshotSuggested,
+    nextActions: [...new Set(actions)],
+  };
+}
+
+async function prioritizePublishTasks(projects) {
+  const [readiness, assets] = await Promise.all([
+    computeReadinessChecks(projects),
+    Promise.all(projects.map(getProjectAssetStatus)),
+  ]);
+
+  const tasks = projects
+    .map((project, index) => classifyNextPublishTask(project, assets[index], readiness.checks[index]))
+    .sort((left, right) => {
+      if (left.ready !== right.ready) return left.ready ? 1 : -1;
+      if (right.priorityScore !== left.priorityScore) return right.priorityScore - left.priorityScore;
+      return left.project.localeCompare(right.project);
+    })
+    .map((task, index) => ({
+      rank: index + 1,
+      project: task.project,
+      ready: task.ready,
+      focus: task.focus,
+      blockers: task.blockers,
+      captureTarget: task.captureTarget,
+      captureType: task.captureType,
+      suggestedScreenshot: task.suggestedScreenshot,
+      nextActions: task.nextActions,
+    }));
+
+  return {
+    checked: readiness.checked,
+    ready: readiness.ready,
+    needsWork: readiness.checked - readiness.ready,
+    topPriority: tasks.find((task) => !task.ready)?.project ?? null,
+    tasks,
+  };
+}
+
 export async function callTool(name, args = {}) {
   const argIssue = validateToolArguments(name, args);
   if (argIssue) return errorResult(`Invalid arguments for ${name}: ${argIssue}`);
@@ -469,6 +554,11 @@ export async function callTool(name, args = {}) {
 
     const readiness = await computeReadinessChecks(matches);
     return textResult(formatPublishHandoff({ checks: readiness.checks, projectName: projectName || null }));
+  }
+
+  if (name === "prioritize_publish_tasks") {
+    const projects = await listLabProjects();
+    return textResult(await prioritizePublishTasks(projects));
   }
 
   if (name === "suggest_next_lab_project") {

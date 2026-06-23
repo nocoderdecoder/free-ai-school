@@ -100,3 +100,31 @@ Project: speaking-speed-tester
 - [ ] Open every project URL or route and confirm it loads cleanly.
 - [ ] Re-run `npm run smoke` from `portfolio-publisher-mcp` before publishing.
 ```
+
+Example result from `prioritize_publish_tasks`:
+
+```json
+{
+  "checked": 6,
+  "ready": 0,
+  "needsWork": 6,
+  "topPriority": "Speaking Speed Tester",
+  "tasks": [
+    {
+      "rank": 1,
+      "project": "Speaking Speed Tester",
+      "ready": false,
+      "focus": "Add screenshot path and capture image",
+      "blockers": [
+        "Missing screenshot image path."
+      ],
+      "captureTarget": "/tools/speaking-speed",
+      "captureType": "local-route",
+      "suggestedScreenshot": "/projects/speaking-speed-tester.png",
+      "nextActions": [
+        "Set image to /projects/speaking-speed-tester.png."
+      ]
+    }
+  ]
+}
+```

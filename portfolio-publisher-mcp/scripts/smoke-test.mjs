@@ -69,8 +69,16 @@ send(9, "tools/call", {
 });
 send(10, "tools/call", { name: "draft_lab_project_card", arguments: { name: "Missing Tagline" } });
 send(11, "tools/call", { name: "create_publish_handoff", arguments: { projectName: firstProjectSlug } });
+send(12, "tools/call", { name: "prioritize_publish_tasks", arguments: {} });
 
-await Promise.all([waitForResponse(7), waitForResponse(8), waitForResponse(9), waitForResponse(10), waitForResponse(11)]);
+await Promise.all([
+  waitForResponse(7),
+  waitForResponse(8),
+  waitForResponse(9),
+  waitForResponse(10),
+  waitForResponse(11),
+  waitForResponse(12),
+]);
 server.kill();
 await once(server, "exit");
 
@@ -107,6 +115,20 @@ const handoffOk =
   handoff.includes("# Portfolio Lab publish handoff") &&
   handoff.includes("## Owner checklist") &&
   handoff.includes("npm run smoke");
+const prioritiesText = responseById.get(12)?.result?.content?.[0]?.text ?? "{}";
+const priorities = JSON.parse(prioritiesText);
+const prioritiesOk =
+  priorities?.checked === listedProjects &&
+  priorities?.needsWork === priorities?.checked - priorities?.ready &&
+  Array.isArray(priorities?.tasks) &&
+  priorities.tasks.length === listedProjects &&
+  priorities.tasks.every((task, index) =>
+    task.rank === index + 1 &&
+    typeof task.project === "string" &&
+    typeof task.ready === "boolean" &&
+    typeof task.focus === "string" &&
+    Array.isArray(task.nextActions)
+  );
 
 console.log(JSON.stringify({
   failed,
@@ -120,6 +142,7 @@ console.log(JSON.stringify({
   draftOk,
   requiredValidationOk,
   handoffOk,
+  prioritiesOk,
 }, null, 2));
 
 if (
@@ -132,7 +155,8 @@ if (
   !screenshotQueueOk ||
   !draftOk ||
   !requiredValidationOk ||
-  !handoffOk
+  !handoffOk ||
+  !prioritiesOk
 ) {
   process.exitCode = 1;
 }

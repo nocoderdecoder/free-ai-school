@@ -121,6 +121,17 @@ export const tools = [
     },
   },
   {
+    name: "prioritize_publish_tasks",
+    title: "Prioritize Publish Tasks",
+    description:
+      "Rank Lab projects by the next practical publishing task, with blockers, screenshot targets, and owner-facing actions.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "suggest_next_lab_project",
     title: "Suggest Next Lab Project",
     description: "Suggest technically distinct future Lab projects based on what already exists.",
