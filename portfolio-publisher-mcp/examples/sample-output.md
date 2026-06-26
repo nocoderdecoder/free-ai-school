@@ -59,6 +59,35 @@ Example result from `list_screenshot_queue`:
 }
 ```
 
+Example result from `validate_lab_routes`:
+
+```json
+{
+  "checked": 6,
+  "local": 1,
+  "external": 1,
+  "missing": 4,
+  "routes": [
+    {
+      "project": "PromptGrade",
+      "url": "https://ratemyprompt.pro",
+      "type": "external-url",
+      "status": "external-url-not-checked",
+      "exists": null,
+      "file": null
+    },
+    {
+      "project": "Speaking Speed Tester",
+      "url": "/tools/speaking-speed",
+      "type": "local-route",
+      "status": "ok",
+      "exists": true,
+      "file": "app/tools/speaking-speed/page.tsx"
+    }
+  ]
+}
+```
+
 Example result from `draft_lab_project_card`:
 
 ```json

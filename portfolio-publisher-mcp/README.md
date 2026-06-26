@@ -13,6 +13,7 @@ This first version is intentionally read-only. It can inspect the Lab page, vali
 - `list_lab_projects`: lists the projects currently shown on `/lab`.
 - `inspect_lab_format`: explains the current Lab card format and conventions.
 - `validate_lab_assets`: checks whether screenshot paths point to real files.
+- `validate_lab_routes`: checks local Lab project routes without contacting external URLs.
 - `list_screenshot_queue`: lists projects that need screenshots, capture targets, suggested image paths, and blockers.
 - `draft_lab_project_card`: creates a read-only Lab card draft with a slug, suggested screenshot path, route, and copy-pasteable project object.
 - `publish_readiness_check`: checks whether Lab projects have the basics needed for publishing (supports exact name, slug, or partial match via `projectName`).
@@ -42,6 +43,7 @@ The server communicates over stdio using JSON-RPC MCP messages.
 
 This version only reads approved paths:
 
+- `app/`
 - `app/lab/page.tsx`
 - `public/`
 - `portfolio-publisher-mcp/`

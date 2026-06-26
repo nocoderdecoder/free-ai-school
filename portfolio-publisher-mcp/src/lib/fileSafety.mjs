@@ -2,6 +2,7 @@ import path from "node:path";
 import { paths } from "./paths.mjs";
 
 const readableRoots = [
+  paths.appDir,
   paths.labPage,
   paths.publicDir,
   paths.projectDir,

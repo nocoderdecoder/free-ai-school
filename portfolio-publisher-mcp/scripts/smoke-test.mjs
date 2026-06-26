@@ -71,6 +71,7 @@ send(10, "tools/call", { name: "draft_lab_project_card", arguments: { name: "Mis
 send(11, "tools/call", { name: "create_publish_handoff", arguments: { projectName: firstProjectSlug } });
 send(12, "tools/call", { name: "prioritize_publish_tasks", arguments: {} });
 send(13, "tools/call", { name: "create_project_publish_brief", arguments: {} });
+send(14, "tools/call", { name: "validate_lab_routes", arguments: {} });
 
 await Promise.all([
   waitForResponse(7),
@@ -80,6 +81,7 @@ await Promise.all([
   waitForResponse(11),
   waitForResponse(12),
   waitForResponse(13),
+  waitForResponse(14),
 ]);
 server.kill();
 await once(server, "exit");
@@ -138,6 +140,28 @@ const briefOk =
   brief.includes("## Lab card copy") &&
   brief.includes("## Files to check") &&
   brief.includes("npm run smoke");
+const routesText = responseById.get(14)?.result?.content?.[0]?.text ?? "{}";
+const routes = JSON.parse(routesText);
+const routeValidationOk =
+  routes?.checked === listedProjects &&
+  routes?.local >= 1 &&
+  routes?.external >= 1 &&
+  routes?.missing >= 1 &&
+  Array.isArray(routes?.routes) &&
+  routes.routes.some((route) =>
+    route.project === firstProjectName &&
+    route.type === "external-url" &&
+    route.status === "external-url-not-checked" &&
+    route.exists === null
+  ) &&
+  routes.routes.some((route) =>
+    route.project === "Speaking Speed Tester" &&
+    route.type === "local-route" &&
+    route.status === "ok" &&
+    route.exists === true &&
+    route.file === "app/tools/speaking-speed/page.tsx"
+  ) &&
+  routes.routes.some((route) => route.type === "missing-url" && route.status === "missing-url");
 
 console.log(JSON.stringify({
   failed,
@@ -153,6 +177,7 @@ console.log(JSON.stringify({
   handoffOk,
   prioritiesOk,
   briefOk,
+  routeValidationOk,
 }, null, 2));
 
 if (
@@ -167,7 +192,8 @@ if (
   !requiredValidationOk ||
   !handoffOk ||
   !prioritiesOk ||
-  !briefOk
+  !briefOk ||
+  !routeValidationOk
 ) {
   process.exitCode = 1;
 }

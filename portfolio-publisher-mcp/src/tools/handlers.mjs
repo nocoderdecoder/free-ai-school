@@ -1,5 +1,8 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { listLabProjects, getProjectAssetStatus } from "../lib/labParser.mjs";
-import { paths } from "../lib/paths.mjs";
+import { assertSafeRead } from "../lib/fileSafety.mjs";
+import { paths, toRepoRelative } from "../lib/paths.mjs";
 import { tools as toolDefinitions } from "./definitions.mjs";
 
 function textResult(value) {
@@ -134,6 +137,54 @@ function localRouteFile(url) {
   return route ? `app/${route}/page.tsx` : null;
 }
 
+async function getProjectRouteStatus(project) {
+  if (!project.url) {
+    return {
+      project: project.name,
+      url: "",
+      type: "missing-url",
+      status: "missing-url",
+      exists: false,
+      file: null,
+    };
+  }
+
+  if (project.url.startsWith("http")) {
+    return {
+      project: project.name,
+      url: project.url,
+      type: "external-url",
+      status: "external-url-not-checked",
+      exists: null,
+      file: null,
+    };
+  }
+
+  const routeFile = localRouteFile(project.url);
+  const absolute = routeFile ? path.join(paths.repoRoot, routeFile) : null;
+
+  try {
+    await fs.access(assertSafeRead(absolute));
+    return {
+      project: project.name,
+      url: project.url,
+      type: "local-route",
+      status: "ok",
+      exists: true,
+      file: toRepoRelative(absolute),
+    };
+  } catch {
+    return {
+      project: project.name,
+      url: project.url,
+      type: "local-route",
+      status: "missing-route-file",
+      exists: false,
+      file: routeFile,
+    };
+  }
+}
+
 function publicImageFile(image) {
   if (!image) return null;
   return `public/${image.replace(/^\/+/, "")}`;
@@ -208,13 +259,19 @@ function findMatchingProjects(projects, query) {
 
 async function computeReadinessChecks(projects) {
   const checks = await Promise.all(projects.map(async (project) => {
-    const asset = await getProjectAssetStatus(project);
+    const [asset, route] = await Promise.all([
+      getProjectAssetStatus(project),
+      getProjectRouteStatus(project),
+    ]);
     const blockers = [];
 
     if (!project.name) blockers.push("Missing project name.");
     if (!project.tagline) blockers.push("Missing tagline.");
     if (!project.status) blockers.push("Missing status.");
     if (!project.url) blockers.push("Missing URL or route.");
+    if (route.status === "missing-route-file") {
+      blockers.push(`Local route file not found: ${route.file}`);
+    }
     if (!project.image) blockers.push("Missing screenshot image path.");
     if (project.image && !asset.exists) {
       blockers.push(`Screenshot file not found: ${asset.file ?? project.image}`);
@@ -231,6 +288,7 @@ async function computeReadinessChecks(projects) {
       blockers,
       url: project.url,
       image: project.image,
+      route,
       screenshotSuggested,
     };
   }));
@@ -594,6 +652,7 @@ export async function callTool(name, args = {}) {
       routeConvention: "Interactive tools should usually live under app/tools/<slug>/page.tsx.",
       statusValuesSeen: ["Live", "Running", "Internal", "Demo", "Built"],
       allowedReadScope: [
+        paths.appDir,
         paths.labPage,
         paths.publicDir,
         paths.projectsDir,
@@ -608,6 +667,18 @@ export async function callTool(name, args = {}) {
       checked: assets.length,
       missing: assets.filter((asset) => !asset.exists).length,
       assets,
+    });
+  }
+
+  if (name === "validate_lab_routes") {
+    const projects = await listLabProjects();
+    const routes = await Promise.all(projects.map(getProjectRouteStatus));
+    return textResult({
+      checked: routes.length,
+      local: routes.filter((route) => route.type === "local-route").length,
+      external: routes.filter((route) => route.type === "external-url").length,
+      missing: routes.filter((route) => route.status === "missing-url" || route.status === "missing-route-file").length,
+      routes,
     });
   }
 

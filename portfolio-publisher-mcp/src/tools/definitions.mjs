@@ -30,6 +30,17 @@ export const tools = [
     },
   },
   {
+    name: "validate_lab_routes",
+    title: "Validate Lab Routes",
+    description:
+      "Check local Lab project routes without contacting external URLs, including missing route files and blank URLs.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "list_screenshot_queue",
     title: "List Screenshot Queue",
     description:

@@ -8,6 +8,7 @@ const repoRoot = path.resolve(projectDir, "..");
 export const paths = {
   projectDir,
   repoRoot,
+  appDir: path.join(repoRoot, "app"),
   labPage: path.join(repoRoot, "app", "lab", "page.tsx"),
   publicDir: path.join(repoRoot, "public"),
   projectsDir: path.join(repoRoot, "public", "projects"),
