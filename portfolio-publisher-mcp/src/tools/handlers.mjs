@@ -128,6 +128,17 @@ function formatProjectObject(project) {
   ].join("\n");
 }
 
+function localRouteFile(url) {
+  if (!url || url.startsWith("http")) return null;
+  const route = url.replace(/^\/+/, "").replace(/\/+$/, "");
+  return route ? `app/${route}/page.tsx` : null;
+}
+
+function publicImageFile(image) {
+  if (!image) return null;
+  return `public/${image.replace(/^\/+/, "")}`;
+}
+
 function draftLabProjectCard(projects, args) {
   const name = normalizeDraftValue(args.name);
   const tagline = normalizeDraftValue(args.tagline);
@@ -430,6 +441,138 @@ async function prioritizePublishTasks(projects) {
   };
 }
 
+function formatProjectPublishBrief({ project, readiness, asset, task, requestedProjectName }) {
+  const lines = [];
+  const now = new Date().toISOString();
+  const routeFile = localRouteFile(project.url);
+  const currentImageFile = asset.file ?? publicImageFile(project.image);
+  const suggestedImage = task.suggestedScreenshot ?? project.image ?? suggestedScreenshotPath(project.name);
+  const suggestedImageFile = publicImageFile(suggestedImage);
+  const scopeLabel = requestedProjectName
+    ? `Requested project: ${requestedProjectName}`
+    : "Requested project: current top priority";
+
+  lines.push(`# Project publish brief: ${project.name}`);
+  lines.push("");
+  lines.push(`Generated: ${now}`);
+  lines.push(scopeLabel);
+  lines.push("");
+
+  lines.push("## Status");
+  lines.push("");
+  lines.push(`- Publish status: ${readiness.ready ? "Ready for owner review" : "Needs work"}`);
+  lines.push(`- Current focus: ${task.focus}`);
+  if (project.status) lines.push(`- Lab badge: ${project.status}`);
+  if (task.captureTarget) lines.push(`- Screenshot target: ${task.captureTarget}`);
+  lines.push("");
+
+  lines.push("## Lab card copy");
+  lines.push("");
+  lines.push(`- Name: ${project.name || "Missing"}`);
+  lines.push(`- Tagline: ${project.tagline || "Missing"}`);
+  lines.push(`- URL: ${project.url || "Missing"}`);
+  lines.push(`- Image: ${project.image || "Missing"}`);
+  lines.push("");
+
+  lines.push("## Files to check");
+  lines.push("");
+  if (routeFile) lines.push(`- Route: ${routeFile}`);
+  if (currentImageFile) lines.push(`- Current image file: ${currentImageFile}`);
+  if (suggestedImageFile && suggestedImageFile !== currentImageFile) {
+    lines.push(`- Suggested image file: ${suggestedImageFile}`);
+  }
+  if (!routeFile && !currentImageFile && !suggestedImageFile) {
+    lines.push("- No route or screenshot file can be checked until the Lab card has a URL and image path.");
+  }
+  lines.push("");
+
+  lines.push("## Blockers");
+  lines.push("");
+  if (readiness.blockers.length > 0) {
+    for (const blocker of readiness.blockers) lines.push(`- ${blocker}`);
+  } else {
+    lines.push("- No required Lab card blockers found.");
+  }
+  lines.push("");
+
+  lines.push("## Next actions");
+  lines.push("");
+  for (const action of task.nextActions) lines.push(`- [ ] ${action}`);
+  lines.push("- [ ] Re-run `npm run smoke` from `portfolio-publisher-mcp` after changes.");
+  lines.push("");
+
+  lines.push("## Verification command");
+  lines.push("");
+  lines.push("```bash");
+  lines.push("cd portfolio-publisher-mcp");
+  lines.push("npm run smoke");
+  lines.push("```");
+  lines.push("");
+
+  return lines.join("\n");
+}
+
+async function createProjectPublishBrief(projects, projectName) {
+  const requestedProjectName = normalizeProjectQuery(projectName);
+  let matches = [];
+
+  if (requestedProjectName) {
+    const result = findMatchingProjects(projects, requestedProjectName);
+    if (result.issue) {
+      return [
+        `# Project publish brief: ${result.query || "Unknown project"}`,
+        "",
+        `Generated: ${new Date().toISOString()}`,
+        `Requested project: ${result.query}`,
+        "",
+        "## Status",
+        "",
+        "- Publish status: Needs work",
+        "- Current focus: Find the matching Lab project",
+        "",
+        "## Blockers",
+        "",
+        `- ${result.issue}`,
+        "",
+      ].join("\n");
+    }
+    matches = result.matches;
+  } else {
+    const priorities = await prioritizePublishTasks(projects);
+    const topProjectName = priorities.topPriority ?? priorities.tasks[0]?.project ?? "";
+    matches = projects.filter((project) => project.name === topProjectName);
+  }
+
+  const project = matches[0];
+  if (!project) {
+    return [
+      "# Project publish brief",
+      "",
+      `Generated: ${new Date().toISOString()}`,
+      "",
+      "## Blockers",
+      "",
+      "- No Lab projects were found.",
+      "",
+    ].join("\n");
+  }
+
+  const [readinessResult, asset] = await Promise.all([
+    computeReadinessChecks([project]),
+    getProjectAssetStatus(project),
+  ]);
+  const readiness = readinessResult.checks[0];
+  const task = classifyNextPublishTask(project, asset, readiness);
+
+  return formatProjectPublishBrief({
+    project,
+    readiness,
+    asset,
+    task,
+    requestedProjectName: requestedProjectName || null,
+  });
+}
+
 export async function callTool(name, args = {}) {
   const argIssue = validateToolArguments(name, args);
   if (argIssue) return errorResult(`Invalid arguments for ${name}: ${argIssue}`);
@@ -554,6 +697,11 @@ export async function callTool(name, args = {}) {
 
     const readiness = await computeReadinessChecks(matches);
     return textResult(formatPublishHandoff({ checks: readiness.checks, projectName: projectName || null }));
+  }
+
+  if (name === "create_project_publish_brief") {
+    const projects = await listLabProjects();
+    return textResult(await createProjectPublishBrief(projects, args.projectName));
   }
 
   if (name === "prioritize_publish_tasks") {

@@ -18,6 +18,7 @@ This first version is intentionally read-only. It can inspect the Lab page, vali
 - `publish_readiness_check`: checks whether Lab projects have the basics needed for publishing (supports exact name, slug, or partial match via `projectName`).
 - `publish_readiness_report`: returns a human-readable Markdown publish-readiness report (supports exact name, slug, or partial match via `projectName`).
 - `create_publish_handoff`: creates a copy-pasteable Markdown handoff with readiness status, screenshot tasks, and owner next actions.
+- `create_project_publish_brief`: creates a concise one-project Markdown brief with Lab card copy, blockers, files to check, and next actions. If `projectName` is omitted, it uses the current top-priority project.
 - `prioritize_publish_tasks`: ranks Lab projects by the next practical publishing task, including blockers, screenshot targets, and owner-facing actions.
 - `suggest_next_lab_project`: suggests technically distinct future Lab projects.
 

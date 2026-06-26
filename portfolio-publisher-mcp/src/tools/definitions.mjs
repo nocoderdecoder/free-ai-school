@@ -121,6 +121,23 @@ export const tools = [
     },
   },
   {
+    name: "create_project_publish_brief",
+    title: "Create Project Publish Brief",
+    description:
+      "Create a concise one-project Markdown brief with Lab card copy, readiness blockers, files to check, and next actions.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description:
+            "Optional project name, slug, or partial name. If omitted, the current top-priority project is used.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: "prioritize_publish_tasks",
     title: "Prioritize Publish Tasks",
     description:

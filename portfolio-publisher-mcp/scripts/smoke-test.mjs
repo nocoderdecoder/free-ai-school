@@ -70,6 +70,7 @@ send(9, "tools/call", {
 send(10, "tools/call", { name: "draft_lab_project_card", arguments: { name: "Missing Tagline" } });
 send(11, "tools/call", { name: "create_publish_handoff", arguments: { projectName: firstProjectSlug } });
 send(12, "tools/call", { name: "prioritize_publish_tasks", arguments: {} });
+send(13, "tools/call", { name: "create_project_publish_brief", arguments: {} });
 
 await Promise.all([
   waitForResponse(7),
@@ -78,6 +79,7 @@ await Promise.all([
   waitForResponse(10),
   waitForResponse(11),
   waitForResponse(12),
+  waitForResponse(13),
 ]);
 server.kill();
 await once(server, "exit");
@@ -129,6 +131,13 @@ const prioritiesOk =
     typeof task.focus === "string" &&
     Array.isArray(task.nextActions)
   );
+const brief = responseById.get(13)?.result?.content?.[0]?.text ?? "";
+const briefOk =
+  typeof brief === "string" &&
+  brief.includes("# Project publish brief:") &&
+  brief.includes("## Lab card copy") &&
+  brief.includes("## Files to check") &&
+  brief.includes("npm run smoke");
 
 console.log(JSON.stringify({
   failed,
@@ -143,6 +152,7 @@ console.log(JSON.stringify({
   requiredValidationOk,
   handoffOk,
   prioritiesOk,
+  briefOk,
 }, null, 2));
 
 if (
@@ -156,7 +166,8 @@ if (
   !draftOk ||
   !requiredValidationOk ||
   !handoffOk ||
-  !prioritiesOk
+  !prioritiesOk ||
+  !briefOk
 ) {
   process.exitCode = 1;
 }

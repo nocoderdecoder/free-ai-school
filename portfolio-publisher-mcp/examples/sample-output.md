@@ -128,3 +128,40 @@ Example result from `prioritize_publish_tasks`:
   ]
 }
 ```
+
+Example result from `create_project_publish_brief`:
+
+```markdown
+# Project publish brief: Speaking Speed Tester
+
+Generated: 2026-06-25T00:00:00.000Z
+Requested project: current top priority
+
+## Status
+
+- Publish status: Needs work
+- Current focus: Add screenshot path and capture image
+- Lab badge: Live
+- Screenshot target: /tools/speaking-speed
+
+## Lab card copy
+
+- Name: Speaking Speed Tester
+- Tagline: Real-time words-per-minute measurement
+- URL: /tools/speaking-speed
+- Image: Missing
+
+## Files to check
+
+- Route: app/tools/speaking-speed/page.tsx
+- Suggested image file: public/projects/speaking-speed-tester.png
+
+## Blockers
+
+- Missing screenshot image path.
+
+## Next actions
+
+- [ ] Set image to /projects/speaking-speed-tester.png.
+- [ ] Re-run `npm run smoke` from `portfolio-publisher-mcp` after changes.
+```
