@@ -72,6 +72,7 @@ send(11, "tools/call", { name: "create_publish_handoff", arguments: { projectNam
 send(12, "tools/call", { name: "prioritize_publish_tasks", arguments: {} });
 send(13, "tools/call", { name: "create_project_publish_brief", arguments: {} });
 send(14, "tools/call", { name: "validate_lab_routes", arguments: {} });
+send(15, "tools/call", { name: "create_lab_publish_digest", arguments: {} });
 
 await Promise.all([
   waitForResponse(7),
@@ -82,6 +83,7 @@ await Promise.all([
   waitForResponse(12),
   waitForResponse(13),
   waitForResponse(14),
+  waitForResponse(15),
 ]);
 server.kill();
 await once(server, "exit");
@@ -162,6 +164,15 @@ const routeValidationOk =
     route.file === "app/tools/speaking-speed/page.tsx"
   ) &&
   routes.routes.some((route) => route.type === "missing-url" && route.status === "missing-url");
+const digest = responseById.get(15)?.result?.content?.[0]?.text ?? "";
+const digestOk =
+  typeof digest === "string" &&
+  digest.includes("# Portfolio Lab publish digest") &&
+  digest.includes("## Inventory") &&
+  digest.includes("## Coverage") &&
+  digest.includes("## Current priority") &&
+  digest.includes("Ready for owner review:") &&
+  digest.includes("Missing screenshots:");
 
 console.log(JSON.stringify({
   failed,
@@ -178,6 +189,7 @@ console.log(JSON.stringify({
   prioritiesOk,
   briefOk,
   routeValidationOk,
+  digestOk,
 }, null, 2));
 
 if (
@@ -193,7 +205,8 @@ if (
   !handoffOk ||
   !prioritiesOk ||
   !briefOk ||
-  !routeValidationOk
+  !routeValidationOk ||
+  !digestOk
 ) {
   process.exitCode = 1;
 }

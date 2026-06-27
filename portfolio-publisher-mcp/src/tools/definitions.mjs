@@ -149,6 +149,17 @@ export const tools = [
     },
   },
   {
+    name: "create_lab_publish_digest",
+    title: "Create Lab Publish Digest",
+    description:
+      "Create a short Markdown digest of the current Lab inventory, readiness totals, route coverage, screenshot coverage, and next owner action.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "prioritize_publish_tasks",
     title: "Prioritize Publish Tasks",
     description:

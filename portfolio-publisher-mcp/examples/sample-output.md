@@ -194,3 +194,35 @@ Requested project: current top priority
 - [ ] Set image to /projects/speaking-speed-tester.png.
 - [ ] Re-run `npm run smoke` from `portfolio-publisher-mcp` after changes.
 ```
+
+Example result from `create_lab_publish_digest`:
+
+```markdown
+# Portfolio Lab publish digest
+
+Generated: 2026-06-27T00:00:00.000Z
+
+## Inventory
+
+- Projects listed: 6
+- Status mix: Built: 1, Demo: 1, Internal: 1, Live: 2, Running: 1
+- Ready for owner review: 0/6
+
+## Coverage
+
+- Local routes: 1
+- External URLs: 1
+- Missing URLs or route files: 4
+- Missing screenshots: 6
+
+## Current priority
+
+- Project: Speaking Speed Tester
+- Focus: Add screenshot path and capture image
+- Screenshot target: /tools/speaking-speed
+- [ ] Set image to /projects/speaking-speed-tester.png.
+
+## Owner next step
+
+- Capture the highest-priority missing screenshot, then re-run `npm run smoke`.
+```

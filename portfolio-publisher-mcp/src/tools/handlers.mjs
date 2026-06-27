@@ -499,6 +499,79 @@ async function prioritizePublishTasks(projects) {
   };
 }
 
+function countBy(values, getKey) {
+  return values.reduce((counts, value) => {
+    const key = getKey(value) || "Unknown";
+    counts[key] = (counts[key] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+function formatCounts(counts) {
+  const entries = Object.entries(counts).sort(([left], [right]) => left.localeCompare(right));
+  if (entries.length === 0) return "None";
+  return entries.map(([key, count]) => `${key}: ${count}`).join(", ");
+}
+
+function formatLabPublishDigest({ projects, readiness, routes, priorities }) {
+  const lines = [];
+  const now = new Date().toISOString();
+  const missingScreenshots = readiness.checks.filter((check) => check.blockers.some((blocker) =>
+    blocker.startsWith("Missing screenshot") || blocker.startsWith("Screenshot file not found")
+  ));
+  const routeIssues = routes.filter((route) =>
+    route.status === "missing-url" || route.status === "missing-route-file"
+  );
+  const topTask = priorities.tasks.find((task) => !task.ready) ?? priorities.tasks[0] ?? null;
+
+  lines.push("# Portfolio Lab publish digest");
+  lines.push("");
+  lines.push(`Generated: ${now}`);
+  lines.push("");
+
+  lines.push("## Inventory");
+  lines.push("");
+  lines.push(`- Projects listed: ${projects.length}`);
+  lines.push(`- Status mix: ${formatCounts(countBy(projects, (project) => project.status))}`);
+  lines.push(`- Ready for owner review: ${readiness.ready}/${readiness.checked}`);
+  lines.push("");
+
+  lines.push("## Coverage");
+  lines.push("");
+  lines.push(`- Local routes: ${routes.filter((route) => route.type === "local-route").length}`);
+  lines.push(`- External URLs: ${routes.filter((route) => route.type === "external-url").length}`);
+  lines.push(`- Missing URLs or route files: ${routeIssues.length}`);
+  lines.push(`- Missing screenshots: ${missingScreenshots.length}`);
+  lines.push("");
+
+  lines.push("## Current priority");
+  lines.push("");
+  if (topTask) {
+    lines.push(`- Project: ${topTask.project}`);
+    lines.push(`- Focus: ${topTask.focus}`);
+    if (topTask.captureTarget) lines.push(`- Screenshot target: ${topTask.captureTarget}`);
+    for (const action of topTask.nextActions.slice(0, 3)) {
+      lines.push(`- [ ] ${action}`);
+    }
+  } else {
+    lines.push("- No Lab projects were found.");
+  }
+  lines.push("");
+
+  lines.push("## Owner next step");
+  lines.push("");
+  if (missingScreenshots.length > 0) {
+    lines.push("- Capture the highest-priority missing screenshot, then re-run `npm run smoke`.");
+  } else if (routeIssues.length > 0) {
+    lines.push("- Add URLs or route files for projects with route blockers, then re-run `npm run smoke`.");
+  } else {
+    lines.push("- Open the listed URLs/routes for visual review, then publish the Lab update.");
+  }
+  lines.push("");
+
+  return lines.join("\n");
+}
+
 function formatProjectPublishBrief({ project, readiness, asset, task, requestedProjectName }) {
   const lines = [];
   const now = new Date().toISOString();
@@ -773,6 +846,16 @@ export async function callTool(name, args = {}) {
   if (name === "create_project_publish_brief") {
     const projects = await listLabProjects();
     return textResult(await createProjectPublishBrief(projects, args.projectName));
+  }
+
+  if (name === "create_lab_publish_digest") {
+    const projects = await listLabProjects();
+    const [readiness, routes, priorities] = await Promise.all([
+      computeReadinessChecks(projects),
+      Promise.all(projects.map(getProjectRouteStatus)),
+      prioritizePublishTasks(projects),
+    ]);
+    return textResult(formatLabPublishDigest({ projects, readiness, routes, priorities }));
   }
 
   if (name === "prioritize_publish_tasks") {
