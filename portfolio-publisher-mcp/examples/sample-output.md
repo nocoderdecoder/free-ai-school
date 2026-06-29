@@ -226,3 +226,34 @@ Generated: 2026-06-27T00:00:00.000Z
 
 - Capture the highest-priority missing screenshot, then re-run `npm run smoke`.
 ```
+
+Example result from `audit_lab_card_copy`:
+
+```json
+{
+  "checked": 6,
+  "cardsWithIssues": 0,
+  "cardsWithWarnings": 1,
+  "duplicateSlugs": [],
+  "statusesSeen": [
+    "Built",
+    "Demo",
+    "Internal",
+    "Live",
+    "Running"
+  ],
+  "cards": [
+    {
+      "project": "Speaking Speed Tester",
+      "slug": "speaking-speed-tester",
+      "status": "Live",
+      "issueCount": 0,
+      "warningCount": 1,
+      "issues": [],
+      "warnings": [
+        "Local route slug differs from project slug: speaking-speed"
+      ]
+    }
+  ]
+}
+```

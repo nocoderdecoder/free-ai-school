@@ -5,6 +5,8 @@ import { assertSafeRead } from "../lib/fileSafety.mjs";
 import { paths, toRepoRelative } from "../lib/paths.mjs";
 import { tools as toolDefinitions } from "./definitions.mjs";
 
+const EXPECTED_LAB_STATUSES = new Set(["Built", "Demo", "Internal", "Live", "Running"]);
+
 function textResult(value) {
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
   return {
@@ -188,6 +190,78 @@ async function getProjectRouteStatus(project) {
 function publicImageFile(image) {
   if (!image) return null;
   return `public/${image.replace(/^\/+/, "")}`;
+}
+
+function auditProjectCardCopy(project, duplicateSlugs) {
+  const slug = slugifyProjectName(project.name);
+  const issues = [];
+  const warnings = [];
+
+  if (!project.name.trim()) {
+    issues.push("Project name is blank.");
+  }
+  if (!project.tagline.trim()) {
+    issues.push("Tagline is blank.");
+  }
+  if (!project.status.trim()) {
+    issues.push("Status is blank.");
+  } else if (!EXPECTED_LAB_STATUSES.has(project.status)) {
+    warnings.push(`Unexpected status value: ${project.status}`);
+  }
+  if (duplicateSlugs.has(slug)) {
+    issues.push(`Project slug is duplicated: ${slug}`);
+  }
+
+  if (project.name.trim().length > 36) {
+    warnings.push("Project name is long for a compact Lab card.");
+  }
+  if (project.tagline.trim().length > 72) {
+    warnings.push("Tagline is long for a compact Lab card.");
+  }
+  if (project.tagline.trim() && !/[a-z0-9]/i.test(project.tagline)) {
+    warnings.push("Tagline should include descriptive words, not only symbols.");
+  }
+  if (project.image && !project.image.startsWith("/projects/")) {
+    warnings.push("Image path should usually live under /projects/.");
+  }
+  if (project.image && !/\.(avif|webp|png|jpg|jpeg)$/i.test(project.image)) {
+    warnings.push("Image path should end with a common web image extension.");
+  }
+  if (project.url?.startsWith("/tools/")) {
+    const routeSlug = project.url.replace(/^\/tools\/?/, "").replace(/\/+$/, "");
+    if (routeSlug && routeSlug !== slug) {
+      warnings.push(`Local route slug differs from project slug: ${routeSlug}`);
+    }
+  }
+
+  return {
+    project: project.name,
+    slug,
+    status: project.status,
+    issueCount: issues.length,
+    warningCount: warnings.length,
+    issues,
+    warnings,
+  };
+}
+
+function auditLabCardCopy(projects) {
+  const slugCounts = countBy(projects, (project) => slugifyProjectName(project.name));
+  const duplicateSlugs = new Set(
+    Object.entries(slugCounts)
+      .filter(([slug, count]) => slug && count > 1)
+      .map(([slug]) => slug)
+  );
+  const cards = projects.map((project) => auditProjectCardCopy(project, duplicateSlugs));
+
+  return {
+    checked: cards.length,
+    cardsWithIssues: cards.filter((card) => card.issueCount > 0).length,
+    cardsWithWarnings: cards.filter((card) => card.warningCount > 0).length,
+    duplicateSlugs: [...duplicateSlugs],
+    statusesSeen: Object.keys(countBy(projects, (project) => project.status)).sort(),
+    cards,
+  };
 }
 
 function draftLabProjectCard(projects, args) {
@@ -856,6 +930,11 @@ export async function callTool(name, args = {}) {
       prioritizePublishTasks(projects),
     ]);
     return textResult(formatLabPublishDigest({ projects, readiness, routes, priorities }));
+  }
+
+  if (name === "audit_lab_card_copy") {
+    const projects = await listLabProjects();
+    return textResult(auditLabCardCopy(projects));
   }
 
   if (name === "prioritize_publish_tasks") {

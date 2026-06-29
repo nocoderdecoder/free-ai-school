@@ -160,6 +160,17 @@ export const tools = [
     },
   },
   {
+    name: "audit_lab_card_copy",
+    title: "Audit Lab Card Copy",
+    description:
+      "Review Lab project card copy and conventions, including names, taglines, statuses, image paths, route slugs, and duplicate slugs.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "prioritize_publish_tasks",
     title: "Prioritize Publish Tasks",
     description:

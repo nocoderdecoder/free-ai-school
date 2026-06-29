@@ -73,6 +73,7 @@ send(12, "tools/call", { name: "prioritize_publish_tasks", arguments: {} });
 send(13, "tools/call", { name: "create_project_publish_brief", arguments: {} });
 send(14, "tools/call", { name: "validate_lab_routes", arguments: {} });
 send(15, "tools/call", { name: "create_lab_publish_digest", arguments: {} });
+send(16, "tools/call", { name: "audit_lab_card_copy", arguments: {} });
 
 await Promise.all([
   waitForResponse(7),
@@ -84,6 +85,7 @@ await Promise.all([
   waitForResponse(13),
   waitForResponse(14),
   waitForResponse(15),
+  waitForResponse(16),
 ]);
 server.kill();
 await once(server, "exit");
@@ -173,6 +175,28 @@ const digestOk =
   digest.includes("## Current priority") &&
   digest.includes("Ready for owner review:") &&
   digest.includes("Missing screenshots:");
+const copyAuditText = responseById.get(16)?.result?.content?.[0]?.text ?? "{}";
+const copyAudit = JSON.parse(copyAuditText);
+const copyAuditOk =
+  copyAudit?.checked === listedProjects &&
+  Array.isArray(copyAudit?.duplicateSlugs) &&
+  Array.isArray(copyAudit?.statusesSeen) &&
+  Array.isArray(copyAudit?.cards) &&
+  copyAudit.cards.length === listedProjects &&
+  copyAudit.cards.some((card) =>
+    card.project === "Speaking Speed Tester" &&
+    card.slug === "speaking-speed-tester" &&
+    Array.isArray(card.warnings) &&
+    card.warnings.some((warning) => warning.includes("Local route slug differs"))
+  ) &&
+  copyAudit.cards.every((card) =>
+    typeof card.project === "string" &&
+    typeof card.slug === "string" &&
+    typeof card.issueCount === "number" &&
+    typeof card.warningCount === "number" &&
+    Array.isArray(card.issues) &&
+    Array.isArray(card.warnings)
+  );
 
 console.log(JSON.stringify({
   failed,
@@ -190,6 +214,7 @@ console.log(JSON.stringify({
   briefOk,
   routeValidationOk,
   digestOk,
+  copyAuditOk,
 }, null, 2));
 
 if (
@@ -206,7 +231,8 @@ if (
   !prioritiesOk ||
   !briefOk ||
   !routeValidationOk ||
-  !digestOk
+  !digestOk ||
+  !copyAuditOk
 ) {
   process.exitCode = 1;
 }
