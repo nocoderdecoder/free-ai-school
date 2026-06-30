@@ -264,6 +264,69 @@ function auditLabCardCopy(projects) {
   };
 }
 
+function formatLabCopyAuditReport(audit) {
+  const lines = [];
+  const now = new Date().toISOString();
+  const issueCards = audit.cards.filter((card) => card.issueCount > 0);
+  const warningCards = audit.cards.filter((card) => card.warningCount > 0);
+
+  lines.push("# Lab card copy audit report");
+  lines.push("");
+  lines.push(`Generated: ${now}`);
+  lines.push("");
+
+  lines.push("## Summary");
+  lines.push("");
+  lines.push(`- Cards checked: ${audit.checked}`);
+  lines.push(`- Cards with issues: ${audit.cardsWithIssues}`);
+  lines.push(`- Cards with warnings: ${audit.cardsWithWarnings}`);
+  lines.push(`- Statuses seen: ${audit.statusesSeen.length ? audit.statusesSeen.join(", ") : "None"}`);
+  lines.push(`- Duplicate slugs: ${audit.duplicateSlugs.length ? audit.duplicateSlugs.join(", ") : "None"}`);
+  lines.push("");
+
+  lines.push("## Issues");
+  lines.push("");
+  if (issueCards.length === 0) {
+    lines.push("- No blocking copy issues found.");
+  } else {
+    for (const card of issueCards) {
+      lines.push(`### ${card.project || "Untitled project"}`);
+      lines.push("");
+      for (const issue of card.issues) lines.push(`- ${issue}`);
+      lines.push("");
+    }
+  }
+  lines.push("");
+
+  lines.push("## Warnings");
+  lines.push("");
+  if (warningCards.length === 0) {
+    lines.push("- No copy convention warnings found.");
+  } else {
+    for (const card of warningCards) {
+      lines.push(`### ${card.project || "Untitled project"}`);
+      lines.push("");
+      lines.push(`- Slug: ${card.slug || "Missing"}`);
+      if (card.status) lines.push(`- Status: ${card.status}`);
+      for (const warning of card.warnings) lines.push(`- ${warning}`);
+      lines.push("");
+    }
+  }
+
+  lines.push("## Owner next step");
+  lines.push("");
+  if (issueCards.length > 0) {
+    lines.push("- Fix the listed blocking copy issues before publishing the Lab update.");
+  } else if (warningCards.length > 0) {
+    lines.push("- Review the warnings and decide whether the Lab card conventions should be updated.");
+  } else {
+    lines.push("- Copy conventions look ready; continue with screenshot and route readiness checks.");
+  }
+  lines.push("");
+
+  return lines.join("\n");
+}
+
 function draftLabProjectCard(projects, args) {
   const name = normalizeDraftValue(args.name);
   const tagline = normalizeDraftValue(args.tagline);
@@ -935,6 +998,11 @@ export async function callTool(name, args = {}) {
   if (name === "audit_lab_card_copy") {
     const projects = await listLabProjects();
     return textResult(auditLabCardCopy(projects));
+  }
+
+  if (name === "create_lab_copy_audit_report") {
+    const projects = await listLabProjects();
+    return textResult(formatLabCopyAuditReport(auditLabCardCopy(projects)));
   }
 
   if (name === "prioritize_publish_tasks") {

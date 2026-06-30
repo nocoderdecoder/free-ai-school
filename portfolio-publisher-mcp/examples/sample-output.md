@@ -257,3 +257,35 @@ Example result from `audit_lab_card_copy`:
   ]
 }
 ```
+
+Example result from `create_lab_copy_audit_report`:
+
+```markdown
+# Lab card copy audit report
+
+Generated: 2026-06-30T00:00:00.000Z
+
+## Summary
+
+- Cards checked: 6
+- Cards with issues: 0
+- Cards with warnings: 1
+- Statuses seen: Built, Demo, Internal, Live, Running
+- Duplicate slugs: None
+
+## Issues
+
+- No blocking copy issues found.
+
+## Warnings
+
+### Speaking Speed Tester
+
+- Slug: speaking-speed-tester
+- Status: Live
+- Local route slug differs from project slug: speaking-speed
+
+## Owner next step
+
+- Review the warnings and decide whether the Lab card conventions should be updated.
+```

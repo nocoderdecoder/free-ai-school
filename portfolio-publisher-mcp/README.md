@@ -22,6 +22,7 @@ This first version is intentionally read-only. It can inspect the Lab page, vali
 - `create_project_publish_brief`: creates a concise one-project Markdown brief with Lab card copy, blockers, files to check, and next actions. If `projectName` is omitted, it uses the current top-priority project.
 - `create_lab_publish_digest`: creates a short Markdown digest of the current Lab inventory, readiness totals, route coverage, screenshot coverage, and next owner action.
 - `audit_lab_card_copy`: reviews Lab card names, taglines, statuses, image path conventions, route slugs, and duplicate slugs.
+- `create_lab_copy_audit_report`: creates an owner-friendly Markdown report from the Lab card copy audit.
 - `prioritize_publish_tasks`: ranks Lab projects by the next practical publishing task, including blockers, screenshot targets, and owner-facing actions.
 - `suggest_next_lab_project`: suggests technically distinct future Lab projects.
 

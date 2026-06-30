@@ -171,6 +171,17 @@ export const tools = [
     },
   },
   {
+    name: "create_lab_copy_audit_report",
+    title: "Create Lab Copy Audit Report",
+    description:
+      "Create a Markdown report from the Lab card copy audit with owner-friendly issue, warning, and next-action sections.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "prioritize_publish_tasks",
     title: "Prioritize Publish Tasks",
     description:

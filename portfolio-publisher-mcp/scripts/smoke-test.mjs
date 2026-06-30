@@ -74,6 +74,7 @@ send(13, "tools/call", { name: "create_project_publish_brief", arguments: {} });
 send(14, "tools/call", { name: "validate_lab_routes", arguments: {} });
 send(15, "tools/call", { name: "create_lab_publish_digest", arguments: {} });
 send(16, "tools/call", { name: "audit_lab_card_copy", arguments: {} });
+send(17, "tools/call", { name: "create_lab_copy_audit_report", arguments: {} });
 
 await Promise.all([
   waitForResponse(7),
@@ -86,6 +87,7 @@ await Promise.all([
   waitForResponse(14),
   waitForResponse(15),
   waitForResponse(16),
+  waitForResponse(17),
 ]);
 server.kill();
 await once(server, "exit");
@@ -197,6 +199,15 @@ const copyAuditOk =
     Array.isArray(card.issues) &&
     Array.isArray(card.warnings)
   );
+const copyAuditReport = responseById.get(17)?.result?.content?.[0]?.text ?? "";
+const copyAuditReportOk =
+  typeof copyAuditReport === "string" &&
+  copyAuditReport.includes("# Lab card copy audit report") &&
+  copyAuditReport.includes("## Summary") &&
+  copyAuditReport.includes("Cards with warnings:") &&
+  copyAuditReport.includes("## Owner next step") &&
+  copyAuditReport.includes("Speaking Speed Tester") &&
+  copyAuditReport.includes("Local route slug differs");
 
 console.log(JSON.stringify({
   failed,
@@ -215,6 +226,7 @@ console.log(JSON.stringify({
   routeValidationOk,
   digestOk,
   copyAuditOk,
+  copyAuditReportOk,
 }, null, 2));
 
 if (
@@ -232,7 +244,8 @@ if (
   !briefOk ||
   !routeValidationOk ||
   !digestOk ||
-  !copyAuditOk
+  !copyAuditOk ||
+  !copyAuditReportOk
 ) {
   process.exitCode = 1;
 }
