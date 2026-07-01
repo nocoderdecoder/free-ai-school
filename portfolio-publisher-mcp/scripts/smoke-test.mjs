@@ -75,6 +75,7 @@ send(14, "tools/call", { name: "validate_lab_routes", arguments: {} });
 send(15, "tools/call", { name: "create_lab_publish_digest", arguments: {} });
 send(16, "tools/call", { name: "audit_lab_card_copy", arguments: {} });
 send(17, "tools/call", { name: "create_lab_copy_audit_report", arguments: {} });
+send(18, "tools/call", { name: "create_screenshot_capture_plan", arguments: {} });
 
 await Promise.all([
   waitForResponse(7),
@@ -88,6 +89,7 @@ await Promise.all([
   waitForResponse(15),
   waitForResponse(16),
   waitForResponse(17),
+  waitForResponse(18),
 ]);
 server.kill();
 await once(server, "exit");
@@ -208,6 +210,16 @@ const copyAuditReportOk =
   copyAuditReport.includes("## Owner next step") &&
   copyAuditReport.includes("Speaking Speed Tester") &&
   copyAuditReport.includes("Local route slug differs");
+const screenshotCapturePlan = responseById.get(18)?.result?.content?.[0]?.text ?? "";
+const screenshotCapturePlanOk =
+  typeof screenshotCapturePlan === "string" &&
+  screenshotCapturePlan.includes("# Lab screenshot capture plan") &&
+  screenshotCapturePlan.includes("## Ready to capture") &&
+  screenshotCapturePlan.includes("## Blocked captures") &&
+  screenshotCapturePlan.includes("Ready to capture:") &&
+  screenshotCapturePlan.includes("Speaking Speed Tester") &&
+  screenshotCapturePlan.includes("public/projects/speaking-speed-tester.png") &&
+  screenshotCapturePlan.includes("npm run smoke");
 
 console.log(JSON.stringify({
   failed,
@@ -227,6 +239,7 @@ console.log(JSON.stringify({
   digestOk,
   copyAuditOk,
   copyAuditReportOk,
+  screenshotCapturePlanOk,
 }, null, 2));
 
 if (
@@ -245,7 +258,8 @@ if (
   !routeValidationOk ||
   !digestOk ||
   !copyAuditOk ||
-  !copyAuditReportOk
+  !copyAuditReportOk ||
+  !screenshotCapturePlanOk
 ) {
   process.exitCode = 1;
 }

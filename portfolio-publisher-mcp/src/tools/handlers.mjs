@@ -113,6 +113,89 @@ function getScreenshotCapture(project, asset) {
   };
 }
 
+async function buildScreenshotQueue(projects) {
+  const assets = await Promise.all(projects.map(getProjectAssetStatus));
+  return projects
+    .map((project, index) => ({ project, asset: assets[index] }))
+    .filter(({ asset }) => !asset.exists)
+    .map(({ project, asset }) => getScreenshotCapture(project, asset));
+}
+
+function formatScreenshotCapturePlan(queue) {
+  const lines = [];
+  const now = new Date().toISOString();
+  const ready = queue.filter((item) => item.captureReady);
+  const blocked = queue.filter((item) => !item.captureReady);
+
+  lines.push("# Lab screenshot capture plan");
+  lines.push("");
+  lines.push(`Generated: ${now}`);
+  lines.push("");
+
+  lines.push("## Summary");
+  lines.push("");
+  lines.push(`- Missing screenshots: ${queue.length}`);
+  lines.push(`- Ready to capture: ${ready.length}`);
+  lines.push(`- Blocked: ${blocked.length}`);
+  lines.push("");
+
+  lines.push("## Ready to capture");
+  lines.push("");
+  if (ready.length === 0) {
+    lines.push("- No screenshot captures are ready yet.");
+  } else {
+    for (const item of ready) {
+      lines.push(`### ${item.project}`);
+      lines.push("");
+      lines.push(`- Target: ${item.captureTarget}`);
+      lines.push(`- Target type: ${item.captureType}`);
+      lines.push(`- Save as: public${item.suggestedImage}`);
+      if (item.currentImage) lines.push(`- Current Lab image path: ${item.currentImage}`);
+      lines.push(`- Reason: ${item.reason}`);
+      lines.push("");
+    }
+  }
+  lines.push("");
+
+  lines.push("## Blocked captures");
+  lines.push("");
+  if (blocked.length === 0) {
+    lines.push("- No screenshot captures are blocked.");
+  } else {
+    for (const item of blocked) {
+      lines.push(`### ${item.project}`);
+      lines.push("");
+      lines.push(`- Save as: public${item.suggestedImage}`);
+      lines.push(`- Blocker: ${item.blocker}`);
+      lines.push(`- Reason: ${item.reason}`);
+      lines.push("");
+    }
+  }
+  lines.push("");
+
+  lines.push("## Owner next step");
+  lines.push("");
+  if (ready.length > 0) {
+    const first = ready[0];
+    lines.push(`- Capture ${first.project} from ${first.captureTarget} and save it as public${first.suggestedImage}.`);
+  } else if (blocked.length > 0) {
+    lines.push("- Add project URLs or local routes for the blocked captures, then regenerate this plan.");
+  } else {
+    lines.push("- Screenshot coverage looks complete; run the smoke test before publishing.");
+  }
+  lines.push("");
+
+  lines.push("## Verification");
+  lines.push("");
+  lines.push("```bash");
+  lines.push("cd portfolio-publisher-mcp");
+  lines.push("npm run smoke");
+  lines.push("```");
+  lines.push("");
+
+  return lines.join("\n");
+}
+
 function normalizeDraftValue(value) {
   return String(value ?? "").trim();
 }
@@ -894,11 +977,7 @@ export async function callTool(name, args = {}) {
 
   if (name === "list_screenshot_queue") {
     const projects = await listLabProjects();
-    const assets = await Promise.all(projects.map(getProjectAssetStatus));
-    const queue = projects
-      .map((project, index) => ({ project, asset: assets[index] }))
-      .filter(({ asset }) => !asset.exists)
-      .map(({ project, asset }) => getScreenshotCapture(project, asset));
+    const queue = await buildScreenshotQueue(projects);
 
     return textResult({
       queued: queue.length,
@@ -906,6 +985,13 @@ export async function callTool(name, args = {}) {
       blocked: queue.filter((item) => !item.captureReady).length,
       queue,
     });
+  }
+
+  if (name === "create_screenshot_capture_plan") {
+    const projects = await listLabProjects();
+    const queue = await buildScreenshotQueue(projects);
+
+    return textResult(formatScreenshotCapturePlan(queue));
   }
 
   if (name === "draft_lab_project_card") {

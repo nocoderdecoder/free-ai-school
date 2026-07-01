@@ -52,6 +52,17 @@ export const tools = [
     },
   },
   {
+    name: "create_screenshot_capture_plan",
+    title: "Create Screenshot Capture Plan",
+    description:
+      "Create an owner-friendly Markdown checklist for capturing missing Lab screenshots, grouped by ready and blocked items.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "draft_lab_project_card",
     title: "Draft Lab Project Card",
     description:

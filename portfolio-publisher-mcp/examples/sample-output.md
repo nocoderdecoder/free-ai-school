@@ -59,6 +59,44 @@ Example result from `list_screenshot_queue`:
 }
 ```
 
+Example result from `create_screenshot_capture_plan`:
+
+~~~markdown
+# Lab screenshot capture plan
+
+Generated: 2026-07-01T00:00:00.000Z
+
+## Summary
+
+- Missing screenshots: 6
+- Ready to capture: 2
+- Blocked: 4
+
+## Ready to capture
+
+### Speaking Speed Tester
+
+- Target: /tools/speaking-speed
+- Target type: local-route
+- Save as: public/projects/speaking-speed-tester.png
+- Reason: Project has no screenshot image path.
+
+## Blocked captures
+
+### CSV Cleaner
+
+- Save as: public/projects/csv-cleaner.png
+- Blocker: Add a project URL or local route before capturing a screenshot.
+- Reason: Project has no screenshot image path.
+
+## Verification
+
+```bash
+cd portfolio-publisher-mcp
+npm run smoke
+```
+~~~
+
 Example result from `validate_lab_routes`:
 
 ```json
