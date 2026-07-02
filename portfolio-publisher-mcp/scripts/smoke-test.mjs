@@ -76,6 +76,14 @@ send(15, "tools/call", { name: "create_lab_publish_digest", arguments: {} });
 send(16, "tools/call", { name: "audit_lab_card_copy", arguments: {} });
 send(17, "tools/call", { name: "create_lab_copy_audit_report", arguments: {} });
 send(18, "tools/call", { name: "create_screenshot_capture_plan", arguments: {} });
+send(19, "tools/call", {
+  name: "create_lab_card_patch_preview",
+  arguments: {
+    name: "Website Change Monitor",
+    tagline: "Weekly website screenshot diff report",
+  },
+});
+send(20, "tools/call", { name: "create_lab_card_patch_preview", arguments: { name: "Missing Tagline" } });
 
 await Promise.all([
   waitForResponse(7),
@@ -90,6 +98,8 @@ await Promise.all([
   waitForResponse(16),
   waitForResponse(17),
   waitForResponse(18),
+  waitForResponse(19),
+  waitForResponse(20),
 ]);
 server.kill();
 await once(server, "exit");
@@ -220,6 +230,17 @@ const screenshotCapturePlanOk =
   screenshotCapturePlan.includes("Speaking Speed Tester") &&
   screenshotCapturePlan.includes("public/projects/speaking-speed-tester.png") &&
   screenshotCapturePlan.includes("npm run smoke");
+const labCardPatchPreview = responseById.get(19)?.result?.content?.[0]?.text ?? "";
+const labCardPatchPreviewOk =
+  typeof labCardPatchPreview === "string" &&
+  labCardPatchPreview.includes("# Lab card patch preview: Website Change Monitor") &&
+  labCardPatchPreview.includes("Preview only: no files were changed.") &&
+  labCardPatchPreview.includes("Target file: app/lab/page.tsx") &&
+  labCardPatchPreview.includes('name: "Website Change Monitor"') &&
+  labCardPatchPreview.includes("Route: app/tools/website-change-monitor/page.tsx") &&
+  labCardPatchPreview.includes("Screenshot: public/projects/website-change-monitor.png") &&
+  labCardPatchPreview.includes("npm run smoke");
+const patchPreviewRequiredValidationOk = responseById.get(20)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -240,6 +261,8 @@ console.log(JSON.stringify({
   copyAuditOk,
   copyAuditReportOk,
   screenshotCapturePlanOk,
+  labCardPatchPreviewOk,
+  patchPreviewRequiredValidationOk,
 }, null, 2));
 
 if (
@@ -259,7 +282,9 @@ if (
   !digestOk ||
   !copyAuditOk ||
   !copyAuditReportOk ||
-  !screenshotCapturePlanOk
+  !screenshotCapturePlanOk ||
+  !labCardPatchPreviewOk ||
+  !patchPreviewRequiredValidationOk
 ) {
   process.exitCode = 1;
 }

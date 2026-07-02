@@ -147,6 +147,48 @@ Example result from `draft_lab_project_card`:
 }
 ```
 
+Example result from `create_lab_card_patch_preview`:
+
+~~~markdown
+# Lab card patch preview: Website Change Monitor
+
+Generated: 2026-07-02T00:00:00.000Z
+
+## Status
+
+- Preview only: no files were changed.
+- Target file: app/lab/page.tsx
+- Insert location: add this object inside the `projects` array.
+
+## Lab card object
+
+```ts
+  {
+    name: "Website Change Monitor",
+    tagline: "Weekly website screenshot diff report",
+    image: "/projects/website-change-monitor.png",
+    url: "/tools/website-change-monitor",
+    status: "Built",
+  },
+```
+
+## Files to prepare
+
+- Route: app/tools/website-change-monitor/page.tsx
+- Screenshot: public/projects/website-change-monitor.png
+
+## Warnings
+
+- Create the local route before publishing: app/tools/website-change-monitor/page.tsx
+
+## Verification
+
+```bash
+cd portfolio-publisher-mcp
+npm run smoke
+```
+~~~
+
 Example result from `create_publish_handoff`:
 
 ```markdown

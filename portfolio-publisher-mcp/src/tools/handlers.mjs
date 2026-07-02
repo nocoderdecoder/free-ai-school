@@ -444,6 +444,62 @@ function draftLabProjectCard(projects, args) {
   };
 }
 
+function formatLabCardPatchPreview(draft) {
+  const lines = [];
+  const now = new Date().toISOString();
+  const imageFile = publicImageFile(draft.project.image);
+
+  lines.push(`# Lab card patch preview: ${draft.project.name}`);
+  lines.push("");
+  lines.push(`Generated: ${now}`);
+  lines.push("");
+
+  lines.push("## Status");
+  lines.push("");
+  lines.push("- Preview only: no files were changed.");
+  lines.push("- Target file: app/lab/page.tsx");
+  lines.push("- Insert location: add this object inside the `projects` array.");
+  lines.push("");
+
+  lines.push("## Lab card object");
+  lines.push("");
+  lines.push("```ts");
+  lines.push(draft.labCardSnippet);
+  lines.push("```");
+  lines.push("");
+
+  lines.push("## Files to prepare");
+  lines.push("");
+  if (draft.suggestedRoute) lines.push(`- Route: ${draft.suggestedRoute}`);
+  if (imageFile) lines.push(`- Screenshot: ${imageFile}`);
+  if (!draft.suggestedRoute && !imageFile) lines.push("- No route or screenshot path could be derived from the provided card fields.");
+  lines.push("");
+
+  lines.push("## Warnings");
+  lines.push("");
+  if (draft.warnings.length > 0) {
+    for (const warning of draft.warnings) lines.push(`- ${warning}`);
+  } else {
+    lines.push("- No draft warnings found.");
+  }
+  lines.push("");
+
+  lines.push("## Owner next step");
+  lines.push("");
+  lines.push("- Review the card copy, create any listed route/screenshot files, then paste the object into `app/lab/page.tsx`.");
+  lines.push("");
+
+  lines.push("## Verification");
+  lines.push("");
+  lines.push("```bash");
+  lines.push("cd portfolio-publisher-mcp");
+  lines.push("npm run smoke");
+  lines.push("```");
+  lines.push("");
+
+  return lines.join("\n");
+}
+
 function normalizeProjectQuery(value) {
   return String(value ?? "").trim();
 }
@@ -997,6 +1053,11 @@ export async function callTool(name, args = {}) {
   if (name === "draft_lab_project_card") {
     const projects = await listLabProjects();
     return textResult(draftLabProjectCard(projects, args));
+  }
+
+  if (name === "create_lab_card_patch_preview") {
+    const projects = await listLabProjects();
+    return textResult(formatLabCardPatchPreview(draftLabProjectCard(projects, args)));
   }
 
   if (name === "publish_readiness_check") {
