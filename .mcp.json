@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "portfolio-publisher": {
+      "command": "node",
+      "args": ["portfolio-publisher-mcp/src/server.mjs"]
+    }
+  }
+}
