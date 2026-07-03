@@ -84,6 +84,14 @@ send(19, "tools/call", {
   },
 });
 send(20, "tools/call", { name: "create_lab_card_patch_preview", arguments: { name: "Missing Tagline" } });
+send(21, "tools/call", {
+  name: "create_lab_card_patch_artifact",
+  arguments: {
+    name: "Website Change Monitor",
+    tagline: "Weekly website screenshot diff report",
+  },
+});
+send(22, "tools/call", { name: "create_lab_card_patch_artifact", arguments: { name: "Missing Tagline" } });
 
 await Promise.all([
   waitForResponse(7),
@@ -100,6 +108,8 @@ await Promise.all([
   waitForResponse(18),
   waitForResponse(19),
   waitForResponse(20),
+  waitForResponse(21),
+  waitForResponse(22),
 ]);
 server.kill();
 await once(server, "exit");
@@ -241,6 +251,28 @@ const labCardPatchPreviewOk =
   labCardPatchPreview.includes("Screenshot: public/projects/website-change-monitor.png") &&
   labCardPatchPreview.includes("npm run smoke");
 const patchPreviewRequiredValidationOk = responseById.get(20)?.result?.isError === true;
+const labCardPatchArtifactText = responseById.get(21)?.result?.content?.[0]?.text ?? "{}";
+const labCardPatchArtifact = JSON.parse(labCardPatchArtifactText);
+const labCardPatchArtifactOk =
+  labCardPatchArtifact?.previewOnly === true &&
+  labCardPatchArtifact?.targetFile === "app/lab/page.tsx" &&
+  labCardPatchArtifact?.insertionHint?.includes("projects") &&
+  labCardPatchArtifact?.labCard?.name === "Website Change Monitor" &&
+  labCardPatchArtifact?.labCard?.image === "/projects/website-change-monitor.png" &&
+  labCardPatchArtifact?.labCardSnippet?.includes('name: "Website Change Monitor"') &&
+  labCardPatchArtifact?.unifiedDiff?.includes("--- a/app/lab/page.tsx") &&
+  labCardPatchArtifact?.unifiedDiff?.includes("+++ b/app/lab/page.tsx") &&
+  /^@@ -\d+,1 \+\d+,8 @@$/m.test(labCardPatchArtifact?.unifiedDiff ?? "") &&
+  labCardPatchArtifact?.unifiedDiff?.includes('+    name: "Website Change Monitor",') &&
+  labCardPatchArtifact?.filesToPrepare?.some((file) =>
+    file.type === "route" && file.file === "app/tools/website-change-monitor/page.tsx"
+  ) &&
+  labCardPatchArtifact?.filesToPrepare?.some((file) =>
+    file.type === "screenshot" && file.file === "public/projects/website-change-monitor.png"
+  ) &&
+  labCardPatchArtifact?.ownerNextStep?.includes("Review the generated diff") &&
+  labCardPatchArtifact?.verificationCommand === "cd portfolio-publisher-mcp && npm run smoke";
+const patchArtifactRequiredValidationOk = responseById.get(22)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -263,6 +295,8 @@ console.log(JSON.stringify({
   screenshotCapturePlanOk,
   labCardPatchPreviewOk,
   patchPreviewRequiredValidationOk,
+  labCardPatchArtifactOk,
+  patchArtifactRequiredValidationOk,
 }, null, 2));
 
 if (
@@ -284,7 +318,9 @@ if (
   !copyAuditReportOk ||
   !screenshotCapturePlanOk ||
   !labCardPatchPreviewOk ||
-  !patchPreviewRequiredValidationOk
+  !patchPreviewRequiredValidationOk ||
+  !labCardPatchArtifactOk ||
+  !patchArtifactRequiredValidationOk
 ) {
   process.exitCode = 1;
 }

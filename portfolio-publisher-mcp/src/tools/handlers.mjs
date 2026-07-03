@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { listLabProjects, getProjectAssetStatus } from "../lib/labParser.mjs";
+import { listLabProjects, getProjectAssetStatus, readLabSource } from "../lib/labParser.mjs";
 import { assertSafeRead } from "../lib/fileSafety.mjs";
 import { paths, toRepoRelative } from "../lib/paths.mjs";
 import { tools as toolDefinitions } from "./definitions.mjs";
@@ -498,6 +498,47 @@ function formatLabCardPatchPreview(draft) {
   lines.push("");
 
   return lines.join("\n");
+}
+
+function findProjectsArrayLine(source) {
+  const lines = source.split("\n");
+  const index = lines.findIndex((line) => line.includes("const projects = ["));
+  return index === -1 ? null : index + 1;
+}
+
+function formatLabCardPatchArtifact(draft, source) {
+  const targetFile = "app/lab/page.tsx";
+  const routeFile = draft.suggestedRoute;
+  const imageFile = publicImageFile(draft.project.image);
+  const insertedLines = draft.labCardSnippet.split("\n").map((line) => `+${line}`);
+  const projectsArrayLine = findProjectsArrayLine(source);
+  const hunkHeader = projectsArrayLine
+    ? `@@ -${projectsArrayLine},1 +${projectsArrayLine},${insertedLines.length + 1} @@`
+    : "@@";
+
+  return {
+    generatedAt: new Date().toISOString(),
+    previewOnly: true,
+    targetFile,
+    insertionHint: "Insert this object as a new item inside the `projects` array.",
+    labCard: draft.project,
+    labCardSnippet: draft.labCardSnippet,
+    unifiedDiff: [
+      `--- a/${targetFile}`,
+      `+++ b/${targetFile}`,
+      hunkHeader,
+      " const projects = [",
+      ...insertedLines,
+    ].join("\n"),
+    filesToPrepare: [
+      ...(routeFile ? [{ type: "route", file: routeFile }] : []),
+      ...(imageFile ? [{ type: "screenshot", file: imageFile }] : []),
+    ],
+    warnings: draft.warnings,
+    ownerNextStep:
+      "Review the generated diff, create any listed route/screenshot files, then apply the Lab card change.",
+    verificationCommand: "cd portfolio-publisher-mcp && npm run smoke",
+  };
 }
 
 function normalizeProjectQuery(value) {
@@ -1058,6 +1099,11 @@ export async function callTool(name, args = {}) {
   if (name === "create_lab_card_patch_preview") {
     const projects = await listLabProjects();
     return textResult(formatLabCardPatchPreview(draftLabProjectCard(projects, args)));
+  }
+
+  if (name === "create_lab_card_patch_artifact") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(formatLabCardPatchArtifact(draftLabProjectCard(projects, args), source));
   }
 
   if (name === "publish_readiness_check") {

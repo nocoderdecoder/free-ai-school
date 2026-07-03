@@ -189,6 +189,39 @@ npm run smoke
 ```
 ~~~
 
+Example result from `create_lab_card_patch_artifact`:
+
+```json
+{
+  "previewOnly": true,
+  "targetFile": "app/lab/page.tsx",
+  "insertionHint": "Insert this object as a new item inside the `projects` array.",
+  "labCard": {
+    "name": "Website Change Monitor",
+    "tagline": "Weekly website screenshot diff report",
+    "image": "/projects/website-change-monitor.png",
+    "url": "/tools/website-change-monitor",
+    "status": "Built"
+  },
+  "unifiedDiff": "--- a/app/lab/page.tsx\n+++ b/app/lab/page.tsx\n@@ -12,1 +12,8 @@\n const projects = [\n+  {\n+    name: \"Website Change Monitor\",\n+    tagline: \"Weekly website screenshot diff report\",\n+    image: \"/projects/website-change-monitor.png\",\n+    url: \"/tools/website-change-monitor\",\n+    status: \"Built\",\n+  },",
+  "filesToPrepare": [
+    {
+      "type": "route",
+      "file": "app/tools/website-change-monitor/page.tsx"
+    },
+    {
+      "type": "screenshot",
+      "file": "public/projects/website-change-monitor.png"
+    }
+  ],
+  "warnings": [
+    "Create the local route before publishing: app/tools/website-change-monitor/page.tsx"
+  ],
+  "ownerNextStep": "Review the generated diff, create any listed route/screenshot files, then apply the Lab card change.",
+  "verificationCommand": "cd portfolio-publisher-mcp && npm run smoke"
+}
+```
+
 Example result from `create_publish_handoff`:
 
 ```markdown
