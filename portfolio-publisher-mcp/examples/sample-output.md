@@ -133,15 +133,18 @@ Example result from `draft_lab_project_card`:
   "slug": "website-change-monitor",
   "suggestedScreenshot": "/projects/website-change-monitor.png",
   "suggestedRoute": "app/tools/website-change-monitor/page.tsx",
+  "suggestedIcon": "WebsiteChangeMonitorIcon",
   "project": {
     "name": "Website Change Monitor",
     "tagline": "Weekly website screenshot diff report",
     "image": "/projects/website-change-monitor.png",
     "url": "/tools/website-change-monitor",
-    "status": "Built"
+    "status": "Built",
+    "icon": "WebsiteChangeMonitorIcon"
   },
-  "labCardSnippet": "  {\\n    name: \"Website Change Monitor\",\\n    tagline: \"Weekly website screenshot diff report\",\\n    image: \"/projects/website-change-monitor.png\",\\n    url: \"/tools/website-change-monitor\",\\n    status: \"Built\",\\n  },",
+  "labCardSnippet": "  {\\n    name: \"Website Change Monitor\",\\n    tagline: \"Weekly website screenshot diff report\",\\n    image: \"/projects/website-change-monitor.png\",\\n    url: \"/tools/website-change-monitor\",\\n    status: \"Built\",\\n    Icon: WebsiteChangeMonitorIcon,\\n  },",
   "warnings": [
+    "Add and import the Lab thumbnail icon before publishing: WebsiteChangeMonitorIcon",
     "Create the local route before publishing: app/tools/website-change-monitor/page.tsx"
   ]
 }
@@ -169,6 +172,7 @@ Generated: 2026-07-02T00:00:00.000Z
     image: "/projects/website-change-monitor.png",
     url: "/tools/website-change-monitor",
     status: "Built",
+    Icon: WebsiteChangeMonitorIcon,
   },
 ```
 
@@ -176,9 +180,11 @@ Generated: 2026-07-02T00:00:00.000Z
 
 - Route: app/tools/website-change-monitor/page.tsx
 - Screenshot: public/projects/website-change-monitor.png
+- Icon component: app/components/LabThumbnails.tsx export WebsiteChangeMonitorIcon
 
 ## Warnings
 
+- Add and import the Lab thumbnail icon before publishing: WebsiteChangeMonitorIcon
 - Create the local route before publishing: app/tools/website-change-monitor/page.tsx
 
 ## Verification
@@ -201,9 +207,10 @@ Example result from `create_lab_card_patch_artifact`:
     "tagline": "Weekly website screenshot diff report",
     "image": "/projects/website-change-monitor.png",
     "url": "/tools/website-change-monitor",
-    "status": "Built"
+    "status": "Built",
+    "icon": "WebsiteChangeMonitorIcon"
   },
-  "unifiedDiff": "--- a/app/lab/page.tsx\n+++ b/app/lab/page.tsx\n@@ -12,1 +12,8 @@\n const projects = [\n+  {\n+    name: \"Website Change Monitor\",\n+    tagline: \"Weekly website screenshot diff report\",\n+    image: \"/projects/website-change-monitor.png\",\n+    url: \"/tools/website-change-monitor\",\n+    status: \"Built\",\n+  },",
+  "unifiedDiff": "--- a/app/lab/page.tsx\n+++ b/app/lab/page.tsx\n@@ -12,1 +12,9 @@\n const projects = [\n+  {\n+    name: \"Website Change Monitor\",\n+    tagline: \"Weekly website screenshot diff report\",\n+    image: \"/projects/website-change-monitor.png\",\n+    url: \"/tools/website-change-monitor\",\n+    status: \"Built\",\n+    Icon: WebsiteChangeMonitorIcon,\n+  },",
   "filesToPrepare": [
     {
       "type": "route",
@@ -212,9 +219,15 @@ Example result from `create_lab_card_patch_artifact`:
     {
       "type": "screenshot",
       "file": "public/projects/website-change-monitor.png"
+    },
+    {
+      "type": "icon",
+      "file": "app/components/LabThumbnails.tsx",
+      "symbol": "WebsiteChangeMonitorIcon"
     }
   ],
   "warnings": [
+    "Add and import the Lab thumbnail icon before publishing: WebsiteChangeMonitorIcon",
     "Create the local route before publishing: app/tools/website-change-monitor/page.tsx"
   ],
   "ownerNextStep": "Review the generated diff, create any listed route/screenshot files, then apply the Lab card change.",

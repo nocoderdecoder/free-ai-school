@@ -88,6 +88,20 @@ function suggestedScreenshotPath(projectName) {
   return slug ? `/projects/${slug}.png` : "/projects/<project-slug>.png";
 }
 
+function suggestedIconComponentName(projectName) {
+  const words = String(projectName)
+    .trim()
+    .replace(/['"]/g, "")
+    .split(/[^a-z0-9]+/i)
+    .filter(Boolean);
+  const base = words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join("");
+  return base ? `${base}Icon` : "";
+}
+
+function isValidIdentifier(value) {
+  return /^[A-Za-z_$][\w$]*$/.test(value);
+}
+
 function getScreenshotCapture(project, asset) {
   const captureTarget = project.url || null;
   const captureType = captureTarget
@@ -205,15 +219,21 @@ function escapeProjectString(value) {
 }
 
 function formatProjectObject(project) {
-  return [
+  const lines = [
     "  {",
     `    name: "${escapeProjectString(project.name)}",`,
     `    tagline: "${escapeProjectString(project.tagline)}",`,
     `    image: "${escapeProjectString(project.image)}",`,
     `    url: "${escapeProjectString(project.url)}",`,
     `    status: "${escapeProjectString(project.status)}",`,
-    "  },",
-  ].join("\n");
+  ];
+
+  if (project.icon) {
+    lines.push(`    Icon: ${project.icon},`);
+  }
+
+  lines.push("  },");
+  return lines.join("\n");
 }
 
 function localRouteFile(url) {
@@ -417,11 +437,18 @@ function draftLabProjectCard(projects, args) {
   const status = normalizeDraftValue(args.status) || "Built";
   const image = normalizeDraftValue(args.image) || suggestedScreenshotPath(name);
   const url = normalizeDraftValue(args.url) || (slug ? `/tools/${slug}` : "");
+  const icon = normalizeDraftValue(args.icon) || suggestedIconComponentName(name);
   const warnings = [];
+  const existingIcons = new Set(projects.map((project) => project.icon).filter(Boolean));
 
   if (!name) warnings.push("Project name is blank.");
   if (!tagline) warnings.push("Tagline is blank.");
   if (!slug) warnings.push("Could not derive a slug from the project name.");
+  if (!icon) warnings.push("No Lab thumbnail icon component could be derived.");
+  if (icon && !isValidIdentifier(icon)) warnings.push(`Icon must be a valid TypeScript identifier before applying: ${icon}`);
+  if (icon && !existingIcons.has(icon)) {
+    warnings.push(`Add and import the Lab thumbnail icon before publishing: ${icon}`);
+  }
   if (projects.some((project) => project.name.toLowerCase() === name.toLowerCase())) {
     warnings.push("A Lab project with this name already exists.");
   }
@@ -432,12 +459,13 @@ function draftLabProjectCard(projects, args) {
     warnings.push(`Create the local route before publishing: app${url}/page.tsx`);
   }
 
-  const project = { name, tagline, image, url, status };
+  const project = { name, tagline, image, url, status, icon };
 
   return {
     slug,
     suggestedScreenshot: image,
     suggestedRoute: url.startsWith("/tools/") ? `app${url}/page.tsx` : null,
+    suggestedIcon: icon || null,
     project,
     labCardSnippet: formatProjectObject(project),
     warnings,
@@ -472,7 +500,10 @@ function formatLabCardPatchPreview(draft) {
   lines.push("");
   if (draft.suggestedRoute) lines.push(`- Route: ${draft.suggestedRoute}`);
   if (imageFile) lines.push(`- Screenshot: ${imageFile}`);
-  if (!draft.suggestedRoute && !imageFile) lines.push("- No route or screenshot path could be derived from the provided card fields.");
+  if (draft.suggestedIcon) lines.push(`- Icon component: app/components/LabThumbnails.tsx export ${draft.suggestedIcon}`);
+  if (!draft.suggestedRoute && !imageFile && !draft.suggestedIcon) {
+    lines.push("- No route, screenshot path, or icon component could be derived from the provided card fields.");
+  }
   lines.push("");
 
   lines.push("## Warnings");
@@ -510,6 +541,7 @@ function formatLabCardPatchArtifact(draft, source) {
   const targetFile = "app/lab/page.tsx";
   const routeFile = draft.suggestedRoute;
   const imageFile = publicImageFile(draft.project.image);
+  const iconName = draft.suggestedIcon;
   const insertedLines = draft.labCardSnippet.split("\n").map((line) => `+${line}`);
   const projectsArrayLine = findProjectsArrayLine(source);
   const hunkHeader = projectsArrayLine
@@ -533,6 +565,7 @@ function formatLabCardPatchArtifact(draft, source) {
     filesToPrepare: [
       ...(routeFile ? [{ type: "route", file: routeFile }] : []),
       ...(imageFile ? [{ type: "screenshot", file: imageFile }] : []),
+      ...(iconName ? [{ type: "icon", file: "app/components/LabThumbnails.tsx", symbol: iconName }] : []),
     ],
     warnings: draft.warnings,
     ownerNextStep:
@@ -1117,10 +1150,12 @@ export async function callTool(name, args = {}) {
   if (name === "inspect_lab_format") {
     return textResult({
       labPage: "app/lab/page.tsx",
-      projectFields: ["name", "tagline", "image", "url", "status"],
+      projectFields: ["name", "tagline", "image", "url", "status", "Icon"],
       currentPattern: "Projects are stored in a hard-coded `projects` array and rendered as cards.",
       screenshotConvention: "Images should use public paths such as /projects/project-name.png.",
       routeConvention: "Interactive tools should usually live under app/tools/<slug>/page.tsx.",
+      iconConvention:
+        "Cards use an Icon component from app/components/LabThumbnails.tsx as the screenshot fallback.",
       statusValuesSeen: ["Live", "Running", "Internal", "Demo", "Built"],
       allowedReadScope: [
         paths.appDir,

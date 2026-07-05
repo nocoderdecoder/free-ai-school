@@ -159,7 +159,11 @@ const draftOk =
   draft?.slug === "website-change-monitor" &&
   draft?.project?.image === "/projects/website-change-monitor.png" &&
   draft?.project?.url === "/tools/website-change-monitor" &&
-  draft?.labCardSnippet?.includes('name: "Website Change Monitor"');
+  draft?.project?.icon === "WebsiteChangeMonitorIcon" &&
+  draft?.suggestedIcon === "WebsiteChangeMonitorIcon" &&
+  draft?.labCardSnippet?.includes('name: "Website Change Monitor"') &&
+  draft?.labCardSnippet?.includes("Icon: WebsiteChangeMonitorIcon,") &&
+  draft?.warnings?.some((warning) => warning.includes("Lab thumbnail icon"));
 const requiredValidationOk = responseById.get(10)?.result?.isError === true;
 const handoff = responseById.get(11)?.result?.content?.[0]?.text ?? "";
 const handoffOk =
@@ -267,8 +271,10 @@ const labCardPatchPreviewOk =
   labCardPatchPreview.includes("Preview only: no files were changed.") &&
   labCardPatchPreview.includes("Target file: app/lab/page.tsx") &&
   labCardPatchPreview.includes('name: "Website Change Monitor"') &&
+  labCardPatchPreview.includes("Icon: WebsiteChangeMonitorIcon,") &&
   labCardPatchPreview.includes("Route: app/tools/website-change-monitor/page.tsx") &&
   labCardPatchPreview.includes("Screenshot: public/projects/website-change-monitor.png") &&
+  labCardPatchPreview.includes("Icon component: app/components/LabThumbnails.tsx export WebsiteChangeMonitorIcon") &&
   labCardPatchPreview.includes("npm run smoke");
 const patchPreviewRequiredValidationOk = responseById.get(20)?.result?.isError === true;
 const labCardPatchArtifactText = responseById.get(21)?.result?.content?.[0]?.text ?? "{}";
@@ -279,17 +285,26 @@ const labCardPatchArtifactOk =
   labCardPatchArtifact?.insertionHint?.includes("projects") &&
   labCardPatchArtifact?.labCard?.name === "Website Change Monitor" &&
   labCardPatchArtifact?.labCard?.image === "/projects/website-change-monitor.png" &&
+  labCardPatchArtifact?.labCard?.icon === "WebsiteChangeMonitorIcon" &&
   labCardPatchArtifact?.labCardSnippet?.includes('name: "Website Change Monitor"') &&
+  labCardPatchArtifact?.labCardSnippet?.includes("Icon: WebsiteChangeMonitorIcon,") &&
   labCardPatchArtifact?.unifiedDiff?.includes("--- a/app/lab/page.tsx") &&
   labCardPatchArtifact?.unifiedDiff?.includes("+++ b/app/lab/page.tsx") &&
-  /^@@ -\d+,1 \+\d+,8 @@$/m.test(labCardPatchArtifact?.unifiedDiff ?? "") &&
+  /^@@ -\d+,1 \+\d+,9 @@$/m.test(labCardPatchArtifact?.unifiedDiff ?? "") &&
   labCardPatchArtifact?.unifiedDiff?.includes('+    name: "Website Change Monitor",') &&
+  labCardPatchArtifact?.unifiedDiff?.includes("+    Icon: WebsiteChangeMonitorIcon,") &&
   labCardPatchArtifact?.filesToPrepare?.some((file) =>
     file.type === "route" && file.file === "app/tools/website-change-monitor/page.tsx"
   ) &&
   labCardPatchArtifact?.filesToPrepare?.some((file) =>
     file.type === "screenshot" && file.file === "public/projects/website-change-monitor.png"
   ) &&
+  labCardPatchArtifact?.filesToPrepare?.some((file) =>
+    file.type === "icon" &&
+    file.file === "app/components/LabThumbnails.tsx" &&
+    file.symbol === "WebsiteChangeMonitorIcon"
+  ) &&
+  labCardPatchArtifact?.warnings?.some((warning) => warning.includes("Lab thumbnail icon")) &&
   labCardPatchArtifact?.ownerNextStep?.includes("Review the generated diff") &&
   labCardPatchArtifact?.verificationCommand === "cd portfolio-publisher-mcp && npm run smoke";
 const patchArtifactRequiredValidationOk = responseById.get(22)?.result?.isError === true;

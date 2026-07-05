@@ -4,6 +4,7 @@ import { paths, toRepoRelative } from "./paths.mjs";
 import { assertSafeRead } from "./fileSafety.mjs";
 
 const FIELD_PATTERN = /(\w+):\s*["']([^"']*)["']/g;
+const ICON_PATTERN = /\bIcon:\s*([A-Za-z_$][\w$]*)/;
 
 function parseProjectBlock(block) {
   const project = {};
@@ -21,6 +22,7 @@ function parseProjectBlock(block) {
     image: project.image ?? "",
     url: project.url ?? "",
     status: project.status ?? "",
+    icon: block.match(ICON_PATTERN)?.[1] ?? "",
   };
 }
 
