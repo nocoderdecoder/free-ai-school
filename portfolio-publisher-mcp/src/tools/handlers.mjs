@@ -541,6 +541,87 @@ function formatLabCardPatchArtifact(draft, source) {
   };
 }
 
+async function validateLabCardPatchArtifact(projects, draft, source) {
+  const artifact = formatLabCardPatchArtifact(draft, source);
+  const card = draft.project;
+  const slug = draft.slug;
+  const existingNames = new Set(projects.map((project) => project.name.trim().toLowerCase()));
+  const existingSlugs = new Set(projects.map((project) => slugifyProjectName(project.name)).filter(Boolean));
+  const blockingIssues = [];
+  const readinessBlockers = [];
+  const warnings = [...draft.warnings];
+  const projectsArrayLine = findProjectsArrayLine(source);
+
+  if (!card.name.trim()) blockingIssues.push("Project name is blank.");
+  if (!card.tagline.trim()) blockingIssues.push("Tagline is blank.");
+  if (!slug) blockingIssues.push("Could not derive a slug from the project name.");
+  if (slug && existingSlugs.has(slug)) blockingIssues.push(`A Lab project with this slug already exists: ${slug}`);
+  if (card.name && existingNames.has(card.name.trim().toLowerCase())) {
+    blockingIssues.push(`A Lab project with this name already exists: ${card.name}`);
+  }
+  if (!projectsArrayLine) blockingIssues.push("Could not locate the Lab projects array insertion point.");
+
+  if (!EXPECTED_LAB_STATUSES.has(card.status)) {
+    warnings.push(`Unexpected status value: ${card.status}`);
+  }
+  if (card.name.trim().length > 36) {
+    warnings.push("Project name is long for a compact Lab card.");
+  }
+  if (card.tagline.trim().length > 72) {
+    warnings.push("Tagline is long for a compact Lab card.");
+  }
+
+  const [asset, route] = await Promise.all([
+    getProjectAssetStatus(card),
+    getProjectRouteStatus(card),
+  ]);
+
+  if (!card.url) {
+    readinessBlockers.push("Missing URL or route.");
+  } else if (route.status === "missing-route-file") {
+    readinessBlockers.push(`Local route file not found: ${route.file}`);
+  }
+  if (!card.image) {
+    readinessBlockers.push("Missing screenshot image path.");
+  } else if (!asset.exists) {
+    readinessBlockers.push(`Screenshot file not found: ${asset.file ?? card.image}`);
+  }
+
+  const uniqueWarnings = [...new Set(warnings)];
+  const applyStatus = blockingIssues.length > 0
+    ? "blocked"
+    : readinessBlockers.length > 0
+      ? "needs-prep"
+      : uniqueWarnings.length > 0
+        ? "ready-with-warnings"
+        : "ready";
+
+  return {
+    generatedAt: new Date().toISOString(),
+    previewOnly: true,
+    applyStatus,
+    readyToApply: blockingIssues.length === 0,
+    publishReadyAfterApply: blockingIssues.length === 0 && readinessBlockers.length === 0,
+    targetFile: artifact.targetFile,
+    insertionLine: projectsArrayLine,
+    labCard: artifact.labCard,
+    slug,
+    blockingIssues,
+    readinessBlockers,
+    warnings: uniqueWarnings,
+    filesToPrepare: artifact.filesToPrepare,
+    route,
+    asset,
+    unifiedDiff: artifact.unifiedDiff,
+    ownerNextStep: blockingIssues.length > 0
+      ? "Fix the blocking issues before applying this Lab card patch."
+      : readinessBlockers.length > 0
+        ? "Create the listed route/screenshot files, then apply the generated Lab card patch."
+        : "Review the generated diff, then apply the Lab card patch.",
+    verificationCommand: artifact.verificationCommand,
+  };
+}
+
 function normalizeProjectQuery(value) {
   return String(value ?? "").trim();
 }
@@ -1104,6 +1185,12 @@ export async function callTool(name, args = {}) {
   if (name === "create_lab_card_patch_artifact") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(formatLabCardPatchArtifact(draftLabProjectCard(projects, args), source));
+  }
+
+  if (name === "validate_lab_card_patch_artifact") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    const draft = draftLabProjectCard(projects, args);
+    return textResult(await validateLabCardPatchArtifact(projects, draft, source));
   }
 
   if (name === "publish_readiness_check") {

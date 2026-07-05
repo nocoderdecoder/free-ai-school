@@ -222,6 +222,47 @@ Example result from `create_lab_card_patch_artifact`:
 }
 ```
 
+Example result from `validate_lab_card_patch_artifact`:
+
+```json
+{
+  "previewOnly": true,
+  "applyStatus": "needs-prep",
+  "readyToApply": true,
+  "publishReadyAfterApply": false,
+  "targetFile": "app/lab/page.tsx",
+  "insertionLine": 18,
+  "labCard": {
+    "name": "Website Change Monitor",
+    "tagline": "Weekly website screenshot diff report",
+    "image": "/projects/website-change-monitor.png",
+    "url": "/tools/website-change-monitor",
+    "status": "Built"
+  },
+  "slug": "website-change-monitor",
+  "blockingIssues": [],
+  "readinessBlockers": [
+    "Local route file not found: app/tools/website-change-monitor/page.tsx",
+    "Screenshot file not found: public/projects/website-change-monitor.png"
+  ],
+  "warnings": [
+    "Create the local route before publishing: app/tools/website-change-monitor/page.tsx"
+  ],
+  "filesToPrepare": [
+    {
+      "type": "route",
+      "file": "app/tools/website-change-monitor/page.tsx"
+    },
+    {
+      "type": "screenshot",
+      "file": "public/projects/website-change-monitor.png"
+    }
+  ],
+  "ownerNextStep": "Create the listed route/screenshot files, then apply the generated Lab card patch.",
+  "verificationCommand": "cd portfolio-publisher-mcp && npm run smoke"
+}
+```
+
 Example result from `create_publish_handoff`:
 
 ```markdown

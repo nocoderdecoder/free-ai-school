@@ -92,6 +92,23 @@ send(21, "tools/call", {
   },
 });
 send(22, "tools/call", { name: "create_lab_card_patch_artifact", arguments: { name: "Missing Tagline" } });
+send(23, "tools/call", {
+  name: "validate_lab_card_patch_artifact",
+  arguments: {
+    name: "Website Change Monitor",
+    tagline: "Weekly website screenshot diff report",
+  },
+});
+send(24, "tools/call", { name: "validate_lab_card_patch_artifact", arguments: { name: "Missing Tagline" } });
+send(25, "tools/call", {
+  name: "validate_lab_card_patch_artifact",
+  arguments: {
+    name: firstProjectName,
+    tagline: "Duplicate card test",
+    url: "https://example.com",
+    image: "/projects/promptgrade.png",
+  },
+});
 
 await Promise.all([
   waitForResponse(7),
@@ -110,6 +127,9 @@ await Promise.all([
   waitForResponse(20),
   waitForResponse(21),
   waitForResponse(22),
+  waitForResponse(23),
+  waitForResponse(24),
+  waitForResponse(25),
 ]);
 server.kill();
 await once(server, "exit");
@@ -273,6 +293,42 @@ const labCardPatchArtifactOk =
   labCardPatchArtifact?.ownerNextStep?.includes("Review the generated diff") &&
   labCardPatchArtifact?.verificationCommand === "cd portfolio-publisher-mcp && npm run smoke";
 const patchArtifactRequiredValidationOk = responseById.get(22)?.result?.isError === true;
+const labCardPatchValidationText = responseById.get(23)?.result?.content?.[0]?.text ?? "{}";
+const labCardPatchValidation = JSON.parse(labCardPatchValidationText);
+const labCardPatchValidationOk =
+  labCardPatchValidation?.previewOnly === true &&
+  labCardPatchValidation?.applyStatus === "needs-prep" &&
+  labCardPatchValidation?.readyToApply === true &&
+  labCardPatchValidation?.publishReadyAfterApply === false &&
+  labCardPatchValidation?.targetFile === "app/lab/page.tsx" &&
+  labCardPatchValidation?.slug === "website-change-monitor" &&
+  Number.isInteger(labCardPatchValidation?.insertionLine) &&
+  Array.isArray(labCardPatchValidation?.blockingIssues) &&
+  labCardPatchValidation.blockingIssues.length === 0 &&
+  labCardPatchValidation?.readinessBlockers?.some((blocker) =>
+    blocker.includes("Local route file not found: app/tools/website-change-monitor/page.tsx")
+  ) &&
+  labCardPatchValidation?.readinessBlockers?.some((blocker) =>
+    blocker.includes("Screenshot file not found: public/projects/website-change-monitor.png")
+  ) &&
+  labCardPatchValidation?.filesToPrepare?.some((file) =>
+    file.type === "route" && file.file === "app/tools/website-change-monitor/page.tsx"
+  ) &&
+  labCardPatchValidation?.route?.status === "missing-route-file" &&
+  labCardPatchValidation?.asset?.status === "missing-file" &&
+  labCardPatchValidation?.unifiedDiff?.includes('+    name: "Website Change Monitor",') &&
+  labCardPatchValidation?.ownerNextStep?.includes("Create the listed route/screenshot files") &&
+  labCardPatchValidation?.verificationCommand === "cd portfolio-publisher-mcp && npm run smoke";
+const patchValidationRequiredValidationOk = responseById.get(24)?.result?.isError === true;
+const duplicatePatchValidationText = responseById.get(25)?.result?.content?.[0]?.text ?? "{}";
+const duplicatePatchValidation = JSON.parse(duplicatePatchValidationText);
+const duplicatePatchValidationOk =
+  duplicatePatchValidation?.applyStatus === "blocked" &&
+  duplicatePatchValidation?.readyToApply === false &&
+  duplicatePatchValidation?.publishReadyAfterApply === false &&
+  duplicatePatchValidation?.blockingIssues?.some((issue) => issue.includes("slug already exists")) &&
+  duplicatePatchValidation?.blockingIssues?.some((issue) => issue.includes("name already exists")) &&
+  duplicatePatchValidation?.ownerNextStep?.includes("Fix the blocking issues");
 
 console.log(JSON.stringify({
   failed,
@@ -297,6 +353,9 @@ console.log(JSON.stringify({
   patchPreviewRequiredValidationOk,
   labCardPatchArtifactOk,
   patchArtifactRequiredValidationOk,
+  labCardPatchValidationOk,
+  patchValidationRequiredValidationOk,
+  duplicatePatchValidationOk,
 }, null, 2));
 
 if (
@@ -320,7 +379,10 @@ if (
   !labCardPatchPreviewOk ||
   !patchPreviewRequiredValidationOk ||
   !labCardPatchArtifactOk ||
-  !patchArtifactRequiredValidationOk
+  !patchArtifactRequiredValidationOk ||
+  !labCardPatchValidationOk ||
+  !patchValidationRequiredValidationOk ||
+  !duplicatePatchValidationOk
 ) {
   process.exitCode = 1;
 }

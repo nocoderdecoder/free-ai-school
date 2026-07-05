@@ -162,6 +162,39 @@ export const tools = [
     },
   },
   {
+    name: "validate_lab_card_patch_artifact",
+    title: "Validate Lab Card Patch Artifact",
+    description:
+      "Create and validate a read-only Lab card patch artifact against current Lab projects, routes, and screenshot files.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Project name as it should appear on the Lab page.",
+        },
+        tagline: {
+          type: "string",
+          description: "Short one-line project description.",
+        },
+        url: {
+          type: "string",
+          description: "Optional external URL or local route. Defaults to /tools/<slug>.",
+        },
+        status: {
+          type: "string",
+          description: "Optional Lab status. Defaults to Built.",
+        },
+        image: {
+          type: "string",
+          description: "Optional screenshot path. Defaults to /projects/<slug>.png.",
+        },
+      },
+      required: ["name", "tagline"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "publish_readiness_check",
     title: "Publish Readiness Check",
     description: "Check whether a project has the basics needed before it is published to the Lab.",

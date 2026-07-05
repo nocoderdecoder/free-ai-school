@@ -19,6 +19,7 @@ This first version is intentionally read-only. It can inspect the Lab page, vali
 - `draft_lab_project_card`: creates a read-only Lab card draft with a slug, suggested screenshot path, route, and copy-pasteable project object.
 - `create_lab_card_patch_preview`: creates an owner-reviewable Markdown patch preview for adding one Lab card, including the object snippet, files to prepare, warnings, and verification command.
 - `create_lab_card_patch_artifact`: creates a structured, read-only patch artifact with a unified diff, files to prepare, warnings, and verification command.
+- `validate_lab_card_patch_artifact`: creates and validates a structured, read-only Lab card patch artifact against current Lab projects, route files, and screenshot files.
 - `publish_readiness_check`: checks whether Lab projects have the basics needed for publishing (supports exact name, slug, or partial match via `projectName`).
 - `publish_readiness_report`: returns a human-readable Markdown publish-readiness report (supports exact name, slug, or partial match via `projectName`).
 - `create_publish_handoff`: creates a copy-pasteable Markdown handoff with readiness status, screenshot tasks, and owner next actions.
