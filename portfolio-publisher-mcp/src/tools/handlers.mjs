@@ -102,6 +102,19 @@ function isValidIdentifier(value) {
   return /^[A-Za-z_$][\w$]*$/.test(value);
 }
 
+function getLabIconStatus(projects, icon) {
+  const name = normalizeDraftValue(icon);
+  const existingIcons = new Set(projects.map((project) => project.icon).filter(Boolean));
+
+  return {
+    name: name || null,
+    required: Boolean(name),
+    validIdentifier: name ? isValidIdentifier(name) : false,
+    availableOnLabPage: name ? existingIcons.has(name) : false,
+    sourceFile: "app/components/LabThumbnails.tsx",
+  };
+}
+
 function getScreenshotCapture(project, asset) {
   const captureTarget = project.url || null;
   const captureType = captureTarget
@@ -580,6 +593,7 @@ async function validateLabCardPatchArtifact(projects, draft, source) {
   const slug = draft.slug;
   const existingNames = new Set(projects.map((project) => project.name.trim().toLowerCase()));
   const existingSlugs = new Set(projects.map((project) => slugifyProjectName(project.name)).filter(Boolean));
+  const icon = getLabIconStatus(projects, card.icon);
   const blockingIssues = [];
   const readinessBlockers = [];
   const warnings = [...draft.warnings];
@@ -593,6 +607,15 @@ async function validateLabCardPatchArtifact(projects, draft, source) {
     blockingIssues.push(`A Lab project with this name already exists: ${card.name}`);
   }
   if (!projectsArrayLine) blockingIssues.push("Could not locate the Lab projects array insertion point.");
+  if (!icon.required) {
+    blockingIssues.push("Missing Lab thumbnail icon component.");
+  } else if (!icon.validIdentifier) {
+    blockingIssues.push(`Icon must be a valid TypeScript identifier: ${icon.name}`);
+  } else if (!icon.availableOnLabPage) {
+    readinessBlockers.push(
+      `Lab thumbnail icon is not currently imported on the Lab page: ${icon.name}`
+    );
+  }
 
   if (!EXPECTED_LAB_STATUSES.has(card.status)) {
     warnings.push(`Unexpected status value: ${card.status}`);
@@ -643,13 +666,14 @@ async function validateLabCardPatchArtifact(projects, draft, source) {
     readinessBlockers,
     warnings: uniqueWarnings,
     filesToPrepare: artifact.filesToPrepare,
+    icon,
     route,
     asset,
     unifiedDiff: artifact.unifiedDiff,
     ownerNextStep: blockingIssues.length > 0
       ? "Fix the blocking issues before applying this Lab card patch."
       : readinessBlockers.length > 0
-        ? "Create the listed route/screenshot files, then apply the generated Lab card patch."
+        ? "Create the listed route/screenshot/icon files, then apply the generated Lab card patch."
         : "Review the generated diff, then apply the Lab card patch.",
     verificationCommand: artifact.verificationCommand,
   };

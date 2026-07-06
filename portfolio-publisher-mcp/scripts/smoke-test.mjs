@@ -109,6 +109,14 @@ send(25, "tools/call", {
     image: "/projects/promptgrade.png",
   },
 });
+send(26, "tools/call", {
+  name: "validate_lab_card_patch_artifact",
+  arguments: {
+    name: "Website Change Monitor",
+    tagline: "Weekly website screenshot diff report",
+    icon: "PromptGradeIcon",
+  },
+});
 
 await Promise.all([
   waitForResponse(7),
@@ -130,6 +138,7 @@ await Promise.all([
   waitForResponse(23),
   waitForResponse(24),
   waitForResponse(25),
+  waitForResponse(26),
 ]);
 server.kill();
 await once(server, "exit");
@@ -326,13 +335,25 @@ const labCardPatchValidationOk =
   labCardPatchValidation?.readinessBlockers?.some((blocker) =>
     blocker.includes("Screenshot file not found: public/projects/website-change-monitor.png")
   ) &&
+  labCardPatchValidation?.readinessBlockers?.some((blocker) =>
+    blocker.includes("Lab thumbnail icon is not currently imported on the Lab page: WebsiteChangeMonitorIcon")
+  ) &&
   labCardPatchValidation?.filesToPrepare?.some((file) =>
     file.type === "route" && file.file === "app/tools/website-change-monitor/page.tsx"
   ) &&
+  labCardPatchValidation?.filesToPrepare?.some((file) =>
+    file.type === "icon" &&
+    file.file === "app/components/LabThumbnails.tsx" &&
+    file.symbol === "WebsiteChangeMonitorIcon"
+  ) &&
+  labCardPatchValidation?.icon?.name === "WebsiteChangeMonitorIcon" &&
+  labCardPatchValidation?.icon?.required === true &&
+  labCardPatchValidation?.icon?.validIdentifier === true &&
+  labCardPatchValidation?.icon?.availableOnLabPage === false &&
   labCardPatchValidation?.route?.status === "missing-route-file" &&
   labCardPatchValidation?.asset?.status === "missing-file" &&
   labCardPatchValidation?.unifiedDiff?.includes('+    name: "Website Change Monitor",') &&
-  labCardPatchValidation?.ownerNextStep?.includes("Create the listed route/screenshot files") &&
+  labCardPatchValidation?.ownerNextStep?.includes("Create the listed route/screenshot/icon files") &&
   labCardPatchValidation?.verificationCommand === "cd portfolio-publisher-mcp && npm run smoke";
 const patchValidationRequiredValidationOk = responseById.get(24)?.result?.isError === true;
 const duplicatePatchValidationText = responseById.get(25)?.result?.content?.[0]?.text ?? "{}";
@@ -344,6 +365,17 @@ const duplicatePatchValidationOk =
   duplicatePatchValidation?.blockingIssues?.some((issue) => issue.includes("slug already exists")) &&
   duplicatePatchValidation?.blockingIssues?.some((issue) => issue.includes("name already exists")) &&
   duplicatePatchValidation?.ownerNextStep?.includes("Fix the blocking issues");
+const existingIconPatchValidationText = responseById.get(26)?.result?.content?.[0]?.text ?? "{}";
+const existingIconPatchValidation = JSON.parse(existingIconPatchValidationText);
+const existingIconPatchValidationOk =
+  existingIconPatchValidation?.applyStatus === "needs-prep" &&
+  existingIconPatchValidation?.readyToApply === true &&
+  existingIconPatchValidation?.labCard?.icon === "PromptGradeIcon" &&
+  existingIconPatchValidation?.icon?.name === "PromptGradeIcon" &&
+  existingIconPatchValidation?.icon?.availableOnLabPage === true &&
+  !existingIconPatchValidation?.readinessBlockers?.some((blocker) =>
+    blocker.includes("Lab thumbnail icon is not currently imported")
+  );
 
 console.log(JSON.stringify({
   failed,
@@ -371,6 +403,7 @@ console.log(JSON.stringify({
   labCardPatchValidationOk,
   patchValidationRequiredValidationOk,
   duplicatePatchValidationOk,
+  existingIconPatchValidationOk,
 }, null, 2));
 
 if (
@@ -397,7 +430,8 @@ if (
   !patchArtifactRequiredValidationOk ||
   !labCardPatchValidationOk ||
   !patchValidationRequiredValidationOk ||
-  !duplicatePatchValidationOk
+  !duplicatePatchValidationOk ||
+  !existingIconPatchValidationOk
 ) {
   process.exitCode = 1;
 }

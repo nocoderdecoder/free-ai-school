@@ -250,13 +250,15 @@ Example result from `validate_lab_card_patch_artifact`:
     "tagline": "Weekly website screenshot diff report",
     "image": "/projects/website-change-monitor.png",
     "url": "/tools/website-change-monitor",
-    "status": "Built"
+    "status": "Built",
+    "icon": "WebsiteChangeMonitorIcon"
   },
   "slug": "website-change-monitor",
   "blockingIssues": [],
   "readinessBlockers": [
     "Local route file not found: app/tools/website-change-monitor/page.tsx",
-    "Screenshot file not found: public/projects/website-change-monitor.png"
+    "Screenshot file not found: public/projects/website-change-monitor.png",
+    "Lab thumbnail icon is not currently imported on the Lab page: WebsiteChangeMonitorIcon"
   ],
   "warnings": [
     "Create the local route before publishing: app/tools/website-change-monitor/page.tsx"
@@ -269,9 +271,21 @@ Example result from `validate_lab_card_patch_artifact`:
     {
       "type": "screenshot",
       "file": "public/projects/website-change-monitor.png"
+    },
+    {
+      "type": "icon",
+      "file": "app/components/LabThumbnails.tsx",
+      "symbol": "WebsiteChangeMonitorIcon"
     }
   ],
-  "ownerNextStep": "Create the listed route/screenshot files, then apply the generated Lab card patch.",
+  "icon": {
+    "name": "WebsiteChangeMonitorIcon",
+    "required": true,
+    "validIdentifier": true,
+    "availableOnLabPage": false,
+    "sourceFile": "app/components/LabThumbnails.tsx"
+  },
+  "ownerNextStep": "Create the listed route/screenshot/icon files, then apply the generated Lab card patch.",
   "verificationCommand": "cd portfolio-publisher-mcp && npm run smoke"
 }
 ```

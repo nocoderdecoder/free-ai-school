@@ -201,6 +201,10 @@ export const tools = [
           type: "string",
           description: "Optional screenshot path. Defaults to /projects/<slug>.png.",
         },
+        icon: {
+          type: "string",
+          description: "Optional Lab thumbnail component name. Defaults to <ProjectName>Icon.",
+        },
       },
       required: ["name", "tagline"],
       additionalProperties: false,
