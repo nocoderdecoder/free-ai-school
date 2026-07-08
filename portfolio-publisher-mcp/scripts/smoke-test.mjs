@@ -117,6 +117,8 @@ send(26, "tools/call", {
     icon: "PromptGradeIcon",
   },
 });
+send(27, "tools/call", { name: "inspect_lab_thumbnail_icons", arguments: {} });
+send(28, "tools/call", { name: "create_lab_thumbnail_icon_report", arguments: {} });
 
 await Promise.all([
   waitForResponse(7),
@@ -139,6 +141,8 @@ await Promise.all([
   waitForResponse(24),
   waitForResponse(25),
   waitForResponse(26),
+  waitForResponse(27),
+  waitForResponse(28),
 ]);
 server.kill();
 await once(server, "exit");
@@ -376,6 +380,42 @@ const existingIconPatchValidationOk =
   !existingIconPatchValidation?.readinessBlockers?.some((blocker) =>
     blocker.includes("Lab thumbnail icon is not currently imported")
   );
+const iconInventoryText = responseById.get(27)?.result?.content?.[0]?.text ?? "{}";
+const iconInventory = JSON.parse(iconInventoryText);
+const iconInventoryOk =
+  iconInventory?.checkedProjects === listedProjects &&
+  iconInventory?.ready === true &&
+  iconInventory?.sourceFiles?.labPage === "app/lab/page.tsx" &&
+  iconInventory?.sourceFiles?.thumbnails === "app/components/LabThumbnails.tsx" &&
+  iconInventory?.counts?.used === listedProjects &&
+  iconInventory?.counts?.imported === listedProjects &&
+  iconInventory?.counts?.exported === listedProjects &&
+  iconInventory?.counts?.missingImports === 0 &&
+  iconInventory?.counts?.missingExports === 0 &&
+  iconInventory?.counts?.unusedImports === 0 &&
+  iconInventory?.counts?.unusedExports === 0 &&
+  iconInventory?.usedIcons?.includes("PromptGradeIcon") &&
+  iconInventory?.importedIcons?.includes("SpeakingSpeedIcon") &&
+  iconInventory?.exportedIcons?.includes("CvTailoringIcon") &&
+  Array.isArray(iconInventory?.cards) &&
+  iconInventory.cards.length === listedProjects &&
+  iconInventory.cards.every((card) =>
+    typeof card.project === "string" &&
+    typeof card.icon === "string" &&
+    card.imported === true &&
+    card.exported === true &&
+    card.status === "ok"
+  );
+const iconReport = responseById.get(28)?.result?.content?.[0]?.text ?? "";
+const iconReportOk =
+  typeof iconReport === "string" &&
+  iconReport.includes("# Lab thumbnail icon report") &&
+  iconReport.includes("## Summary") &&
+  iconReport.includes("## Card coverage") &&
+  iconReport.includes("PromptGrade: PromptGradeIcon (ok)") &&
+  iconReport.includes("Current Lab card icons are imported and exported.") &&
+  iconReport.includes("No unused Lab thumbnail imports or exports found.") &&
+  iconReport.includes("npm run smoke");
 
 console.log(JSON.stringify({
   failed,
@@ -404,6 +444,8 @@ console.log(JSON.stringify({
   patchValidationRequiredValidationOk,
   duplicatePatchValidationOk,
   existingIconPatchValidationOk,
+  iconInventoryOk,
+  iconReportOk,
 }, null, 2));
 
 if (
@@ -431,7 +473,9 @@ if (
   !labCardPatchValidationOk ||
   !patchValidationRequiredValidationOk ||
   !duplicatePatchValidationOk ||
-  !existingIconPatchValidationOk
+  !existingIconPatchValidationOk ||
+  !iconInventoryOk ||
+  !iconReportOk
 ) {
   process.exitCode = 1;
 }

@@ -211,6 +211,28 @@ export const tools = [
     },
   },
   {
+    name: "inspect_lab_thumbnail_icons",
+    title: "Inspect Lab Thumbnail Icons",
+    description:
+      "Inspect Lab card icon usage against Lab page imports and LabThumbnails exports.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "create_lab_thumbnail_icon_report",
+    title: "Create Lab Thumbnail Icon Report",
+    description:
+      "Create an owner-friendly Markdown report for Lab thumbnail icon coverage and cleanup.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "publish_readiness_check",
     title: "Publish Readiness Check",
     description: "Check whether a project has the basics needed before it is published to the Lab.",

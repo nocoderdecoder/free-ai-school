@@ -115,6 +115,166 @@ function getLabIconStatus(projects, icon) {
   };
 }
 
+function extractLabThumbnailImports(source) {
+  const match = source.match(/import\s*\{([A-Za-z0-9_$,\s]+)\}\s*from\s*['"]\.\.\/components\/LabThumbnails['"]/);
+  if (!match) return [];
+
+  return match[1]
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => item.split(/\s+as\s+/i).at(-1).trim())
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function extractLabThumbnailExports(source) {
+  const exports = [];
+  const pattern = /export\s+function\s+([A-Za-z_$][\w$]*)\s*\(/g;
+  let match;
+
+  while ((match = pattern.exec(source)) !== null) {
+    exports.push(match[1]);
+  }
+
+  return exports.sort((left, right) => left.localeCompare(right));
+}
+
+async function inspectLabThumbnailIcons(projects, labSource) {
+  const thumbnailFile = path.join(paths.repoRoot, "app", "components", "LabThumbnails.tsx");
+  const thumbnailSource = await fs.readFile(assertSafeRead(thumbnailFile), "utf8");
+  const usedIcons = [...new Set(projects.map((project) => project.icon).filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right));
+  const importedIcons = extractLabThumbnailImports(labSource);
+  const exportedIcons = extractLabThumbnailExports(thumbnailSource);
+  const imported = new Set(importedIcons);
+  const exported = new Set(exportedIcons);
+  const used = new Set(usedIcons);
+  const missingImports = usedIcons.filter((icon) => !imported.has(icon));
+  const missingExports = usedIcons.filter((icon) => !exported.has(icon));
+  const unusedImports = importedIcons.filter((icon) => !used.has(icon));
+  const unusedExports = exportedIcons.filter((icon) => !used.has(icon));
+
+  return {
+    checkedProjects: projects.length,
+    sourceFiles: {
+      labPage: "app/lab/page.tsx",
+      thumbnails: "app/components/LabThumbnails.tsx",
+    },
+    ready: missingImports.length === 0 && missingExports.length === 0,
+    counts: {
+      used: usedIcons.length,
+      imported: importedIcons.length,
+      exported: exportedIcons.length,
+      missingImports: missingImports.length,
+      missingExports: missingExports.length,
+      unusedImports: unusedImports.length,
+      unusedExports: unusedExports.length,
+    },
+    usedIcons,
+    importedIcons,
+    exportedIcons,
+    missingImports,
+    missingExports,
+    unusedImports,
+    unusedExports,
+    cards: projects.map((project) => ({
+      project: project.name,
+      icon: project.icon || null,
+      imported: project.icon ? imported.has(project.icon) : false,
+      exported: project.icon ? exported.has(project.icon) : false,
+      status: !project.icon
+        ? "missing-icon"
+        : imported.has(project.icon) && exported.has(project.icon)
+          ? "ok"
+          : "needs-prep",
+    })),
+  };
+}
+
+function formatLabThumbnailIconReport(inventory) {
+  const lines = [];
+  const now = new Date().toISOString();
+  const needsPrep = inventory.cards.filter((card) => card.status !== "ok");
+
+  lines.push("# Lab thumbnail icon report");
+  lines.push("");
+  lines.push(`Generated: ${now}`);
+  lines.push("");
+
+  lines.push("## Summary");
+  lines.push("");
+  lines.push(`- Projects checked: ${inventory.checkedProjects}`);
+  lines.push(`- Icons used by cards: ${inventory.counts.used}`);
+  lines.push(`- Icons imported on Lab page: ${inventory.counts.imported}`);
+  lines.push(`- Icons exported by thumbnails file: ${inventory.counts.exported}`);
+  lines.push(`- Missing imports: ${inventory.counts.missingImports}`);
+  lines.push(`- Missing exports: ${inventory.counts.missingExports}`);
+  lines.push("");
+
+  lines.push("## Card coverage");
+  lines.push("");
+  if (inventory.cards.length === 0) {
+    lines.push("- No Lab project cards were found.");
+  } else {
+    for (const card of inventory.cards) {
+      const icon = card.icon ?? "Missing";
+      lines.push(`- ${card.project}: ${icon} (${card.status})`);
+    }
+  }
+  lines.push("");
+
+  lines.push("## Missing prep");
+  lines.push("");
+  if (needsPrep.length === 0 && inventory.missingImports.length === 0 && inventory.missingExports.length === 0) {
+    lines.push("- Current Lab card icons are imported and exported.");
+  } else {
+    for (const icon of inventory.missingImports) {
+      lines.push(`- Import ${icon} in ${inventory.sourceFiles.labPage}.`);
+    }
+    for (const icon of inventory.missingExports) {
+      lines.push(`- Export ${icon} from ${inventory.sourceFiles.thumbnails}.`);
+    }
+    for (const card of inventory.cards.filter((item) => item.status === "missing-icon")) {
+      lines.push(`- Add a Lab thumbnail icon to ${card.project}.`);
+    }
+  }
+  lines.push("");
+
+  lines.push("## Cleanup candidates");
+  lines.push("");
+  if (inventory.unusedImports.length === 0 && inventory.unusedExports.length === 0) {
+    lines.push("- No unused Lab thumbnail imports or exports found.");
+  } else {
+    for (const icon of inventory.unusedImports) {
+      lines.push(`- Imported but unused on Lab page: ${icon}`);
+    }
+    for (const icon of inventory.unusedExports) {
+      lines.push(`- Exported but not used by a Lab card: ${icon}`);
+    }
+  }
+  lines.push("");
+
+  lines.push("## Owner next step");
+  lines.push("");
+  if (inventory.ready) {
+    lines.push("- Icon coverage is ready; use patch validation for any new Lab card before publishing.");
+  } else {
+    lines.push("- Add the missing icon imports/exports, then regenerate this report.");
+  }
+  lines.push("");
+
+  lines.push("## Verification");
+  lines.push("");
+  lines.push("```bash");
+  lines.push("cd portfolio-publisher-mcp");
+  lines.push("npm run smoke");
+  lines.push("```");
+  lines.push("");
+
+  return lines.join("\n");
+}
+
 function getScreenshotCapture(project, asset) {
   const captureTarget = project.url || null;
   const captureType = captureTarget
@@ -1250,6 +1410,17 @@ export async function callTool(name, args = {}) {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     const draft = draftLabProjectCard(projects, args);
     return textResult(await validateLabCardPatchArtifact(projects, draft, source));
+  }
+
+  if (name === "inspect_lab_thumbnail_icons") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await inspectLabThumbnailIcons(projects, source));
+  }
+
+  if (name === "create_lab_thumbnail_icon_report") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    const inventory = await inspectLabThumbnailIcons(projects, source);
+    return textResult(formatLabThumbnailIconReport(inventory));
   }
 
   if (name === "publish_readiness_check") {

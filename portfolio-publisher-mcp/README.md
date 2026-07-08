@@ -20,6 +20,8 @@ This first version is intentionally read-only. It can inspect the Lab page, vali
 - `create_lab_card_patch_preview`: creates an owner-reviewable Markdown patch preview for adding one Lab card, including the object snippet, icon requirement, files to prepare, warnings, and verification command.
 - `create_lab_card_patch_artifact`: creates a structured, read-only patch artifact with a unified diff, icon requirement, files to prepare, warnings, and verification command.
 - `validate_lab_card_patch_artifact`: creates and validates a structured, read-only Lab card patch artifact against current Lab projects, optional icon input, icon/import requirements, route files, and screenshot files.
+- `inspect_lab_thumbnail_icons`: checks Lab card icon usage against Lab page imports and `LabThumbnails.tsx` exports.
+- `create_lab_thumbnail_icon_report`: creates an owner-friendly Markdown report for Lab thumbnail icon coverage, missing prep, and cleanup candidates.
 - `publish_readiness_check`: checks whether Lab projects have the basics needed for publishing (supports exact name, slug, or partial match via `projectName`).
 - `publish_readiness_report`: returns a human-readable Markdown publish-readiness report (supports exact name, slug, or partial match via `projectName`).
 - `create_publish_handoff`: creates a copy-pasteable Markdown handoff with readiness status, screenshot tasks, and owner next actions.

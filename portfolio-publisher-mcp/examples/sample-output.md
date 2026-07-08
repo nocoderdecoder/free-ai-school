@@ -290,6 +290,69 @@ Example result from `validate_lab_card_patch_artifact`:
 }
 ```
 
+Example result from `inspect_lab_thumbnail_icons`:
+
+```json
+{
+  "checkedProjects": 6,
+  "sourceFiles": {
+    "labPage": "app/lab/page.tsx",
+    "thumbnails": "app/components/LabThumbnails.tsx"
+  },
+  "ready": true,
+  "counts": {
+    "used": 6,
+    "imported": 6,
+    "exported": 6,
+    "missingImports": 0,
+    "missingExports": 0,
+    "unusedImports": 0,
+    "unusedExports": 0
+  },
+  "missingImports": [],
+  "missingExports": [],
+  "unusedImports": [],
+  "unusedExports": []
+}
+```
+
+Example result from `create_lab_thumbnail_icon_report`:
+
+~~~markdown
+# Lab thumbnail icon report
+
+Generated: 2026-07-08T00:00:00.000Z
+
+## Summary
+
+- Projects checked: 6
+- Icons used by cards: 6
+- Icons imported on Lab page: 6
+- Icons exported by thumbnails file: 6
+- Missing imports: 0
+- Missing exports: 0
+
+## Card coverage
+
+- PromptGrade: PromptGradeIcon (ok)
+- Speaking Speed Tester: SpeakingSpeedIcon (ok)
+
+## Missing prep
+
+- Current Lab card icons are imported and exported.
+
+## Cleanup candidates
+
+- No unused Lab thumbnail imports or exports found.
+
+## Verification
+
+```bash
+cd portfolio-publisher-mcp
+npm run smoke
+```
+~~~
+
 Example result from `create_publish_handoff`:
 
 ```markdown
