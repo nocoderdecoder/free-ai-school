@@ -6,7 +6,7 @@ In plain English: it gives an AI assistant a safe control panel for the portfoli
 
 ## Current Status
 
-This first version is intentionally read-only. It can inspect the Lab page, validate screenshot paths, and suggest future projects. Write tools will come after the read-only foundation is tested.
+This version is mostly read-only. It can inspect the Lab page, validate screenshot paths, and suggest future projects. Its first write-capable tool only stages review artifacts under `portfolio-publisher-mcp/generated/`; it does not edit the Lab page directly.
 
 ## Tools
 
@@ -20,6 +20,7 @@ This first version is intentionally read-only. It can inspect the Lab page, vali
 - `create_lab_card_patch_preview`: creates an owner-reviewable Markdown patch preview for adding one Lab card, including the object snippet, icon requirement, files to prepare, warnings, and verification command.
 - `create_lab_card_patch_artifact`: creates a structured, read-only patch artifact with a unified diff, icon requirement, files to prepare, warnings, and verification command.
 - `validate_lab_card_patch_artifact`: creates and validates a structured, read-only Lab card patch artifact against current Lab projects, optional icon input, icon/import requirements, route files, and screenshot files.
+- `stage_lab_card_patch_artifact`: writes a validated Lab card patch handoff and `.patch` file into `portfolio-publisher-mcp/generated/` for owner review. It refuses blocked patches and requires `allowNeedsPrep: true` before staging patches that still need route, screenshot, or icon prep.
 - `inspect_lab_thumbnail_icons`: checks Lab card icon usage against Lab page imports and `LabThumbnails.tsx` exports.
 - `create_lab_thumbnail_icon_report`: creates an owner-friendly Markdown report for Lab thumbnail icon coverage, missing prep, and cleanup candidates.
 - `publish_readiness_check`: checks whether Lab projects have the basics needed for publishing (supports exact name, slug, or partial match via `projectName`).
@@ -57,6 +58,10 @@ This version only reads approved paths:
 - `public/`
 - `portfolio-publisher-mcp/`
 
+It writes only generated review artifacts under:
+
+- `portfolio-publisher-mcp/generated/`
+
 It refuses blocked paths such as:
 
 - `.env`
@@ -65,7 +70,7 @@ It refuses blocked paths such as:
 - `.next`
 - `dist`
 
-The first write-capable version should keep this same approach: narrow tools, explicit file targets, no arbitrary shell commands, and no secret access.
+Future write-capable tools should keep this same approach: narrow tools, explicit file targets, no arbitrary shell commands, no secret access, and owner-reviewable artifacts before source edits.
 
 ## Why This Exists
 

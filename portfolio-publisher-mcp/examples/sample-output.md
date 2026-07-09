@@ -290,6 +290,50 @@ Example result from `validate_lab_card_patch_artifact`:
 }
 ```
 
+Example result from `stage_lab_card_patch_artifact` without `allowNeedsPrep`:
+
+```json
+{
+  "staged": false,
+  "applyStatus": "needs-prep",
+  "readyToApply": true,
+  "publishReadyAfterApply": false,
+  "blockingIssues": [],
+  "readinessBlockers": [
+    "Local route file not found: app/tools/website-change-monitor/page.tsx",
+    "Screenshot file not found: public/projects/website-change-monitor.png",
+    "Lab thumbnail icon is not currently imported on the Lab page: WebsiteChangeMonitorIcon"
+  ],
+  "requiredOptIn": "Set allowNeedsPrep to true to stage a safe apply patch before route/screenshot/icon prep is complete.",
+  "ownerNextStep": "Create the listed route/screenshot/icon files, or opt in to stage a review artifact before prep is complete."
+}
+```
+
+Example result from `stage_lab_card_patch_artifact` with `allowNeedsPrep: true`:
+
+```json
+{
+  "staged": true,
+  "applyStatus": "needs-prep",
+  "readyToApply": true,
+  "publishReadyAfterApply": false,
+  "targetFile": "app/lab/page.tsx",
+  "patchFile": "portfolio-publisher-mcp/generated/website-change-monitor-lab-card.patch",
+  "handoffFile": "portfolio-publisher-mcp/generated/website-change-monitor-lab-card.md",
+  "filesWritten": [
+    "portfolio-publisher-mcp/generated/website-change-monitor-lab-card.patch",
+    "portfolio-publisher-mcp/generated/website-change-monitor-lab-card.md"
+  ],
+  "readinessBlockers": [
+    "Local route file not found: app/tools/website-change-monitor/page.tsx",
+    "Screenshot file not found: public/projects/website-change-monitor.png",
+    "Lab thumbnail icon is not currently imported on the Lab page: WebsiteChangeMonitorIcon"
+  ],
+  "ownerNextStep": "Complete the listed prep items, then review the staged handoff and patch file before applying.",
+  "verificationCommand": "cd portfolio-publisher-mcp && npm run smoke"
+}
+```
+
 Example result from `inspect_lab_thumbnail_icons`:
 
 ```json

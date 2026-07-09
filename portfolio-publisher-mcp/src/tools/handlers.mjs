@@ -839,6 +839,148 @@ async function validateLabCardPatchArtifact(projects, draft, source) {
   };
 }
 
+function formatStagedLabCardPatchMarkdown(validation, patchFile) {
+  const lines = [];
+
+  lines.push(`# Staged Lab card patch: ${validation.labCard.name}`);
+  lines.push("");
+  lines.push(`Generated: ${validation.generatedAt}`);
+  lines.push("");
+
+  lines.push("## Status");
+  lines.push("");
+  lines.push(`- Apply status: ${validation.applyStatus}`);
+  lines.push(`- Ready to apply: ${validation.readyToApply ? "Yes" : "No"}`);
+  lines.push(`- Publish ready after apply: ${validation.publishReadyAfterApply ? "Yes" : "No"}`);
+  lines.push(`- Target file: ${validation.targetFile}`);
+  lines.push(`- Patch file: ${patchFile}`);
+  lines.push("");
+
+  lines.push("## Lab card object");
+  lines.push("");
+  lines.push("```ts");
+  lines.push(formatProjectObject(validation.labCard));
+  lines.push("```");
+  lines.push("");
+
+  lines.push("## Blockers");
+  lines.push("");
+  if (validation.blockingIssues.length === 0) {
+    lines.push("- No blocking apply issues found.");
+  } else {
+    for (const issue of validation.blockingIssues) lines.push(`- ${issue}`);
+  }
+  lines.push("");
+
+  lines.push("## Prep before publish");
+  lines.push("");
+  if (validation.readinessBlockers.length === 0) {
+    lines.push("- No route, screenshot, or icon prep blockers found.");
+  } else {
+    for (const blocker of validation.readinessBlockers) lines.push(`- ${blocker}`);
+  }
+  lines.push("");
+
+  lines.push("## Files to prepare");
+  lines.push("");
+  if (validation.filesToPrepare.length === 0) {
+    lines.push("- No companion files were identified.");
+  } else {
+    for (const file of validation.filesToPrepare) {
+      const symbol = file.symbol ? ` (${file.symbol})` : "";
+      lines.push(`- ${file.type}: ${file.file}${symbol}`);
+    }
+  }
+  lines.push("");
+
+  lines.push("## Warnings");
+  lines.push("");
+  if (validation.warnings.length === 0) {
+    lines.push("- No warnings found.");
+  } else {
+    for (const warning of validation.warnings) lines.push(`- ${warning}`);
+  }
+  lines.push("");
+
+  lines.push("## Owner next step");
+  lines.push("");
+  lines.push(`- ${validation.ownerNextStep}`);
+  lines.push("- Review the `.patch` file before applying it to `app/lab/page.tsx`.");
+  lines.push("");
+
+  lines.push("## Verification");
+  lines.push("");
+  lines.push("```bash");
+  lines.push(validation.verificationCommand);
+  lines.push("```");
+  lines.push("");
+
+  return lines.join("\n");
+}
+
+async function stageLabCardPatchArtifact(projects, args, source) {
+  const draft = draftLabProjectCard(projects, args);
+  const validation = await validateLabCardPatchArtifact(projects, draft, source);
+  const allowNeedsPrep = args.allowNeedsPrep === true;
+
+  if (!validation.readyToApply) {
+    return {
+      staged: false,
+      applyStatus: validation.applyStatus,
+      readyToApply: false,
+      publishReadyAfterApply: false,
+      blockingIssues: validation.blockingIssues,
+      readinessBlockers: validation.readinessBlockers,
+      ownerNextStep: "Fix the blocking issues before staging this Lab card patch.",
+    };
+  }
+
+  if (!validation.publishReadyAfterApply && !allowNeedsPrep) {
+    return {
+      staged: false,
+      applyStatus: validation.applyStatus,
+      readyToApply: validation.readyToApply,
+      publishReadyAfterApply: false,
+      blockingIssues: validation.blockingIssues,
+      readinessBlockers: validation.readinessBlockers,
+      requiredOptIn: "Set allowNeedsPrep to true to stage a safe apply patch before route/screenshot/icon prep is complete.",
+      ownerNextStep: "Create the listed route/screenshot/icon files, or opt in to stage a review artifact before prep is complete.",
+    };
+  }
+
+  const slug = validation.slug || slugifyProjectName(validation.labCard.name) || "lab-card";
+  const generatedDir = path.join(paths.projectDir, "generated");
+  const baseName = `${slug}-lab-card`;
+  const patchPath = path.join(generatedDir, `${baseName}.patch`);
+  const markdownPath = path.join(generatedDir, `${baseName}.md`);
+  const patchFile = toRepoRelative(patchPath);
+  const markdownFile = toRepoRelative(markdownPath);
+
+  await fs.mkdir(generatedDir, { recursive: true });
+  await Promise.all([
+    fs.writeFile(patchPath, `${validation.unifiedDiff}\n`, "utf8"),
+    fs.writeFile(markdownPath, formatStagedLabCardPatchMarkdown(validation, patchFile), "utf8"),
+  ]);
+
+  return {
+    staged: true,
+    applyStatus: validation.applyStatus,
+    readyToApply: validation.readyToApply,
+    publishReadyAfterApply: validation.publishReadyAfterApply,
+    targetFile: validation.targetFile,
+    patchFile,
+    handoffFile: markdownFile,
+    filesWritten: [patchFile, markdownFile],
+    readinessBlockers: validation.readinessBlockers,
+    warnings: validation.warnings,
+    ownerNextStep:
+      validation.publishReadyAfterApply
+        ? "Review the staged handoff and patch file before applying the Lab card change."
+        : "Complete the listed prep items, then review the staged handoff and patch file before applying.",
+    verificationCommand: validation.verificationCommand,
+  };
+}
+
 function normalizeProjectQuery(value) {
   return String(value ?? "").trim();
 }
@@ -1410,6 +1552,11 @@ export async function callTool(name, args = {}) {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     const draft = draftLabProjectCard(projects, args);
     return textResult(await validateLabCardPatchArtifact(projects, draft, source));
+  }
+
+  if (name === "stage_lab_card_patch_artifact") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await stageLabCardPatchArtifact(projects, args, source));
   }
 
   if (name === "inspect_lab_thumbnail_icons") {

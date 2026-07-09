@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import fs from "node:fs/promises";
 import readline from "node:readline";
 
 const server = spawn(process.execPath, ["src/server.mjs"], {
@@ -119,6 +120,21 @@ send(26, "tools/call", {
 });
 send(27, "tools/call", { name: "inspect_lab_thumbnail_icons", arguments: {} });
 send(28, "tools/call", { name: "create_lab_thumbnail_icon_report", arguments: {} });
+send(29, "tools/call", {
+  name: "stage_lab_card_patch_artifact",
+  arguments: {
+    name: "Website Change Monitor",
+    tagline: "Weekly website screenshot diff report",
+  },
+});
+send(30, "tools/call", {
+  name: "stage_lab_card_patch_artifact",
+  arguments: {
+    name: "Website Change Monitor",
+    tagline: "Weekly website screenshot diff report",
+    allowNeedsPrep: true,
+  },
+});
 
 await Promise.all([
   waitForResponse(7),
@@ -143,6 +159,8 @@ await Promise.all([
   waitForResponse(26),
   waitForResponse(27),
   waitForResponse(28),
+  waitForResponse(29),
+  waitForResponse(30),
 ]);
 server.kill();
 await once(server, "exit");
@@ -416,6 +434,47 @@ const iconReportOk =
   iconReport.includes("Current Lab card icons are imported and exported.") &&
   iconReport.includes("No unused Lab thumbnail imports or exports found.") &&
   iconReport.includes("npm run smoke");
+const stagedPatchBlockedText = responseById.get(29)?.result?.content?.[0]?.text ?? "{}";
+const stagedPatchBlocked = JSON.parse(stagedPatchBlockedText);
+const stagedPatchBlockedOk =
+  stagedPatchBlocked?.staged === false &&
+  stagedPatchBlocked?.applyStatus === "needs-prep" &&
+  stagedPatchBlocked?.readyToApply === true &&
+  stagedPatchBlocked?.publishReadyAfterApply === false &&
+  stagedPatchBlocked?.requiredOptIn?.includes("allowNeedsPrep") &&
+  stagedPatchBlocked?.readinessBlockers?.some((blocker) =>
+    blocker.includes("Lab thumbnail icon is not currently imported")
+  );
+const stagedPatchText = responseById.get(30)?.result?.content?.[0]?.text ?? "{}";
+const stagedPatch = JSON.parse(stagedPatchText);
+let stagedPatchFileOk = false;
+let stagedPatchHandoffOk = false;
+if (stagedPatch?.patchFile && stagedPatch?.handoffFile) {
+  const [patchContent, handoffContent] = await Promise.all([
+    fs.readFile(new URL(`../${stagedPatch.patchFile.replace(/^portfolio-publisher-mcp\//, "")}`, import.meta.url), "utf8"),
+    fs.readFile(new URL(`../${stagedPatch.handoffFile.replace(/^portfolio-publisher-mcp\//, "")}`, import.meta.url), "utf8"),
+  ]);
+  stagedPatchFileOk =
+    patchContent.includes("--- a/app/lab/page.tsx") &&
+    patchContent.includes("+    Icon: WebsiteChangeMonitorIcon,");
+  stagedPatchHandoffOk =
+    handoffContent.includes("# Staged Lab card patch: Website Change Monitor") &&
+    handoffContent.includes("Patch file: portfolio-publisher-mcp/generated/website-change-monitor-lab-card.patch") &&
+    handoffContent.includes("Ready to apply: Yes") &&
+    handoffContent.includes("Lab thumbnail icon is not currently imported");
+}
+const stagedPatchOk =
+  stagedPatch?.staged === true &&
+  stagedPatch?.applyStatus === "needs-prep" &&
+  stagedPatch?.readyToApply === true &&
+  stagedPatch?.publishReadyAfterApply === false &&
+  stagedPatch?.patchFile === "portfolio-publisher-mcp/generated/website-change-monitor-lab-card.patch" &&
+  stagedPatch?.handoffFile === "portfolio-publisher-mcp/generated/website-change-monitor-lab-card.md" &&
+  stagedPatch?.filesWritten?.length === 2 &&
+  stagedPatch?.ownerNextStep?.includes("Complete the listed prep items") &&
+  stagedPatch?.verificationCommand === "cd portfolio-publisher-mcp && npm run smoke" &&
+  stagedPatchFileOk &&
+  stagedPatchHandoffOk;
 
 console.log(JSON.stringify({
   failed,
@@ -446,6 +505,8 @@ console.log(JSON.stringify({
   existingIconPatchValidationOk,
   iconInventoryOk,
   iconReportOk,
+  stagedPatchBlockedOk,
+  stagedPatchOk,
 }, null, 2));
 
 if (
@@ -475,7 +536,9 @@ if (
   !duplicatePatchValidationOk ||
   !existingIconPatchValidationOk ||
   !iconInventoryOk ||
-  !iconReportOk
+  !iconReportOk ||
+  !stagedPatchBlockedOk ||
+  !stagedPatchOk
 ) {
   process.exitCode = 1;
 }

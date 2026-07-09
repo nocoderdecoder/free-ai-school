@@ -211,6 +211,48 @@ export const tools = [
     },
   },
   {
+    name: "stage_lab_card_patch_artifact",
+    title: "Stage Lab Card Patch Artifact",
+    description:
+      "Write a validated Lab card patch handoff and .patch file into portfolio-publisher-mcp/generated for owner review.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Project name as it should appear on the Lab page.",
+        },
+        tagline: {
+          type: "string",
+          description: "Short one-line project description.",
+        },
+        url: {
+          type: "string",
+          description: "Optional external URL or local route. Defaults to /tools/<slug>.",
+        },
+        status: {
+          type: "string",
+          description: "Optional Lab status. Defaults to Built.",
+        },
+        image: {
+          type: "string",
+          description: "Optional screenshot path. Defaults to /projects/<slug>.png.",
+        },
+        icon: {
+          type: "string",
+          description: "Optional Lab thumbnail component name. Defaults to <ProjectName>Icon.",
+        },
+        allowNeedsPrep: {
+          type: "boolean",
+          description:
+            "When true, stage a patch that is safe to apply but still needs route, screenshot, or icon prep before publishing.",
+        },
+      },
+      required: ["name", "tagline"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "inspect_lab_thumbnail_icons",
     title: "Inspect Lab Thumbnail Icons",
     description:
