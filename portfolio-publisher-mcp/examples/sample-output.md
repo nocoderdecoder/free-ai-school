@@ -577,3 +577,25 @@ Generated: 2026-06-30T00:00:00.000Z
 
 - Review the warnings and decide whether the Lab card conventions should be updated.
 ```
+
+Example result from `validate_staged_lab_card_patch`:
+
+```json
+{
+  "status": "ready",
+  "reviewReady": true,
+  "projectName": "Website Change Monitor",
+  "slug": "website-change-monitor",
+  "targetFile": "app/lab/page.tsx",
+  "patchFile": "portfolio-publisher-mcp/generated/website-change-monitor-lab-card.patch",
+  "handoffFile": "portfolio-publisher-mcp/generated/website-change-monitor-lab-card.md",
+  "insertionLine": 22,
+  "issues": [],
+  "warnings": [],
+  "checksums": {
+    "patchSha256": "<sha256>",
+    "handoffSha256": "<sha256>"
+  },
+  "ownerNextStep": "Review the staged handoff and patch contents before applying the patch manually."
+}
+```

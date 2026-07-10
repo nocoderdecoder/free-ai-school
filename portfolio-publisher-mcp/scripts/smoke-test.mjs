@@ -162,6 +162,29 @@ await Promise.all([
   waitForResponse(29),
   waitForResponse(30),
 ]);
+send(31, "tools/call", {
+  name: "validate_staged_lab_card_patch",
+  arguments: { projectName: "Website Change Monitor" },
+});
+send(32, "tools/call", { name: "validate_staged_lab_card_patch", arguments: {} });
+send(33, "tools/call", {
+  name: "validate_staged_lab_card_patch",
+  arguments: { projectName: "Never Staged Project" },
+});
+await Promise.all([waitForResponse(31), waitForResponse(32), waitForResponse(33)]);
+const stagedPatchUrl = new URL("../generated/website-change-monitor-lab-card.patch", import.meta.url);
+const originalStagedPatch = await fs.readFile(stagedPatchUrl, "utf8");
+await fs.writeFile(
+  stagedPatchUrl,
+  originalStagedPatch.replace("+++ b/app/lab/page.tsx", "+++ b/app/layout.tsx"),
+  "utf8"
+);
+send(34, "tools/call", {
+  name: "validate_staged_lab_card_patch",
+  arguments: { projectName: "Website Change Monitor" },
+});
+await waitForResponse(34);
+await fs.writeFile(stagedPatchUrl, originalStagedPatch, "utf8");
 server.kill();
 await once(server, "exit");
 
@@ -475,6 +498,36 @@ const stagedPatchOk =
   stagedPatch?.verificationCommand === "cd portfolio-publisher-mcp && npm run smoke" &&
   stagedPatchFileOk &&
   stagedPatchHandoffOk;
+const stagedPatchValidationText = responseById.get(31)?.result?.content?.[0]?.text ?? "{}";
+const stagedPatchValidation = JSON.parse(stagedPatchValidationText);
+const stagedPatchValidationOk =
+  stagedPatchValidation?.status === "ready" &&
+  stagedPatchValidation?.reviewReady === true &&
+  stagedPatchValidation?.projectName === "Website Change Monitor" &&
+  stagedPatchValidation?.slug === "website-change-monitor" &&
+  stagedPatchValidation?.targetFile === "app/lab/page.tsx" &&
+  stagedPatchValidation?.patchFile === "portfolio-publisher-mcp/generated/website-change-monitor-lab-card.patch" &&
+  stagedPatchValidation?.handoffFile === "portfolio-publisher-mcp/generated/website-change-monitor-lab-card.md" &&
+  Number.isInteger(stagedPatchValidation?.insertionLine) &&
+  stagedPatchValidation?.issues?.length === 0 &&
+  stagedPatchValidation?.warnings?.length === 0 &&
+  /^[a-f0-9]{64}$/.test(stagedPatchValidation?.checksums?.patchSha256 ?? "") &&
+  /^[a-f0-9]{64}$/.test(stagedPatchValidation?.checksums?.handoffSha256 ?? "") &&
+  stagedPatchValidation?.ownerNextStep?.includes("Review the staged handoff");
+const stagedPatchValidationRequiredOk = responseById.get(32)?.result?.isError === true;
+const missingStagedPatchText = responseById.get(33)?.result?.content?.[0]?.text ?? "{}";
+const missingStagedPatch = JSON.parse(missingStagedPatchText);
+const missingStagedPatchOk =
+  missingStagedPatch?.status === "missing" &&
+  missingStagedPatch?.reviewReady === false &&
+  missingStagedPatch?.patchFile === "portfolio-publisher-mcp/generated/never-staged-project-lab-card.patch" &&
+  missingStagedPatch?.issues?.some((issue) => issue.includes("missing"));
+const invalidStagedPatchText = responseById.get(34)?.result?.content?.[0]?.text ?? "{}";
+const invalidStagedPatch = JSON.parse(invalidStagedPatchText);
+const invalidStagedPatchOk =
+  invalidStagedPatch?.status === "invalid" &&
+  invalidStagedPatch?.reviewReady === false &&
+  invalidStagedPatch?.issues?.some((issue) => issue.includes("target only app/lab/page.tsx"));
 
 console.log(JSON.stringify({
   failed,
@@ -507,6 +560,10 @@ console.log(JSON.stringify({
   iconReportOk,
   stagedPatchBlockedOk,
   stagedPatchOk,
+  stagedPatchValidationOk,
+  stagedPatchValidationRequiredOk,
+  missingStagedPatchOk,
+  invalidStagedPatchOk,
 }, null, 2));
 
 if (
@@ -538,7 +595,11 @@ if (
   !iconInventoryOk ||
   !iconReportOk ||
   !stagedPatchBlockedOk ||
-  !stagedPatchOk
+  !stagedPatchOk ||
+  !stagedPatchValidationOk ||
+  !stagedPatchValidationRequiredOk ||
+  !missingStagedPatchOk ||
+  !invalidStagedPatchOk
 ) {
   process.exitCode = 1;
 }

@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { listLabProjects, getProjectAssetStatus, readLabSource } from "../lib/labParser.mjs";
 import { assertSafeRead } from "../lib/fileSafety.mjs";
 import { paths, toRepoRelative } from "../lib/paths.mjs";
@@ -981,6 +982,111 @@ async function stageLabCardPatchArtifact(projects, args, source) {
   };
 }
 
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+async function validateStagedLabCardPatch(projects, projectName, source) {
+  const normalizedName = normalizeDraftValue(projectName);
+  const slug = slugifyProjectName(normalizedName);
+
+  if (!normalizedName || !slug) {
+    return {
+      status: "invalid-request",
+      reviewReady: false,
+      issues: ["Project name must contain letters or numbers."],
+    };
+  }
+
+  const baseName = `${slug}-lab-card`;
+  const generatedDir = path.join(paths.projectDir, "generated");
+  const patchPath = path.join(generatedDir, `${baseName}.patch`);
+  const handoffPath = path.join(generatedDir, `${baseName}.md`);
+  const patchFile = toRepoRelative(patchPath);
+  const handoffFile = toRepoRelative(handoffPath);
+  let patchContent;
+  let handoffContent;
+
+  try {
+    [patchContent, handoffContent] = await Promise.all([
+      fs.readFile(assertSafeRead(patchPath), "utf8"),
+      fs.readFile(assertSafeRead(handoffPath), "utf8"),
+    ]);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return {
+        status: "missing",
+        reviewReady: false,
+        projectName: normalizedName,
+        slug,
+        patchFile,
+        handoffFile,
+        issues: ["The staged patch or handoff file is missing. Stage the Lab card patch again."],
+      };
+    }
+    throw error;
+  }
+
+  const issues = [];
+  const warnings = [];
+  const targetFile = "app/lab/page.tsx";
+  const patchLines = patchContent.split("\n");
+  const fileHeaders = patchLines.filter((line) => line.startsWith("--- ") || line.startsWith("+++ "));
+  const hunk = patchContent.match(/^@@ -(\d+),1 \+\d+,\d+ @@$/m);
+  const insertionLine = hunk ? Number(hunk[1]) : null;
+  const sourceLine = insertionLine ? source.split("\n")[insertionLine - 1] : null;
+  const alreadyListed = projects.some((project) => slugifyProjectName(project.name) === slug);
+
+  if (fileHeaders.length !== 2 || fileHeaders[0] !== `--- a/${targetFile}` || fileHeaders[1] !== `+++ b/${targetFile}`) {
+    issues.push("Patch must target only app/lab/page.tsx.");
+  }
+  if (!hunk) {
+    issues.push("Patch is missing the expected projects-array hunk header.");
+  } else if (!sourceLine?.includes("const projects = [")) {
+    issues.push("Patch insertion context no longer matches the current Lab page.");
+  }
+  if (!patchContent.includes(" const projects = [")) {
+    issues.push("Patch is missing the Lab projects-array context line.");
+  }
+  if (!patchContent.includes(`+    name: "${escapeProjectString(normalizedName)}",`)) {
+    issues.push("Patch project name does not match the requested staged project.");
+  }
+  if (!handoffContent.includes(`# Staged Lab card patch: ${normalizedName}`)) {
+    issues.push("Handoff title does not match the requested staged project.");
+  }
+  if (!handoffContent.includes(`Patch file: ${patchFile}`)) {
+    issues.push("Handoff does not reference the expected staged patch file.");
+  }
+  if (alreadyListed) {
+    warnings.push("A Lab card with this project slug is already present; the staged patch may already be applied.");
+  }
+
+  const stale = issues.some((issue) => issue.includes("no longer matches")) || alreadyListed;
+  const status = issues.length > 0 ? "invalid" : stale ? "stale" : "ready";
+
+  return {
+    status,
+    reviewReady: status === "ready",
+    projectName: normalizedName,
+    slug,
+    targetFile,
+    patchFile,
+    handoffFile,
+    insertionLine,
+    issues,
+    warnings,
+    checksums: {
+      patchSha256: sha256(patchContent),
+      handoffSha256: sha256(handoffContent),
+    },
+    ownerNextStep: status === "ready"
+      ? "Review the staged handoff and patch contents before applying the patch manually."
+      : status === "stale"
+        ? "Confirm whether the Lab card was already applied; otherwise stage a fresh patch."
+        : "Stage a fresh Lab card patch, then validate it again before review.",
+  };
+}
+
 function normalizeProjectQuery(value) {
   return String(value ?? "").trim();
 }
@@ -1557,6 +1663,11 @@ export async function callTool(name, args = {}) {
   if (name === "stage_lab_card_patch_artifact") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await stageLabCardPatchArtifact(projects, args, source));
+  }
+
+  if (name === "validate_staged_lab_card_patch") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await validateStagedLabCardPatch(projects, args.projectName, source));
   }
 
   if (name === "inspect_lab_thumbnail_icons") {

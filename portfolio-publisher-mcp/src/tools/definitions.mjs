@@ -253,6 +253,23 @@ export const tools = [
     },
   },
   {
+    name: "validate_staged_lab_card_patch",
+    title: "Validate Staged Lab Card Patch",
+    description:
+      "Validate staged Lab card patch and handoff files before manual review or application.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "Project name used when the Lab card patch was staged.",
+        },
+      },
+      required: ["projectName"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "inspect_lab_thumbnail_icons",
     title: "Inspect Lab Thumbnail Icons",
     description:
