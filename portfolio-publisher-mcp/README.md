@@ -21,7 +21,7 @@ This version is mostly read-only. It can inspect the Lab page, validate screensh
 - `create_lab_card_patch_artifact`: creates a structured, read-only patch artifact with a unified diff, icon requirement, files to prepare, warnings, and verification command.
 - `validate_lab_card_patch_artifact`: creates and validates a structured, read-only Lab card patch artifact against current Lab projects, optional icon input, icon/import requirements, route files, and screenshot files.
 - `stage_lab_card_patch_artifact`: writes a validated Lab card patch handoff and `.patch` file into `portfolio-publisher-mcp/generated/` for owner review. It refuses blocked patches and requires `allowNeedsPrep: true` before staging patches that still need route, screenshot, or icon prep.
-- `validate_staged_lab_card_patch`: checks that a staged patch and handoff exist, target only `app/lab/page.tsx`, still match the current projects-array insertion point, and refer to the requested project before manual review or application.
+- `validate_staged_lab_card_patch`: checks that a staged patch and handoff exist, contain exactly one Lab card addition targeting `app/lab/page.tsx`, match each other, still match the current projects-array insertion point, and refer to the requested project before manual review or application. It returns a source-bound `reviewToken` for future controlled-apply workflows.
 - `inspect_lab_thumbnail_icons`: checks Lab card icon usage against Lab page imports and `LabThumbnails.tsx` exports.
 - `create_lab_thumbnail_icon_report`: creates an owner-friendly Markdown report for Lab thumbnail icon coverage, missing prep, and cleanup candidates.
 - `publish_readiness_check`: checks whether Lab projects have the basics needed for publishing (supports exact name, slug, or partial match via `projectName`).
@@ -73,7 +73,7 @@ It refuses blocked paths such as:
 
 Future write-capable tools should keep this same approach: narrow tools, explicit file targets, no arbitrary shell commands, no secret access, and owner-reviewable artifacts before source edits.
 
-Before manually applying a staged patch, run `validate_staged_lab_card_patch` with the project name. A `ready` result means the artifact structure and current insertion context are intact; it does not replace human review of the card copy or diff.
+Before manually applying a staged patch, run `validate_staged_lab_card_patch` with the project name. A `ready` result means the artifact is one exact card-only diff, matches its handoff, and still matches the current insertion context. The `reviewToken` changes when either the patch or current Lab source changes; it does not replace human review of the card copy or diff.
 
 ## Why This Exists
 

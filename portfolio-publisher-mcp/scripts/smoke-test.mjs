@@ -176,7 +176,7 @@ const stagedPatchUrl = new URL("../generated/website-change-monitor-lab-card.pat
 const originalStagedPatch = await fs.readFile(stagedPatchUrl, "utf8");
 await fs.writeFile(
   stagedPatchUrl,
-  originalStagedPatch.replace("+++ b/app/lab/page.tsx", "+++ b/app/layout.tsx"),
+  `${originalStagedPatch}@@ -40,1 +40,1 @@\n-export default function LabPage() {\n+export default function CompromisedLabPage() {\n`,
   "utf8"
 );
 send(34, "tools/call", {
@@ -184,6 +184,17 @@ send(34, "tools/call", {
   arguments: { projectName: "Website Change Monitor" },
 });
 await waitForResponse(34);
+await fs.writeFile(stagedPatchUrl, originalStagedPatch, "utf8");
+await fs.writeFile(
+  stagedPatchUrl,
+  originalStagedPatch.replace("Weekly website screenshot diff report", "Unexpected altered card copy"),
+  "utf8"
+);
+send(35, "tools/call", {
+  name: "validate_staged_lab_card_patch",
+  arguments: { projectName: "Website Change Monitor" },
+});
+await waitForResponse(35);
 await fs.writeFile(stagedPatchUrl, originalStagedPatch, "utf8");
 server.kill();
 await once(server, "exit");
@@ -513,6 +524,7 @@ const stagedPatchValidationOk =
   stagedPatchValidation?.warnings?.length === 0 &&
   /^[a-f0-9]{64}$/.test(stagedPatchValidation?.checksums?.patchSha256 ?? "") &&
   /^[a-f0-9]{64}$/.test(stagedPatchValidation?.checksums?.handoffSha256 ?? "") &&
+  /^[a-f0-9]{64}$/.test(stagedPatchValidation?.reviewToken ?? "") &&
   stagedPatchValidation?.ownerNextStep?.includes("Review the staged handoff");
 const stagedPatchValidationRequiredOk = responseById.get(32)?.result?.isError === true;
 const missingStagedPatchText = responseById.get(33)?.result?.content?.[0]?.text ?? "{}";
@@ -527,7 +539,14 @@ const invalidStagedPatch = JSON.parse(invalidStagedPatchText);
 const invalidStagedPatchOk =
   invalidStagedPatch?.status === "invalid" &&
   invalidStagedPatch?.reviewReady === false &&
-  invalidStagedPatch?.issues?.some((issue) => issue.includes("target only app/lab/page.tsx"));
+  invalidStagedPatch?.issues?.some((issue) => issue.includes("exactly one projects-array hunk")) &&
+  invalidStagedPatch?.issues?.some((issue) => issue.includes("does not exactly match"));
+const mismatchedStagedPatchText = responseById.get(35)?.result?.content?.[0]?.text ?? "{}";
+const mismatchedStagedPatch = JSON.parse(mismatchedStagedPatchText);
+const mismatchedStagedPatchOk =
+  mismatchedStagedPatch?.status === "invalid" &&
+  mismatchedStagedPatch?.reviewReady === false &&
+  mismatchedStagedPatch?.issues?.some((issue) => issue.includes("does not exactly match"));
 
 console.log(JSON.stringify({
   failed,
@@ -564,6 +583,7 @@ console.log(JSON.stringify({
   stagedPatchValidationRequiredOk,
   missingStagedPatchOk,
   invalidStagedPatchOk,
+  mismatchedStagedPatchOk,
 }, null, 2));
 
 if (
@@ -599,7 +619,8 @@ if (
   !stagedPatchValidationOk ||
   !stagedPatchValidationRequiredOk ||
   !missingStagedPatchOk ||
-  !invalidStagedPatchOk
+  !invalidStagedPatchOk ||
+  !mismatchedStagedPatchOk
 ) {
   process.exitCode = 1;
 }

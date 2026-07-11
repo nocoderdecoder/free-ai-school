@@ -1032,16 +1032,29 @@ async function validateStagedLabCardPatch(projects, projectName, source) {
   const targetFile = "app/lab/page.tsx";
   const patchLines = patchContent.split("\n");
   const fileHeaders = patchLines.filter((line) => line.startsWith("--- ") || line.startsWith("+++ "));
-  const hunk = patchContent.match(/^@@ -(\d+),1 \+\d+,\d+ @@$/m);
+  const hunks = [...patchContent.matchAll(/^@@ -(\d+),1 \+(\d+),(\d+) @@$/gm)];
+  const hunk = hunks.length === 1 ? hunks[0] : null;
   const insertionLine = hunk ? Number(hunk[1]) : null;
   const sourceLine = insertionLine ? source.split("\n")[insertionLine - 1] : null;
   const alreadyListed = projects.some((project) => slugifyProjectName(project.name) === slug);
+  const handoffCardMatch = handoffContent.match(/## Lab card object\s+```ts\n([\s\S]*?)\n```/);
+  const handoffCard = handoffCardMatch?.[1] ?? null;
+  const expectedPatch = handoffCard && insertionLine
+    ? [
+        `--- a/${targetFile}`,
+        `+++ b/${targetFile}`,
+        `@@ -${insertionLine},1 +${insertionLine},${handoffCard.split("\n").length + 1} @@`,
+        " const projects = [",
+        ...handoffCard.split("\n").map((line) => `+${line}`),
+        "",
+      ].join("\n")
+    : null;
 
   if (fileHeaders.length !== 2 || fileHeaders[0] !== `--- a/${targetFile}` || fileHeaders[1] !== `+++ b/${targetFile}`) {
     issues.push("Patch must target only app/lab/page.tsx.");
   }
-  if (!hunk) {
-    issues.push("Patch is missing the expected projects-array hunk header.");
+  if (hunks.length !== 1) {
+    issues.push("Patch must contain exactly one projects-array hunk.");
   } else if (!sourceLine?.includes("const projects = [")) {
     issues.push("Patch insertion context no longer matches the current Lab page.");
   }
@@ -1056,6 +1069,11 @@ async function validateStagedLabCardPatch(projects, projectName, source) {
   }
   if (!handoffContent.includes(`Patch file: ${patchFile}`)) {
     issues.push("Handoff does not reference the expected staged patch file.");
+  }
+  if (!handoffCard) {
+    issues.push("Handoff is missing the staged Lab card object.");
+  } else if (expectedPatch !== patchContent) {
+    issues.push("Patch content does not exactly match the single Lab card object in the handoff.");
   }
   if (alreadyListed) {
     warnings.push("A Lab card with this project slug is already present; the staged patch may already be applied.");
@@ -1079,6 +1097,7 @@ async function validateStagedLabCardPatch(projects, projectName, source) {
       patchSha256: sha256(patchContent),
       handoffSha256: sha256(handoffContent),
     },
+    reviewToken: sha256(`${patchContent}\0${source}`),
     ownerNextStep: status === "ready"
       ? "Review the staged handoff and patch contents before applying the patch manually."
       : status === "stale"

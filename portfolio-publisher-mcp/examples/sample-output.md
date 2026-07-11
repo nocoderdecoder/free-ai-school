@@ -596,6 +596,7 @@ Example result from `validate_staged_lab_card_patch`:
     "patchSha256": "<sha256>",
     "handoffSha256": "<sha256>"
   },
+  "reviewToken": "<source-bound-sha256>",
   "ownerNextStep": "Review the staged handoff and patch contents before applying the patch manually."
 }
 ```
