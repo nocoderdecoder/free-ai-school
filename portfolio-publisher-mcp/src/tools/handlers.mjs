@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { listLabProjects, getProjectAssetStatus, readLabSource } from "../lib/labParser.mjs";
-import { assertSafeRead } from "../lib/fileSafety.mjs";
+import { assertSafeLabPageWrite, assertSafeRead } from "../lib/fileSafety.mjs";
 import { paths, toRepoRelative } from "../lib/paths.mjs";
 import { tools as toolDefinitions } from "./definitions.mjs";
 
@@ -1106,6 +1106,101 @@ async function validateStagedLabCardPatch(projects, projectName, source) {
   };
 }
 
+async function applyStagedLabCardPatch(projects, args, source) {
+  if (args.confirm !== true) {
+    return {
+      applied: false,
+      status: "confirmation-required",
+      issues: ["Set confirm to true only after reviewing the staged handoff and patch."],
+    };
+  }
+
+  if (!/^[a-f0-9]{64}$/.test(args.reviewToken)) {
+    return {
+      applied: false,
+      status: "invalid-token",
+      issues: ["reviewToken must be the 64-character token from staged patch validation."],
+    };
+  }
+
+  const validation = await validateStagedLabCardPatch(projects, args.projectName, source);
+  if (!validation.reviewReady || validation.status !== "ready") {
+    return {
+      applied: false,
+      status: validation.status,
+      issues: validation.issues,
+      warnings: validation.warnings,
+    };
+  }
+  if (validation.reviewToken !== args.reviewToken) {
+    return {
+      applied: false,
+      status: "token-mismatch",
+      issues: ["The review token does not match the current staged patch and Lab source."],
+    };
+  }
+
+  const handoffPath = path.join(paths.repoRoot, validation.handoffFile);
+  const handoffContent = await fs.readFile(assertSafeRead(handoffPath), "utf8");
+  if (!handoffContent.includes("- Publish ready after apply: Yes")) {
+    return {
+      applied: false,
+      status: "prep-required",
+      issues: ["Controlled apply only accepts patches with route, screenshot, and icon prep complete."],
+    };
+  }
+  const handoffCard = handoffContent.match(/## Lab card object\s+```ts\n([\s\S]*?)\n```/)?.[1];
+  if (!handoffCard) {
+    return { applied: false, status: "invalid", issues: ["Staged handoff is missing the Lab card object."] };
+  }
+
+  const latestSource = await readLabSource();
+  const patchPath = path.join(paths.repoRoot, validation.patchFile);
+  const patchContent = await fs.readFile(assertSafeRead(patchPath), "utf8");
+  if (sha256(`${patchContent}\0${latestSource}`) !== args.reviewToken) {
+    return {
+      applied: false,
+      status: "stale",
+      issues: ["The Lab source or staged patch changed after review; validate again."],
+    };
+  }
+
+  const insertionLine = validation.insertionLine;
+  const lines = latestSource.split("\n");
+  if (!lines[insertionLine - 1]?.includes("const projects = [")) {
+    return { applied: false, status: "stale", issues: ["The Lab insertion point changed after review."] };
+  }
+  lines.splice(insertionLine, 0, ...handoffCard.split("\n"));
+  const nextSource = lines.join("\n");
+  const target = assertSafeLabPageWrite(paths.labPage);
+  const tempPath = `${target}.portfolio-publisher-${process.pid}.tmp`;
+  const originalStat = await fs.stat(target);
+
+  try {
+    await fs.writeFile(tempPath, nextSource, { encoding: "utf8", mode: originalStat.mode });
+    await fs.rename(tempPath, target);
+    const updatedProjects = await listLabProjects();
+    const matches = updatedProjects.filter((project) => slugifyProjectName(project.name) === validation.slug);
+    if (matches.length !== 1) throw new Error("Post-apply verification did not find exactly one new Lab card.");
+  } catch (error) {
+    await fs.rm(tempPath, { force: true });
+    await fs.writeFile(target, latestSource, { encoding: "utf8", mode: originalStat.mode });
+    return { applied: false, status: "verification-failed", issues: [error.message] };
+  }
+
+  return {
+    applied: true,
+    status: "applied",
+    projectName: validation.projectName,
+    slug: validation.slug,
+    targetFile: validation.targetFile,
+    sourceSha256: sha256(nextSource),
+    stagedArtifactsRetained: true,
+    ownerNextStep: "Review the Lab page diff, run npm run smoke, then commit intentionally.",
+    verificationCommand: "cd portfolio-publisher-mcp && npm run smoke",
+  };
+}
+
 function normalizeProjectQuery(value) {
   return String(value ?? "").trim();
 }
@@ -1687,6 +1782,11 @@ export async function callTool(name, args = {}) {
   if (name === "validate_staged_lab_card_patch") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await validateStagedLabCardPatch(projects, args.projectName, source));
+  }
+
+  if (name === "apply_staged_lab_card_patch") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await applyStagedLabCardPatch(projects, args, source));
   }
 
   if (name === "inspect_lab_thumbnail_icons") {

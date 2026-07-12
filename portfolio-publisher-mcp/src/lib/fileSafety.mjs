@@ -37,3 +37,11 @@ export function assertSafeRead(targetPath) {
 
   return resolved;
 }
+
+export function assertSafeLabPageWrite(targetPath) {
+  const resolved = path.resolve(targetPath);
+  if (resolved !== path.resolve(paths.labPage)) {
+    throw new Error(`Refusing to write outside the Lab page: ${resolved}`);
+  }
+  return resolved;
+}

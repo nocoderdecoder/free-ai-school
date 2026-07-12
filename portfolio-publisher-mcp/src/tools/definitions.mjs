@@ -270,6 +270,31 @@ export const tools = [
     },
   },
   {
+    name: "apply_staged_lab_card_patch",
+    title: "Apply Staged Lab Card Patch",
+    description:
+      "Apply one publish-ready staged Lab card after explicit confirmation and source-bound review-token validation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "Project name used when the Lab card patch was staged.",
+        },
+        reviewToken: {
+          type: "string",
+          description: "Exact review token returned by validate_staged_lab_card_patch.",
+        },
+        confirm: {
+          type: "boolean",
+          description: "Must be true to authorize the single Lab page write.",
+        },
+      },
+      required: ["projectName", "reviewToken", "confirm"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "inspect_lab_thumbnail_icons",
     title: "Inspect Lab Thumbnail Icons",
     description:

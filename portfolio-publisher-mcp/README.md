@@ -6,7 +6,7 @@ In plain English: it gives an AI assistant a safe control panel for the portfoli
 
 ## Current Status
 
-This version is mostly read-only. It can inspect the Lab page, validate screenshot paths, and suggest future projects. Its first write-capable tool only stages review artifacts under `portfolio-publisher-mcp/generated/`; it does not edit the Lab page directly.
+This version is mostly read-only. It can inspect the Lab page, validate screenshot paths, and suggest future projects. It can stage review artifacts under `portfolio-publisher-mcp/generated/` and apply one publish-ready staged card through a confirmation-and-token-gated tool.
 
 ## Tools
 
@@ -22,6 +22,7 @@ This version is mostly read-only. It can inspect the Lab page, validate screensh
 - `validate_lab_card_patch_artifact`: creates and validates a structured, read-only Lab card patch artifact against current Lab projects, optional icon input, icon/import requirements, route files, and screenshot files.
 - `stage_lab_card_patch_artifact`: writes a validated Lab card patch handoff and `.patch` file into `portfolio-publisher-mcp/generated/` for owner review. It refuses blocked patches and requires `allowNeedsPrep: true` before staging patches that still need route, screenshot, or icon prep.
 - `validate_staged_lab_card_patch`: checks that a staged patch and handoff exist, contain exactly one Lab card addition targeting `app/lab/page.tsx`, match each other, still match the current projects-array insertion point, and refer to the requested project before manual review or application. It returns a source-bound `reviewToken` for future controlled-apply workflows.
+- `apply_staged_lab_card_patch`: applies exactly one publish-ready staged card to `app/lab/page.tsx` after `confirm: true` and an exact, freshly validated `reviewToken`. It writes atomically, verifies the card after insertion, retains the staged artifacts, and does not commit or publish.
 - `inspect_lab_thumbnail_icons`: checks Lab card icon usage against Lab page imports and `LabThumbnails.tsx` exports.
 - `create_lab_thumbnail_icon_report`: creates an owner-friendly Markdown report for Lab thumbnail icon coverage, missing prep, and cleanup candidates.
 - `publish_readiness_check`: checks whether Lab projects have the basics needed for publishing (supports exact name, slug, or partial match via `projectName`).
@@ -52,16 +53,20 @@ The server communicates over stdio using JSON-RPC MCP messages.
 
 ## Safety Model
 
-This version only reads approved paths:
+This version reads only approved paths:
 
 - `app/`
 - `app/lab/page.tsx`
 - `public/`
 - `portfolio-publisher-mcp/`
 
-It writes only generated review artifacts under:
+It writes generated review artifacts under:
 
 - `portfolio-publisher-mcp/generated/`
+
+The controlled apply tool may also write exactly:
+
+- `app/lab/page.tsx`
 
 It refuses blocked paths such as:
 
@@ -71,9 +76,9 @@ It refuses blocked paths such as:
 - `.next`
 - `dist`
 
-Future write-capable tools should keep this same approach: narrow tools, explicit file targets, no arbitrary shell commands, no secret access, and owner-reviewable artifacts before source edits.
+Write-capable tools keep this same approach: narrow tools, explicit file targets, no arbitrary shell commands, no secret access, and owner-reviewable artifacts before source edits.
 
-Before manually applying a staged patch, run `validate_staged_lab_card_patch` with the project name. A `ready` result means the artifact is one exact card-only diff, matches its handoff, and still matches the current insertion context. The `reviewToken` changes when either the patch or current Lab source changes; it does not replace human review of the card copy or diff.
+Before applying a staged patch, run `validate_staged_lab_card_patch` with the project name. A `ready` result means the artifact is one exact card-only diff, matches its handoff, and still matches the current insertion context. Review the handoff and diff, then pass that result's token to `apply_staged_lab_card_patch` with `confirm: true`. The apply tool refuses patches that still need route, screenshot, or icon prep. The `reviewToken` changes when either the patch or current Lab source changes; it does not replace human review of the card copy or diff.
 
 ## Why This Exists
 

@@ -600,3 +600,33 @@ Example result from `validate_staged_lab_card_patch`:
   "ownerNextStep": "Review the staged handoff and patch contents before applying the patch manually."
 }
 ```
+
+## Controlled staged patch apply
+
+After reviewing a `ready` staged patch, call `apply_staged_lab_card_patch` with the exact source-bound token:
+
+```json
+{
+  "projectName": "Website Change Monitor",
+  "reviewToken": "<64-character token from validation>",
+  "confirm": true
+}
+```
+
+Example result:
+
+```json
+{
+  "applied": true,
+  "status": "applied",
+  "projectName": "Website Change Monitor",
+  "slug": "website-change-monitor",
+  "targetFile": "app/lab/page.tsx",
+  "sourceSha256": "<64-character checksum>",
+  "stagedArtifactsRetained": true,
+  "ownerNextStep": "Review the Lab page diff, run npm run smoke, then commit intentionally.",
+  "verificationCommand": "cd portfolio-publisher-mcp && npm run smoke"
+}
+```
+
+The tool refuses missing prep, missing confirmation, token mismatches, stale source, invalid artifacts, and replay. It never commits or publishes.

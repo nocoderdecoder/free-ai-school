@@ -196,6 +196,60 @@ send(35, "tools/call", {
 });
 await waitForResponse(35);
 await fs.writeFile(stagedPatchUrl, originalStagedPatch, "utf8");
+const labPageUrl = new URL("../../app/lab/page.tsx", import.meta.url);
+const readyScreenshotUrl = new URL("../../public/projects/website-change-monitor-ready.png", import.meta.url);
+const originalLabSource = await fs.readFile(labPageUrl, "utf8");
+let restoredLabSource = false;
+try {
+  await fs.mkdir(new URL("../../public/projects/", import.meta.url), { recursive: true });
+  await fs.writeFile(readyScreenshotUrl, "smoke fixture", "utf8");
+  send(36, "tools/call", {
+    name: "stage_lab_card_patch_artifact",
+    arguments: {
+      name: "Website Change Monitor Ready",
+      tagline: "Weekly website screenshot diff report",
+      url: "https://ratemyprompt.pro",
+      image: "/projects/website-change-monitor-ready.png",
+      icon: "PromptGradeIcon",
+    },
+  });
+  await waitForResponse(36);
+  send(37, "tools/call", {
+    name: "validate_staged_lab_card_patch",
+    arguments: { projectName: "Website Change Monitor Ready" },
+  });
+  await waitForResponse(37);
+  const readyValidation = JSON.parse(responseById.get(37)?.result?.content?.[0]?.text ?? "{}");
+  send(38, "tools/call", {
+    name: "apply_staged_lab_card_patch",
+    arguments: { projectName: "Website Change Monitor Ready", reviewToken: "0".repeat(64), confirm: true },
+  });
+  await waitForResponse(38);
+  send(39, "tools/call", {
+    name: "apply_staged_lab_card_patch",
+    arguments: { projectName: "Website Change Monitor Ready", reviewToken: readyValidation.reviewToken, confirm: true },
+  });
+  await waitForResponse(39);
+  send(40, "tools/call", {
+    name: "apply_staged_lab_card_patch",
+    arguments: { projectName: "Website Change Monitor Ready", reviewToken: readyValidation.reviewToken, confirm: true },
+  });
+  await waitForResponse(40);
+} finally {
+  await fs.writeFile(labPageUrl, originalLabSource, "utf8");
+  await fs.rm(readyScreenshotUrl, { force: true });
+  restoredLabSource = (await fs.readFile(labPageUrl, "utf8")) === originalLabSource;
+}
+const finalReadyValidation = JSON.parse(responseById.get(37)?.result?.content?.[0]?.text ?? "{}");
+send(41, "tools/call", {
+  name: "apply_staged_lab_card_patch",
+  arguments: {
+    projectName: "Website Change Monitor Ready",
+    reviewToken: finalReadyValidation.reviewToken,
+    confirm: false,
+  },
+});
+await waitForResponse(41);
 server.kill();
 await once(server, "exit");
 
@@ -547,6 +601,26 @@ const mismatchedStagedPatchOk =
   mismatchedStagedPatch?.status === "invalid" &&
   mismatchedStagedPatch?.reviewReady === false &&
   mismatchedStagedPatch?.issues?.some((issue) => issue.includes("does not exactly match"));
+const readyStage = JSON.parse(responseById.get(36)?.result?.content?.[0]?.text ?? "{}");
+const readyValidation = JSON.parse(responseById.get(37)?.result?.content?.[0]?.text ?? "{}");
+const tokenMismatchApply = JSON.parse(responseById.get(38)?.result?.content?.[0]?.text ?? "{}");
+const successfulApply = JSON.parse(responseById.get(39)?.result?.content?.[0]?.text ?? "{}");
+const replayApply = JSON.parse(responseById.get(40)?.result?.content?.[0]?.text ?? "{}");
+const unconfirmedApply = JSON.parse(responseById.get(41)?.result?.content?.[0]?.text ?? "{}");
+const controlledApplyOk =
+  readyStage?.publishReadyAfterApply === true &&
+  readyValidation?.status === "ready" &&
+  tokenMismatchApply?.applied === false &&
+  tokenMismatchApply?.status === "token-mismatch" &&
+  successfulApply?.applied === true &&
+  successfulApply?.status === "applied" &&
+  successfulApply?.targetFile === "app/lab/page.tsx" &&
+  /^[a-f0-9]{64}$/.test(successfulApply?.sourceSha256 ?? "") &&
+  replayApply?.applied === false &&
+  replayApply?.status === "stale" &&
+  unconfirmedApply?.applied === false &&
+  unconfirmedApply?.status === "confirmation-required" &&
+  restoredLabSource;
 
 console.log(JSON.stringify({
   failed,
@@ -584,6 +658,7 @@ console.log(JSON.stringify({
   missingStagedPatchOk,
   invalidStagedPatchOk,
   mismatchedStagedPatchOk,
+  controlledApplyOk,
 }, null, 2));
 
 if (
@@ -621,6 +696,7 @@ if (
   !missingStagedPatchOk ||
   !invalidStagedPatchOk ||
   !mismatchedStagedPatchOk
+  || !controlledApplyOk
 ) {
   process.exitCode = 1;
 }
