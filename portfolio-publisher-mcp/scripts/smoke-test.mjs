@@ -220,14 +220,17 @@ try {
   });
   await waitForResponse(37);
   const readyValidation = JSON.parse(responseById.get(37)?.result?.content?.[0]?.text ?? "{}");
+  const applyLockUrl = new URL("../../app/lab/page.tsx.portfolio-publisher.lock", import.meta.url);
+  await fs.writeFile(applyLockUrl, "smoke lock fixture", "utf8");
   send(38, "tools/call", {
     name: "apply_staged_lab_card_patch",
-    arguments: { projectName: "Website Change Monitor Ready", reviewToken: "0".repeat(64), confirm: true },
+    arguments: { projectName: "Website Change Monitor Ready", reviewToken: readyValidation.reviewToken, confirm: true },
   });
   await waitForResponse(38);
+  await fs.rm(applyLockUrl, { force: true });
   send(39, "tools/call", {
     name: "apply_staged_lab_card_patch",
-    arguments: { projectName: "Website Change Monitor Ready", reviewToken: readyValidation.reviewToken, confirm: true },
+    arguments: { projectName: "Website Change Monitor Ready", reviewToken: "0".repeat(64), confirm: true },
   });
   await waitForResponse(39);
   send(40, "tools/call", {
@@ -235,13 +238,19 @@ try {
     arguments: { projectName: "Website Change Monitor Ready", reviewToken: readyValidation.reviewToken, confirm: true },
   });
   await waitForResponse(40);
+  send(41, "tools/call", {
+    name: "apply_staged_lab_card_patch",
+    arguments: { projectName: "Website Change Monitor Ready", reviewToken: readyValidation.reviewToken, confirm: true },
+  });
+  await waitForResponse(41);
 } finally {
   await fs.writeFile(labPageUrl, originalLabSource, "utf8");
   await fs.rm(readyScreenshotUrl, { force: true });
+  await fs.rm(new URL("../../app/lab/page.tsx.portfolio-publisher.lock", import.meta.url), { force: true });
   restoredLabSource = (await fs.readFile(labPageUrl, "utf8")) === originalLabSource;
 }
 const finalReadyValidation = JSON.parse(responseById.get(37)?.result?.content?.[0]?.text ?? "{}");
-send(41, "tools/call", {
+send(42, "tools/call", {
   name: "apply_staged_lab_card_patch",
   arguments: {
     projectName: "Website Change Monitor Ready",
@@ -249,7 +258,7 @@ send(41, "tools/call", {
     confirm: false,
   },
 });
-await waitForResponse(41);
+await waitForResponse(42);
 server.kill();
 await once(server, "exit");
 
@@ -603,13 +612,16 @@ const mismatchedStagedPatchOk =
   mismatchedStagedPatch?.issues?.some((issue) => issue.includes("does not exactly match"));
 const readyStage = JSON.parse(responseById.get(36)?.result?.content?.[0]?.text ?? "{}");
 const readyValidation = JSON.parse(responseById.get(37)?.result?.content?.[0]?.text ?? "{}");
-const tokenMismatchApply = JSON.parse(responseById.get(38)?.result?.content?.[0]?.text ?? "{}");
-const successfulApply = JSON.parse(responseById.get(39)?.result?.content?.[0]?.text ?? "{}");
-const replayApply = JSON.parse(responseById.get(40)?.result?.content?.[0]?.text ?? "{}");
-const unconfirmedApply = JSON.parse(responseById.get(41)?.result?.content?.[0]?.text ?? "{}");
+const lockedApply = JSON.parse(responseById.get(38)?.result?.content?.[0]?.text ?? "{}");
+const tokenMismatchApply = JSON.parse(responseById.get(39)?.result?.content?.[0]?.text ?? "{}");
+const successfulApply = JSON.parse(responseById.get(40)?.result?.content?.[0]?.text ?? "{}");
+const replayApply = JSON.parse(responseById.get(41)?.result?.content?.[0]?.text ?? "{}");
+const unconfirmedApply = JSON.parse(responseById.get(42)?.result?.content?.[0]?.text ?? "{}");
 const controlledApplyOk =
   readyStage?.publishReadyAfterApply === true &&
   readyValidation?.status === "ready" &&
+  lockedApply?.applied === false &&
+  lockedApply?.status === "apply-locked" &&
   tokenMismatchApply?.applied === false &&
   tokenMismatchApply?.status === "token-mismatch" &&
   successfulApply?.applied === true &&

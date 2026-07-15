@@ -613,6 +613,16 @@ After reviewing a `ready` staged patch, call `apply_staged_lab_card_patch` with 
 }
 ```
 
+If another controlled apply already holds the Lab page lock, the tool refuses safely without writing:
+
+```json
+{
+  "applied": false,
+  "status": "apply-locked",
+  "issues": ["Another controlled Lab card apply is in progress; retry after it finishes."]
+}
+```
+
 Example result:
 
 ```json

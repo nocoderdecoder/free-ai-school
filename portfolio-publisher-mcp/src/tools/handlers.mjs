@@ -1154,51 +1154,86 @@ async function applyStagedLabCardPatch(projects, args, source) {
     return { applied: false, status: "invalid", issues: ["Staged handoff is missing the Lab card object."] };
   }
 
-  const latestSource = await readLabSource();
-  const patchPath = path.join(paths.repoRoot, validation.patchFile);
-  const patchContent = await fs.readFile(assertSafeRead(patchPath), "utf8");
-  if (sha256(`${patchContent}\0${latestSource}`) !== args.reviewToken) {
-    return {
-      applied: false,
-      status: "stale",
-      issues: ["The Lab source or staged patch changed after review; validate again."],
-    };
-  }
-
-  const insertionLine = validation.insertionLine;
-  const lines = latestSource.split("\n");
-  if (!lines[insertionLine - 1]?.includes("const projects = [")) {
-    return { applied: false, status: "stale", issues: ["The Lab insertion point changed after review."] };
-  }
-  lines.splice(insertionLine, 0, ...handoffCard.split("\n"));
-  const nextSource = lines.join("\n");
   const target = assertSafeLabPageWrite(paths.labPage);
+  const lockPath = `${target}.portfolio-publisher.lock`;
   const tempPath = `${target}.portfolio-publisher-${process.pid}.tmp`;
-  const originalStat = await fs.stat(target);
+  let lockHandle;
+  let latestSource;
+  let originalStat;
+  let sourceReplaced = false;
 
   try {
+    try {
+      lockHandle = await fs.open(lockPath, "wx");
+    } catch (error) {
+      if (error.code === "EEXIST") {
+        return {
+          applied: false,
+          status: "apply-locked",
+          issues: ["Another controlled Lab card apply is in progress; retry after it finishes."],
+        };
+      }
+      throw error;
+    }
+
+    latestSource = await readLabSource();
+    const patchPath = path.join(paths.repoRoot, validation.patchFile);
+    const patchContent = await fs.readFile(assertSafeRead(patchPath), "utf8");
+    if (sha256(`${patchContent}\0${latestSource}`) !== args.reviewToken) {
+      return {
+        applied: false,
+        status: "stale",
+        issues: ["The Lab source or staged patch changed after review; validate again."],
+      };
+    }
+
+    const insertionLine = validation.insertionLine;
+    const lines = latestSource.split("\n");
+    if (!lines[insertionLine - 1]?.includes("const projects = [")) {
+      return { applied: false, status: "stale", issues: ["The Lab insertion point changed after review."] };
+    }
+    lines.splice(insertionLine, 0, ...handoffCard.split("\n"));
+    const nextSource = lines.join("\n");
+    originalStat = await fs.stat(target);
+
     await fs.writeFile(tempPath, nextSource, { encoding: "utf8", mode: originalStat.mode });
     await fs.rename(tempPath, target);
+    sourceReplaced = true;
     const updatedProjects = await listLabProjects();
     const matches = updatedProjects.filter((project) => slugifyProjectName(project.name) === validation.slug);
-    if (matches.length !== 1) throw new Error("Post-apply verification did not find exactly one new Lab card.");
-  } catch (error) {
-    await fs.rm(tempPath, { force: true });
-    await fs.writeFile(target, latestSource, { encoding: "utf8", mode: originalStat.mode });
-    return { applied: false, status: "verification-failed", issues: [error.message] };
-  }
+    if (matches.length !== 1) {
+      await fs.writeFile(target, latestSource, { encoding: "utf8", mode: originalStat.mode });
+      sourceReplaced = false;
+      return {
+        applied: false,
+        status: "verification-failed",
+        issues: ["Post-apply verification did not find exactly one new Lab card."],
+      };
+    }
 
-  return {
-    applied: true,
-    status: "applied",
-    projectName: validation.projectName,
-    slug: validation.slug,
-    targetFile: validation.targetFile,
-    sourceSha256: sha256(nextSource),
-    stagedArtifactsRetained: true,
-    ownerNextStep: "Review the Lab page diff, run npm run smoke, then commit intentionally.",
-    verificationCommand: "cd portfolio-publisher-mcp && npm run smoke",
-  };
+    return {
+      applied: true,
+      status: "applied",
+      projectName: validation.projectName,
+      slug: validation.slug,
+      targetFile: validation.targetFile,
+      sourceSha256: sha256(nextSource),
+      stagedArtifactsRetained: true,
+      ownerNextStep: "Review the Lab page diff, run npm run smoke, then commit intentionally.",
+      verificationCommand: "cd portfolio-publisher-mcp && npm run smoke",
+    };
+  } catch (error) {
+    if (sourceReplaced && latestSource && originalStat) {
+      await fs.writeFile(target, latestSource, { encoding: "utf8", mode: originalStat.mode });
+    }
+    return { applied: false, status: "apply-failed", issues: [error.message] };
+  } finally {
+    await fs.rm(tempPath, { force: true });
+    if (lockHandle) {
+      await lockHandle.close();
+      await fs.rm(lockPath, { force: true });
+    }
+  }
 }
 
 function normalizeProjectQuery(value) {
