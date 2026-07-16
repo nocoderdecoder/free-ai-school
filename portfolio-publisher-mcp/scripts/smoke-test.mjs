@@ -173,7 +173,11 @@ send(33, "tools/call", {
 });
 await Promise.all([waitForResponse(31), waitForResponse(32), waitForResponse(33)]);
 const stagedPatchUrl = new URL("../generated/website-change-monitor-lab-card.patch", import.meta.url);
-const originalStagedPatch = await fs.readFile(stagedPatchUrl, "utf8");
+const stagedHandoffUrl = new URL("../generated/website-change-monitor-lab-card.md", import.meta.url);
+const [originalStagedPatch, originalStagedHandoff] = await Promise.all([
+  fs.readFile(stagedPatchUrl, "utf8"),
+  fs.readFile(stagedHandoffUrl, "utf8"),
+]);
 await fs.writeFile(
   stagedPatchUrl,
   `${originalStagedPatch}@@ -40,1 +40,1 @@\n-export default function LabPage() {\n+export default function CompromisedLabPage() {\n`,
@@ -259,6 +263,24 @@ send(42, "tools/call", {
   },
 });
 await waitForResponse(42);
+send(43, "tools/call", {
+  name: "discard_staged_lab_card_patch",
+  arguments: { projectName: "Website Change Monitor", confirm: false },
+});
+send(44, "tools/call", {
+  name: "discard_staged_lab_card_patch",
+  arguments: { projectName: "Never Staged Project", confirm: true },
+});
+send(45, "tools/call", {
+  name: "discard_staged_lab_card_patch",
+  arguments: { projectName: "Website Change Monitor", confirm: true },
+});
+await Promise.all([waitForResponse(43), waitForResponse(44), waitForResponse(45)]);
+send(46, "tools/call", {
+  name: "validate_staged_lab_card_patch",
+  arguments: { projectName: "Website Change Monitor" },
+});
+await waitForResponse(46);
 server.kill();
 await once(server, "exit");
 
@@ -547,18 +569,14 @@ const stagedPatch = JSON.parse(stagedPatchText);
 let stagedPatchFileOk = false;
 let stagedPatchHandoffOk = false;
 if (stagedPatch?.patchFile && stagedPatch?.handoffFile) {
-  const [patchContent, handoffContent] = await Promise.all([
-    fs.readFile(new URL(`../${stagedPatch.patchFile.replace(/^portfolio-publisher-mcp\//, "")}`, import.meta.url), "utf8"),
-    fs.readFile(new URL(`../${stagedPatch.handoffFile.replace(/^portfolio-publisher-mcp\//, "")}`, import.meta.url), "utf8"),
-  ]);
   stagedPatchFileOk =
-    patchContent.includes("--- a/app/lab/page.tsx") &&
-    patchContent.includes("+    Icon: WebsiteChangeMonitorIcon,");
+    originalStagedPatch.includes("--- a/app/lab/page.tsx") &&
+    originalStagedPatch.includes("+    Icon: WebsiteChangeMonitorIcon,");
   stagedPatchHandoffOk =
-    handoffContent.includes("# Staged Lab card patch: Website Change Monitor") &&
-    handoffContent.includes("Patch file: portfolio-publisher-mcp/generated/website-change-monitor-lab-card.patch") &&
-    handoffContent.includes("Ready to apply: Yes") &&
-    handoffContent.includes("Lab thumbnail icon is not currently imported");
+    originalStagedHandoff.includes("# Staged Lab card patch: Website Change Monitor") &&
+    originalStagedHandoff.includes("Patch file: portfolio-publisher-mcp/generated/website-change-monitor-lab-card.patch") &&
+    originalStagedHandoff.includes("Ready to apply: Yes") &&
+    originalStagedHandoff.includes("Lab thumbnail icon is not currently imported");
 }
 const stagedPatchOk =
   stagedPatch?.staged === true &&
@@ -633,6 +651,20 @@ const controlledApplyOk =
   unconfirmedApply?.applied === false &&
   unconfirmedApply?.status === "confirmation-required" &&
   restoredLabSource;
+const unconfirmedDiscard = JSON.parse(responseById.get(43)?.result?.content?.[0]?.text ?? "{}");
+const missingDiscard = JSON.parse(responseById.get(44)?.result?.content?.[0]?.text ?? "{}");
+const successfulDiscard = JSON.parse(responseById.get(45)?.result?.content?.[0]?.text ?? "{}");
+const discardedValidation = JSON.parse(responseById.get(46)?.result?.content?.[0]?.text ?? "{}");
+const stagedDiscardOk =
+  unconfirmedDiscard?.discarded === false &&
+  unconfirmedDiscard?.status === "confirmation-required" &&
+  missingDiscard?.discarded === false &&
+  missingDiscard?.status === "missing" &&
+  successfulDiscard?.discarded === true &&
+  successfulDiscard?.status === "discarded" &&
+  successfulDiscard?.sourceFilesChanged === false &&
+  successfulDiscard?.filesDeleted?.length === 2 &&
+  discardedValidation?.status === "missing";
 
 console.log(JSON.stringify({
   failed,
@@ -671,6 +703,7 @@ console.log(JSON.stringify({
   invalidStagedPatchOk,
   mismatchedStagedPatchOk,
   controlledApplyOk,
+  stagedDiscardOk,
 }, null, 2));
 
 if (
@@ -709,6 +742,7 @@ if (
   !invalidStagedPatchOk ||
   !mismatchedStagedPatchOk
   || !controlledApplyOk
+  || !stagedDiscardOk
 ) {
   process.exitCode = 1;
 }

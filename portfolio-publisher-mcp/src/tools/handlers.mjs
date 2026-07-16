@@ -1236,6 +1236,62 @@ async function applyStagedLabCardPatch(projects, args, source) {
   }
 }
 
+async function discardStagedLabCardPatch(args) {
+  if (args.confirm !== true) {
+    return {
+      discarded: false,
+      status: "confirmation-required",
+      issues: ["Set confirm to true only after deciding the staged review artifacts are no longer needed."],
+    };
+  }
+
+  const projectName = normalizeDraftValue(args.projectName);
+  const slug = slugifyProjectName(projectName);
+  if (!projectName || !slug) {
+    return {
+      discarded: false,
+      status: "invalid-request",
+      issues: ["Project name must contain letters or numbers."],
+    };
+  }
+
+  const generatedDir = path.join(paths.projectDir, "generated");
+  const baseName = `${slug}-lab-card`;
+  const patchPath = path.join(generatedDir, `${baseName}.patch`);
+  const handoffPath = path.join(generatedDir, `${baseName}.md`);
+  const files = [toRepoRelative(patchPath), toRepoRelative(handoffPath)];
+
+  try {
+    await Promise.all([
+      fs.access(assertSafeRead(patchPath)),
+      fs.access(assertSafeRead(handoffPath)),
+    ]);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return {
+        discarded: false,
+        status: "missing",
+        projectName,
+        slug,
+        files,
+        issues: ["The staged patch or handoff file is missing; no files were deleted."],
+      };
+    }
+    throw error;
+  }
+
+  await Promise.all([fs.rm(patchPath), fs.rm(handoffPath)]);
+  return {
+    discarded: true,
+    status: "discarded",
+    projectName,
+    slug,
+    filesDeleted: files,
+    sourceFilesChanged: false,
+    ownerNextStep: "Stage a fresh Lab card patch if this project still needs to be added.",
+  };
+}
+
 function normalizeProjectQuery(value) {
   return String(value ?? "").trim();
 }
@@ -1822,6 +1878,10 @@ export async function callTool(name, args = {}) {
   if (name === "apply_staged_lab_card_patch") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await applyStagedLabCardPatch(projects, args, source));
+  }
+
+  if (name === "discard_staged_lab_card_patch") {
+    return textResult(await discardStagedLabCardPatch(args));
   }
 
   if (name === "inspect_lab_thumbnail_icons") {

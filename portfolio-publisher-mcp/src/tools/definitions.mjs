@@ -295,6 +295,27 @@ export const tools = [
     },
   },
   {
+    name: "discard_staged_lab_card_patch",
+    title: "Discard Staged Lab Card Patch",
+    description:
+      "Delete one project's staged Lab card patch and handoff after explicit confirmation, without changing portfolio source files.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "Project name used when the Lab card patch was staged.",
+        },
+        confirm: {
+          type: "boolean",
+          description: "Must be true to delete the exact staged patch and handoff pair.",
+        },
+      },
+      required: ["projectName", "confirm"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "inspect_lab_thumbnail_icons",
     title: "Inspect Lab Thumbnail Icons",
     description:
