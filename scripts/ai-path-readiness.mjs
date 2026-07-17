@@ -4,6 +4,11 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import {
+  AI_PATH_SEMANTIC_LATCH_FILES,
+  inspectAiPathSemanticLatchGate,
+} from './ai-path-semantic-latch-gate.mjs'
+
 export const AI_PATH_READINESS_VERSION = '2026-07-17.v1'
 
 const scriptRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -24,6 +29,8 @@ const privateAlphaFiles = [
   'app/ai-path/plan-composer.test.mjs',
   'app/ai-path/route-handlers.test.mjs',
   'app/ai-path/reviewed-assessment.test.mjs',
+  'app/ai-path/reviewed-understanding.test.mjs',
+  'app/ai-path/lib/reviewed-understanding.ts',
   'app/ai-path/plan.test.mjs',
   'app/ai-path/client/analytics.test.mjs',
   'docs/ai-path/PRODUCT.md',
@@ -33,8 +40,14 @@ const privateAlphaFiles = [
   'docs/ai-path/research/review-packet.schema.json',
   'scripts/ai-path-research-agreement.mjs',
   'scripts/ai-path-research-agreement.test.mjs',
+  'scripts/ai-path-research-readiness.mjs',
+  'scripts/ai-path-research-readiness.test.mjs',
+  'scripts/ai-path-private-alpha-acceptance.mjs',
+  'scripts/ai-path-private-alpha-acceptance.test.mjs',
   'scripts/ai-path-e2e-qa.js',
   'scripts/ai-path-qa.md',
+  'docs/ai-path/PRIVATE_ALPHA_ACCEPTANCE.md',
+  'docs/ai-path/research/SESSION_READINESS.md',
 ]
 
 const productionFoundationFiles = [
@@ -46,6 +59,7 @@ const productionFoundationFiles = [
   'supabase/migrations/20260717060000_ai_path_bounded_retention.sql',
   'supabase/migrations/20260717070000_ai_path_realtime_admission_lifecycle.sql',
   'supabase/migrations/20260717080000_ai_path_realtime_admission_continuity_policy.sql',
+  'supabase/migrations/20260717090000_ai_path_analysis_transition.sql',
   'app/api/ai-path/session/[sessionId]/route.ts',
   'app/api/ai-path/plan/route.ts',
   'app/api/ai-path/plan/[planId]/route.ts',
@@ -64,6 +78,8 @@ const productionFoundationFiles = [
   'app/ai-path/lib/session-http.ts',
   'app/ai-path/lib/session-persistence.server.ts',
   'app/ai-path/lib/durable-session-runtime.server.ts',
+  'app/ai-path/lib/durable-trusted-analysis-runtime.server.ts',
+  'app/ai-path/lib/trusted-analysis.ts',
   'app/ai-path/lib/supabase-auth.server.ts',
   'app/ai-path/lib/supabase-persistence.ts',
   'app/ai-path/lib/supabase-session-repository.server.ts',
@@ -79,12 +95,19 @@ const productionFoundationFiles = [
   'app/ai-path/lib/analytics-http.ts',
   'app/ai-path/lib/analytics.server.ts',
   'app/ai-path/lib/analytics.ts',
+  'app/ai-path/lib/analytics-production.ts',
+  'app/ai-path/lib/analytics-production.server.ts',
+  'app/ai-path/lib/rate-limit.ts',
+  'app/ai-path/lib/rate-limit.server.ts',
   'app/ai-path/lib/retention-http.ts',
   'app/ai-path/lib/retention-supabase.server.ts',
   'app/ai-path/lib/retention-supabase.ts',
   'app/ai-path/lib/retention.ts',
+  'app/ai-path/lib/retention-runtime.server.ts',
   'app/ai-path/lib/realtime.server.ts',
   'app/ai-path/lib/realtime-bootstrap.ts',
+  'app/ai-path/lib/realtime-bootstrap-runtime.server.ts',
+  'app/ai-path/lib/realtime-provider-lifecycle.ts',
   'app/ai-path/lib/realtime-admission.ts',
   'app/ai-path/lib/realtime-admission-policy-contract.ts',
   'app/ai-path/lib/realtime-admission-policy.server.ts',
@@ -101,6 +124,8 @@ const productionFoundationFiles = [
   'app/ai-path/learning-plan-durable.test.mjs',
   'app/ai-path/realtime-safety.test.mjs',
   'app/ai-path/realtime-bootstrap.test.mjs',
+  'app/ai-path/realtime-bootstrap-runtime.test.mjs',
+  'app/ai-path/realtime-provider-lifecycle.test.mjs',
   'app/ai-path/realtime-admission.test.mjs',
   'app/ai-path/realtime-admission-sql.test.mjs',
   'app/ai-path/realtime-admission-lifecycle-sql.test.mjs',
@@ -112,6 +137,8 @@ const productionFoundationFiles = [
   'app/ai-path/retention-bounded-sql.test.mjs',
   'app/ai-path/analytics.test.mjs',
   'app/ai-path/analytics-http.test.mjs',
+  'app/ai-path/analytics-production.test.mjs',
+  'app/ai-path/rate-limit.test.mjs',
   'docs/ai-path/CATALOG.md',
   'docs/ai-path/MEASUREMENT.md',
   'docs/ai-path/PLAN_LOOP.md',
@@ -123,9 +150,13 @@ const productionFoundationFiles = [
   'docs/ai-path/DATABASE_PROOF_RUNBOOK.md',
   'docs/ai-path/DURABLE_TEXT_RELEASE_GATE.md',
   'docs/ai-path/REALTIME_PROVIDER_READINESS.md',
+  'docs/ai-path/REALTIME_REQUEST_ASSEMBLY.md',
   'docs/ai-path/RETENTION_OPERATIONS.md',
   'docs/ai-path/RETENTION_SUPABASE_ADAPTER.md',
   'docs/ai-path/OBSERVABILITY.md',
+  'docs/ai-path/LAUNCH_DECISION.md',
+  'docs/ai-path/RATE_LIMITING.md',
+  'docs/ai-path/SEMANTIC_LATCH_GATE.md',
   'scripts/ai-path-db-proof.sh',
   '.github/workflows/ai-path-db-proof.yml',
   'scripts/ai-path-db-proof-preflight.mjs',
@@ -135,6 +166,12 @@ const productionFoundationFiles = [
   'scripts/ai-path-db-proof/ci-bootstrap.sql',
   'scripts/ai-path-db-proof/static.test.mjs',
   'scripts/ai-path-durable-text-gate.mjs',
+  'scripts/ai-path-staging-evidence.mjs',
+  'scripts/ai-path-staging-evidence.test.mjs',
+  'scripts/ai-path-launch-decision.mjs',
+  'scripts/ai-path-launch-decision.test.mjs',
+  'scripts/ai-path-semantic-latch-gate.mjs',
+  'scripts/ai-path-semantic-latch-gate.test.mjs',
 ]
 
 const latchChecks = [
@@ -151,6 +188,20 @@ const latchChecks = [
     file: 'app/ai-path/lib/supabase-session-repository.server.ts',
     constant: 'AI_PATH_TRUSTED_REPORT_WRITER_LATCH',
     optional: false,
+  },
+  {
+    id: 'trusted_analysis_transition',
+    label: 'Trusted durable analysis transition',
+    file: 'app/ai-path/lib/supabase-session-repository.server.ts',
+    constant: 'AI_PATH_TRUSTED_ANALYSIS_TRANSITION_LATCH',
+    optional: true,
+  },
+  {
+    id: 'durable_trusted_analysis_runtime',
+    label: 'Durable trusted-analysis request runtime',
+    file: 'app/ai-path/lib/durable-trusted-analysis-runtime.server.ts',
+    constant: 'AI_PATH_DURABLE_TRUSTED_ANALYSIS_RUNTIME_LATCH',
+    optional: true,
   },
   {
     id: 'durable_plans',
@@ -172,6 +223,13 @@ const latchChecks = [
     file: 'app/ai-path/lib/analytics.ts',
     constant: 'AI_PATH_ANALYTICS_PRODUCTION_SINK_LATCH',
     optional: false,
+  },
+  {
+    id: 'distributed_rate_limit',
+    label: 'Distributed production rate limiting',
+    file: 'app/ai-path/lib/rate-limit.ts',
+    constant: 'AI_PATH_DISTRIBUTED_RATE_LIMIT_LATCH',
+    optional: true,
   },
   {
     id: 'retention_job',
@@ -200,6 +258,20 @@ const latchChecks = [
     file: 'app/ai-path/lib/realtime-bootstrap.ts',
     constant: 'AI_PATH_REALTIME_AUTHENTICATED_BOOTSTRAP_LATCH',
     optional: false,
+  },
+  {
+    id: 'realtime_request_assembly',
+    label: 'Request-scoped split-credential Realtime assembly',
+    file: 'app/ai-path/lib/realtime-bootstrap-runtime.server.ts',
+    constant: 'AI_PATH_REALTIME_REQUEST_ASSEMBLY_LATCH',
+    optional: true,
+  },
+  {
+    id: 'realtime_provider_lifecycle',
+    label: 'Realtime provider lifecycle reconciliation',
+    file: 'app/ai-path/lib/realtime-provider-lifecycle.ts',
+    constant: 'AI_PATH_REALTIME_PROVIDER_LIFECYCLE_LATCH',
+    optional: true,
   },
   {
     id: 'realtime_admission',
@@ -235,17 +307,17 @@ const externalBlockers = [
   {
     id: 'durable_plan_runtime_engineering',
     owner: 'Application and data engineering',
-    action: 'Dormant request-runtime wiring and the eight-migration disposable-database suite are complete. Keep every latch closed while platform engineering deploys the exact commit to isolated authenticated staging and collects ownership, rollback, export, deletion, and retention evidence for review.',
+    action: 'Dormant request-runtime wiring and the nine-migration disposable-database suite are complete. Keep every latch closed while platform engineering deploys the exact commit to isolated authenticated staging and collects ownership, rollback, export, deletion, and retention evidence for review.',
   },
   {
     id: 'realtime_route_engineering',
     owner: 'Application and security engineering',
-    action: 'The provider-free authenticated owner-to-intent-to-atomic-reservation sequence is implemented and adversarially tested. Assemble it with request-scoped split Supabase credentials only in non-production staging, prove unknown-commit replay and guaranteed zero-provider-call denials, then review the still-closed route latch.',
+    action: 'The provider-free authenticated sequence, dormant request-scoped split-credential runtime, and mock unknown-commit reconciliation contract are implemented and adversarially tested. Prove the assembled path and guaranteed zero-provider-call denials in isolated hosted staging, then review the still-closed route, assembly, lifecycle, and provider latches.',
   },
   {
     id: 'realtime_admission_proof_and_rollout',
     owner: 'Platform and data engineering',
-    action: 'Database-owned intent, continuity, policy, concurrency, lifecycle, and rollback contracts pass in disposable PostgreSQL. Prove request-level timeouts, unknown-commit replay, reconciliation, and zero-provider-call denials with split credentials in isolated staging before opening any admission latch.',
+    action: 'Database-owned intent, continuity, policy, concurrency, lifecycle, and rollback contracts pass in disposable PostgreSQL, and mock reconciliation is source-complete. Prove request-level timeouts, unknown-commit replay, lifecycle outcomes, and zero-provider-call denials with split credentials in isolated staging before opening any admission latch.',
   },
   {
     id: 'retention_adapter_engineering',
@@ -400,6 +472,67 @@ function inspectRealtimeBootstrapIsolation(root) {
   }
 }
 
+function inspectOptionalProviderFreeSource(root, check) {
+  const absolute = join(root, check.file)
+  if (!existsSync(absolute)) {
+    return {
+      id: check.id,
+      label: check.label,
+      file: check.file,
+      constant: null,
+      status: 'not_present',
+      detail: 'Optional provider-free module is not present; no activation surface was found.',
+    }
+  }
+  const source = uncommentedSource(readFileSync(absolute, 'utf8'))
+  const forbidden = /\bcreateLiveRealtimeCall\b|api\.openai\.com|\bOPENAI_[A-Z0-9_]*KEY\b|\bfetch\s*\(|from\s+['"]openai['"]|import\s*\(\s*['"]openai['"]\s*\)|OpenAI-Safety-Identifier|https?:\/\//i
+  return {
+    id: check.id,
+    label: check.label,
+    file: check.file,
+    constant: null,
+    status: forbidden.test(source) ? 'broken' : 'locked',
+    detail: forbidden.test(source)
+      ? 'Provider-free module contains a provider credential, URL, SDK, or network-call surface.'
+      : 'Provider-free module has no provider credential, URL, SDK, or network-call surface.',
+  }
+}
+
+function inspectSemanticLatchSideEffects(root) {
+  if (AI_PATH_SEMANTIC_LATCH_FILES.some(file => !existsSync(join(root, file)))) {
+    return {
+      id: 'semantic_latch_side_effects',
+      label: 'Semantic latch side-effect dominance',
+      file: 'scripts/ai-path-semantic-latch-gate.mjs',
+      constant: null,
+      status: 'not_present',
+      detail: 'Optional semantic source set is incomplete; no readiness claim is made.',
+    }
+  }
+  try {
+    const report = inspectAiPathSemanticLatchGate({ root })
+    return {
+      id: 'semantic_latch_side_effects',
+      label: 'Semantic latch side-effect dominance',
+      file: 'scripts/ai-path-semantic-latch-gate.mjs',
+      constant: null,
+      status: report.ok ? 'locked' : 'broken',
+      detail: report.ok
+        ? `${report.verified}/${report.required} sensitive effects are dominated by closed latches.`
+        : `${report.checks.filter(check => check.status === 'broken').length} semantic latch contract(s) are broken.`,
+    }
+  } catch {
+    return {
+      id: 'semantic_latch_side_effects',
+      label: 'Semantic latch side-effect dominance',
+      file: 'scripts/ai-path-semantic-latch-gate.mjs',
+      constant: null,
+      status: 'broken',
+      detail: 'Semantic latch inspection failed closed.',
+    }
+  }
+}
+
 export function inspectAiPathReadiness(options = {}) {
   const root = resolve(options.root ?? scriptRoot)
   const privateInventory = filePresence(root, privateAlphaFiles)
@@ -408,6 +541,17 @@ export function inspectAiPathReadiness(options = {}) {
     ...latchChecks.map((check) => inspectLatch(root, check)),
     inspectRealtimeRoute(root),
     inspectRealtimeBootstrapIsolation(root),
+    inspectOptionalProviderFreeSource(root, {
+      id: 'realtime_request_assembly_provider_isolation',
+      label: 'Realtime request-assembly provider isolation',
+      file: 'app/ai-path/lib/realtime-bootstrap-runtime.server.ts',
+    }),
+    inspectOptionalProviderFreeSource(root, {
+      id: 'realtime_provider_lifecycle_network_isolation',
+      label: 'Realtime lifecycle reconciliation network isolation',
+      file: 'app/ai-path/lib/realtime-provider-lifecycle.ts',
+    }),
+    inspectSemanticLatchSideEffects(root),
   ]
   const brokenSafety = safetyChecks.filter((check) => check.status === 'broken')
   const missingPrivateAlpha = privateInventory.filter((item) => !item.present)

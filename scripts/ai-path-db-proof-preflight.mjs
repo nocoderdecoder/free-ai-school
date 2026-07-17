@@ -17,6 +17,7 @@ const requiredMigrations = [
   '20260717060000_ai_path_bounded_retention.sql',
   '20260717070000_ai_path_realtime_admission_lifecycle.sql',
   '20260717080000_ai_path_realtime_admission_continuity_policy.sql',
+  '20260717090000_ai_path_analysis_transition.sql',
 ]
 const requiredProofFiles = [
   'scripts/ai-path-db-proof.sh',
@@ -135,4 +136,3 @@ if (isCli) {
     if (!report.ok) process.exitCode = 2
   }
 }
-

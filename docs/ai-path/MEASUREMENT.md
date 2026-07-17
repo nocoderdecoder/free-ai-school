@@ -64,7 +64,7 @@ The coded contract is `app/ai-path/catalog/measurement.ts`. Each event uses an o
 | `profile_completed` | Goal/constraint form passes validation | intent and weekly-hours bands |
 | `assessment_started` | First assessment question is shown | text/voice mode |
 | `assessment_completed` | Interview reaches its normal completion state | mode and duration |
-| `understanding_reviewed` | Learner approves the editable understanding | correction/removal counts |
+| `understanding_reviewed` | Learner approves the editable understanding | final unique correction/removal counts only; no interpretation text |
 | `report_viewed` | Illustrative or validated result is visible | result status |
 | `plan_saved` | Learner saves a plan snapshot | plan version |
 | `first_task_started` | First planned action starts | lesson/project/practice |
@@ -128,4 +128,3 @@ Review a compact evidence packet:
 7. Cost per valid completed report only after paid services are explicitly approved.
 
 Do not make roadmap decisions from fewer than five completed moderated sessions or from a rate whose denominator is below 20. Treat such rates as directional.
-

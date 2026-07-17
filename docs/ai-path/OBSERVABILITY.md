@@ -1,8 +1,9 @@
 # AI Path observability and privacy-safe analytics
 
-Status: local foundation only. No production or external analytics sink is
-implemented or enabled. `AI_PATH_ANALYTICS_PRODUCTION_SINK_LATCH` is a literal
-`false`, so deployment variables cannot activate production collection.
+Status: local foundation plus a vendor-neutral production capability boundary.
+No production or external analytics sink is implemented or enabled.
+`AI_PATH_ANALYTICS_PRODUCTION_SINK_LATCH` is a literal `false`, so deployment
+variables cannot activate production collection.
 
 ## Data contract
 
@@ -129,6 +130,15 @@ Suggested operational alerts after a reviewed production sink exists:
    metrics outside engineering.
 7. Change the literal production latch in a reviewed code change only after all
    prior gates pass.
+
+`analytics-production.server.ts` now makes those requirements executable rather
+than advisory. Even a supplied sink remains unreachable until the caller attests
+the pinned schema, server-only credentials, reviewed data region, retention of
+at most 90 days, 24-hour deletion SLO, reporting cohort of at least 10,
+replay-safe writes, least-privilege access, encryption at rest and in transit,
+rollback readiness, and an HTTPS privacy-review reference. The module reads no
+environment variables, names no vendor, constructs no client, and performs no
+network call. The literal production latch remains closed.
 
 ## Verification
 

@@ -11,7 +11,7 @@ import {
 export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
-  const rate = await checkAiPathRateLimit(request, { tool: 'ai-path-analysis', limit: 20, windowMs: 60 * 60 * 1000 })
+  const rate = await checkAiPathRateLimit(request, 'ai-path-analysis')
   if (!rate.allowed) return aiPathRateLimitResponse(rate)
   const sessionRuntime = await selectAssessmentRequestRuntime(request)
   return applyAssessmentRuntimeResponse(

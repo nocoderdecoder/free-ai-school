@@ -41,6 +41,8 @@ export type Database = {
           report_saved_at: string | null
           report_write_id: string | null
           report_digest: string | null
+          analysis_attempt_id: string | null
+          analysis_started_at: string | null
           retention_expires_at: string
           created_at: string
           updated_at: string
@@ -64,6 +66,8 @@ export type Database = {
           report_saved_at?: string | null
           report_write_id?: string | null
           report_digest?: string | null
+          analysis_attempt_id?: string | null
+          analysis_started_at?: string | null
           retention_expires_at?: string
           created_at?: string
           updated_at?: string
@@ -87,6 +91,8 @@ export type Database = {
           report_saved_at?: string | null
           report_write_id?: string | null
           report_digest?: string | null
+          analysis_attempt_id?: string | null
+          analysis_started_at?: string | null
           retention_expires_at?: string
           created_at?: string
           updated_at?: string
@@ -313,6 +319,14 @@ export type Database = {
           p_scoring_version: string
           p_report_version: string
           p_catalog_version: string
+        }
+        Returns: Json
+      }
+      begin_ai_path_analysis_trusted: {
+        Args: {
+          p_session_id: string
+          p_owner_id: string
+          p_proposed_attempt_id: string
         }
         Returns: Json
       }

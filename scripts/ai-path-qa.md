@@ -88,5 +88,9 @@ some versions. The shell driver therefore treats either `### Error` or a missing
   regression baselines still require explicit design approval and maintenance.
 - Download contents are validated in Chromium; Firefox/WebKit parity is not in
   this no-dependency slice.
+- A separate evidence contract in `docs/ai-path/PRIVATE_ALPHA_ACCEPTANCE.md`
+  requires Chromium, Firefox, and WebKit before multi-browser acceptance can be
+  claimed. Validate a completed packet with
+  `node scripts/ai-path-private-alpha-acceptance.mjs <evidence.json>`.
 - Real Realtime audio, microphone permission, external learning links, and any
   paid model path are intentionally excluded.

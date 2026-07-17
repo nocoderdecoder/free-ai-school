@@ -17,6 +17,13 @@ import type { AssessmentReport, SkillId, SkillLevel } from './lib/foundation'
 import type { AiPathGoalType } from './lib/goal-type'
 import { getPlanBlueprint } from './lib/plan'
 import { composePersonalizedPlan } from './lib/plan-composer'
+import {
+  MINIMUM_REVIEWED_INPUTS,
+  activeReviewedInputs,
+  canRemoveReviewedInput,
+  reviewedUnderstandingTelemetry,
+  type ReviewSelection,
+} from './lib/reviewed-understanding'
 
 type Stage = 'landing' | 'profile' | 'setup' | 'interview' | 'understanding' | 'results' | 'plan' | 'history'
 type MicState = 'idle' | 'requesting' | 'ready' | 'denied'
@@ -29,14 +36,11 @@ type UnderstandingItem = {
   confidence: 'Clear' | 'Tentative'
 }
 
-const goalOptions = [
-  { id: 'workflows', title: 'Automate parts of my work', detail: 'Build reliable workflows that save time every week.' },
-  { id: 'builder', title: 'Build AI apps or agents', detail: 'Move from demos to useful, testable products.' },
-  { id: 'career', title: 'Grow or change my career', detail: 'Create proof that maps to a real role.' },
-  { id: 'leader', title: 'Lead an AI initiative', detail: 'Choose use cases, align teams, and measure value.' },
-  { id: 'foundations', title: 'Understand the fundamentals', detail: 'Learn the concepts without drowning in jargon.' },
-  { id: 'unsure', title: 'I am not sure yet', detail: 'Use the conversation to find a useful direction.' },
-] as const
+const PRIVATE_ALPHA_GOAL: { id: AiPathGoalType; title: string; detail: string } = {
+  id: 'workflows',
+  title: 'Build one reliable AI-assisted work workflow',
+  detail: 'For working professionals who already use a general-purpose AI tool and want a practical no-code or light-code workflow.',
+}
 
 const interviewCheckpointLabels: Record<string, string> = {
   'concrete_example': 'Concrete example',
@@ -194,12 +198,12 @@ function FlowHeader({ stage, onNavigate, canViewHistory }: { stage: Stage; onNav
 
 export function AdvisorApp() {
   const [stage, setStage] = useState<Stage>('landing')
-  const [goal, setGoal] = useState<AiPathGoalType>('workflows')
-  const [role, setRole] = useState('Product marketing lead at a B2B software company')
-  const [outcome, setOutcome] = useState('Turn a small set of sources into a useful weekly market brief without losing citations or spending half a day on it.')
+  const goal = PRIVATE_ALPHA_GOAL.id
+  const [role, setRole] = useState('')
+  const [outcome, setOutcome] = useState('')
   const [hours, setHours] = useState('3')
   const [codingComfort, setCodingComfort] = useState('Some, but I prefer no-code first')
-  const [blocker, setBlocker] = useState('I start courses but lose momentum before I build anything useful.')
+  const [blocker, setBlocker] = useState('')
   const [privacyAccepted, setPrivacyAccepted] = useState(false)
   const [privacyOpen, setPrivacyOpen] = useState(false)
   const [micState, setMicState] = useState<MicState>('idle')
@@ -209,6 +213,8 @@ export function AdvisorApp() {
   const [answer, setAnswer] = useState('')
   const [understanding, setUnderstanding] = useState<UnderstandingItem[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [removedInputIds, setRemovedInputIds] = useState<ReviewSelection>({})
+  const [reviewStatus, setReviewStatus] = useState('')
   const [completedTasks, setCompletedTasks] = useState<Record<string, boolean>>({})
   const [planSaved, setPlanSaved] = useState(false)
   const [setupError, setSetupError] = useState('')
@@ -244,13 +250,14 @@ export function AdvisorApp() {
 
   if (!analyticsRef.current) analyticsRef.current = new AiPathBrowserAnalytics()
 
-  const selectedGoal = goalOptions.find(option => option.id === goal) ?? goalOptions[0]
-  const reviewedGoal = understanding.find(item => item.id === 'goal')?.value.trim() || outcome.trim()
-  const reviewedConstraint = understanding
+  const activeUnderstanding = activeReviewedInputs(understanding, removedInputIds)
+  const reviewedGoal = activeUnderstanding.find(item => item.id === 'goal')?.value.trim() || outcome.trim()
+  const reviewedConstraint = activeUnderstanding
     .filter(item => item.id === 'constraint' || item.id === 'constraint-follow-up')
     .map(item => item.value.trim())
     .filter(Boolean)
-    .join(' ') || blocker.trim()
+    .join(' ')
+  const reviewTelemetry = reviewedUnderstandingTelemetry(understanding, correctedInputIds, removedInputIds)
   const personalizedPlan = useMemo(() => assessmentReport ? composePersonalizedPlan({
     goalType: goal,
     weeklyHours: Number(planHours) || 1,
@@ -316,6 +323,8 @@ export function AdvisorApp() {
       if (adaptiveInterview?.status === 'complete') {
         recordAssessmentCompletion()
         setUnderstanding(buildUnderstandingFromInterview(adaptiveInterview, outcome, hours, blocker))
+        setRemovedInputIds({})
+        setReviewStatus('')
         setStage('understanding')
         setInterviewStatus('agent')
         return
@@ -378,6 +387,8 @@ export function AdvisorApp() {
       setAdaptiveInterview(interview.state)
       setUnderstanding([])
       setCorrectedInputIds({})
+      setRemovedInputIds({})
+      setReviewStatus('')
       assessmentStartedAtRef.current = Date.now()
       assessmentCompletionRecordedRef.current = false
       void analyticsRef.current?.profileCompleted(goal, weeklyHoursBand(hours))
@@ -411,6 +422,8 @@ export function AdvisorApp() {
     setAdaptiveInterview(restarted.state)
     setUnderstanding([])
     setCorrectedInputIds({})
+    setRemovedInputIds({})
+    setReviewStatus('')
     setAnswer('')
     setInterviewStatus('agent')
     setStage('interview')
@@ -421,6 +434,8 @@ export function AdvisorApp() {
     if (!adaptiveInterview || adaptiveInterview.turns.length === 0) return
     recordAssessmentCompletion()
     setUnderstanding(buildUnderstandingFromInterview(adaptiveInterview, outcome, hours, blocker))
+    setRemovedInputIds({})
+    setReviewStatus('')
     setInterviewStatus('agent')
     setStage('understanding')
   }
@@ -430,15 +445,34 @@ export function AdvisorApp() {
     setCorrectedInputIds(ids => ({ ...ids, [id]: true }))
   }
 
+  const toggleUnderstandingRemoval = (item: UnderstandingItem) => {
+    if (removedInputIds[item.id]) {
+      setRemovedInputIds(ids => {
+        const next = { ...ids }
+        delete next[item.id]
+        return next
+      })
+      setReviewStatus(`${item.label} restored and included in the report.`)
+      return
+    }
+    if (!canRemoveReviewedInput(understanding, removedInputIds, item.id)) {
+      setReviewStatus(`Keep at least ${MINIMUM_REVIEWED_INPUTS} non-empty interpretations so the report has enough reviewed input.`)
+      return
+    }
+    setRemovedInputIds(ids => ({ ...ids, [item.id]: true }))
+    setEditingId(current => current === item.id ? null : current)
+    setReviewStatus(`${item.label} removed. It will not be sent as reviewed evidence unless you restore it.`)
+  }
+
   const buildAssessment = async () => {
     if (!sessionId) {
       setAnalysisState('error')
       setAnalysisError('This assessment session is missing. Return to your profile and start again.')
       return
     }
-    if (understanding.filter(item => item.value.trim()).length < 2) {
+    if (activeUnderstanding.length < MINIMUM_REVIEWED_INPUTS) {
       setAnalysisState('error')
-      setAnalysisError('Add at least two reviewed responses before building your report.')
+      setAnalysisError(`Keep at least ${MINIMUM_REVIEWED_INPUTS} non-empty reviewed responses before building your report.`)
       return
     }
     if (sessionOwned && reviewedGoal !== outcome.trim()) {
@@ -448,14 +482,14 @@ export function AdvisorApp() {
     }
     setAnalysisState('running')
     setAnalysisError('')
-    void analyticsRef.current?.understandingReviewed(Object.keys(correctedInputIds).length)
+    void analyticsRef.current?.understandingReviewed(reviewTelemetry.correctionCount, reviewTelemetry.removedObservationCount)
     try {
       const report = await analyzeReviewedAssessment({
         assessmentSessionId: sessionId,
         goal: reviewedGoal,
         goalType: goal,
         weeklyHours: Number(hours) || 1,
-        reviewedInputs: understanding.map(item => ({ id: item.id, value: item.value })),
+        reviewedInputs: activeUnderstanding.map(item => ({ id: item.id, value: item.value })),
       })
       setAssessmentReport(report)
       setPlanHours(hours)
@@ -723,29 +757,25 @@ export function AdvisorApp() {
               <div className="ap-timeNote"><span>About 5 minutes</span><small>Then you will answer five to seven adaptive questions.</small></div>
             </aside>
             <div className="ap-formCard">
-              <fieldset>
-                <legend>What would make learning AI worth it for you?</legend>
-                <div className="ap-goalGrid">
-                  {goalOptions.map(option => (
-                    <label key={option.id} className={goal === option.id ? 'is-selected' : ''}>
-                      <input type="radio" name="goal" value={option.id} checked={goal === option.id} onChange={() => setGoal(option.id)} />
-                      <span className="ap-radioDot" aria-hidden="true" />
-                      <strong>{option.title}</strong>
-                      <small>{option.detail}</small>
-                    </label>
-                  ))}
+              <div className="ap-alphaScope" aria-labelledby="ap-alpha-scope-title">
+                <span className="ap-alphaScopeMark" aria-hidden="true"><CheckIcon /></span>
+                <div>
+                  <p className="ap-kicker">Workflow-builder private alpha</p>
+                  <h2 id="ap-alpha-scope-title">{PRIVATE_ALPHA_GOAL.title}</h2>
+                  <p>{PRIVATE_ALPHA_GOAL.detail}</p>
+                  <small>Not the right fit yet? Broader paths for engineers, leaders, creators, career changers, and AI fundamentals come after this assessment is validated.</small>
                 </div>
-              </fieldset>
+              </div>
 
               <div className="ap-fieldGrid">
                 <label className="ap-field ap-fieldWide">
                   <span>Your role or area of work</span>
-                  <input value={role} onChange={event => setRole(event.target.value)} maxLength={160} placeholder="For example, operations manager in healthcare" />
+                  <input value={role} onChange={event => setRole(event.target.value)} maxLength={160} placeholder="Example only: operations manager in healthcare" />
                 </label>
                 <label className="ap-field ap-fieldWide">
-                  <span>What would you like to be able to do?</span>
-                  <textarea value={outcome} onChange={event => setOutcome(event.target.value)} maxLength={1200} rows={4} placeholder="Describe a real outcome, workflow, or proof you want to create." />
-                  <small>Specific beats impressive. You can refine this in the conversation.</small>
+                  <span>Which work workflow should improve in 30 days?</span>
+                  <textarea value={outcome} onChange={event => setOutcome(event.target.value)} maxLength={1200} rows={4} placeholder="Example only: turn approved sources into a weekly brief with citations in under two hours." />
+                  <small>Examples are prompts only and are never submitted as your answers. Specific beats impressive; you can refine your answer in the conversation.</small>
                 </label>
                 <label className="ap-field">
                   <span>Time available each week</span>
@@ -767,7 +797,7 @@ export function AdvisorApp() {
                 </label>
                 <label className="ap-field ap-fieldWide">
                   <span>What most often gets in the way?</span>
-                  <textarea value={blocker} onChange={event => setBlocker(event.target.value)} maxLength={600} rows={3} />
+                  <textarea value={blocker} onChange={event => setBlocker(event.target.value)} maxLength={600} rows={3} placeholder="Example only: I can test outputs, but I do not have a repeatable quality checklist." />
                 </label>
               </div>
 
@@ -777,7 +807,7 @@ export function AdvisorApp() {
               </label>
 
               <div className="ap-formFooter">
-                <p><span>{selectedGoal.title}</span> · {hourLabel(hours)} a week · {codingComfort}</p>
+                <p><span>Workflow-builder alpha</span> · {hourLabel(hours)} a week · {codingComfort}</p>
                 <div className="ap-heroActions">
                   <button type="button" className="ap-quietButton" onClick={() => setStage('setup')} disabled={!profileReady}>Preview future voice setup</button>
                   <PrimaryButton onClick={continueWithText} disabled={!profileReady || sessionState === 'starting'}>{sessionState === 'starting' ? 'Starting session…' : 'Start guided questions'}</PrimaryButton>
@@ -914,27 +944,54 @@ export function AdvisorApp() {
                 <h1 ref={headingRef} tabIndex={-1}>Here is what I understood.</h1>
                 <p>Correct the interpretation before it becomes a plan. Tentative findings stay tentative until you confirm them.</p>
               </div>
-              <div className="ap-evidenceCount"><strong>{understanding.length}</strong><span>reviewable inputs</span></div>
+              <div className="ap-evidenceCount">
+                <strong>{activeUnderstanding.length}</strong>
+                <span>included · {reviewTelemetry.removedObservationCount} removed</span>
+              </div>
             </div>
 
             <div className="ap-understandingGrid">
-              {understanding.map(item => (
-                <article key={item.id} className="ap-understandingCard">
-                  <div className="ap-cardTop"><span>{item.label}</span><i className={item.confidence === 'Clear' ? 'is-clear' : ''}>{item.confidence}</i></div>
-                  {editingId === item.id ? (
+              {understanding.map(item => {
+                const isRemoved = Boolean(removedInputIds[item.id])
+                const canRemove = canRemoveReviewedInput(understanding, removedInputIds, item.id)
+                return (
+                <article key={item.id} className={`ap-understandingCard${isRemoved ? ' is-removed' : ''}`} aria-labelledby={`ap-review-label-${item.id}`}>
+                  <div className="ap-cardTop">
+                    <span id={`ap-review-label-${item.id}`}>{item.label}</span>
+                    <i className={!isRemoved && item.confidence === 'Clear' ? 'is-clear' : ''}>{isRemoved ? 'Removed' : item.confidence}</i>
+                  </div>
+                  {isRemoved ? (
+                    <p className="ap-removedNotice">Rejected interpretation · excluded from the report</p>
+                  ) : editingId === item.id ? (
                     <textarea aria-label={`Edit ${item.label}`} value={item.value} onChange={event => updateUnderstanding(item.id, event.target.value)} maxLength={2000} rows={5} />
                   ) : <p className="ap-reviewedValue">{item.value}</p>}
                   <details>
                     <summary>Why I think this</summary>
                     <p>{item.evidence}</p>
                   </details>
-                  <button type="button" className="ap-editButton" onClick={() => setEditingId(editingId === item.id ? null : item.id)}>{editingId === item.id ? 'Save correction' : 'Edit this'}</button>
+                  <div className="ap-reviewActions">
+                    {!isRemoved && <button type="button" className="ap-editButton" onClick={() => setEditingId(editingId === item.id ? null : item.id)}>{editingId === item.id ? 'Save correction' : 'Edit this'}</button>}
+                    <button
+                      type="button"
+                      className="ap-removeButton"
+                      aria-disabled={!isRemoved && !canRemove}
+                      aria-describedby="ap-review-minimum"
+                      onClick={() => toggleUnderstandingRemoval(item)}
+                    >
+                      {isRemoved ? 'Restore interpretation' : 'Remove from report'}
+                    </button>
+                  </div>
                 </article>
-              ))}
+                )
+              })}
             </div>
 
             <div className="ap-reviewFooter">
-              <div><strong>Anything important still missing?</strong><p>Revise any answer before the server builds a conservative report from this reviewed understanding.</p></div>
+              <div>
+                <strong>Anything incorrect or unsupported?</strong>
+                <p id="ap-review-minimum">Edit it, or remove an interpretation you reject. Removed items stay here for restoration and are not sent as reviewed evidence. Keep at least {MINIMUM_REVIEWED_INPUTS} non-empty inputs.</p>
+                {reviewStatus && <p className="ap-reviewStatus" role="status" aria-live="polite">{reviewStatus}</p>}
+              </div>
               <button type="button" className="ap-secondary" onClick={restartAdaptiveQuestions}>Restart adaptive questions</button>
               <PrimaryButton onClick={buildAssessment} disabled={analysisState === 'running'}>{analysisState === 'running' ? 'Building the evidence-informed report…' : 'Use this to build my report'}</PrimaryButton>
             </div>
@@ -951,9 +1008,9 @@ export function AdvisorApp() {
             <div className="ap-resultsHeroGrid">
               <div>
                 <p className="ap-eyebrow">Your priority now</p>
-                <h1 ref={headingRef} tabIndex={-1}>Working direction: <em>{selectedGoal.title.toLowerCase()}.</em></h1>
+                <h1 ref={headingRef} tabIndex={-1}>Working direction: <em>{PRIVATE_ALPHA_GOAL.title.toLowerCase()}.</em></h1>
                 <p>This report uses only the responses you reviewed. Application-owned rules score transcript-linked evidence and select from the curated catalog; no live model or hidden voice analysis is involved.</p>
-                <div className="ap-evidenceInline"><span><CheckIcon /></span><p><strong>{assessedCount} skills assessed</strong> from {understanding.length} reviewed inputs; the rest remain explicitly unassessed.</p></div>
+                <div className="ap-evidenceInline"><span><CheckIcon /></span><p><strong>{assessedCount} skills assessed</strong> from {activeUnderstanding.length} included inputs; {reviewTelemetry.removedObservationCount} removed {reviewTelemetry.removedObservationCount === 1 ? 'interpretation was' : 'interpretations were'} excluded.</p></div>
               </div>
               <aside className="ap-nextMove">
                 <span>30-day proof</span>

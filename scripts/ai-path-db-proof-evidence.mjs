@@ -117,7 +117,7 @@ function inspectProofLog(input) {
   const matches = input.text.split(/\r?\n/).map((line) => successMarker.exec(line)).filter(Boolean)
   if (matches.length !== 1) throw new Error('proof log must contain exactly one content-free success marker')
   const migrationCount = Number(matches[0][1])
-  if (migrationCount < 8) throw new Error('proof log migration count is below the required baseline')
+  if (migrationCount < 9) throw new Error('proof log migration count is below the required baseline')
   return { migrationCount, sha256: digest(input.buffer) }
 }
 

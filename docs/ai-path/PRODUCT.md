@@ -10,6 +10,8 @@ The product is not a quiz, a personality test, or a course marketplace. It is a 
 
 The private alpha is intentionally narrow: working professionals who already use general-purpose AI tools and want to build one reliable work workflow. They may prefer no-code or light code. Later tracks can cover applied-AI engineers, leaders, creators, and career switchers after the assessment model is validated.
 
+The intake labels this scope before collecting any learner response. Role, 30-day workflow outcome, and blocker start blank. Any example copy is explicitly marked as an example and is never treated as learner input. The private alpha does not present broader persona paths that it is not yet designed to assess.
+
 ## Core promise
 
 In under ten minutes, a learner should leave with:
@@ -26,7 +28,7 @@ In under ten minutes, a learner should leave with:
 1. **Frame the outcome.** Capture role, desired outcome, time budget, coding comfort, and the usual blocker.
 2. **Choose a mode.** Voice is optional. The text path is functionally complete.
 3. **Interview adaptively.** Ask one question at a time and seek concrete projects, artifacts, independence, outcomes, failures, evaluation, deployment, and safety practices.
-4. **Review the understanding.** The learner edits interpretations and transcript excerpts before they affect the report.
+4. **Review the understanding.** The learner edits interpretations or rejects and removes them before they affect the report. Removed interpretations remain visible and can be restored; at least two non-empty reviewed inputs are required to build a report.
 5. **Compute the report.** Versioned application rules turn validated evidence into skill stages and confidence. Missing evidence remains “not assessed,” never zero.
 6. **Select a path.** Deterministic ranking chooses from a curated catalog whose links, prerequisites, cost, time, and skill mappings are maintained by the application.
 7. **Build and prove.** A 30-day plan centers on one useful artifact, not course completion.

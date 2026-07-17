@@ -19,6 +19,10 @@ const routeSource = await readFile(
   new URL('../api/cron/ai-path-retention/route.ts', import.meta.url),
   'utf8',
 )
+const runtimeSource = await readFile(
+  new URL('./lib/retention-runtime.server.ts', import.meta.url),
+  'utf8',
+)
 const boundedRetentionMigration = await readFile(
   new URL('../../supabase/migrations/20260717060000_ai_path_bounded_retention.sql', import.meta.url),
   'utf8',
@@ -229,7 +233,21 @@ test('bounded service-role grants and both independent code latches remain fail-
   assert.match(serverSource, /activation\.credentialScope !== 'service-role'/)
   assert.doesNotMatch(serverSource, /process\.env|console\.|fetch\s*\(/)
   assert.match(routeSource, /AI_PATH_RETENTION_JOB_READY = false as const/)
-  assert.doesNotMatch(routeSource, /retention-supabase\.server/)
+  assert.match(routeSource, /getAiPathRetentionHttpRuntime\(AI_PATH_RETENTION_JOB_READY\)/)
+  assert.match(runtimeSource, /if \(!routeReady \|\| !AI_PATH_SUPABASE_RETENTION_GATEWAY_LATCH\)/)
+  assert.ok(
+    runtimeSource.indexOf('if (!routeReady || !AI_PATH_SUPABASE_RETENTION_GATEWAY_LATCH)')
+      < runtimeSource.indexOf('process.env.SUPABASE_SERVICE_ROLE_KEY'),
+    'literal code latches must be checked before the service credential is read',
+  )
+  assert.ok(
+    runtimeSource.indexOf('process.env.SUPABASE_SERVICE_ROLE_KEY')
+      < runtimeSource.indexOf('createClient<Database>'),
+    'the service credential must be validated before client construction',
+  )
+  assert.match(runtimeSource, /maximumDeletesPerTarget: AI_PATH_RETENTION_MAXIMUM_DELETES_PER_TARGET/)
+  assert.match(runtimeSource, /targetTimeoutMs: AI_PATH_RETENTION_TARGET_TIMEOUT_MS/)
+  assert.doesNotMatch(runtimeSource, /console\.|request\.body|response\.body|transcript|check[_ -]?in[_ -]?text/i)
 
   assert.match(
     boundedRetentionMigration,

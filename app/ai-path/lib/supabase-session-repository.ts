@@ -53,6 +53,26 @@ export type SupabaseTrustedReportGateway = {
   ): Promise<GatewayResult<TrustedReportCompletionPayload>>
 }
 
+export type TrustedAnalysisTransitionPayload = {
+  session: AiPathSessionRow
+  replayed: boolean
+  analysisAttemptId: string
+  analysisStartedAt: string
+  completed: boolean
+}
+
+export type TrustedAnalysisTransitionArgs = {
+  sessionId: string
+  ownerId: string
+  proposedAttemptId: string
+}
+
+export type SupabaseTrustedAnalysisTransitionGateway = {
+  begin(
+    input: TrustedAnalysisTransitionArgs,
+  ): Promise<GatewayResult<TrustedAnalysisTransitionPayload>>
+}
+
 export class SupabaseSessionRepositoryError extends Error {
   readonly code?: string
 
@@ -161,6 +181,104 @@ export type TrustedReportCompletionResult = {
   reportDigest: string
 }
 
+export type TrustedAnalysisTransitionResult = {
+  session: AssessmentSessionRecord
+  replayed: boolean
+  analysisAttemptId: string
+  analysisStartedAt: string
+  completed: boolean
+}
+
+/**
+ * Owner-bound adapter for the service-role-only analysis transition RPC.
+ *
+ * A caller supplies only a principal already verified by Supabase and a session
+ * UUID. PostgreSQL owns lifecycle eligibility and returns no report content.
+ */
+export class SupabaseTrustedAnalysisTransition {
+  readonly #gateway: SupabaseTrustedAnalysisTransitionGateway
+
+  constructor(gateway: SupabaseTrustedAnalysisTransitionGateway) {
+    this.#gateway = gateway
+  }
+
+  async beginForVerifiedOwner(
+    principal: AssessmentPrincipal,
+    sessionId: string,
+    proposedAttemptId: string,
+  ): Promise<TrustedAnalysisTransitionResult> {
+    if (principal.source !== 'supabase' || !uuidPattern.test(principal.userId)) {
+      throw new SupabaseSessionRepositoryError('A verified Supabase principal is required.')
+    }
+    if (!uuidPattern.test(sessionId) || !uuidPattern.test(proposedAttemptId)) {
+      throw new SupabaseSessionRepositoryError('Trusted analysis identifiers must be UUIDs.')
+    }
+
+    const result = await this.#gateway.begin({
+      sessionId,
+      ownerId: principal.userId,
+      proposedAttemptId,
+    })
+    if (result.error) throwGatewayError('trusted analysis transition', result.error)
+    if (!result.data) {
+      throw new SupabaseSessionRepositoryError('Trusted analysis transition returned no result.')
+    }
+
+    const {
+      session,
+      replayed,
+      analysisAttemptId,
+      analysisStartedAt,
+      completed,
+    } = result.data
+    const startedAtMs = Date.parse(analysisStartedAt)
+    const storedStartedAtMs = Date.parse(session.analysis_started_at ?? '')
+    const validStartedAt = Number.isFinite(startedAtMs)
+      && Number.isFinite(storedStartedAtMs)
+      && startedAtMs === storedStartedAtMs
+    const normalizedStartedAt = validStartedAt
+      ? new Date(startedAtMs).toISOString()
+      : analysisStartedAt
+    const completedReportStartedAtMs = session.report !== null
+      && typeof session.report === 'object'
+      && !Array.isArray(session.report)
+      && typeof session.report.generatedAt === 'string'
+      ? Date.parse(session.report.generatedAt)
+      : Number.NaN
+    const pendingStateValid = session.status === 'analysis_pending'
+      && completed === false
+      && session.report === null
+      && session.report_saved_at === null
+      && session.report_write_id === null
+      && session.report_digest === null
+    const completedStateValid = session.status === 'complete'
+      && completed === true
+      && session.report !== null
+      && session.report_saved_at !== null
+      && session.report_write_id === analysisAttemptId
+      && sha256Pattern.test(session.report_digest ?? '')
+      && completedReportStartedAtMs === startedAtMs
+    if (
+      session.id !== sessionId
+      || session.owner_id !== principal.userId
+      || !uuidPattern.test(analysisAttemptId)
+      || session.analysis_attempt_id !== analysisAttemptId
+      || (!replayed && analysisAttemptId !== proposedAttemptId)
+      || !validStartedAt
+      || (!pendingStateValid && !completedStateValid)
+    ) {
+      throw new SupabaseSessionRepositoryError('Trusted analysis transition returned an invalid binding.')
+    }
+    return {
+      session: mapRow(session),
+      replayed,
+      analysisAttemptId,
+      analysisStartedAt: normalizedStartedAt,
+      completed,
+    }
+  }
+}
+
 /**
  * Narrow adapter for the service-role-only completion RPC.
  *
@@ -206,6 +324,8 @@ export class SupabaseTrustedReportWriter {
       session.id !== input.sessionId
       || session.owner_id !== input.principal.userId
       || session.status !== 'complete'
+      || session.analysis_attempt_id !== input.reportWriteId
+      || Date.parse(session.analysis_started_at ?? '') !== Date.parse(input.report.generatedAt)
       || session.report_write_id !== input.reportWriteId
       || session.report_digest !== reportDigest
       || !sha256Pattern.test(reportDigest)

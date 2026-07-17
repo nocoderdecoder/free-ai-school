@@ -17,7 +17,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export async function POST(request: Request) {
-  const rate = await checkAiPathRateLimit(request, { tool: 'ai-path-realtime-session', limit: 10, windowMs: 60 * 60 * 1000 })
+  const rate = await checkAiPathRateLimit(request, 'ai-path-realtime-session')
   if (!rate.allowed) return aiPathRateLimitResponse(rate)
 
   const bodyResult = await readBoundedJson(request, 220_000)

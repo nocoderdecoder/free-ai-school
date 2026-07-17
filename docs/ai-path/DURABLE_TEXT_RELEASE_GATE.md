@@ -17,7 +17,7 @@ node scripts/ai-path-durable-text-gate.mjs
 ```
 
 The repository intentionally reports `CLOSED_EVIDENCE_MISSING`. The assessment,
-trusted-writer, retention-job, and retention-gateway latches must each remain one
+trusted-analysis-transition, trusted-writer, retention-job, and retention-gateway latches must each remain one
 literal `false as const` export while this pre-activation gate is evaluated.
 Credentials and environment variables are never evidence.
 
@@ -65,7 +65,7 @@ The gate verifies the bytes, not filenames alone.
 
 | Document | Required metadata | Required checks |
 | --- | --- | --- |
-| `database-proof.json` | `kind: disposable_postgresql_behavioral_proof`; PostgreSQL major `>=15`; migration count `>=8`; harness `scripts/ai-path-db-proof.sh`; artifact `database-proof.log` | `migrations-applied`, `rls-owner-isolation`, `trusted-writer-binding`, `bounded-retention`, `owner-export-delete`, `account-and-source-cascade`, `rollback-clean` |
+| `database-proof.json` | `kind: disposable_postgresql_behavioral_proof`; PostgreSQL major `>=15`; migration count `>=9`; harness `scripts/ai-path-db-proof.sh`; artifact `database-proof.log` | `migrations-applied`, `rls-owner-isolation`, `trusted-writer-binding`, `bounded-retention`, `owner-export-delete`, `account-and-source-cascade`, `rollback-clean` |
 | `auth-proof.json` | `kind: authenticated_text_session_configuration_proof`; provider `supabase`; transport `http-only-cookie`; artifact `auth-proof.log` | `verified-principal`, `http-only-cookie`, `same-site-cookie`, `secure-cookie-in-production`, `owner-a-access`, `owner-b-denied`, `unauthenticated-denied`, `server-only-service-credential` |
 | `retention-proof.json` | `kind: retention_operations_proof`; `policyDays: 90`; current `docs/ai-path/RETENTION_OPERATIONS.md` SHA-256; artifact `retention-proof.log` | `bounded-90-day-purge`, `owner-hard-delete`, `account-cascade`, `source-session-cascade`, `idempotent-retry`, `scheduler-auth`, `backup-retention-reviewed`, `deletion-latency-alert` |
 | `export-delete-proof.json` | `kind: assessment_session_export_delete_proof`; resource `assessment-session`; artifact `export-delete-proof.log` | `owner-export`, `cross-owner-export-denied`, `owner-hard-delete`, `cross-owner-delete-denied`, `post-delete-not-found`, `account-cascade` |
@@ -119,6 +119,25 @@ operator attestations. Platform/security must separately run authenticated
 staging tests, retention operations tests, and owner/cross-owner export/delete
 tests without real user data. Local absence of `psql` is not bypass authority;
 the disposable GitHub PostgreSQL 16 job is the expected database proof.
+
+After those three staging commands succeed, the offline finalizer can normalize
+their content-free logs into the exact commit-bound documents required above:
+
+```bash
+node scripts/ai-path-staging-evidence.mjs \
+  --release-commit 0123456789abcdef0123456789abcdef01234567 \
+  --auth-log /absolute/path/auth-proof.log \
+  --retention-log /absolute/path/retention-proof.log \
+  --export-delete-log /absolute/path/export-delete-proof.log \
+  --output-dir /new/absolute/path/finalized-staging-evidence
+```
+
+Every log must contain `PASS: <required-check>` for each required check plus its
+exact success marker. The finalizer rejects symlinks, oversized files, known
+secret patterns, incomplete logs, invalid commit identities, and existing
+output directories. It never reads credentials, makes a network call, creates
+`evidence-index.json`, invents approvals, or opens a latch. It packages evidence
+from successful operator runs; it is not itself an operator attestation.
 
 ## Evidence index and approvals
 

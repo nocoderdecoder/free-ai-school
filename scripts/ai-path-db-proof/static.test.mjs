@@ -25,6 +25,7 @@ const migrations = [
   "20260717050000_ai_path_goal_type_binding.sql",
   "20260717060000_ai_path_bounded_retention.sql",
   "20260717070000_ai_path_realtime_admission_lifecycle.sql",
+  "20260717090000_ai_path_analysis_transition.sql",
 ];
 
 test("harness requires the migration baseline and discovers later migrations", () => {
@@ -146,6 +147,9 @@ test("contracts cover RLS, denial, ownership, bounded retention, and idempotency
     "purge_expired_ai_path_sessions(2)",
     "purge_expired_ai_path_sessions(0)",
     "purge_expired_ai_path_learning_plans(2)",
+    "begin_ai_path_analysis_trusted(uuid,uuid,uuid)",
+    "trusted analysis transition was not atomic and idempotent",
+    "direct analysis transition unexpectedly succeeded",
     "proof-continuity-idempotency-1",
     "idempotency_conflict",
     "ai_path_realtime_admission_daily_archive",

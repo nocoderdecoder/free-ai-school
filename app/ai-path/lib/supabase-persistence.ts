@@ -47,6 +47,9 @@ export function resolveSupabasePersistenceCapability(
   if (!environment.supabaseUrl || !environment.publishableKey) {
     return disabled('Supabase URL and publishable key are not configured')
   }
+  if (!isSafeSupabaseProjectUrl(environment.supabaseUrl)) {
+    return disabled('Supabase URL is not a reviewed HTTPS project origin')
+  }
   if (!isSafeSupabasePublicKey(environment.publishableKey)) {
     return disabled('the user-route Supabase credential is not a publishable or anon key')
   }
@@ -82,6 +85,22 @@ export function isSafeSupabasePublicKey(key: string): boolean {
   if (key.startsWith('sb_publishable_')) return true
   if (key.startsWith('sb_secret_')) return false
   return legacyJwtRole(key) === 'anon'
+}
+
+export function isSafeSupabaseProjectUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:'
+      && url.username === ''
+      && url.password === ''
+      && url.port === ''
+      && url.search === ''
+      && url.hash === ''
+      && (url.pathname === '' || url.pathname === '/')
+      && /^[a-z0-9]{20}\.supabase\.co$/.test(url.hostname)
+  } catch {
+    return false
+  }
 }
 
 export function supabaseAuthCookieOptions(nodeEnv: string | undefined) {

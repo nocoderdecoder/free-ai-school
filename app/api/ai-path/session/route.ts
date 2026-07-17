@@ -14,7 +14,7 @@ import {
 export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
-  const rate = await checkAiPathRateLimit(request, { tool: 'ai-path-session', limit: 30, windowMs: 60 * 60 * 1000 })
+  const rate = await checkAiPathRateLimit(request, 'ai-path-session')
   if (!rate.allowed) return aiPathRateLimitResponse(rate)
   const sessionRuntime = await selectAssessmentRequestRuntime(request)
   return applyAssessmentRuntimeResponse(
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   )
 }
 export async function GET(request: Request) {
-  const rate = await checkAiPathRateLimit(request, { tool: 'ai-path-session-read', limit: 60, windowMs: 60 * 60 * 1000 })
+  const rate = await checkAiPathRateLimit(request, 'ai-path-session-read')
   if (!rate.allowed) return aiPathRateLimitResponse(rate)
   const sessionRuntime = await selectAssessmentRequestRuntime(request)
   return applyAssessmentRuntimeResponse(

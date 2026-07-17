@@ -49,6 +49,10 @@ select public.ai_path_proof_assert(
   'plan retention must expose only the bounded final signature'
 );
 select public.ai_path_proof_assert(
+  to_regprocedure('public.begin_ai_path_analysis_trusted(uuid,uuid,uuid)') is not null,
+  'trusted analysis transition is missing'
+);
+select public.ai_path_proof_assert(
   to_regprocedure('public.reserve_ai_path_realtime_admission(text,uuid,text,integer)') is not null
     and to_regprocedure('public.finalize_ai_path_realtime_admission(text,uuid,uuid,integer)') is not null
     and to_regprocedure('public.cancel_ai_path_realtime_admission(text,uuid,uuid)') is not null
@@ -114,6 +118,16 @@ select public.ai_path_proof_assert(
     and not has_function_privilege('authenticated', 'public.purge_expired_ai_path_sessions(integer)', 'EXECUTE')
     and has_function_privilege(
       'service_role',
+      'public.begin_ai_path_analysis_trusted(uuid,uuid,uuid)',
+      'EXECUTE'
+    )
+    and not has_function_privilege(
+      'authenticated',
+      'public.begin_ai_path_analysis_trusted(uuid,uuid,uuid)',
+      'EXECUTE'
+    )
+    and has_function_privilege(
+      'service_role',
       'public.reserve_ai_path_realtime_admission(text,uuid,text,integer)',
       'EXECUTE'
     )
@@ -176,18 +190,74 @@ insert into auth.users (id) values
 insert into public.ai_path_assessment_sessions (
   id, owner_id, status, mode, locale, goal, goal_type,
   retention_expires_at, created_at
+) values (
+  '19000000-0000-4000-8000-000000000001',
+  '00000000-0000-0000-0000-000000000006',
+  'consented', 'text', 'en-US',
+  'Prove the owner-bound transition into trusted deterministic analysis.',
+  'workflows', clock_timestamp() + interval '1 day', clock_timestamp()
+);
+
+do $$
+begin
+  begin
+    update public.ai_path_assessment_sessions
+    set status = 'analysis_pending'
+    where id = '19000000-0000-4000-8000-000000000001';
+    raise exception 'direct analysis transition unexpectedly succeeded';
+  exception
+    when insufficient_privilege then null;
+  end;
+end;
+$$;
+
+set local role service_role;
+set local request.jwt.claim.role = 'service_role';
+select public.begin_ai_path_analysis_trusted(
+  '19000000-0000-4000-8000-000000000001',
+  '00000000-0000-0000-0000-000000000006',
+  '19000000-0000-4000-8000-000000000002'
+) as first_analysis_transition \gset
+select public.begin_ai_path_analysis_trusted(
+  '19000000-0000-4000-8000-000000000001',
+  '00000000-0000-0000-0000-000000000006',
+  '19000000-0000-4000-8000-000000000003'
+) as replayed_analysis_transition \gset
+reset role;
+
+select public.ai_path_proof_assert(
+  :'first_analysis_transition'::jsonb ->> 'replayed' = 'false'
+    and :'first_analysis_transition'::jsonb #>> '{session,status}' = 'analysis_pending'
+    and :'first_analysis_transition'::jsonb ->> 'analysisAttemptId'
+      = '19000000-0000-4000-8000-000000000002'
+    and :'first_analysis_transition'::jsonb ->> 'analysisStartedAt' is not null
+    and :'replayed_analysis_transition'::jsonb ->> 'replayed' = 'true'
+    and :'replayed_analysis_transition'::jsonb ->> 'analysisAttemptId'
+      = '19000000-0000-4000-8000-000000000002'
+    and (:'replayed_analysis_transition'::jsonb ->> 'analysisStartedAt')
+      = (:'first_analysis_transition'::jsonb ->> 'analysisStartedAt'),
+  'trusted analysis transition was not atomic and idempotent'
+);
+
+update public.ai_path_assessment_sessions
+set status = 'failed'
+where id = '19000000-0000-4000-8000-000000000001';
+
+insert into public.ai_path_assessment_sessions (
+  id, owner_id, status, mode, locale, goal, goal_type,
+  retention_expires_at, created_at
 ) values
   (
     '10000000-0000-0000-0000-000000000001',
     '00000000-0000-0000-0000-000000000001',
-    'complete', 'text', 'en-US',
+    'failed', 'text', 'en-US',
     'Build reliable AI workflows for a small operations team.', 'workflows',
     clock_timestamp() + interval '1 day', clock_timestamp()
   ),
   (
     '10000000-0000-0000-0000-000000000002',
     '00000000-0000-0000-0000-000000000002',
-    'complete', 'text', 'en-US',
+    'failed', 'text', 'en-US',
     'Learn the foundations needed to evaluate AI systems safely.', 'foundations',
     clock_timestamp() + interval '1 day', clock_timestamp()
   );
@@ -302,7 +372,7 @@ insert into public.ai_path_assessment_sessions (
 ) values (
   '10000000-0000-0000-0000-000000000006',
   '00000000-0000-0000-0000-000000000006',
-  'complete', 'text', 'en-US',
+  'failed', 'text', 'en-US',
   'Build practical AI systems with reliable evaluation practices.', 'builder',
   clock_timestamp() + interval '1 day', clock_timestamp()
 );

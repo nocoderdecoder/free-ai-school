@@ -23,7 +23,7 @@ test('browser analytics emits only governed opaque funnel events', async () => {
   await client.profileCompleted('builder', weeklyHoursBand('5'))
   await client.assessmentStarted()
   await client.assessmentCompleted(9_999)
-  await client.understandingReviewed(2)
+  await client.understandingReviewed(2, 3)
   await client.reportViewed()
   await client.planSaved('private-alpha-v1')
 
@@ -41,6 +41,7 @@ test('browser analytics emits only governed opaque funnel events', async () => {
   assert.match(requests[2].event.assessmentSessionId, /^assessment_[A-Za-z0-9_-]{6,96}$/)
   assert.equal(requests[3].event.properties.durationSeconds, 3_600)
   assert.equal(requests[4].event.properties.correctionCount, 2)
+  assert.equal(requests[4].event.properties.removedObservationCount, 3)
   assert.ok(requests.every(request => request.url === '/api/ai-path/events'))
   assert.ok(requests.every(request => request.options.credentials === 'same-origin' && request.options.keepalive === true))
   const propertyKeys = requests.flatMap(request => Object.keys(request.event.properties))

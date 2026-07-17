@@ -1,5 +1,7 @@
 # Consent and privacy note
 
+Consent version: `2026-07-17.v1`
+
 This is an operational research script, not legal advice. The study owner must confirm that it matches the organization's approved privacy notice before recruitment.
 
 ## Read aloud before the session
@@ -42,4 +44,3 @@ If sensitive or identifying data is entered:
 3. Delete the affected local preview/session using the available product control.
 4. Mark `sensitive_data_stop` and whether deletion was confirmed; do not describe the data.
 5. Notify the study owner through the approved incident channel.
-

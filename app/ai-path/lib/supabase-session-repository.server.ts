@@ -7,19 +7,28 @@ import type { Json } from './database.types'
 import type { SupabasePersistenceCapability } from './supabase-persistence'
 import {
   SupabaseAssessmentSessionRepository,
+  SupabaseTrustedAnalysisTransition,
   SupabaseTrustedReportWriter,
   type GatewayError,
   type SupabaseSessionGateway,
+  type SupabaseTrustedAnalysisTransitionGateway,
   type SupabaseTrustedReportGateway,
+  type TrustedAnalysisTransitionPayload,
   type TrustedReportCompletionPayload,
 } from './supabase-session-repository'
 
 export {
   SupabaseAssessmentSessionRepository,
+  SupabaseTrustedAnalysisTransition,
   SupabaseTrustedReportWriter,
 } from './supabase-session-repository'
 
-export const AI_PATH_TRUSTED_REPORT_WRITER_MIGRATION_VERSION = '20260717050000'
+export const AI_PATH_TRUSTED_ANALYSIS_TRANSITION_MIGRATION_VERSION = '20260717090000'
+export const AI_PATH_TRUSTED_REPORT_WRITER_MIGRATION_VERSION = '20260717090000'
+
+// This service-controlled lifecycle boundary must be reviewed independently
+// from both durable session persistence and trusted report completion.
+export const AI_PATH_TRUSTED_ANALYSIS_TRANSITION_LATCH = false as const
 
 // Enabling this requires migration/RPC integration tests against a disposable
 // Supabase project plus an operational key-rotation and rollback review.
@@ -44,6 +53,30 @@ function parseTrustedCompletion(value: Json | null): TrustedReportCompletionPayl
     session: session as unknown as AiPathSessionRow,
     replayed,
     reportDigest,
+  }
+}
+
+function parseTrustedAnalysisTransition(value: Json | null): TrustedAnalysisTransitionPayload | null {
+  if (!isRecord(value ?? undefined)) return null
+  const record = value as { [key: string]: Json | undefined }
+  const session = record.session
+  const replayed = record.replayed
+  const analysisAttemptId = record.analysisAttemptId
+  const analysisStartedAt = record.analysisStartedAt
+  const completed = record.completed
+  if (
+    !isRecord(session)
+    || typeof replayed !== 'boolean'
+    || typeof analysisAttemptId !== 'string'
+    || typeof analysisStartedAt !== 'string'
+    || typeof completed !== 'boolean'
+  ) return null
+  return {
+    session: session as unknown as AiPathSessionRow,
+    replayed,
+    analysisAttemptId,
+    analysisStartedAt,
+    completed,
   }
 }
 
@@ -147,9 +180,51 @@ export function createSupabaseTrustedReportGateway(
   }
 }
 
+export function createSupabaseTrustedAnalysisTransitionGateway(
+  serviceRoleClient: SupabaseClient<Database>,
+): SupabaseTrustedAnalysisTransitionGateway {
+  return {
+    async begin(input) {
+      const { data, error } = await serviceRoleClient.rpc('begin_ai_path_analysis_trusted', {
+        p_session_id: input.sessionId,
+        p_owner_id: input.ownerId,
+        p_proposed_attempt_id: input.proposedAttemptId,
+      })
+      return {
+        data: parseTrustedAnalysisTransition(data),
+        error: normalizedError(error),
+      }
+    },
+  }
+}
+
+export type TrustedAnalysisTransitionActivation = {
+  enabled?: string
+  schemaVersion?: string
+  credentialScope?: string
+}
+
+export function createSupabaseTrustedAnalysisTransition(
+  serviceRoleClient: SupabaseClient<Database>,
+  activation: TrustedAnalysisTransitionActivation,
+) {
+  if (
+    !AI_PATH_TRUSTED_ANALYSIS_TRANSITION_LATCH
+    || activation.enabled !== 'true'
+    || activation.schemaVersion !== AI_PATH_TRUSTED_ANALYSIS_TRANSITION_MIGRATION_VERSION
+    || activation.credentialScope !== 'verified-owner+service-role'
+  ) {
+    throw new Error('Trusted durable analysis transitions are disabled by the reviewed code-level latch.')
+  }
+  return new SupabaseTrustedAnalysisTransition(
+    createSupabaseTrustedAnalysisTransitionGateway(serviceRoleClient),
+  )
+}
+
 export type TrustedReportWriterActivation = {
   enabled?: string
   schemaVersion?: string
+  credentialScope?: string
 }
 
 export function createSupabaseTrustedReportWriter(
@@ -160,6 +235,7 @@ export function createSupabaseTrustedReportWriter(
     !AI_PATH_TRUSTED_REPORT_WRITER_LATCH
     || activation.enabled !== 'true'
     || activation.schemaVersion !== AI_PATH_TRUSTED_REPORT_WRITER_MIGRATION_VERSION
+    || activation.credentialScope !== 'verified-owner+service-role'
   ) {
     throw new Error('Trusted durable report writes are disabled by the reviewed code-level latch.')
   }

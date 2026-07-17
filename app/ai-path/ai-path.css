@@ -35,7 +35,7 @@
 .ap-eyebrow, .ap-kicker { color: var(--ap-green); font-size: 12px; font-weight: 750; line-height: 1.4; margin-bottom: 12px; text-transform: uppercase; }
 .ap-sectionLead { color: var(--ap-muted); font-size: clamp(17px, 2vw, 20px); line-height: 1.55; max-width: 720px; }
 
-.ap-primary, .ap-secondary, .ap-quietButton, .ap-linkButton, .ap-editButton, .ap-textChoice, .ap-talkButton {
+.ap-primary, .ap-secondary, .ap-quietButton, .ap-linkButton, .ap-editButton, .ap-removeButton, .ap-textChoice, .ap-talkButton {
   align-items: center;
   border-radius: 999px;
   display: inline-flex;
@@ -107,6 +107,14 @@
 .ap-timeNote span { font-weight: 700; }
 .ap-timeNote small { color: var(--ap-muted); }
 .ap-formCard, .ap-micCard, .ap-expectCard { background: var(--ap-card); border: 1px solid var(--ap-line); border-radius: 24px; padding: clamp(20px, 3vw, 36px); }
+.ap-alphaScope { align-items: start; background: #eff6f0; border: 1px solid #b9cfbf; border-radius: 18px; display: grid; gap: 14px; grid-template-columns: 34px minmax(0,1fr); margin-bottom: 30px; padding: 20px; }
+.ap-alphaScopeMark { align-items: center; background: var(--ap-green-dark); border-radius: 50%; color: white; display: flex; height: 34px; justify-content: center; width: 34px; }
+.ap-alphaScopeMark svg { height: 18px; width: 18px; }
+.ap-alphaScope .ap-kicker { margin-bottom: 6px; }
+.ap-alphaScope h2 { font-family: var(--font-instrument-serif), Georgia, serif; font-size: clamp(25px,3vw,32px); line-height: 1.15; margin-bottom: 8px; }
+.ap-alphaScope p:not(.ap-kicker), .ap-alphaScope small { color: var(--ap-muted); line-height: 1.5; }
+.ap-alphaScope p:not(.ap-kicker) { margin-bottom: 8px; }
+.ap-alphaScope small { display: block; }
 .ap-formCard fieldset { border: 0; margin: 0 0 32px; padding: 0; }
 .ap-formCard legend { font-family: var(--font-instrument-serif), Georgia, serif; font-size: 30px; margin-bottom: 20px; }
 .ap-goalGrid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0,1fr)); }
@@ -200,14 +208,22 @@
 .ap-evidenceCount span { color: var(--ap-muted); font-size: 11px; }
 .ap-understandingGrid { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0,1fr)); }
 .ap-understandingCard { background: var(--ap-card); border: 1px solid var(--ap-line); border-radius: 18px; min-width: 0; padding: 22px; }
+.ap-understandingCard.is-removed { background: #f1f1ed; border-style: dashed; }
+.ap-understandingCard.is-removed .ap-cardTop > span, .ap-understandingCard.is-removed details { color: #717872; }
 .ap-cardTop { align-items: center; display: flex; gap: 10px; justify-content: space-between; }
 .ap-cardTop > span { color: var(--ap-muted); font-size: 12px; font-weight: 750; text-transform: uppercase; }
 .ap-cardTop i { background: #f7ead3; border-radius: 999px; color: var(--ap-amber); font-size: 11px; font-style: normal; padding: 5px 9px; }
 .ap-cardTop i.is-clear { background: var(--ap-green-soft); color: var(--ap-green-dark); }
 .ap-reviewedValue { font-size: 18px; line-height: 1.5; margin: 18px 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.ap-removedNotice { color: #5f6761; font-size: 14px; font-weight: 650; line-height: 1.5; margin: 18px 0; }
 .ap-understandingCard details { border-top: 1px solid var(--ap-line); color: var(--ap-muted); font-size: 13px; padding-top: 14px; }
 .ap-understandingCard details p { line-height: 1.5; margin: 12px 0 0; }
-.ap-editButton { background: transparent; border: 0; color: var(--ap-green-dark); font-weight: 700; margin-top: 12px; padding-inline: 0; }
+.ap-reviewActions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; }
+.ap-editButton, .ap-removeButton { background: transparent; border: 0; font-weight: 700; padding-inline: 0; }
+.ap-editButton { color: var(--ap-green-dark); }
+.ap-removeButton { color: #8c3329; }
+.ap-removeButton[aria-disabled="true"] { color: #747b76; }
+.ap-reviewStatus { border-left: 3px solid var(--ap-green); font-weight: 650; line-height: 1.45; padding-left: 10px; }
 .ap-reviewFooter { align-items: center; background: #e8f0e9; border-radius: 18px; display: grid; gap: 16px; grid-template-columns: minmax(0,1fr) auto auto; margin-top: 24px; padding: 20px; }
 .ap-reviewFooter p { color: var(--ap-muted); margin: 4px 0 0; }
 

@@ -1,6 +1,9 @@
 import 'server-only'
 
-import { resolveRealtimeCapability } from './foundation'
+import {
+  AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY,
+  resolveRealtimeCapability,
+} from './foundation'
 import { AI_PATH_REALTIME_ADMISSION_PRODUCTION_LATCH } from './realtime-admission'
 import { deriveRealtimeSafetyIdentifier } from './realtime-safety'
 
@@ -92,6 +95,9 @@ export async function createLiveRealtimeCall(input: {
   verifiedUserId: string
   sdp: string
 }): Promise<LiveRealtimeResult> {
+  if (!AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY) {
+    throw new RealtimeBootstrapError('Public Realtime bootstrap is disabled by the reviewed code-level latch.', 503)
+  }
   const capability = getRealtimeCapability()
   if (!capability.liveEnabled) {
     throw new RealtimeBootstrapError('Live Realtime is not enabled for this deployment.', 503)

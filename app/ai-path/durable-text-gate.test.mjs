@@ -40,10 +40,11 @@ const sourceFiles = [
   'supabase/migrations/20260717000000_ai_path_assessment_sessions.sql',
   'supabase/migrations/20260717020000_ai_path_trusted_report_writer.sql',
   'supabase/migrations/20260717060000_ai_path_bounded_retention.sql',
+  'supabase/migrations/20260717090000_ai_path_analysis_transition.sql',
 ]
 const latchFiles = new Map([
   ['app/ai-path/lib/supabase-persistence.ts', 'export const AI_PATH_SUPABASE_PRODUCTION_LATCH = false as const\n'],
-  ['app/ai-path/lib/supabase-session-repository.server.ts', 'export const AI_PATH_TRUSTED_REPORT_WRITER_LATCH = false as const\n'],
+  ['app/ai-path/lib/supabase-session-repository.server.ts', 'export const AI_PATH_TRUSTED_REPORT_WRITER_LATCH = false as const\nexport const AI_PATH_TRUSTED_ANALYSIS_TRANSITION_LATCH = false as const\n'],
   ['app/api/cron/ai-path-retention/route.ts', 'export const AI_PATH_RETENTION_JOB_READY = false as const\n'],
   ['app/ai-path/lib/retention-supabase.server.ts', 'export const AI_PATH_SUPABASE_RETENTION_GATEWAY_LATCH = false as const\n'],
 ])
@@ -74,7 +75,7 @@ function proofDocuments(root) {
       result: 'pass',
       releaseCommit,
       postgresMajor: 16,
-      migrationCount: 8,
+      migrationCount: 9,
       harness: 'scripts/ai-path-db-proof.sh',
       checks: [
         'migrations-applied',
@@ -164,7 +165,7 @@ function proofDocuments(root) {
 function createEvidence(root, overrides = {}) {
   const evidencePath = 'evidence'
   const logs = {
-    'database-proof.log': 'PostgreSQL 16\n[ai-path-db-proof] PASS: 8 migrations and all disposable database contracts succeeded\n',
+    'database-proof.log': 'PostgreSQL 16\n[ai-path-db-proof] PASS: 9 migrations and all disposable database contracts succeeded\n',
     'auth-proof.log': 'PASS: authenticated durable text configuration contracts succeeded\n',
     'retention-proof.log': 'PASS: durable text retention operations contracts succeeded\n',
     'export-delete-proof.log': 'PASS: assessment session export and delete contracts succeeded\n',

@@ -16,7 +16,7 @@ export const runtime = 'nodejs'
 type SessionRouteContext = { params: Promise<{ sessionId: string }> }
 
 export async function GET(request: Request, context: SessionRouteContext) {
-  const rate = await checkAiPathRateLimit(request, { tool: 'ai-path-session-export', limit: 20, windowMs: 60 * 60 * 1000 })
+  const rate = await checkAiPathRateLimit(request, 'ai-path-session-export')
   if (!rate.allowed) return aiPathRateLimitResponse(rate)
   const sessionRuntime = await selectAssessmentRequestRuntime(request)
   const { sessionId } = await context.params
@@ -27,7 +27,7 @@ export async function GET(request: Request, context: SessionRouteContext) {
 }
 
 export async function DELETE(request: Request, context: SessionRouteContext) {
-  const rate = await checkAiPathRateLimit(request, { tool: 'ai-path-session-delete', limit: 10, windowMs: 60 * 60 * 1000 })
+  const rate = await checkAiPathRateLimit(request, 'ai-path-session-delete')
   if (!rate.allowed) return aiPathRateLimitResponse(rate)
   const sessionRuntime = await selectAssessmentRequestRuntime(request)
   const { sessionId } = await context.params
@@ -36,4 +36,3 @@ export async function DELETE(request: Request, context: SessionRouteContext) {
     await handleSessionDelete(request, sessionId.trim(), sessionRuntime),
   )
 }
-

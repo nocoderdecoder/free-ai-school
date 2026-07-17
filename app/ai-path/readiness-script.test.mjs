@@ -22,7 +22,7 @@ const mandatorySafetyFiles = new Map([
   ],
   [
     'app/ai-path/lib/supabase-session-repository.server.ts',
-    'export const AI_PATH_TRUSTED_REPORT_WRITER_LATCH = false as const\n',
+    'export const AI_PATH_TRUSTED_REPORT_WRITER_LATCH = false as const\nexport const AI_PATH_TRUSTED_ANALYSIS_TRANSITION_LATCH = false as const\n',
   ],
   [
     'app/ai-path/lib/analytics.ts',
@@ -74,19 +74,27 @@ test('current repository is safe for private alpha but not claimed production-re
       [
         'durable_sessions',
         'trusted_report_writer',
+        'trusted_analysis_transition',
+        'durable_trusted_analysis_runtime',
         'durable_plans',
         'durable_plan_gateway',
         'analytics_sink',
+        'distributed_rate_limit',
         'retention_job',
         'durable_retention_gateway',
         'realtime_public_bootstrap',
         'realtime_authenticated_bootstrap',
+        'realtime_request_assembly',
+        'realtime_provider_lifecycle',
         'realtime_admission',
         'realtime_admission_policy_rollout',
         'durable_realtime_admission_gateway',
         'realtime_admission_maintenance_gateway',
         'realtime_route_network_isolation',
         'realtime_bootstrap_provider_isolation',
+        'realtime_request_assembly_provider_isolation',
+        'realtime_provider_lifecycle_network_isolation',
+        'semantic_latch_side_effects',
       ],
     )
     assert.equal(report.inventory.privateAlpha.complete, true)
@@ -137,7 +145,7 @@ test('default exit is zero for incomplete source inventory when safety remains l
     assert.equal(report.safety.ok, true)
     assert.equal(report.safePrivateAlpha, false)
     assert.equal(report.productionReady, false)
-    assert.equal(report.safety.optionalNotPresent, 7)
+    assert.equal(report.safety.optionalNotPresent, 14)
     assert.equal(readinessExitCode(report), 0)
     assert.equal(readinessExitCode(report, { requireProduction: true }), 2)
   } finally {
@@ -217,6 +225,25 @@ test('an OpenAI SDK import in authenticated bootstrap also breaks provider isola
     const report = inspectAiPathReadiness({ root })
     const isolation = report.safety.checks.find(
       (check) => check.id === 'realtime_bootstrap_provider_isolation',
+    )
+    assert.equal(isolation?.status, 'broken')
+    assert.equal(readinessExitCode(report), 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('a provider network surface in mock lifecycle reconciliation breaks safety', () => {
+  const root = createSafetyFixture()
+  try {
+    writeFixtureFile(
+      root,
+      'app/ai-path/lib/realtime-provider-lifecycle.ts',
+      'export const AI_PATH_REALTIME_PROVIDER_LIFECYCLE_LATCH = false as const\nexport function reconcile() { return fetch("https://api.openai.com/v1/realtime/calls") }\n',
+    )
+    const report = inspectAiPathReadiness({ root })
+    const isolation = report.safety.checks.find(
+      (check) => check.id === 'realtime_provider_lifecycle_network_isolation',
     )
     assert.equal(isolation?.status, 'broken')
     assert.equal(readinessExitCode(report), 1)

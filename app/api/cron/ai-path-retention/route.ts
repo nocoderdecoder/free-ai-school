@@ -1,4 +1,5 @@
 import { handleAiPathRetentionPost } from '../../../ai-path/lib/retention-http.ts'
+import { getAiPathRetentionHttpRuntime } from '../../../ai-path/lib/retention-runtime.server.ts'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -9,11 +10,8 @@ export const maxDuration = 60
 export const AI_PATH_RETENTION_JOB_READY = false as const
 
 export async function POST(request: Request) {
-  return handleAiPathRetentionPost(request, {
-    available: AI_PATH_RETENTION_JOB_READY,
-    secret: AI_PATH_RETENTION_JOB_READY ? process.env.AI_PATH_RETENTION_JOB_SECRET ?? null : null,
-    run: async () => {
-      throw new Error('AI Path retention adapter is not activated.')
-    },
-  })
+  return handleAiPathRetentionPost(
+    request,
+    getAiPathRetentionHttpRuntime(AI_PATH_RETENTION_JOB_READY),
+  )
 }

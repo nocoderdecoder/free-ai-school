@@ -17,7 +17,7 @@ export const runtime = 'nodejs'
 type TaskRouteContext = { params: Promise<{ planId: string; taskId: string }> }
 
 export async function PATCH(request: Request, context: TaskRouteContext) {
-  const rate = await checkAiPathRateLimit(request, { tool: 'ai-path-plan-task', limit: 120, windowMs: 60 * 60 * 1000 })
+  const rate = await checkAiPathRateLimit(request, 'ai-path-plan-task')
   if (!rate.allowed) return aiPathRateLimitResponse(rate)
   const planRuntime = await selectLearningPlanRequestRuntime(request)
   const { planId, taskId } = await context.params

@@ -11,7 +11,7 @@ import { createDatabaseProofEvidence } from './ai-path-db-proof-evidence.mjs'
 const root = resolve(import.meta.dirname, '..')
 const script = join(root, 'scripts/ai-path-db-proof-evidence.mjs')
 const releaseCommit = 'a'.repeat(40)
-const proofText = '[ai-path-db-proof] applying migrations\n[ai-path-db-proof] PASS: 8 migrations and all disposable database contracts succeeded\n'
+const proofText = '[ai-path-db-proof] applying migrations\n[ai-path-db-proof] PASS: 9 migrations and all disposable database contracts succeeded\n'
 const proofLog = { buffer: Buffer.from(proofText), text: proofText }
 const runMetadata = {
   conclusion: 'success',
@@ -53,7 +53,7 @@ test('final accepted-event evidence is deterministic and matches the durable gat
   const ci = JSON.parse(first.files['ci-proof.json'])
   const ciRun = JSON.parse(first.files['ci-run.json'])
   assert.equal(database.releaseCommit, releaseCommit)
-  assert.equal(database.migrationCount, 8)
+  assert.equal(database.migrationCount, 9)
   assert.equal(database.artifact.sha256, sha(proofText))
   assert.equal(ci.releaseCommit, releaseCommit)
   assert.equal(ci.artifactName, 'ai-path-db-proof-123456789')

@@ -1,6 +1,6 @@
 # Realtime admission control
 
-Status: deterministic local contract, provider-free authenticated bootstrap preparation, and dormant database-owned production foundation. Production activation is impossible while the authenticated bootstrap, admission, policy, gateway, and public Realtime code latches remain `false` and the database policy state remains disabled.
+Status: deterministic local contract, provider-free authenticated bootstrap preparation, dormant request-scoped split-credential assembly, mock-only lifecycle reconciliation, and a database-owned production foundation. Production activation is impossible while the request assembly, authenticated bootstrap, provider lifecycle, admission, policy, gateway, and public Realtime code latches remain `false` and the database policy state remains disabled.
 
 ## Purpose
 
@@ -67,6 +67,20 @@ test-principal, cross-origin, malformed, oversized, unowned, text-mode,
 non-reservable, store-failure, capacity, and budget-denial paths, and prove all
 stop before a prepared provider input exists.
 
+`createRealtimeBootstrapRequestRuntime` now supplies the separately latched,
+server-only assembly contract. It checks every dependent code gate and exact
+staging attestation before authentication or credential access, reuses one
+verified request client for ownership plus intent issuance, and constructs a
+separate non-persistent service-role client for the opaque reserve/finalize/
+cancel adapter. The public route does not import it.
+
+`reconcileMockRealtimeProviderLifecycle` models the post-reservation decision
+without a provider transport. Unknown or confirmed-active state mutates nothing
+and forbids another provider bootstrap. Only confirmed absence selects cancel;
+only confirmed ended usage with bounded integer cents selects finalize. Both
+operations reuse the original binding, intent, and reservation. See
+`REALTIME_REQUEST_ASSEMBLY.md` for the complete source and staging proof contract.
+
 ## Policy and lifecycle semantics
 
 Private-alpha policy `2026-07-17.v1` is database-enforced at 2 global concurrent reservations, 1 per user, 100 cents per user per UTC day, 1,000 cents globally per UTC day, 100 cents per reservation, and a 120-second lease. These are ceilings, not spend approval.
@@ -91,4 +105,4 @@ Static tests establish source contracts but cannot prove PostgreSQL concurrency 
 - seven-day reconciliation boundaries and 90-day archive/purge accounting;
 - zero provider calls for every denied, malformed, ambiguous, or failed admission.
 
-Even after database proof, live OpenAI Realtime remains blocked pending explicit spend approval, request-scoped split-credential staging assembly, production Supabase/auth configuration, distributed abuse controls, monitoring, incident rollback, privacy review, unknown-commit route integration tests, and lifecycle reconciliation.
+Even after database proof, live OpenAI Realtime remains blocked pending explicit spend approval, hosted split-credential staging evidence, production Supabase/auth configuration, distributed abuse controls, monitoring, incident rollback, privacy review, unknown-commit route integration tests, and real-provider lifecycle reconciliation evidence.

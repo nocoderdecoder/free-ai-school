@@ -31,12 +31,15 @@ the `gpt-realtime-2.1` default, server-owned configuration, and no beta header.
 It must not be connected to the public route until every release gate below is
 proven.
 
-The preceding authenticated preparation boundary is now implemented through an
+The preceding authenticated preparation boundary is implemented through an
 exact atomic admission reservation, with deterministic server-owned retry
-identity and adversarial zero-provider-call tests. It deliberately stops before
-the provider boundary. Request-scoped split-credential assembly, unknown-commit
-replay evidence, lifecycle reconciliation, and both independent code latches are
-still closed requirements—not implied readiness.
+identity and adversarial zero-provider-call tests. A dormant server-only
+request factory now assembles one verified request-scoped user client for
+ownership and intent issuance plus a separate non-persistent service-role client
+for opaque lifecycle RPCs. A provider-free mock reconciliation contract also
+models unknown, active, confirmed-absent, and confirmed-ended outcomes without
+ever authorizing a provider retry. Both additions remain independently latched,
+unwired from the public route, and unproven in hosted staging.
 
 Official references:
 
@@ -72,11 +75,12 @@ Official references:
 3. Authenticated durable text sessions already operating safely, including
    owner export, immediate deletion, bounded retention, monitoring, rollback,
    credential rotation, and incident revocation.
-4. The provider-free route contract proves anonymous, unowned, non-consented,
+4. The provider-free source contract proves anonymous, unowned, non-consented,
    duplicate/capacity, over-budget, and malformed requests stop before a
    provider input exists. Complete the remaining assembled staging proof for
    expired, killed, database-timeout, and unknown-commit requests with
-   instrumented zero provider invocations before reviewing either route latch.
+   instrumented zero provider invocations before reviewing any route, assembly,
+   admission, lifecycle, paid-use, or provider latch.
 5. Browser tests for permission denial, device loss, interruption, reconnect,
    tab closure, backgrounding, network loss, partial transcript, duplicated
    events, and immediate typed fallback.

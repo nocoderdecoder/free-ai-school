@@ -147,6 +147,7 @@ readonly -a REQUIRED_BASELINE_MIGRATIONS=(
   "20260717050000_ai_path_goal_type_binding.sql"
   "20260717060000_ai_path_bounded_retention.sql"
   "20260717070000_ai_path_realtime_admission_lifecycle.sql"
+  "20260717090000_ai_path_analysis_transition.sql"
 )
 
 shopt -s nullglob

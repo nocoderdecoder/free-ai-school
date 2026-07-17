@@ -17,7 +17,7 @@ export const runtime = 'nodejs'
 type AdaptationRouteContext = { params: Promise<{ planId: string; adaptationId: string }> }
 
 export async function PATCH(request: Request, context: AdaptationRouteContext) {
-  const rate = await checkAiPathRateLimit(request, { tool: 'ai-path-plan-adaptation', limit: 30, windowMs: 60 * 60 * 1000 })
+  const rate = await checkAiPathRateLimit(request, 'ai-path-plan-adaptation')
   if (!rate.allowed) return aiPathRateLimitResponse(rate)
   const planRuntime = await selectLearningPlanRequestRuntime(request)
   const { planId, adaptationId } = await context.params

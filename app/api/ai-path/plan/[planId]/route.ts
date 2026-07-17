@@ -18,7 +18,7 @@ export const runtime = 'nodejs'
 type PlanRouteContext = { params: Promise<{ planId: string }> }
 
 export async function GET(request: Request, context: PlanRouteContext) {
-  const rate = await checkAiPathRateLimit(request, { tool: 'ai-path-plan-read', limit: 60, windowMs: 60 * 60 * 1000 })
+  const rate = await checkAiPathRateLimit(request, 'ai-path-plan-read')
   if (!rate.allowed) return aiPathRateLimitResponse(rate)
   const planRuntime = await selectLearningPlanRequestRuntime(request)
   const { planId } = await context.params
@@ -28,7 +28,7 @@ export async function GET(request: Request, context: PlanRouteContext) {
   )
 }
 export async function DELETE(request: Request, context: PlanRouteContext) {
-  const rate = await checkAiPathRateLimit(request, { tool: 'ai-path-plan-delete', limit: 10, windowMs: 60 * 60 * 1000 })
+  const rate = await checkAiPathRateLimit(request, 'ai-path-plan-delete')
   if (!rate.allowed) return aiPathRateLimitResponse(rate)
   const planRuntime = await selectLearningPlanRequestRuntime(request)
   const { planId } = await context.params

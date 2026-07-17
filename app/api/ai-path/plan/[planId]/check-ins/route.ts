@@ -17,7 +17,7 @@ export const runtime = 'nodejs'
 type PlanRouteContext = { params: Promise<{ planId: string }> }
 
 export async function POST(request: Request, context: PlanRouteContext) {
-  const rate = await checkAiPathRateLimit(request, { tool: 'ai-path-plan-check-in', limit: 20, windowMs: 60 * 60 * 1000 })
+  const rate = await checkAiPathRateLimit(request, 'ai-path-plan-check-in')
   if (!rate.allowed) return aiPathRateLimitResponse(rate)
   const planRuntime = await selectLearningPlanRequestRuntime(request)
   const { planId } = await context.params

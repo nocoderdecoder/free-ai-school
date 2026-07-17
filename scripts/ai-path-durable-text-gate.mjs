@@ -45,6 +45,7 @@ const sourceFiles = [
   'supabase/migrations/20260717000000_ai_path_assessment_sessions.sql',
   'supabase/migrations/20260717020000_ai_path_trusted_report_writer.sql',
   'supabase/migrations/20260717060000_ai_path_bounded_retention.sql',
+  'supabase/migrations/20260717090000_ai_path_analysis_transition.sql',
 ]
 
 const closedLatches = [
@@ -57,6 +58,11 @@ const closedLatches = [
     id: 'trusted_report_writer',
     file: 'app/ai-path/lib/supabase-session-repository.server.ts',
     constant: 'AI_PATH_TRUSTED_REPORT_WRITER_LATCH',
+  },
+  {
+    id: 'trusted_analysis_transition',
+    file: 'app/ai-path/lib/supabase-session-repository.server.ts',
+    constant: 'AI_PATH_TRUSTED_ANALYSIS_TRANSITION_LATCH',
   },
   {
     id: 'retention_job',
@@ -279,7 +285,7 @@ function validateDocument(document, spec, context) {
 
   if (spec.id === 'database_proof') {
     if (!Number.isInteger(document.postgresMajor) || document.postgresMajor < 15
-        || !Number.isInteger(document.migrationCount) || document.migrationCount < 8
+        || !Number.isInteger(document.migrationCount) || document.migrationCount < 9
         || document.harness !== 'scripts/ai-path-db-proof.sh') {
       return { ok: false, reason: 'database proof metadata is incomplete' }
     }

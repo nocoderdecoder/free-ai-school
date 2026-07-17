@@ -5,6 +5,7 @@ import test from 'node:test'
 import {
   AI_PATH_SUPABASE_MIGRATION_VERSION,
   isSafeSupabasePublicKey,
+  isSafeSupabaseProjectUrl,
   parseCookieHeader,
   resolveSupabasePersistenceCapability,
   supabaseAuthCookieOptions,
@@ -12,15 +13,26 @@ import {
 } from './lib/supabase-persistence.ts'
 import {
   SupabaseSessionRepositoryError,
+  SupabaseTrustedAnalysisTransition,
   SupabaseTrustedReportWriter,
 } from './lib/supabase-session-repository.ts'
+import { TrustedAnalysisCoordinator } from './lib/trusted-analysis.ts'
 
 const migrationUrl = new URL('../../supabase/migrations/20260717000000_ai_path_assessment_sessions.sql', import.meta.url)
 const sql = await readFile(migrationUrl, 'utf8')
 const trustedWriterMigrationUrl = new URL('../../supabase/migrations/20260717020000_ai_path_trusted_report_writer.sql', import.meta.url)
 const trustedWriterSql = await readFile(trustedWriterMigrationUrl, 'utf8')
+const trustedAnalysisMigrationUrl = new URL('../../supabase/migrations/20260717090000_ai_path_analysis_transition.sql', import.meta.url)
+const trustedAnalysisSql = await readFile(trustedAnalysisMigrationUrl, 'utf8')
 const trustedWriterServerUrl = new URL('./lib/supabase-session-repository.server.ts', import.meta.url)
 const trustedWriterServerSource = await readFile(trustedWriterServerUrl, 'utf8')
+const trustedAnalysisRuntimeUrl = new URL('./lib/durable-trusted-analysis-runtime.server.ts', import.meta.url)
+const trustedAnalysisRuntimeSource = await readFile(trustedAnalysisRuntimeUrl, 'utf8')
+const publicAnalysisSources = await Promise.all([
+  './lib/analysis-http.ts',
+  './lib/durable-session-runtime.server.ts',
+  './lib/session-persistence.server.ts',
+].map(async path => readFile(new URL(path, import.meta.url), 'utf8')))
 
 test('production capability remains closed even with every deployment flag present', () => {
   const capability = resolveSupabasePersistenceCapability({
@@ -29,7 +41,7 @@ test('production capability remains closed even with every deployment flag prese
     schemaVersion: AI_PATH_SUPABASE_MIGRATION_VERSION,
     authReady: 'true',
     rateLimitReady: 'true',
-    supabaseUrl: 'https://example.supabase.co',
+    supabaseUrl: 'https://abcdefghijklmnopqrst.supabase.co',
     publishableKey: 'sb_publishable_test-key',
     serviceRoleKey: 'different-service-role-key',
   })
@@ -45,7 +57,7 @@ test('capability rejects a service-role key in the user-route client slot', () =
     schemaVersion: AI_PATH_SUPABASE_MIGRATION_VERSION,
     authReady: 'true',
     rateLimitReady: 'true',
-    supabaseUrl: 'https://example.supabase.co',
+    supabaseUrl: 'https://abcdefghijklmnopqrst.supabase.co',
     publishableKey: 'sb_publishable_same-key',
     serviceRoleKey: 'sb_publishable_same-key',
   })
@@ -69,11 +81,23 @@ test('public key validation rejects secret and service-role JWT credentials inde
     schemaVersion: AI_PATH_SUPABASE_MIGRATION_VERSION,
     authReady: 'true',
     rateLimitReady: 'true',
-    supabaseUrl: 'https://example.supabase.co',
+    supabaseUrl: 'https://abcdefghijklmnopqrst.supabase.co',
     publishableKey: 'sb_secret_accidentally_public',
   })
   assert.equal(capability.available, false)
   assert.match(capability.reason, /not a publishable or anon key/i)
+})
+
+test('privileged Supabase clients accept only canonical HTTPS project origins', () => {
+  assert.equal(isSafeSupabaseProjectUrl('https://abcdefghijklmnopqrst.supabase.co'), true)
+  for (const value of [
+    'http://abcdefghijklmnopqrst.supabase.co',
+    'https://user:secret@abcdefghijklmnopqrst.supabase.co',
+    'https://abcdefghijklmnopqrst.supabase.co.evil.example',
+    'https://abcdefghijklmnopqrst.supabase.co/path',
+    'https://abcdefghijklmnopqrst.supabase.co?redirect=evil',
+    'https://custom.example',
+  ]) assert.equal(isSafeSupabaseProjectUrl(value), false, value)
 })
 
 test('verified principal provider calls getUser and rejects unverified identities', async () => {
@@ -194,6 +218,59 @@ test('trusted report writer activation remains behind a non-configurable code la
   assert.doesNotMatch(trustedWriterServerSource, /createClient\([\s\S]*?service[_-]?role/i)
 })
 
+test('trusted analysis transition is owner-bound, service-only, and independently latched', () => {
+  assert.match(trustedAnalysisSql, /function public\.begin_ai_path_analysis_trusted\(\s*p_session_id uuid,\s*p_owner_id uuid,\s*p_proposed_attempt_id uuid\s*\)/i)
+  assert.match(trustedAnalysisSql, /caller_role <> 'service_role'/i)
+  assert.match(trustedAnalysisSql, /where id = p_session_id and owner_id = p_owner_id\s+for update/i)
+  assert.match(trustedAnalysisSql, /revoke all on function public\.begin_ai_path_analysis_trusted\(uuid, uuid, uuid\)[\s\S]*from public, anon, authenticated/i)
+  assert.match(trustedAnalysisSql, /grant execute on function public\.begin_ai_path_analysis_trusted\(uuid, uuid, uuid\)[\s\S]*to service_role/i)
+  assert.match(trustedWriterServerSource, /AI_PATH_TRUSTED_ANALYSIS_TRANSITION_LATCH = false as const/)
+  assert.match(trustedWriterServerSource, /activation\.credentialScope !== 'verified-owner\+service-role'/)
+  assert.match(trustedWriterServerSource, /AI_PATH_TRUSTED_REPORT_WRITER_MIGRATION_VERSION = '20260717090000'/)
+})
+
+test('trusted analysis transition preserves mode lifecycle, expiry, and empty-report invariants', () => {
+  assert.match(trustedAnalysisSql, /target_session\.mode = 'text' and target_session\.status = 'consented'/i)
+  assert.match(trustedAnalysisSql, /target_session\.mode = 'voice' and target_session\.status = 'ending'/i)
+  assert.match(trustedAnalysisSql, /target_session\.retention_expires_at <= now\(\)/i)
+  for (const field of ['report', 'report_write_id', 'report_digest', 'report_saved_at']) {
+    assert.match(trustedAnalysisSql, new RegExp(`target_session\\.${field} is not null`, 'i'))
+  }
+  assert.match(trustedAnalysisSql, /set status = 'analysis_pending'/i)
+  assert.match(trustedAnalysisSql, /target_session\.status = 'analysis_pending'[\s\S]*'replayed', true/i)
+  assert.match(trustedAnalysisSql, /current_setting\('ai_path\.trusted_analysis_transition', true\)/i)
+  assert.match(trustedAnalysisSql, /analysis_attempt_id = p_proposed_attempt_id/i)
+  assert.match(trustedAnalysisSql, /analysis_started_at = clock_timestamp\(\)/i)
+  assert.match(
+    trustedAnalysisSql,
+    /disable trigger ai_path_sessions_protect_report[\s\S]*update public\.ai_path_assessment_sessions[\s\S]*enable trigger ai_path_sessions_protect_report/i,
+  )
+  assert.match(trustedAnalysisSql, /new\.report_write_id is distinct from old\.analysis_attempt_id/i)
+  assert.match(trustedAnalysisSql, /new\.report ->> 'generatedAt'[\s\S]*is distinct from old\.analysis_started_at/i)
+})
+
+test('durable trusted analysis assembly is independently closed and absent from public runtimes', () => {
+  assert.match(
+    trustedAnalysisRuntimeSource,
+    /AI_PATH_DURABLE_TRUSTED_ANALYSIS_RUNTIME_LATCH = false as const/,
+  )
+  const latchIndex = trustedAnalysisRuntimeSource.indexOf('!AI_PATH_DURABLE_TRUSTED_ANALYSIS_RUNTIME_LATCH')
+  const capabilityIndex = trustedAnalysisRuntimeSource.indexOf('getSupabasePersistenceCapability()')
+  const authIndex = trustedAnalysisRuntimeSource.indexOf('createVerifiedSupabaseContext(request)')
+  const credentialIndex = trustedAnalysisRuntimeSource.indexOf('process.env.SUPABASE_SERVICE_ROLE_KEY')
+  const clientIndex = trustedAnalysisRuntimeSource.indexOf('createClient<Database>')
+  assert.ok(latchIndex >= 0)
+  assert.ok(capabilityIndex > latchIndex)
+  assert.ok(authIndex > capabilityIndex)
+  assert.ok(credentialIndex > authIndex)
+  assert.ok(clientIndex > credentialIndex)
+  assert.match(trustedAnalysisRuntimeSource, /credentialScope: 'verified-owner\+service-role'/)
+  assert.doesNotMatch(trustedAnalysisRuntimeSource, /\bfetch\s*\(|openai/i)
+  for (const source of publicAnalysisSources) {
+    assert.doesNotMatch(source, /durable-trusted-analysis-runtime/)
+  }
+})
+
 test('trusted report RPC atomically binds owner, lifecycle, goal, and pinned versions', () => {
   assert.match(trustedWriterSql, /where id = p_session_id and owner_id = p_owner_id\s+for update/i)
   assert.match(trustedWriterSql, /target_session\.status <> 'analysis_pending'/i)
@@ -254,6 +331,8 @@ function completedRow(overrides = {}) {
     report_version: '2026-07-16.v1',
     catalog_version: '2026-07-16.v1',
     report,
+    analysis_attempt_id: reportWriteId,
+    analysis_started_at: report.generatedAt,
     report_saved_at: '2026-07-17T02:00:01.000Z',
     report_write_id: reportWriteId,
     report_digest: reportDigest,
@@ -263,6 +342,283 @@ function completedRow(overrides = {}) {
     ...overrides,
   }
 }
+
+function analysisPendingRow(overrides = {}) {
+  return completedRow({
+    status: 'analysis_pending',
+    report: null,
+    report_saved_at: null,
+    report_write_id: null,
+    report_digest: null,
+    ...overrides,
+  })
+}
+
+test('trusted analysis adapter forwards only the verified owner and validates its response', async () => {
+  let forwarded
+  const transition = new SupabaseTrustedAnalysisTransition({
+    async begin(input) {
+      forwarded = input
+      return {
+        data: {
+          session: analysisPendingRow(),
+          replayed: false,
+          analysisAttemptId: reportWriteId,
+          analysisStartedAt: report.generatedAt,
+          completed: false,
+        },
+        error: null,
+      }
+    },
+  })
+
+  const result = await transition.beginForVerifiedOwner(
+    { userId: ownerId, source: 'supabase' },
+    sessionId,
+    reportWriteId,
+  )
+  assert.deepEqual(forwarded, { sessionId, ownerId, proposedAttemptId: reportWriteId })
+  assert.equal(result.session.status, 'analysis_pending')
+  assert.equal(result.replayed, false)
+  assert.equal(result.analysisAttemptId, reportWriteId)
+  assert.equal(result.analysisStartedAt, report.generatedAt)
+})
+
+test('trusted analysis adapter rejects unverified principals and forged pending rows', async () => {
+  let calls = 0
+  const transition = new SupabaseTrustedAnalysisTransition({
+    async begin() {
+      calls += 1
+      return {
+        data: {
+          session: analysisPendingRow({ report_write_id: reportWriteId }),
+          replayed: false,
+          analysisAttemptId: reportWriteId,
+          analysisStartedAt: report.generatedAt,
+          completed: false,
+        },
+        error: null,
+      }
+    },
+  })
+  await assert.rejects(
+    transition.beginForVerifiedOwner(
+      { userId: 'local-test-user', source: 'test-header' },
+      sessionId,
+      reportWriteId,
+    ),
+    SupabaseSessionRepositoryError,
+  )
+  assert.equal(calls, 0)
+  await assert.rejects(
+    transition.beginForVerifiedOwner(
+      { userId: ownerId, source: 'supabase' },
+      sessionId,
+      reportWriteId,
+    ),
+    /invalid binding/i,
+  )
+  assert.equal(calls, 1)
+})
+
+function pendingSessionRecord(overrides = {}) {
+  return {
+    id: sessionId,
+    ownerId,
+    status: 'analysis_pending',
+    mode: 'text',
+    locale: 'en-US',
+    goal,
+    goalType: 'workflows',
+    consentVersion: '2026-07-16.v1',
+    saveTranscript: false,
+    createdAt: '2026-07-17T01:59:00.000Z',
+    updatedAt: report.generatedAt,
+    report: null,
+    ...overrides,
+  }
+}
+
+test('trusted coordinator completes with the database-bound attempt id and generation time', async () => {
+  let transitionArgs
+  let recomputeContext
+  let writerInput
+  const coordinator = new TrustedAnalysisCoordinator(
+    {
+      async beginForVerifiedOwner(...args) {
+        transitionArgs = args
+        return {
+          session: pendingSessionRecord(),
+          replayed: false,
+          analysisAttemptId: reportWriteId,
+          analysisStartedAt: report.generatedAt,
+          completed: false,
+        }
+      },
+    },
+    {
+      async completeServerRecomputedReport(input) {
+        writerInput = input
+        return {
+          session: pendingSessionRecord({ status: 'complete', report }),
+          replayed: false,
+          reportDigest,
+        }
+      },
+    },
+    () => reportWriteId,
+  )
+
+  const result = await coordinator.complete({
+    principal: { userId: ownerId, source: 'supabase' },
+    sessionId,
+    recomputeReport(context) {
+      recomputeContext = context
+      return report
+    },
+  })
+
+  assert.equal(result.ok, true)
+  assert.deepEqual(transitionArgs, [
+    { userId: ownerId, source: 'supabase' },
+    sessionId,
+    reportWriteId,
+  ])
+  assert.equal(recomputeContext.generatedAt.toISOString(), report.generatedAt)
+  assert.equal(writerInput.reportWriteId, reportWriteId)
+  assert.equal(writerInput.report.generatedAt, report.generatedAt)
+})
+
+test('trusted coordinator stops content work after an ambiguous transition', async () => {
+  let recomputes = 0
+  let writes = 0
+  const coordinator = new TrustedAnalysisCoordinator(
+    { async beginForVerifiedOwner() { throw new Error('timeout') } },
+    { async completeServerRecomputedReport() { writes += 1 } },
+    () => reportWriteId,
+  )
+  const result = await coordinator.complete({
+    principal: { userId: ownerId, source: 'supabase' },
+    sessionId,
+    recomputeReport() {
+      recomputes += 1
+      return report
+    },
+  })
+  assert.deepEqual(result, {
+    ok: false,
+    reason: 'reconciliation_required',
+    retryable: true,
+  })
+  assert.equal(recomputes, 0)
+  assert.equal(writes, 0)
+})
+
+test('trusted coordinator recovers the original binding after an unknown completion commit', async () => {
+  const nextAttemptId = '118f47a2-4e8d-7a32-9d10-f4b68a4ee6e1'
+  const proposed = []
+  const writeIds = []
+  const generatedAtValues = []
+  let transitions = 0
+  let writes = 0
+  const coordinator = new TrustedAnalysisCoordinator(
+    {
+      async beginForVerifiedOwner(_principal, _sessionId, proposedAttemptId) {
+        proposed.push(proposedAttemptId)
+        transitions += 1
+        return {
+          session: pendingSessionRecord({ status: transitions === 1 ? 'analysis_pending' : 'complete', report: transitions === 1 ? null : report }),
+          replayed: transitions > 1,
+          analysisAttemptId: reportWriteId,
+          analysisStartedAt: report.generatedAt,
+          completed: transitions > 1,
+        }
+      },
+    },
+    {
+      async completeServerRecomputedReport(input) {
+        writes += 1
+        writeIds.push(input.reportWriteId)
+        if (writes === 1) throw new Error('response lost after commit')
+        return {
+          session: pendingSessionRecord({ status: 'complete', report }),
+          replayed: true,
+          reportDigest,
+        }
+      },
+    },
+    () => proposed.length === 0 ? reportWriteId : nextAttemptId,
+  )
+  const input = {
+    principal: { userId: ownerId, source: 'supabase' },
+    sessionId,
+    recomputeReport({ generatedAt }) {
+      generatedAtValues.push(generatedAt.toISOString())
+      return report
+    },
+  }
+
+  const first = await coordinator.complete(input)
+  const second = await coordinator.complete(input)
+
+  assert.equal(first.ok, false)
+  assert.equal(first.reason, 'reconciliation_required')
+  assert.equal(second.ok, true)
+  assert.equal(second.replayed, true)
+  assert.deepEqual(proposed, [reportWriteId, nextAttemptId])
+  assert.deepEqual(writeIds, [reportWriteId, reportWriteId])
+  assert.deepEqual(generatedAtValues, [report.generatedAt, report.generatedAt])
+})
+
+test('trusted coordinator rejects a non-deterministic generatedAt before writing', async () => {
+  let writes = 0
+  const coordinator = new TrustedAnalysisCoordinator(
+    {
+      async beginForVerifiedOwner() {
+        return {
+          session: pendingSessionRecord(),
+          replayed: false,
+          analysisAttemptId: reportWriteId,
+          analysisStartedAt: report.generatedAt,
+          completed: false,
+        }
+      },
+    },
+    { async completeServerRecomputedReport() { writes += 1 } },
+    () => reportWriteId,
+  )
+  const result = await coordinator.complete({
+    principal: { userId: ownerId, source: 'supabase' },
+    sessionId,
+    recomputeReport() {
+      return { ...report, generatedAt: '2026-07-17T02:00:00.001Z' }
+    },
+  })
+  assert.equal(result.ok, false)
+  assert.equal(result.reason, 'recompute_failed')
+  assert.equal(writes, 0)
+})
+
+test('trusted coordinator rejects an unverified principal before generating an attempt', async () => {
+  let attempts = 0
+  let transitions = 0
+  const coordinator = new TrustedAnalysisCoordinator(
+    { async beginForVerifiedOwner() { transitions += 1 } },
+    { async completeServerRecomputedReport() {} },
+    () => {
+      attempts += 1
+      return reportWriteId
+    },
+  )
+  const result = await coordinator.complete({
+    principal: { userId: 'local-test-user', source: 'test-header' },
+    sessionId,
+    recomputeReport() { return report },
+  })
+  assert.deepEqual(result, { ok: false, reason: 'invalid_request', retryable: false })
+  assert.equal(attempts, 0)
+  assert.equal(transitions, 0)
+})
 
 test('trusted writer forwards only verified owner binding and pinned server versions', async () => {
   let forwarded

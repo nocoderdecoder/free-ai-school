@@ -1,6 +1,17 @@
 import 'server-only'
 
-type RateLimitResult = { allowed: boolean; remaining: number; resetAt: number }
+import { createHash } from 'node:crypto'
+
+import {
+  type AiPathRateLimitPolicyId,
+  type AtomicRateLimitCommand,
+  type AtomicRateLimitStore,
+  type RateLimitResult,
+  policyFor,
+  rateLimitIdentityLabels,
+  resolveDistributedRateLimitCapability,
+  resolveTrustedClientAddress,
+} from './rate-limit.ts'
 
 const processState = globalThis as typeof globalThis & {
   __aiPathRateLimits?: Map<string, { count: number; windowStart: number }>
@@ -20,10 +31,60 @@ function pruneStore(now: number, windowMs: number) {
   }
 }
 
-function clientIp(request: Request) {
-  return request.headers.get('x-forwarded-for')?.split(',')[0].trim()
-    || request.headers.get('x-real-ip')
-    || 'unknown'
+function opaqueKey(label: string, salt: string) {
+  return createHash('sha256').update(`${salt}:${label}`).digest('hex')
+}
+
+class ProcessLocalRateLimitStore implements AtomicRateLimitStore {
+  async consume(command: AtomicRateLimitCommand): Promise<RateLimitResult> {
+    pruneStore(command.nowMs, command.windowMs)
+    const entries = command.keys.map(key => ({ key, entry: store.get(key) }))
+    const active = entries.map(item => ({
+      ...item,
+      entry: item.entry && command.nowMs - item.entry.windowStart < command.windowMs ? item.entry : null,
+    }))
+    const denied = active.find(item => item.entry && item.entry.count >= command.limit)
+    if (denied?.entry) {
+      return { allowed: false, remaining: 0, resetAt: denied.entry.windowStart + command.windowMs, reason: 'exceeded' }
+    }
+    let remaining = command.limit - 1
+    let resetAt = command.nowMs + command.windowMs
+    for (const item of active) {
+      if (!item.entry) {
+        store.set(item.key, { count: 1, windowStart: command.nowMs })
+      } else {
+        item.entry.count += 1
+        remaining = Math.min(remaining, command.limit - item.entry.count)
+        resetAt = Math.min(resetAt, item.entry.windowStart + command.windowMs)
+      }
+    }
+    return { allowed: true, remaining, resetAt, reason: 'allowed' }
+  }
+}
+
+const localStore = new ProcessLocalRateLimitStore()
+
+export function createDistributedRateLimitChecker(
+  distributedStore: AtomicRateLimitStore,
+  activation: Parameters<typeof resolveDistributedRateLimitCapability>[0],
+  identitySalt: string,
+) {
+  const capability = resolveDistributedRateLimitCapability(activation)
+  if (!capability.available || !capability.trustedProxyHops || identitySalt.length < 32) {
+    throw new Error('Distributed AI Path rate limiting is disabled by the reviewed capability boundary.')
+  }
+  return async (request: Request, policyId: AiPathRateLimitPolicyId, verifiedUserId?: string | null) => {
+    const policy = policyFor(policyId)
+    const address = resolveTrustedClientAddress(request.headers, capability.trustedProxyHops!)
+    if (!address) return unavailableResult()
+    const keys = rateLimitIdentityLabels({ anonymousAddress: address, verifiedUserId })
+      .map(label => opaqueKey(label, identitySalt))
+    return distributedStore.consume({ policyId, keys, ...policy, nowMs: Date.now() })
+  }
+}
+
+function unavailableResult(): RateLimitResult {
+  return { allowed: false, remaining: 0, resetAt: Date.now() + 60_000, reason: 'unavailable' }
 }
 
 /**
@@ -32,27 +93,30 @@ function clientIp(request: Request) {
  */
 export async function checkAiPathRateLimit(
   request: Request,
-  options: { tool: string; limit: number; windowMs: number },
+  policyId: AiPathRateLimitPolicyId,
+  verifiedUserId?: string | null,
 ): Promise<RateLimitResult> {
+  const policy = policyFor(policyId)
   const now = Date.now()
-  pruneStore(now, options.windowMs)
-  const key = `${options.tool}:${clientIp(request)}`
-  const entry = store.get(key)
-  if (!entry || now - entry.windowStart >= options.windowMs) {
-    store.set(key, { count: 1, windowStart: now })
-    return { allowed: true, remaining: options.limit - 1, resetAt: now + options.windowMs }
+  if (process.env.NODE_ENV === 'production') {
+    // Production never falls back to process-local memory. The future runtime
+    // must inject an atomic distributed store after the literal latch review.
+    return unavailableResult()
   }
-  if (entry.count >= options.limit) {
-    return { allowed: false, remaining: 0, resetAt: entry.windowStart + options.windowMs }
-  }
-  entry.count += 1
-  return { allowed: true, remaining: options.limit - entry.count, resetAt: entry.windowStart + options.windowMs }
+  const keys = rateLimitIdentityLabels({ anonymousAddress: 'local', verifiedUserId })
+    .map(label => `${policyId}:${opaqueKey(label, 'ai-path-process-local-test-only')}`)
+  return localStore.consume({ policyId, keys, ...policy, nowMs: now })
 }
 
 export function aiPathRateLimitResponse(result: RateLimitResult) {
   const retryAfterSeconds = Math.max(1, Math.ceil((result.resetAt - Date.now()) / 1000))
-  return Response.json({ error: 'rate_limit_exceeded', retryAfterSeconds }, {
-    status: 429,
-    headers: { 'Retry-After': String(retryAfterSeconds), 'Cache-Control': 'no-store' },
+  const unavailable = result.reason === 'unavailable'
+  return Response.json({ error: unavailable ? 'rate_limit_unavailable' : 'rate_limit_exceeded', retryAfterSeconds }, {
+    status: unavailable ? 503 : 429,
+    headers: {
+      'Retry-After': String(retryAfterSeconds),
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    },
   })
 }
