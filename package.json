@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:ai-path": "node --test app/ai-path/foundation.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.102.0",

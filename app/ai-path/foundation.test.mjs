@@ -1,0 +1,202 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+
+import {
+  AI_PATH_CONSENT_VERSION,
+  AI_PATH_SKILL_IDS,
+  AI_PATH_TAXONOMY,
+  CURATED_RESOURCES,
+  buildAssessmentReport,
+  canBootstrapPublicRealtime,
+  parseEvidenceRecords,
+  parseSessionStartInput,
+  parseTranscriptTurns,
+  rankRecommendations,
+  resolveRealtimeCapability,
+  scoreSkills,
+  validateEvidenceAgainstTranscript,
+  validateSessionTransition,
+} from './lib/foundation.ts'
+
+function evidence(overrides = {}) {
+  return {
+    id: 'evidence-1',
+    skillId: 'evaluation-reliability',
+    observedLevel: 3,
+    strength: 'strong',
+    independence: 'owner',
+    sourceTurnIds: ['turn-1'],
+    quote: 'I built a regression set with 120 examples.',
+    speaker: 'user',
+    source: 'voice-transcript',
+    artifact: '120-example regression set',
+    outcome: 'blocked two regressions',
+    recencyMonths: 2,
+    ...overrides,
+  }
+}
+
+test('taxonomy is complete, versionable, and has unique IDs', () => {
+  assert.equal(AI_PATH_TAXONOMY.length, AI_PATH_SKILL_IDS.length)
+  assert.equal(new Set(AI_PATH_TAXONOMY.map(skill => skill.id)).size, AI_PATH_SKILL_IDS.length)
+  for (const skill of AI_PATH_TAXONOMY) {
+    assert.deepEqual(Object.keys(skill.levels), ['0', '1', '2', '3', '4'])
+  }
+})
+
+test('session input accepts only the server-pinned consent version', () => {
+  const valid = parseSessionStartInput({
+    consentVersion: AI_PATH_CONSENT_VERSION,
+    locale: 'en-US',
+    mode: 'voice',
+    goal: 'I want to build and evaluate a reliable AI research workflow.',
+    saveTranscript: false,
+  })
+  assert.equal(valid.ok, true)
+
+  const arbitrary = parseSessionStartInput({
+    consentVersion: 'client-invented-v99',
+    locale: 'en-US',
+    mode: 'voice',
+    goal: 'I want to build and evaluate a reliable AI research workflow.',
+    saveTranscript: false,
+  })
+  assert.equal(arbitrary.ok, false)
+  assert.match(arbitrary.errors.join(' '), /consentVersion must be/)
+})
+
+test('evidence requires an exact quote, user speaker, and known source', () => {
+  const parsed = parseEvidenceRecords([evidence()])
+  assert.equal(parsed.ok, true)
+
+  const invalid = parseEvidenceRecords([evidence({ speaker: 'assistant', quote: '' })])
+  assert.equal(invalid.ok, false)
+  assert.match(invalid.errors.join(' '), /quote is required/)
+  assert.match(invalid.errors.join(' '), /speaker must be user/)
+})
+
+test('evidence is auditable against exact user transcript spans', () => {
+  const parsedEvidence = parseEvidenceRecords([evidence()])
+  const parsedTurns = parseTranscriptTurns([{
+    id: 'turn-1',
+    speaker: 'user',
+    source: 'voice-transcript',
+    text: 'I built a regression set with 120 examples. It blocked two regressions.',
+  }])
+  assert.equal(parsedEvidence.ok, true)
+  assert.equal(parsedTurns.ok, true)
+  assert.equal(validateEvidenceAgainstTranscript(parsedEvidence.value, parsedTurns.value).ok, true)
+
+  const wrongQuote = parseEvidenceRecords([evidence({ quote: 'This sentence was never spoken.' })])
+  assert.equal(wrongQuote.ok, true)
+  const audit = validateEvidenceAgainstTranscript(wrongQuote.value, parsedTurns.value)
+  assert.equal(audit.ok, false)
+  assert.match(audit.errors.join(' '), /not an exact transcript span/)
+})
+
+test('missing evidence remains not assessed instead of becoming a zero score', () => {
+  const results = scoreSkills([])
+  assert.equal(results.length, AI_PATH_SKILL_IDS.length)
+  assert.ok(results.every(result => result.status === 'not_assessed'))
+  assert.ok(results.every(result => result.level === null))
+})
+
+test('deterministic scoring requires multiple strong items for shipped evidence', () => {
+  const results = scoreSkills([
+    evidence(),
+    evidence({
+      id: 'evidence-2',
+      sourceTurnIds: ['turn-2'],
+      quote: 'I added release gates and reviewed failures every week.',
+      independence: 'independent',
+      artifact: 'release gate',
+    }),
+  ])
+  const evaluation = results.find(result => result.skillId === 'evaluation-reliability')
+  assert.equal(evaluation.level, 3)
+  assert.equal(evaluation.confidence, 'high')
+})
+
+test('contradictory evidence lowers level and confidence', () => {
+  const results = scoreSkills([
+    evidence(),
+    evidence({
+      id: 'evidence-2',
+      sourceTurnIds: ['turn-2'],
+      quote: 'I added release gates and reviewed failures every week.',
+    }),
+    evidence({
+      id: 'contradiction-1',
+      sourceTurnIds: ['turn-3'],
+      quote: 'I actually only reviewed examples manually.',
+      contradiction: true,
+    }),
+  ])
+  const evaluation = results.find(result => result.skillId === 'evaluation-reliability')
+  assert.equal(evaluation.level, 2)
+  assert.equal(evaluation.confidence, 'low')
+  assert.deepEqual(evaluation.contradictionIds, ['contradiction-1'])
+})
+
+test('recommendations are deterministic, prerequisite-aware, and multi-provider', () => {
+  const emptyResults = scoreSkills([])
+  const preferences = {
+    targetLevels: { 'safety-governance': 3, 'coding-apis': 3, 'agents-tools': 3 },
+    timeBudgetHours: 12,
+    freeOnly: true,
+    limit: 6,
+  }
+  const first = rankRecommendations(emptyResults, preferences)
+  const second = rankRecommendations(emptyResults, preferences)
+  assert.deepEqual(first, second)
+  assert.ok(first.some(resource => resource.provider === 'OWASP'))
+  assert.ok(!first.some(resource => resource.id === 'openai-function-calling'))
+  assert.ok(new Set(CURATED_RESOURCES.map(resource => resource.provider)).size >= 4)
+})
+
+test('session state machine rejects skipped and terminal transitions', () => {
+  assert.equal(validateSessionTransition('created', 'consented').ok, true)
+  assert.equal(validateSessionTransition('created', 'active').ok, false)
+  assert.equal(validateSessionTransition('complete', 'active').ok, false)
+})
+
+test('Realtime remains inert until every server-side live and paid gate is explicit', () => {
+  const base = {
+    apiKey: 'test-key',
+    safetyIdentifierSalt: 'test-salt',
+    model: 'test-realtime-model',
+  }
+  assert.equal(resolveRealtimeCapability(base).liveEnabled, false)
+  assert.equal(resolveRealtimeCapability({ ...base, enableLiveRealtime: 'true' }).liveEnabled, false)
+  assert.equal(resolveRealtimeCapability({
+    ...base,
+    enableLiveRealtime: 'true',
+    allowPaidApiCalls: 'true',
+  }).liveEnabled, false)
+  const fullyConfiguredCapability = resolveRealtimeCapability({
+    ...base,
+    enableLiveRealtime: 'true',
+    allowPaidApiCalls: 'true',
+    authReady: 'true',
+  })
+  assert.equal(fullyConfiguredCapability.liveEnabled, true)
+  assert.equal(canBootstrapPublicRealtime(fullyConfiguredCapability), false)
+})
+
+test('report output pins all versions and only uses curated recommendations', () => {
+  const report = buildAssessmentReport({
+    goal: 'Build a tested AI research workflow for weekly competitive analysis.',
+    evidence: [],
+    preferences: {
+      targetLevels: { foundations: 2, 'workflow-design': 2 },
+      timeBudgetHours: 12,
+      freeOnly: true,
+    },
+    generatedAt: new Date('2026-07-16T12:00:00.000Z'),
+  })
+  assert.match(report.reportVersion, /^2026-07-16/)
+  assert.equal(report.generatedAt, '2026-07-16T12:00:00.000Z')
+  assert.ok(report.recommendations.every(recommendation =>
+    CURATED_RESOURCES.some(resource => resource.id === recommendation.id)
+  ))
+})
