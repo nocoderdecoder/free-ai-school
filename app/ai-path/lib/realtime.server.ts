@@ -1,8 +1,7 @@
 import 'server-only'
 
-import { createHash } from 'node:crypto'
-
 import { resolveRealtimeCapability } from './foundation'
+import { deriveRealtimeSafetyIdentifier } from './realtime-safety'
 
 const OPENAI_REALTIME_URL = 'https://api.openai.com/v1/realtime/calls'
 const DEFAULT_REALTIME_MODEL = 'gpt-realtime-2.1'
@@ -42,10 +41,14 @@ export function getRealtimeCapability(): RealtimeCapability {
   })
 }
 
-function safetyIdentifier(assessmentSessionId: string): string {
+function safetyIdentifier(verifiedUserId: string): string {
   const salt = process.env.AI_PATH_SAFETY_IDENTIFIER_SALT
   if (!salt) throw new RealtimeBootstrapError('Realtime safety configuration is incomplete.', 503)
-  return createHash('sha256').update(`${salt}:${assessmentSessionId}`).digest('hex')
+  try {
+    return deriveRealtimeSafetyIdentifier(verifiedUserId, salt)
+  } catch {
+    throw new RealtimeBootstrapError('Realtime safety configuration is incomplete.', 503)
+  }
 }
 
 function sessionConfiguration(model: string) {
@@ -81,6 +84,7 @@ function sessionConfiguration(model: string) {
  */
 export async function createLiveRealtimeCall(input: {
   assessmentSessionId: string
+  verifiedUserId: string
   sdp: string
 }): Promise<LiveRealtimeResult> {
   const capability = getRealtimeCapability()
@@ -99,7 +103,7 @@ export async function createLiveRealtimeCall(input: {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      'OpenAI-Safety-Identifier': safetyIdentifier(input.assessmentSessionId),
+      'OpenAI-Safety-Identifier': safetyIdentifier(input.verifiedUserId),
     },
     body: form,
     cache: 'no-store',

@@ -1,6 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+
+import { AIPathApiError, analyzeReviewedAssessment, createTextSession } from './client/api'
+import type { AssessmentReport, SkillId, SkillLevel } from './lib/foundation'
+import { getPlanBlueprint } from './lib/plan'
 
 type Stage = 'landing' | 'profile' | 'setup' | 'interview' | 'understanding' | 'results' | 'plan' | 'history'
 type MicState = 'idle' | 'requesting' | 'ready' | 'denied'
@@ -46,76 +50,34 @@ const interviewQuestions = [
   },
 ] as const
 
-const skillObservations = [
-  { label: 'AI foundations', stage: 'Not assessed', note: 'The evidence pipeline will assess this only after reviewed transcript evidence exists.' },
-  { label: 'Workflow design', stage: 'Not assessed', note: 'No stage is assigned from profile fields or canned examples.' },
-  { label: 'Evaluation & reliability', stage: 'Not assessed', note: 'Missing evidence remains unassessed rather than becoming a low score.' },
-  { label: 'Building & integration', stage: 'Not assessed', note: 'A future report will link every finding to an exact learner-owned quote.' },
-] as const
+const experienceQuestionByGoal: Record<string, string> = {
+  workflows: 'Walk me through the last time you used AI in a real workflow. What did you do, and where did it break down?',
+  builder: 'Walk me through the last app, automation, or technical project you built. What did you own, and where did you get stuck?',
+  career: 'What is the strongest example you could show an employer today, and what important skill does it not prove yet?',
+  leader: 'Describe the last AI use case you evaluated with a team. How did you judge value, risk, and readiness?',
+  foundations: 'Tell me about one AI concept or tool you have tried to understand. What feels clear, and what still feels fuzzy?',
+  unsure: 'Tell me about one task or problem where you hoped AI might help. What did you try, if anything?',
+}
 
-const resources = [
-  {
-    kind: 'Core lesson',
-    title: 'Designing reliable AI workflows',
-    meta: '45 minutes · Beginner · Free',
-    why: 'This gives you a repeatable pattern for separating source collection, extraction, synthesis, and verification—the exact handoffs missing today.',
-  },
-  {
-    kind: 'Build project',
-    title: 'Ship a cited weekly research brief',
-    meta: '3 × 45-minute sessions · No code required',
-    why: 'Use six real sources, preserve every citation, and test the brief against a five-point quality checklist.',
-  },
-  {
-    kind: 'Recurring practice',
-    title: 'Run a ten-minute output review',
-    meta: 'Once a week · Reusable',
-    why: 'Track one missed claim, one weak citation, and one prompt change. This turns judgment into an evaluation habit.',
-  },
-] as const
+const skillNames: Record<SkillId, string> = {
+  foundations: 'AI foundations',
+  'prompt-context': 'Prompt and context design',
+  'workflow-design': 'Workflow design',
+  'data-retrieval': 'Data and retrieval',
+  'coding-apis': 'Coding and API integration',
+  'agents-tools': 'Agents and tool use',
+  'evaluation-reliability': 'Evaluation and reliability',
+  'deployment-operations': 'Deployment and operations',
+  'safety-governance': 'Safety and governance',
+}
 
-const weeks = [
-  {
-    week: 'Week 1',
-    theme: 'Map the workflow',
-    outcome: 'A one-page workflow map with clear inputs, handoffs, and a definition of a trustworthy brief.',
-    tasks: [
-      'Complete the 45-minute workflow design lesson',
-      'Map your current research process from source to final brief',
-      'Write a five-point quality checklist',
-    ],
-  },
-  {
-    week: 'Week 2',
-    theme: 'Build the first version',
-    outcome: 'A working brief generated from six real sources with citations preserved.',
-    tasks: [
-      'Create a structured source-extraction prompt',
-      'Generate one brief using the same source format',
-      'Review it against your quality checklist',
-    ],
-  },
-  {
-    week: 'Week 3',
-    theme: 'Make it reliable',
-    outcome: 'Two briefs that follow the same process and surface failures consistently.',
-    tasks: [
-      'Run the workflow on a second topic',
-      'Log citation and coverage failures',
-      'Add one verification step for unsupported claims',
-    ],
-  },
-  {
-    week: 'Week 4',
-    theme: 'Prove and share',
-    outcome: 'A documented workflow a colleague could run without asking you how it works.',
-    tasks: [
-      'Package the prompt, checklist, and example output',
-      'Ask one colleague to run the workflow',
-      'Capture what changed and choose the next learning edge',
-    ],
-  },
-] as const
+function learnerStage(level: SkillLevel | null): string {
+  if (level === null) return 'Not assessed'
+  if (level <= 1) return 'Explorer'
+  if (level === 2) return 'Integrator'
+  if (level === 3) return 'System Builder'
+  return 'Production Builder'
+}
 
 const flowSteps: Array<{ id: Stage; short: string }> = [
   { id: 'profile', short: 'Goal' },
@@ -158,7 +120,7 @@ function PrimaryButton({ onClick, children, disabled = false }: { onClick: () =>
   return <button type="button" className="ap-primary" onClick={onClick} disabled={disabled}>{children}<ArrowIcon /></button>
 }
 
-function FlowHeader({ stage, onNavigate }: { stage: Stage; onNavigate: (next: Stage) => void }) {
+function FlowHeader({ stage, onNavigate, canViewHistory }: { stage: Stage; onNavigate: (next: Stage) => void; canViewHistory: boolean }) {
   const activeIndex = flowSteps.findIndex(step => step.id === stage)
   if (activeIndex < 0) return null
   return (
@@ -179,7 +141,7 @@ function FlowHeader({ stage, onNavigate }: { stage: Stage; onNavigate: (next: St
             </li>
           ))}
         </ol>
-        <button type="button" className="ap-quietButton ap-historyButton" onClick={() => onNavigate('history')}>History</button>
+        {canViewHistory && <button type="button" className="ap-quietButton ap-historyButton" onClick={() => onNavigate('history')}>History</button>}
       </div>
     </div>
   )
@@ -193,6 +155,8 @@ export function AdvisorApp() {
   const [hours, setHours] = useState('3')
   const [codingComfort, setCodingComfort] = useState('Some, but I prefer no-code first')
   const [blocker, setBlocker] = useState('I start courses but lose momentum before I build anything useful.')
+  const [privacyAccepted, setPrivacyAccepted] = useState(false)
+  const [privacyOpen, setPrivacyOpen] = useState(false)
   const [micState, setMicState] = useState<MicState>('idle')
   const [captions, setCaptions] = useState(true)
   const [interviewStatus, setInterviewStatus] = useState<InterviewStatus>('agent')
@@ -204,15 +168,35 @@ export function AdvisorApp() {
   const [completedTasks, setCompletedTasks] = useState<Record<string, boolean>>({})
   const [planSaved, setPlanSaved] = useState(false)
   const [setupError, setSetupError] = useState('')
+  const [sessionState, setSessionState] = useState<'idle' | 'starting' | 'ready' | 'error'>('idle')
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [sessionError, setSessionError] = useState('')
+  const [analysisState, setAnalysisState] = useState<'idle' | 'running' | 'ready' | 'error'>('idle')
+  const [analysisError, setAnalysisError] = useState('')
+  const [assessmentReport, setAssessmentReport] = useState<AssessmentReport | null>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
   const selectedGoal = goalOptions.find(option => option.id === goal) ?? goalOptions[0]
-  const profileReady = role.trim().length >= 4 && outcome.trim().length >= 20 && blocker.trim().length >= 10
+  const plan = useMemo(() => getPlanBlueprint(goal), [goal])
+  const weeks = plan.weeks
+  const profileReady = role.trim().length >= 4 && outcome.trim().length >= 20 && blocker.trim().length >= 10 && privacyAccepted
   const totalTasks = weeks.reduce((total, week) => total + week.tasks.length, 0)
   const completedCount = Object.values(completedTasks).filter(Boolean).length
   const progress = Math.round((completedCount / totalTasks) * 100)
-  const currentQuestion = interviewQuestions[questionIndex]
+  const currentQuestion = useMemo(() => {
+    const base = interviewQuestions[questionIndex]
+    if (questionIndex === 1) return { ...base, question: experienceQuestionByGoal[goal] ?? experienceQuestionByGoal.unsure }
+    if (questionIndex === 2) return { ...base, question: `You have ${hours} ${hours === '1' ? 'hour' : 'hours'} a week. What usually prevents a learning plan from surviving contact with your calendar?` }
+    return base
+  }, [goal, hours, questionIndex])
+  const skillObservations = useMemo(() => (assessmentReport?.results ?? []).map(result => ({
+    label: skillNames[result.skillId],
+    stage: learnerStage(result.level),
+    note: result.rationale,
+  })), [assessmentReport])
+  const recommendations = assessmentReport?.recommendations ?? []
+  const assessedCount = assessmentReport?.results.filter(result => result.status === 'assessed').length ?? 0
 
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true })
@@ -275,6 +259,7 @@ export function AdvisorApp() {
   }
 
   const navigate = (next: Stage) => {
+    if ((next === 'results' || next === 'plan' || next === 'history') && !assessmentReport) return
     if (next !== 'setup') stopMicrophone()
     if (next === 'interview' && stage !== 'interview') setInterviewStatus('agent')
     setStage(next)
@@ -298,10 +283,20 @@ export function AdvisorApp() {
     }
   }
 
-  const continueWithText = () => {
+  const continueWithText = async () => {
     stopMicrophone()
-    setMicState('idle')
-    setStage('interview')
+    setSessionState('starting')
+    setSessionError('')
+    try {
+      const session = await createTextSession({ goal: outcome.trim(), targetRole: role.trim() })
+      setSessionId(session.id)
+      setSessionState('ready')
+      setMicState('idle')
+      setStage('interview')
+    } catch (error) {
+      setSessionState('error')
+      setSessionError(error instanceof AIPathApiError ? error.message : 'The assessment session could not be started. Please try again.')
+    }
   }
 
   const submitInterviewAnswer = () => {
@@ -319,16 +314,50 @@ export function AdvisorApp() {
     setUnderstanding(items => items.map(item => item.id === id ? { ...item, value } : item))
   }
 
+  const buildAssessment = async () => {
+    if (!sessionId) {
+      setAnalysisState('error')
+      setAnalysisError('This assessment session is missing. Return to your profile and start again.')
+      return
+    }
+    if (understanding.filter(item => item.value.trim()).length < 2) {
+      setAnalysisState('error')
+      setAnalysisError('Add at least two reviewed responses before building your report.')
+      return
+    }
+    setAnalysisState('running')
+    setAnalysisError('')
+    try {
+      const report = await analyzeReviewedAssessment({
+        assessmentSessionId: sessionId,
+        goal: outcome.trim(),
+        goalType: goal,
+        weeklyHours: Number(hours) || 1,
+        reviewedInputs: understanding.map(item => ({ id: item.id, value: item.value })),
+      })
+      setAssessmentReport(report)
+      setAnalysisState('ready')
+      setStage('results')
+    } catch (error) {
+      setAnalysisState('error')
+      setAnalysisError(error instanceof AIPathApiError ? error.message : 'The report could not be generated. Your reviewed responses are still available.')
+    }
+  }
+
   const toggleTask = (key: string) => {
     setCompletedTasks(tasks => ({ ...tasks, [key]: !tasks[key] }))
   }
 
   const restartForReassessment = () => {
+    setAssessmentReport(null)
+    setAnalysisState('idle')
+    setSessionId(null)
     setQuestionIndex(0)
     setConversation([])
+    setUnderstanding([])
     setAnswer('')
     setInterviewStatus('agent')
-    setStage('interview')
+    setStage('profile')
   }
 
   const deletePreview = () => {
@@ -337,6 +366,14 @@ export function AdvisorApp() {
     setUnderstanding([])
     setCompletedTasks({})
     setPlanSaved(false)
+    setSessionId(null)
+    setSessionState('idle')
+    setSessionError('')
+    setAssessmentReport(null)
+    setAnalysisState('idle')
+    setAnalysisError('')
+    setPrivacyAccepted(false)
+    setPrivacyOpen(false)
     setAnswer('')
     setQuestionIndex(0)
     setInterviewStatus('agent')
@@ -345,7 +382,7 @@ export function AdvisorApp() {
 
   return (
     <div className="ap-shell">
-      <FlowHeader stage={stage} onNavigate={navigate} />
+      <FlowHeader stage={stage} onNavigate={navigate} canViewHistory={Boolean(assessmentReport)} />
 
       {stage === 'landing' && (
         <section className="ap-landing">
@@ -354,7 +391,7 @@ export function AdvisorApp() {
           <div className="ap-landingGrid">
             <div className="ap-heroCopy">
               <div className="ap-privatePill"><span /> Private alpha · Your feedback shapes the product</div>
-              <h1 ref={headingRef} tabIndex={-1}>Find your next <em>useful</em> AI move.</h1>
+              <h1 ref={headingRef} tabIndex={-1}>Find your next <em>useful</em>{' '}AI move.</h1>
               <p className="ap-heroLead">Answer three guided questions. Leave with a transparent preview of how a realistic 30-day plan could use your goal, experience, and available time.</p>
               <div className="ap-heroActions">
                 <PrimaryButton onClick={() => setStage('profile')}>Build my plan</PrimaryButton>
@@ -416,11 +453,11 @@ export function AdvisorApp() {
               <div className="ap-fieldGrid">
                 <label className="ap-field ap-fieldWide">
                   <span>Your role or area of work</span>
-                  <input value={role} onChange={event => setRole(event.target.value)} placeholder="For example, operations manager in healthcare" />
+                  <input value={role} onChange={event => setRole(event.target.value)} maxLength={160} placeholder="For example, operations manager in healthcare" />
                 </label>
                 <label className="ap-field ap-fieldWide">
                   <span>What would you like to be able to do?</span>
-                  <textarea value={outcome} onChange={event => setOutcome(event.target.value)} rows={4} placeholder="Describe a real outcome, workflow, or proof you want to create." />
+                  <textarea value={outcome} onChange={event => setOutcome(event.target.value)} maxLength={1200} rows={4} placeholder="Describe a real outcome, workflow, or proof you want to create." />
                   <small>Specific beats impressive. You can refine this in the conversation.</small>
                 </label>
                 <label className="ap-field">
@@ -443,17 +480,23 @@ export function AdvisorApp() {
                 </label>
                 <label className="ap-field ap-fieldWide">
                   <span>What most often gets in the way?</span>
-                  <textarea value={blocker} onChange={event => setBlocker(event.target.value)} rows={3} />
+                  <textarea value={blocker} onChange={event => setBlocker(event.target.value)} maxLength={600} rows={3} />
                 </label>
               </div>
+
+              <label className="ap-consent">
+                <input type="checkbox" checked={privacyAccepted} onChange={event => setPrivacyAccepted(event.target.checked)} />
+                <span><strong>I agree to send my typed responses to this app&apos;s server to create the report.</strong><small>No audio or live AI model is used in this build. Avoid sensitive work information. This private alpha does not persist sessions unless an account store is explicitly enabled; when enabled, session/report data expires after at most 90 days and can be exported or deleted.</small></span>
+              </label>
 
               <div className="ap-formFooter">
                 <p><span>{selectedGoal.title}</span> · {hours} hours a week · {codingComfort}</p>
                 <div className="ap-heroActions">
                   <button type="button" className="ap-quietButton" onClick={() => setStage('setup')} disabled={!profileReady}>Preview future voice setup</button>
-                  <PrimaryButton onClick={continueWithText} disabled={!profileReady}>Start guided questions</PrimaryButton>
+                  <PrimaryButton onClick={continueWithText} disabled={!profileReady || sessionState === 'starting'}>{sessionState === 'starting' ? 'Starting session…' : 'Start guided questions'}</PrimaryButton>
                 </div>
               </div>
+              {sessionError && <div className="ap-error" role="alert"><div><strong>We could not start the session.</strong><p>{sessionError}</p></div><button type="button" onClick={continueWithText}>Try again</button></div>}
             </div>
           </div>
         </section>
@@ -473,11 +516,11 @@ export function AdvisorApp() {
                   <strong>{micState === 'ready' ? 'Microphone permission granted' : micState === 'requesting' ? 'Requesting microphone access…' : micState === 'denied' ? 'Microphone unavailable' : 'Microphone is off'}</strong>
                   <span>{micState === 'ready' ? 'This prototype does not connect or transcribe audio. Continue with the complete text flow.' : 'Nothing is recorded during this permission check.'}</span>
                 </div>
-                <button type="button" className="ap-primary ap-fullButton" onClick={micState === 'ready' ? continueWithText : requestMicrophone} disabled={micState === 'requesting'}>
-                  {micState === 'ready' ? 'Continue with text' : micState === 'requesting' ? 'Checking…' : 'Test microphone permission'}
+                <button type="button" className="ap-primary ap-fullButton" onClick={micState === 'ready' ? continueWithText : requestMicrophone} disabled={micState === 'requesting' || sessionState === 'starting'}>
+                  {sessionState === 'starting' ? 'Starting session…' : micState === 'ready' ? 'Continue with text' : micState === 'requesting' ? 'Checking…' : 'Test microphone permission'}
                   {micState === 'ready' ? <ArrowIcon /> : <MicIcon />}
                 </button>
-                <button type="button" className="ap-textChoice" onClick={continueWithText}>Continue with the complete text experience</button>
+                <button type="button" className="ap-textChoice" onClick={continueWithText} disabled={sessionState === 'starting'}>Continue with the complete text experience</button>
               </div>
               <div className="ap-expectCard">
                 <p className="ap-kicker">What to expect</p>
@@ -486,7 +529,7 @@ export function AdvisorApp() {
                   <li><span>02</span><div><strong>We ask for one real example</strong><small>Beginners can use a scenario instead of a project.</small></div></li>
                   <li><span>03</span><div><strong>You review what we heard</strong><small>Correct anything before the plan is generated.</small></div></li>
                 </ol>
-                <div className="ap-privacyNote"><strong>Voice is not live in this build.</strong><span>The permission test does not connect to a model or store audio. Typed answers stay only in this browser preview.</span></div>
+                <div className="ap-privacyNote"><strong>Voice is not live in this build.</strong><span>The permission test does not connect to a model or store audio. Typed answers are sent to the app server only when you build the report.</span></div>
               </div>
             </div>
             {setupError && <div className="ap-error" role="alert"><div><strong>We could not start the microphone.</strong><p>{setupError}</p></div><button type="button" onClick={requestMicrophone}>Try again</button></div>}
@@ -501,7 +544,7 @@ export function AdvisorApp() {
               <p className="ap-eyebrow">Phase {questionIndex + 1} of {interviewQuestions.length}</p>
               <strong>{currentQuestion.phase}</strong>
             </div>
-            <div className="ap-phaseTrack" aria-label={`Interview phase ${questionIndex + 1} of ${interviewQuestions.length}`}>
+            <div className="ap-phaseTrack" role="progressbar" aria-valuemin={1} aria-valuemax={interviewQuestions.length} aria-valuenow={questionIndex + 1} aria-label={`Interview phase ${questionIndex + 1} of ${interviewQuestions.length}`}>
               {interviewQuestions.map((question, index) => <i key={question.phase} className={index <= questionIndex ? 'is-active' : ''} />)}
             </div>
             <span className="ap-duration">Typed prototype · no live model</span>
@@ -545,7 +588,7 @@ export function AdvisorApp() {
                 ) : (
                   <>
                     <label htmlFor="ap-answer">Your response</label>
-                    <textarea id="ap-answer" value={answer} onChange={event => setAnswer(event.target.value)} rows={6} placeholder="Type your answer here…" />
+                    <textarea id="ap-answer" value={answer} onChange={event => setAnswer(event.target.value)} maxLength={2000} rows={6} placeholder="Type your answer here…" />
                     <p className="ap-helperText">{currentQuestion.helper}</p>
                     <p className="ap-helperText">{currentQuestion.example}</p>
                     <div className="ap-answerControls">
@@ -597,10 +640,11 @@ export function AdvisorApp() {
             </div>
 
             <div className="ap-reviewFooter">
-              <div><strong>Anything important still missing?</strong><p>We can ask one more question, or build the plan from this reviewed understanding.</p></div>
-              <button type="button" className="ap-secondary" onClick={() => setStage('interview')}>Ask me one more question</button>
-              <PrimaryButton onClick={() => setStage('results')}>Use this to build my plan</PrimaryButton>
+              <div><strong>Anything important still missing?</strong><p>Revise any answer before the server builds a conservative report from this reviewed understanding.</p></div>
+              <button type="button" className="ap-secondary" onClick={() => { setQuestionIndex(0); setConversation([]); setStage('interview') }}>Restart guided questions</button>
+              <PrimaryButton onClick={buildAssessment} disabled={analysisState === 'running'}>{analysisState === 'running' ? 'Building the evidence-informed report…' : 'Use this to build my report'}</PrimaryButton>
             </div>
+            {analysisError && <div className="ap-error" role="alert"><div><strong>We could not build the report.</strong><p>{analysisError}</p></div><button type="button" onClick={buildAssessment}>Try again</button></div>}
           </div>
         </section>
       )}
@@ -609,21 +653,21 @@ export function AdvisorApp() {
         <section className="ap-results">
           <div className="ap-resultsHero">
             <BackButton onClick={() => setStage('understanding')}>Edit what we understood</BackButton>
-            <div className="ap-privatePill"><span /> Illustrative plan draft · not an assessment result</div>
+            <div className="ap-privatePill"><span /> Deterministic assessment · report {assessmentReport?.reportVersion ?? 'unavailable'}</div>
             <div className="ap-resultsHeroGrid">
               <div>
                 <p className="ap-eyebrow">Your priority now</p>
                 <h1 ref={headingRef} tabIndex={-1}>Working direction: <em>{selectedGoal.title.toLowerCase()}.</em></h1>
-                <p>The alpha uses your stated outcome and constraints to preview the plan experience. Skill scoring and resource selection are not yet connected to this screen.</p>
-                <div className="ap-evidenceInline"><span><CheckIcon /></span><p>Based only on <strong>{understanding.length} inputs you can review</strong>; no hidden voice or model analysis.</p></div>
+                <p>This report uses only the responses you reviewed. Application-owned rules score transcript-linked evidence and select from the curated catalog; no live model or hidden voice analysis is involved.</p>
+                <div className="ap-evidenceInline"><span><CheckIcon /></span><p><strong>{assessedCount} skills assessed</strong> from {understanding.length} reviewed inputs; the rest remain explicitly unassessed.</p></div>
               </div>
               <aside className="ap-nextMove">
                 <span>30-day proof</span>
-                <h2>A cited weekly brief a colleague can run without you.</h2>
+                <h2>{plan.proof}</h2>
                 <dl>
                   <div><dt>Time</dt><dd>{hours} hours / week</dd></div>
                   <div><dt>Approach</dt><dd>No-code first</dd></div>
-                  <div><dt>Status</dt><dd>Illustrative</dd></div>
+                  <div><dt>Status</dt><dd>Self-report signals</dd></div>
                 </dl>
                 <PrimaryButton onClick={() => setStage('plan')}>Open my 30-day plan</PrimaryButton>
               </aside>
@@ -634,13 +678,13 @@ export function AdvisorApp() {
             <section className="ap-resultSection ap-nowNotYet">
               <div className="ap-sectionHeading"><p className="ap-kicker">Direction</p><h2>What to learn now—and what can wait.</h2></div>
               <div className="ap-directionGrid">
-                <article><span className="ap-doDot" /><p className="ap-kicker">Focus now</p><h3>Workflow decomposition, structured outputs, citation preservation, and a lightweight quality rubric.</h3></article>
-                <article><span className="ap-waitDot" /><p className="ap-kicker">Not yet</p><h3>Multi-agent orchestration, model fine-tuning, vector database internals, and production API architecture.</h3></article>
+                <article><span className="ap-doDot" /><p className="ap-kicker">Focus now</p><h3>{plan.focusNow}</h3></article>
+                <article><span className="ap-waitDot" /><p className="ap-kicker">Not yet</p><h3>{plan.notYet}</h3></article>
               </div>
             </section>
 
             <section className="ap-resultSection">
-              <div className="ap-sectionHeading"><p className="ap-kicker">Skill observations</p><h2>No evidence, no score.</h2><p>The deterministic assessment engine is built, but this prototype screen does not yet submit reviewed evidence to it.</p></div>
+              <div className="ap-sectionHeading"><p className="ap-kicker">Skill observations</p><h2>No evidence, no score.</h2><p>Every assessed stage is linked to reviewed learner input. Missing evidence stays “not assessed.”</p></div>
               <div className="ap-skillsTable">
                 {skillObservations.map((skill, index) => (
                   <div key={skill.label}>
@@ -654,23 +698,30 @@ export function AdvisorApp() {
             </section>
 
             <section className="ap-resultSection">
-              <div className="ap-sectionHeading"><p className="ap-kicker">Example recommendation stack</p><h2>One lesson. One build. One habit.</h2><p>Illustrative content only; production recommendations come from the reviewed catalog and deterministic ranker.</p></div>
+              <div className="ap-sectionHeading"><p className="ap-kicker">Curated recommendation stack</p><h2>Only what fits the evidence and time budget.</h2><p>These resources were selected deterministically from the versioned catalog after prerequisite and time checks.</p></div>
               <div className="ap-resourceGrid">
-                {resources.map((resource, index) => (
+                {recommendations.map((resource, index) => (
                   <article key={resource.title}>
                     <div className="ap-resourceIndex">0{index + 1}</div>
-                    <p className="ap-kicker">{resource.kind}</p>
+                    <p className="ap-kicker">{resource.format}</p>
                     <h3>{resource.title}</h3>
-                    <span>{resource.meta}</span>
-                    <p>{resource.why}</p>
-                    <div><button type="button" disabled title="Catalog integration is the next milestone">Details coming next</button><button type="button" disabled title="Catalog integration is the next milestone">Swap coming next</button></div>
+                    <span>{resource.provider} · {resource.estimatedHours} hours · {resource.free ? 'Free' : 'Paid'}</span>
+                    <p>{resource.reason}</p>
+                    <small className="ap-costDisclosure">{resource.costDisclosure}</small>
+                    <div>{resource.canonicalUrl ? <a href={resource.canonicalUrl} target="_blank" rel="noreferrer">Open resource</a> : <span>Project brief included in the plan</span>}</div>
                   </article>
                 ))}
               </div>
+              {recommendations.length === 0 && (
+                <div className="ap-emptyState" role="status">
+                  <strong>No governed resource fits this report yet.</strong>
+                  <p>{assessmentReport?.recommendationStatus === 'catalog_unavailable' ? 'The catalog is unavailable or stale, so the advisor failed closed instead of showing an unchecked link.' : 'The current evidence, prerequisites, format, and time filters produced no eligible match. Your project plan is still available.'}</p>
+                </div>
+              )}
             </section>
 
             <div className="ap-resultsCta">
-              <div><p className="ap-kicker">Ready when you are</p><h2>Your first task takes 45 minutes.</h2><p>Start with a workflow map—not another open-ended course.</p></div>
+              <div><p className="ap-kicker">Ready when you are</p><h2>Your first task takes about 45 minutes.</h2><p>{plan.firstTask}.</p></div>
               <PrimaryButton onClick={() => setStage('plan')}>Open my 30-day plan</PrimaryButton>
             </div>
           </div>
@@ -681,9 +732,9 @@ export function AdvisorApp() {
         <section className="ap-plan">
           <div className="ap-planHeader">
             <BackButton onClick={() => setStage('results')}>Back to direction</BackButton>
-            <div className="ap-privatePill"><span /> Illustrative 30-day plan · local preview</div>
+            <div className="ap-privatePill"><span /> Illustrative 30-day plan · browser preview</div>
             <div className="ap-planTitle">
-              <div><p className="ap-eyebrow">Your 30-day plan</p><h1 ref={headingRef} tabIndex={-1}>From manual research to a reliable brief.</h1><p>Four weeks · {hours} hours per week · Twelve concrete actions</p></div>
+              <div><p className="ap-eyebrow">Your 30-day plan</p><h1 ref={headingRef} tabIndex={-1}>{plan.title}</h1><p>Four weeks · {hours} hours per week · Twelve concrete actions</p></div>
               <div className="ap-progressRing" style={{ '--ap-progress': `${progress * 3.6}deg` } as React.CSSProperties}><span><strong>{progress}%</strong><small>complete</small></span></div>
             </div>
             <div className="ap-planActions">
@@ -695,7 +746,7 @@ export function AdvisorApp() {
 
           <div className="ap-planBody">
             <div className="ap-nextAction">
-              <div><span>Next action</span><h2>Complete the workflow design lesson.</h2><p>45 minutes · Produces the vocabulary for your one-page workflow map.</p></div>
+              <div><span>Next action</span><h2>{plan.firstTask}.</h2><p>About 45 minutes · Produces the first inspectable artifact in this plan.</p></div>
               <button type="button" className="ap-primary" onClick={() => toggleTask('0-0')}>{completedTasks['0-0'] ? 'Marked complete' : 'Start first task'}<ArrowIcon /></button>
             </div>
 
@@ -760,8 +811,9 @@ export function AdvisorApp() {
       {stage !== 'interview' && (
         <footer className="ap-footer">
           <span>AI Path Advisor · Private alpha</span>
-          <p>Text-only local prototype. Recommendations are illustrative; never share sensitive work information.</p>
-          <div><button type="button" disabled>Privacy summary coming</button><button type="button" onClick={deletePreview}>Delete local preview</button></div>
+          <p>Text-only private alpha. Reviewed responses are sent to the app server; never share sensitive work information.</p>
+          <div><button type="button" aria-expanded={privacyOpen} onClick={() => setPrivacyOpen(value => !value)}>Privacy summary</button><button type="button" onClick={deletePreview}>Delete browser preview</button></div>
+          {privacyOpen && <aside className="ap-privacySummary"><strong>Private-alpha data use</strong><p>Typed profile and reviewed answers are sent to this app&apos;s server to create a deterministic report. This build does not call a live AI model or upload microphone audio. Without an enabled account store, the server does not save the session. If durable storage is later enabled, owner-scoped session/report data expires within 90 days and supports export and deletion. Server security logs and aggregate, transcript-free metrics may follow separate operational retention.</p></aside>}
         </footer>
       )}
     </div>

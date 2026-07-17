@@ -2,7 +2,11 @@ import {
   getRealtimeCapability,
 } from '../../../../ai-path/lib/realtime.server'
 import { canBootstrapPublicRealtime } from '../../../../ai-path/lib/foundation'
-import { checkRateLimit, rateLimitResponse } from '../../../../lib/rateLimit'
+import {
+  aiPathRateLimitResponse,
+  checkAiPathRateLimit,
+} from '../../../../ai-path/lib/rate-limit.server'
+import { readBoundedJson } from '../../../../ai-path/lib/request-body'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
@@ -12,15 +16,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export async function POST(request: Request) {
-  const rate = await checkRateLimit(request, { tool: 'ai-path-realtime-session', limit: 10, windowMs: 60 * 60 * 1000 })
-  if (!rate.allowed) return rateLimitResponse(rate)
+  const rate = await checkAiPathRateLimit(request, { tool: 'ai-path-realtime-session', limit: 10, windowMs: 60 * 60 * 1000 })
+  if (!rate.allowed) return aiPathRateLimitResponse(rate)
 
-  let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return Response.json({ error: 'invalid_json' }, { status: 400 })
-  }
+  const bodyResult = await readBoundedJson(request, 220_000)
+  if (!bodyResult.ok) return Response.json({ error: bodyResult.error }, { status: bodyResult.status })
+  const body = bodyResult.value
   if (!isRecord(body)) return Response.json({ error: 'invalid_body' }, { status: 400 })
 
   const assessmentSessionId = typeof body.assessmentSessionId === 'string'

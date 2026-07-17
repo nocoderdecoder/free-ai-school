@@ -1,3 +1,5 @@
+import { selectPublishedCatalogResources } from '../catalog/production.mjs'
+
 export const AI_PATH_TAXONOMY_VERSION = '2026-07-16.v1' as const
 export const AI_PATH_SCORING_VERSION = '2026-07-16.v1' as const
 export const AI_PATH_REPORT_VERSION = '2026-07-16.v1' as const
@@ -202,6 +204,7 @@ export type CatalogResource = {
   canonicalUrl: string | null
   format: ResourceFormat
   free: boolean
+  costDisclosure: string
   estimatedHours: number
   quality: number
   skills: Array<{ skillId: SkillId; entryLevel: SkillLevel; exitLevel: SkillLevel }>
@@ -215,7 +218,8 @@ export type RankedRecommendation = CatalogResource & {
   matchedSkillIds: SkillId[]
 }
 
-export const CURATED_RESOURCES: readonly CatalogResource[] = [
+/** @deprecated Migration reference only. buildAssessmentReport cannot access this array. */
+export const LEGACY_CURATED_RESOURCES: readonly Omit<CatalogResource, 'costDisclosure'>[] = [
   {
     id: 'google-ml-crash-course',
     title: 'Machine Learning Crash Course',
@@ -570,7 +574,7 @@ function currentLevel(results: readonly SkillResult[], skillId: SkillId): SkillL
 export function rankRecommendations(
   results: readonly SkillResult[],
   preferences: RecommendationPreferences,
-  resources: readonly CatalogResource[] = CURATED_RESOURCES
+  resources: readonly CatalogResource[]
 ): RankedRecommendation[] {
   const budget = Math.max(1, Math.min(80, Math.floor(preferences.timeBudgetHours)))
   const limit = Math.max(1, Math.min(6, preferences.limit ?? 4))
@@ -774,6 +778,7 @@ export type AssessmentReport = {
   results: SkillResult[]
   strengths: SkillId[]
   growthAreas: SkillId[]
+  recommendationStatus: 'available' | 'no_eligible_resources' | 'catalog_unavailable'
   recommendations: RankedRecommendation[]
   disclaimer: string
 }
@@ -787,6 +792,7 @@ export type BuildReportInput = {
 
 export function buildAssessmentReport(input: BuildReportInput): AssessmentReport {
   const results = scoreSkills(input.evidence)
+  const generatedAt = (input.generatedAt ?? new Date()).toISOString()
   const targetEntries = Object.entries(input.preferences.targetLevels) as Array<[SkillId, SkillLevel]>
   const strengths = targetEntries
     .filter(([skillId, target]) => currentLevel(results, skillId) >= target)
@@ -794,18 +800,37 @@ export function buildAssessmentReport(input: BuildReportInput): AssessmentReport
   const growthAreas = targetEntries
     .filter(([skillId, target]) => currentLevel(results, skillId) < target)
     .map(([skillId]) => skillId)
+  const catalogSelection = selectPublishedCatalogResources({
+    asOf: generatedAt,
+    language: 'en',
+    maximumMinutes: Math.max(60, Math.floor(input.preferences.timeBudgetHours * 60)),
+    freeOnly: input.preferences.freeOnly,
+    formats: input.preferences.formats,
+  }) as {
+    status: 'available' | 'no_eligible_resources' | 'catalog_unavailable'
+    resources: CatalogResource[]
+  }
+  const recommendations = catalogSelection.status === 'available'
+    ? rankRecommendations(results, input.preferences, catalogSelection.resources)
+    : []
+  const recommendationStatus = recommendations.length
+    ? 'available'
+    : catalogSelection.status === 'catalog_unavailable'
+      ? 'catalog_unavailable'
+      : 'no_eligible_resources'
 
   return {
     reportVersion: AI_PATH_REPORT_VERSION,
     taxonomyVersion: AI_PATH_TAXONOMY_VERSION,
     scoringVersion: AI_PATH_SCORING_VERSION,
     catalogVersion: AI_PATH_CATALOG_VERSION,
-    generatedAt: (input.generatedAt ?? new Date()).toISOString(),
+    generatedAt,
     goal: input.goal.trim(),
     results,
     strengths,
     growthAreas,
-    recommendations: rankRecommendations(results, input.preferences),
+    recommendationStatus,
+    recommendations,
     disclaimer: 'This learning assessment reflects the evidence shared in this session. It is guidance, not a credential or employment decision.',
   }
 }

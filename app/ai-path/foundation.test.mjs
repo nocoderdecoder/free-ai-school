@@ -5,7 +5,6 @@ import {
   AI_PATH_CONSENT_VERSION,
   AI_PATH_SKILL_IDS,
   AI_PATH_TAXONOMY,
-  CURATED_RESOURCES,
   buildAssessmentReport,
   canBootstrapPublicRealtime,
   parseEvidenceRecords,
@@ -17,6 +16,7 @@ import {
   validateEvidenceAgainstTranscript,
   validateSessionTransition,
 } from './lib/foundation.ts'
+import { selectPublishedCatalogResources } from './catalog/production.mjs'
 
 function evidence(overrides = {}) {
   return {
@@ -138,7 +138,7 @@ test('contradictory evidence lowers level and confidence', () => {
   assert.deepEqual(evaluation.contradictionIds, ['contradiction-1'])
 })
 
-test('recommendations are deterministic, prerequisite-aware, and multi-provider', () => {
+test('recommendations are deterministic and prerequisite-aware over the governed catalog', () => {
   const emptyResults = scoreSkills([])
   const preferences = {
     targetLevels: { 'safety-governance': 3, 'coding-apis': 3, 'agents-tools': 3 },
@@ -146,12 +146,19 @@ test('recommendations are deterministic, prerequisite-aware, and multi-provider'
     freeOnly: true,
     limit: 6,
   }
-  const first = rankRecommendations(emptyResults, preferences)
-  const second = rankRecommendations(emptyResults, preferences)
+  const catalog = selectPublishedCatalogResources({
+    asOf: '2026-07-20T00:00:00.000Z',
+    language: 'en',
+    maximumMinutes: preferences.timeBudgetHours * 60,
+    freeOnly: preferences.freeOnly,
+  })
+  assert.equal(catalog.status, 'available')
+  const first = rankRecommendations(emptyResults, preferences, catalog.resources)
+  const second = rankRecommendations(emptyResults, preferences, catalog.resources)
   assert.deepEqual(first, second)
   assert.ok(first.some(resource => resource.provider === 'OWASP'))
   assert.ok(!first.some(resource => resource.id === 'openai-function-calling'))
-  assert.ok(new Set(CURATED_RESOURCES.map(resource => resource.provider)).size >= 4)
+  assert.ok(catalog.resources.every(resource => resource.free))
 })
 
 test('session state machine rejects skipped and terminal transitions', () => {
@@ -183,7 +190,7 @@ test('Realtime remains inert until every server-side live and paid gate is expli
   assert.equal(canBootstrapPublicRealtime(fullyConfiguredCapability), false)
 })
 
-test('report output pins all versions and only uses curated recommendations', () => {
+test('report output pins all versions and only uses published eligible catalog resources', () => {
   const report = buildAssessmentReport({
     goal: 'Build a tested AI research workflow for weekly competitive analysis.',
     evidence: [],
@@ -192,11 +199,36 @@ test('report output pins all versions and only uses curated recommendations', ()
       timeBudgetHours: 12,
       freeOnly: true,
     },
-    generatedAt: new Date('2026-07-16T12:00:00.000Z'),
+    generatedAt: new Date('2026-07-20T12:00:00.000Z'),
+  })
+  const eligible = selectPublishedCatalogResources({
+    asOf: report.generatedAt,
+    language: 'en',
+    maximumMinutes: 720,
+    freeOnly: true,
   })
   assert.match(report.reportVersion, /^2026-07-16/)
-  assert.equal(report.generatedAt, '2026-07-16T12:00:00.000Z')
+  assert.equal(report.generatedAt, '2026-07-20T12:00:00.000Z')
+  assert.equal(report.recommendationStatus, 'available')
   assert.ok(report.recommendations.every(recommendation =>
-    CURATED_RESOURCES.some(resource => resource.id === recommendation.id)
+    eligible.resources.some(resource => resource.id === recommendation.id)
   ))
+  assert.ok(report.recommendations.every(recommendation => recommendation.costDisclosure.length > 10))
+  assert.ok(!report.recommendations.some(recommendation => recommendation.id === 'deeplearning-ai-generative-ai-for-everyone'))
+  assert.ok(!report.recommendations.some(recommendation => recommendation.id === 'openai-academy-foundations'))
+})
+
+test('report returns an explicit no-resources state when the published catalog has no matching skill', () => {
+  const report = buildAssessmentReport({
+    goal: 'Operate a reliable deployed AI service.',
+    evidence: [],
+    preferences: {
+      targetLevels: { 'deployment-operations': 3 },
+      timeBudgetHours: 12,
+      freeOnly: true,
+    },
+    generatedAt: new Date('2026-07-20T12:00:00.000Z'),
+  })
+  assert.equal(report.recommendationStatus, 'no_eligible_resources')
+  assert.deepEqual(report.recommendations, [])
 })

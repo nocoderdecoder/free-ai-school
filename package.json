@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:ai-path": "node --test app/ai-path/foundation.test.mjs"
+    "test:ai-path": "node --test app/ai-path/foundation.test.mjs app/ai-path/catalog.test.mjs app/ai-path/client/api.test.mjs app/ai-path/durable-persistence.test.mjs app/ai-path/reviewed-assessment.test.mjs app/ai-path/plan.test.mjs app/ai-path/realtime-safety.test.mjs app/ai-path/request-body.test.mjs app/ai-path/route-handlers.test.mjs app/ai-path/session-persistence.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.102.0",
