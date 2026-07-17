@@ -6,6 +6,11 @@ import { AIPathApiError, analyzeReviewedAssessment, createTextSession, deleteOwn
 import { AiPathBrowserAnalytics, weeklyHoursBand } from './client/analytics'
 import { proposeCheckInAdaptation, taskSwapAlternative, type CheckInProposal } from './client/plan-actions'
 import {
+  AI_PATH_VOICE_CONSENT_VERSION,
+  createVoiceConsent,
+  type VoiceConsent,
+} from './client/realtime-consent'
+import {
   AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS,
   startAdaptiveInterview,
   submitAdaptiveInterviewAnswer,
@@ -26,7 +31,6 @@ import {
 } from './lib/reviewed-understanding'
 
 type Stage = 'landing' | 'profile' | 'setup' | 'interview' | 'understanding' | 'results' | 'plan' | 'history'
-type MicState = 'idle' | 'requesting' | 'ready' | 'denied'
 type InterviewStatus = 'agent' | 'ready' | 'listening' | 'processing' | 'paused'
 type UnderstandingItem = {
   id: string
@@ -206,7 +210,10 @@ export function AdvisorApp() {
   const [blocker, setBlocker] = useState('')
   const [privacyAccepted, setPrivacyAccepted] = useState(false)
   const [privacyOpen, setPrivacyOpen] = useState(false)
-  const [micState, setMicState] = useState<MicState>('idle')
+  const [voiceAudioAccepted, setVoiceAudioAccepted] = useState(false)
+  const [voiceTranscriptAccepted, setVoiceTranscriptAccepted] = useState(false)
+  const [voiceConsent, setVoiceConsent] = useState<VoiceConsent | null>(null)
+  const [voiceSetupStatus, setVoiceSetupStatus] = useState('')
   const [captions, setCaptions] = useState(true)
   const [interviewStatus, setInterviewStatus] = useState<InterviewStatus>('agent')
   const [adaptiveInterview, setAdaptiveInterview] = useState<AdaptiveInterviewState | null>(null)
@@ -217,7 +224,6 @@ export function AdvisorApp() {
   const [reviewStatus, setReviewStatus] = useState('')
   const [completedTasks, setCompletedTasks] = useState<Record<string, boolean>>({})
   const [planSaved, setPlanSaved] = useState(false)
-  const [setupError, setSetupError] = useState('')
   const [sessionState, setSessionState] = useState<'idle' | 'starting' | 'ready' | 'error'>('idle')
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessionOwned, setSessionOwned] = useState(false)
@@ -242,10 +248,10 @@ export function AdvisorApp() {
   const [feedbackState, setFeedbackState] = useState<'idle' | 'sending' | 'done'>('idle')
   const [feedbackMessage, setFeedbackMessage] = useState('')
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
   const analyticsRef = useRef<AiPathBrowserAnalytics | null>(null)
   const assessmentStartedAtRef = useRef<number | null>(null)
   const assessmentCompletionRecordedRef = useRef(false)
+  const landingViewedRef = useRef(false)
   const firstTaskStartedAtRef = useRef<number | null>(null)
 
   if (!analyticsRef.current) analyticsRef.current = new AiPathBrowserAnalytics()
@@ -290,6 +296,8 @@ export function AdvisorApp() {
   const totalFindingCount = Math.max(1, assessmentReport?.results.length ?? 1)
 
   useEffect(() => {
+    if (landingViewedRef.current) return
+    landingViewedRef.current = true
     void analyticsRef.current?.landingViewed('unknown')
   }, [])
 
@@ -297,10 +305,6 @@ export function AdvisorApp() {
     headingRef.current?.focus({ preventScroll: true })
     window.scrollTo({ top: 0, behavior: 'auto' })
   }, [stage])
-
-  useEffect(() => () => {
-    streamRef.current?.getTracks().forEach(track => track.stop())
-  }, [])
 
   const recordAssessmentCompletion = useCallback(() => {
     if (assessmentCompletionRecordedRef.current) return
@@ -310,12 +314,6 @@ export function AdvisorApp() {
       : 1
     void analyticsRef.current?.assessmentCompleted(durationSeconds)
   }, [])
-
-  useEffect(() => {
-    if (stage === 'setup' || stage === 'interview') return
-    streamRef.current?.getTracks().forEach(track => track.stop())
-    streamRef.current = null
-  }, [stage])
 
   useEffect(() => {
     if (interviewStatus !== 'processing') return
@@ -334,39 +332,24 @@ export function AdvisorApp() {
     return () => window.clearTimeout(timeout)
   }, [adaptiveInterview, blocker, hours, interviewStatus, outcome, recordAssessmentCompletion])
 
-  const stopMicrophone = () => {
-    streamRef.current?.getTracks().forEach(track => track.stop())
-    streamRef.current = null
-    setMicState('idle')
-  }
-
   const navigate = (next: Stage) => {
     if ((next === 'results' || next === 'plan' || next === 'history') && !assessmentReport) return
-    if (next !== 'setup') stopMicrophone()
     if (next === 'interview' && stage !== 'interview') setInterviewStatus('agent')
     setStage(next)
   }
 
-  const requestMicrophone = async () => {
-    setMicState('requesting')
-    setSetupError('')
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setMicState('denied')
-      setSetupError('This browser does not expose microphone access. You can continue with the complete text experience.')
-      return
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      streamRef.current = stream
-      setMicState('ready')
-    } catch {
-      setMicState('denied')
-      setSetupError('Microphone access was not granted. Nothing was lost—enable it in your browser settings, or continue by typing.')
-    }
+  const confirmVoiceConsentPreview = () => {
+    const accepted = createVoiceConsent({
+      audioStreamingAccepted: voiceAudioAccepted,
+      transcriptReviewAccepted: voiceTranscriptAccepted,
+    })
+    setVoiceConsent(accepted)
+    setVoiceSetupStatus(accepted
+      ? 'Voice consent choices saved for this browser tab. The live provider gate is still locked, so no microphone permission or network call was attempted.'
+      : 'Accept both voice-specific choices before a future live session can request microphone access.')
   }
 
   const continueWithText = async () => {
-    stopMicrophone()
     setSessionState('starting')
     setSessionError('')
     try {
@@ -383,7 +366,6 @@ export function AdvisorApp() {
       setSessionOwned(result.owned)
       setSessionPersistence(result.persistence)
       setSessionState('ready')
-      setMicState('idle')
       setAdaptiveInterview(interview.state)
       setUnderstanding([])
       setCorrectedInputIds({})
@@ -430,7 +412,6 @@ export function AdvisorApp() {
   }
 
   const endInterviewAndReview = () => {
-    stopMicrophone()
     if (!adaptiveInterview || adaptiveInterview.turns.length === 0) return
     recordAssessmentCompletion()
     setUnderstanding(buildUnderstandingFromInterview(adaptiveInterview, outcome, hours, blocker))
@@ -489,6 +470,7 @@ export function AdvisorApp() {
         goal: reviewedGoal,
         goalType: goal,
         weeklyHours: Number(hours) || 1,
+        codingComfort,
         reviewedInputs: activeUnderstanding.map(item => ({ id: item.id, value: item.value })),
       })
       setAssessmentReport(report)
@@ -504,19 +486,19 @@ export function AdvisorApp() {
   }
 
   const toggleTask = (key: string) => {
-    setCompletedTasks(tasks => {
-      const completing = !tasks[key]
-      if (key === '0-0' && completing) {
-        if (!firstTaskStartedAtRef.current) {
-          firstTaskStartedAtRef.current = Date.now()
-          setFirstTaskStarted(true)
-          void analyticsRef.current?.firstTaskStarted()
-        }
-        const elapsedMinutes = Math.max(1, Math.round((Date.now() - firstTaskStartedAtRef.current) / 60_000))
-        void analyticsRef.current?.firstTaskCompleted(elapsedMinutes)
+    const completing = !completedTasks[key]
+    setCompletedTasks(tasks => ({ ...tasks, [key]: completing }))
+    if (key === '0-0' && completing) {
+      let startedAt = firstTaskStartedAtRef.current
+      if (!startedAt) {
+        startedAt = Date.now()
+        firstTaskStartedAtRef.current = startedAt
+        setFirstTaskStarted(true)
+        void analyticsRef.current?.firstTaskStarted()
       }
-      return { ...tasks, [key]: completing }
-    })
+      const elapsedMinutes = Math.max(1, Math.round((Date.now() - startedAt) / 60_000))
+      void analyticsRef.current?.firstTaskCompleted(elapsedMinutes)
+    }
   }
 
   const startOrCompleteFirstTask = () => {
@@ -532,11 +514,9 @@ export function AdvisorApp() {
   }
 
   const togglePlanSaved = () => {
-    setPlanSaved(value => {
-      const next = !value
-      if (next) void analyticsRef.current?.planSaved('private-alpha-v1')
-      return next
-    })
+    const next = !planSaved
+    setPlanSaved(next)
+    if (next) void analyticsRef.current?.planSaved('private-alpha-v1')
   }
 
   const submitFeedback = async () => {
@@ -585,7 +565,6 @@ export function AdvisorApp() {
   }
 
   const clearPreview = () => {
-    stopMicrophone()
     setUnderstanding([])
     setCompletedTasks({})
     setPlanSaved(false)
@@ -609,6 +588,10 @@ export function AdvisorApp() {
     setAnalysisError('')
     setPrivacyAccepted(false)
     setPrivacyOpen(false)
+    setVoiceAudioAccepted(false)
+    setVoiceTranscriptAccepted(false)
+    setVoiceConsent(null)
+    setVoiceSetupStatus('')
     setTaskOverrides({})
     setCheckIn('')
     setCheckInProposal(null)
@@ -823,33 +806,42 @@ export function AdvisorApp() {
         <section className="ap-section ap-setupSection">
           <div className="ap-narrow">
             <BackButton onClick={() => setStage('profile')} />
-            <p className="ap-eyebrow">Optional preview · Future voice setup</p>
-            <h1 ref={headingRef} tabIndex={-1}>Preview the microphone permission step.</h1>
-            <p className="ap-sectionLead">Voice is not connected in this build. This optional screen only verifies browser permission; the complete alpha continues by typing.</p>
+            <p className="ap-eyebrow">Optional preview · Voice consent</p>
+            <h1 ref={headingRef} tabIndex={-1}>Review voice access before a live session.</h1>
+            <p className="ap-sectionLead">Voice-specific consent is separate from the text assessment agreement. The provider gate remains locked in this build, so this screen never requests microphone permission or opens a live connection.</p>
             <div className="ap-setupGrid">
               <div className="ap-micCard">
-                <div className={`ap-micOrb is-${micState}`} aria-hidden="true"><MicIcon off={micState === 'denied'} /></div>
+                <div className={`ap-micOrb ${voiceConsent ? 'is-ready' : ''}`} aria-hidden="true"><MicIcon /></div>
                 <div className="ap-micStatus" role="status" aria-live="polite">
-                  <strong>{micState === 'ready' ? 'Microphone permission granted' : micState === 'requesting' ? 'Requesting microphone access…' : micState === 'denied' ? 'Microphone unavailable' : 'Microphone is off'}</strong>
-                  <span>{micState === 'ready' ? 'This prototype does not connect or transcribe audio. Continue with the complete text flow.' : 'Nothing is recorded during this permission check.'}</span>
+                  <strong>{voiceConsent ? 'Consent choices saved · provider disabled' : 'Microphone and provider are off'}</strong>
+                  <span>Consent version {AI_PATH_VOICE_CONSENT_VERSION}. Nothing is recorded or transmitted from this screen.</span>
                 </div>
-                <button type="button" className="ap-primary ap-fullButton" onClick={micState === 'ready' ? continueWithText : requestMicrophone} disabled={micState === 'requesting' || sessionState === 'starting'}>
-                  {sessionState === 'starting' ? 'Starting session…' : micState === 'ready' ? 'Continue with text' : micState === 'requesting' ? 'Checking…' : 'Test microphone permission'}
-                  {micState === 'ready' ? <ArrowIcon /> : <MicIcon />}
+                <div className="ap-voiceConsentChoices">
+                  <label>
+                    <input type="checkbox" checked={voiceAudioAccepted} onChange={event => { setVoiceAudioAccepted(event.target.checked); setVoiceConsent(null); setVoiceSetupStatus('') }} />
+                    <span><strong>Allow live audio streaming for this voice session</strong><small>When voice is later enabled, microphone audio may be sent to the configured AI provider only while the session is active.</small></span>
+                  </label>
+                  <label>
+                    <input type="checkbox" checked={voiceTranscriptAccepted} onChange={event => { setVoiceTranscriptAccepted(event.target.checked); setVoiceConsent(null); setVoiceSetupStatus('') }} />
+                    <span><strong>Allow transcript-derived interpretations for review</strong><small>You will inspect, correct, or remove transcript-derived evidence before it can affect your assessment or plan.</small></span>
+                  </label>
+                </div>
+                <button type="button" className="ap-primary ap-fullButton" onClick={confirmVoiceConsentPreview}>
+                  Save voice consent choices <CheckIcon />
                 </button>
                 <button type="button" className="ap-textChoice" onClick={continueWithText} disabled={sessionState === 'starting'}>Continue with the complete text experience</button>
+                {voiceSetupStatus && <p className="ap-voiceSetupStatus" role="status">{voiceSetupStatus}</p>}
               </div>
               <div className="ap-expectCard">
-                <p className="ap-kicker">What to expect</p>
+                <p className="ap-kicker">Foundation now covered by mocks</p>
                 <ol>
-                  <li><span>01</span><div><strong>We start with your goal</strong><small>No trivia or surprise test questions.</small></div></li>
-                  <li><span>02</span><div><strong>We ask for one real example</strong><small>Beginners can use a scenario instead of a project.</small></div></li>
-                  <li><span>03</span><div><strong>You review what we heard</strong><small>Correct anything before the plan is generated.</small></div></li>
+                  <li><span>01</span><div><strong>Low-latency browser media</strong><small>Injected WebRTC, microphone, remote audio, data-channel, and SDP boundaries are testable without a provider.</small></div></li>
+                  <li><span>02</span><div><strong>Conversation recovery</strong><small>Interruption, reconnect limits, device loss, provider errors, and typed fallback have explicit states.</small></div></li>
+                  <li><span>03</span><div><strong>Editable evidence</strong><small>User and advisor transcript events normalize into reviewable items; unknown events are ignored.</small></div></li>
                 </ol>
-                <div className="ap-privacyNote"><strong>Voice is not live in this build.</strong><span>The permission test does not connect to a model or store audio. Typed answers are sent to the app server only when you build the report.</span></div>
+                <div className="ap-privacyNote"><strong>Voice is not live in this build.</strong><span>Production exits before microphone, peer connection, remote audio, or SDP work while the client and server gates are closed. Continue by typing to test the complete assessment.</span></div>
               </div>
             </div>
-            {setupError && <div className="ap-error" role="alert"><div><strong>We could not start the microphone.</strong><p>{setupError}</p></div><button type="button" onClick={requestMicrophone}>Try again</button></div>}
           </div>
         </section>
       )}

@@ -148,6 +148,12 @@
 .ap-micOrb svg { height: 38px; width: 38px; }
 .ap-micStatus { display: grid; gap: 6px; margin-bottom: 24px; }
 .ap-micStatus span { color: var(--ap-muted); line-height: 1.45; }
+.ap-voiceConsentChoices { display: grid; gap: 10px; margin: 0 0 18px; text-align: left; width: 100%; }
+.ap-voiceConsentChoices label { align-items: flex-start; background: rgba(255,255,255,.72); border: 1px solid var(--ap-line); border-radius: 13px; display: flex; gap: 11px; min-width: 0; padding: 14px; }
+.ap-voiceConsentChoices input { flex: 0 0 auto; height: 20px; margin-top: 1px; width: 20px; }
+.ap-voiceConsentChoices span { display: grid; gap: 5px; min-width: 0; }
+.ap-voiceConsentChoices small { color: var(--ap-muted); line-height: 1.45; overflow-wrap: anywhere; }
+.ap-voiceSetupStatus { border-left: 3px solid var(--ap-green); color: var(--ap-muted); font-size: 12px; line-height: 1.5; margin: 15px 0 0; padding-left: 10px; text-align: left; width: 100%; }
 .ap-textChoice { background: transparent; border: 0; color: var(--ap-green-dark); font-weight: 700; margin-top: 8px; }
 .ap-expectCard ol { list-style: none; margin: 20px 0; padding: 0; }
 .ap-expectCard li { border-bottom: 1px solid var(--ap-line); display: flex; gap: 15px; padding: 18px 0; }

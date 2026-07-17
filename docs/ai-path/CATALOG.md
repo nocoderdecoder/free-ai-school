@@ -1,5 +1,15 @@
 # AI Path Resource Catalog
 
+Current published catalog: `2026-07-17.v2`. This release adds governed access,
+coding, paid-service, and goal-stage eligibility plus three account-free
+first-party projects. The schema remains `2026-07-16.v1`.
+
+The dormant durable-report migration still pins catalog `2026-07-16.v1`.
+Durable analysis and report-writer latches must remain closed until a new
+forward-only migration accepts `2026-07-17.v2`, preserves old completed reports,
+and passes the disposable PostgreSQL proof. Anonymous/local private-alpha
+reports use v2 now; this source change does not authorize a database rollout.
+
 ## Purpose
 
 The catalog is a versioned decision input, not a set of links embedded in a prompt. It owns the factual metadata used to determine whether a resource is suitable for the initial audience: working professionals who already use general-purpose AI tools and want to build one reliable work workflow.
@@ -23,6 +33,7 @@ Every resource records:
 
 - immutable schema and catalog versions;
 - stable resource ID, title, provider, canonical URL, format, difficulty, and learning modes;
+- coding requirement, account requirement, downstream paid-service requirement, and goal types for which the resource is explicitly deferred;
 - languages, estimated minutes, quality score, audience, skill mappings, and prerequisites;
 - learner outcome and the editorial reason it fits;
 - cost kind, amount/currency when applicable, verification date, and a concise downstream-use disclosure;
@@ -72,7 +83,7 @@ Reviewers should check relevance, accuracy, accessibility, learner effort, prere
 
 ## Recommendation integrity
 
-Eligibility precedes ranking. A record is eligible only when it is active, reviewed, link-valid or first-party, available in the requested language, within the time budget, compatible with free-only preference, and in an allowed format.
+Eligibility precedes ranking. A record is eligible only when it is active, reviewed, link-valid or first-party, available in the requested language, within the time budget, compatible with the learner's coding and account-access preferences, compatible with strict free-only downstream-use policy, not deferred by the current plan's goal stage, and in an allowed format. A free document that leads to a paid API exercise is not eligible in the default free-only private alpha unless a later product policy explicitly permits that downstream use.
 
 Ranking should then use assessed gap, prerequisite readiness, effort fit, quality, and recency. Store the selected resource IDs and catalog version in every report so a recommendation can be reproduced after the catalog changes.
 
@@ -90,6 +101,14 @@ The `free-ai-school-workflow-evidence-sprint` resource has no external URL. Its 
 
 This resource is eligible only when its first-party content is actually available in the plan experience.
 
+## First-party capability decision sprint
+
+The `free-ai-school-capability-decision-sprint` is a one-hour, account-free beginner route. The learner compares one suitable and one unsuitable AI task, records the evidence needed, and defines privacy and human-review boundaries. It provides a safe foundations and workflow on-ramp when a longer course does not fit.
+
+## First-party integration design sprint
+
+The `free-ai-school-integration-design-sprint` is a one-hour no-code project. Its output is an input/output contract, one mocked request and response, validation rules, and a failure checklist. It gives a learner evidence at the guided-integration stage without recommending an API quickstart or consuming paid API credits.
+
 ## First-party context evaluation sprint
 
 The `free-ai-school-context-evaluation-sprint` produces a versioned instruction, at least eight representative examples, a simple pass/fail rubric, one controlled context change, and a before/after result table. The learner must record one regression as well as one improvement. This closes the prompt/context gap without requiring an API integration.
@@ -106,7 +125,11 @@ The `free-ai-school-bounded-agent-sprint` requires a tool inventory, an allowlis
 
 The `free-ai-school-operational-pilot-sprint` is a simulated or local pilot, not a production launch. Its definition of done includes release criteria, a minimal monitoring checklist, an owner and escalation path, rollback steps, and one incident rehearsal. The learner records pilot evidence and a go, revise, or stop decision; no paid hosting is required.
 
-Together, the five first-party projects cover the seven applied private-alpha skills. `foundations` retains two reviewed provider courses and `coding-apis` retains the reviewed provider quickstart. Across first-party and provider resources, all nine skills are covered. Quality scores remain deliberately below the strongest provider references until moderated learner evidence supports promotion.
+## First-party operational-readiness tabletop
+
+The `free-ai-school-operational-readiness-tabletop` is the prerequisite-free alternative to a pilot. The learner drafts release, monitoring, rollback, and incident decisions against a simulated workflow. It is deferred when the current plan says operations are "not yet" and never deploys a live service.
+
+Together, the eight first-party projects provide free, account-free coverage across all nine private-alpha skills, including short on-ramps for learners whose evidence or prerequisites are still limited. Provider resources remain available only after the structured coding, access, downstream-cost, prerequisite, time, and goal-stage gates pass. Quality scores remain deliberately below the strongest provider references until moderated learner evidence supports promotion.
 
 ## Promotion checklist
 

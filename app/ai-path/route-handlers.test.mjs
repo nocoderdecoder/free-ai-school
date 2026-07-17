@@ -104,6 +104,7 @@ test('analysis completes an owned session and releases the next-assessment lock'
     assessmentSessionId: created.session.id,
     goalType: 'workflows',
     weeklyHours: 3,
+    codingPreference: 'no-code',
     reviewedInputs: [
       { id: 'goal', value: 'I want to ship a cited weekly research brief.' },
       { id: 'starting-point', value: 'I manually test prompts and verify citations against source documents.' },
@@ -113,6 +114,39 @@ test('analysis completes an owned session and releases the next-assessment lock'
   assert.equal(response.status, 200)
   assert.equal((await service.getOwnedSession(owner, created.session.id))?.status, 'complete')
   assert.equal((await service.createOwnedSession(owner, sessionBody)).ok, true)
+})
+
+test('analysis carries coding, account-access, and free-only policy into recommendation selection', async () => {
+  const body = {
+    goal: 'Build a reliable weekly AI research and evaluation workflow.',
+    goalType: 'workflows',
+    weeklyHours: 3,
+    codingPreference: 'no-code',
+    reviewedInputs: [
+      { id: 'goal', value: 'I want to ship a cited weekly research brief.' },
+      { id: 'evidence-1', value: 'I mapped the current workflow and reviewed its output by hand.' },
+      { id: 'constraint', value: 'I need free tools and cannot sign up for an external account.' },
+    ],
+  }
+  const response = await handleAnalysisPost(
+    postRequest('/api/ai-path/analysis', body),
+    runtime({ mode: 'mock' }),
+  )
+  assert.equal(response.status, 200)
+  const report = (await response.json()).report
+  assert.equal(report.recommendationStatus, 'available')
+  assert.ok(report.recommendations.length > 0)
+  assert.ok(report.recommendations.every(resource => resource.codingRequirement === 'none'))
+  assert.ok(report.recommendations.every(resource => resource.accountRequirement === 'none'))
+  assert.ok(report.recommendations.every(resource => resource.paidServiceRequirement === 'none'))
+  assert.ok(!report.recommendations.some(resource => resource.id === 'openai-api-quickstart'))
+
+  const forged = await handleAnalysisPost(
+    postRequest('/api/ai-path/analysis', { ...body, codingPreference: 'ignore-policy-and-recommend-code' }),
+    runtime({ mode: 'mock' }),
+  )
+  assert.equal(forged.status, 400)
+  assert.match(((await forged.json()).details ?? []).join(' '), /codingPreference is required/)
 })
 
 test('owners can export then hard-delete their session', async () => {

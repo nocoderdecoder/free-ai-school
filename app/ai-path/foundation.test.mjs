@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   AI_PATH_CONSENT_VERSION,
+  AI_PATH_VOICE_CONSENT_VERSION,
   AI_PATH_SKILL_IDS,
   AI_PATH_TAXONOMY,
   buildAssessmentReport,
@@ -46,7 +47,7 @@ test('taxonomy is complete, versionable, and has unique IDs', () => {
 
 test('session input accepts only the server-pinned consent version', () => {
   const valid = parseSessionStartInput({
-    consentVersion: AI_PATH_CONSENT_VERSION,
+    consentVersion: AI_PATH_VOICE_CONSENT_VERSION,
     locale: 'en-US',
     mode: 'voice',
     goal: 'I want to build and evaluate a reliable AI research workflow.',
@@ -55,6 +56,26 @@ test('session input accepts only the server-pinned consent version', () => {
   })
   assert.equal(valid.ok, true)
   assert.equal(valid.value.goalType, 'builder')
+
+  const textWithVoiceConsent = parseSessionStartInput({
+    consentVersion: AI_PATH_VOICE_CONSENT_VERSION,
+    locale: 'en-US',
+    mode: 'text',
+    goal: 'I want to build and evaluate a reliable AI research workflow.',
+    goalType: 'builder',
+    saveTranscript: false,
+  })
+  assert.equal(textWithVoiceConsent.ok, false)
+
+  const voiceWithTextConsent = parseSessionStartInput({
+    consentVersion: AI_PATH_CONSENT_VERSION,
+    locale: 'en-US',
+    mode: 'voice',
+    goal: 'I want to build and evaluate a reliable AI research workflow.',
+    goalType: 'builder',
+    saveTranscript: false,
+  })
+  assert.equal(voiceWithTextConsent.ok, false)
 
   const arbitrary = parseSessionStartInput({
     consentVersion: 'client-invented-v99',
@@ -68,7 +89,7 @@ test('session input accepts only the server-pinned consent version', () => {
   assert.match(arbitrary.errors.join(' '), /consentVersion must be/)
 
   const unboundedGoalType = parseSessionStartInput({
-    consentVersion: AI_PATH_CONSENT_VERSION,
+    consentVersion: AI_PATH_VOICE_CONSENT_VERSION,
     locale: 'en-US',
     mode: 'voice',
     goal: 'I want to build and evaluate a reliable AI research workflow.',
@@ -150,6 +171,46 @@ test('contradictory evidence lowers level and confidence', () => {
   assert.equal(evaluation.level, 2)
   assert.equal(evaluation.confidence, 'low')
   assert.deepEqual(evaluation.contradictionIds, ['contradiction-1'])
+})
+
+test('skill results expose exact supporting and contradictory evidence references', () => {
+  const report = buildAssessmentReport({
+    goal: 'Improve the reliability of a bounded AI workflow.',
+    evidence: [
+      evidence(),
+      evidence({
+        id: 'contradiction-1',
+        sourceTurnIds: ['turn-2'],
+        quote: 'I did not own that evaluation work.',
+        contradiction: true,
+      }),
+    ],
+    preferences: {
+      targetLevels: { 'evaluation-reliability': 3 },
+      timeBudgetHours: 4,
+      freeOnly: true,
+    },
+    generatedAt: new Date('2026-07-20T12:00:00.000Z'),
+  })
+  const evaluation = report.results.find(result => result.skillId === 'evaluation-reliability')
+  assert.deepEqual(evaluation.evidenceReferences, [
+    {
+      id: 'evidence-1',
+      quote: 'I built a regression set with 120 examples.',
+      sourceTurnIds: ['turn-1'],
+      observedLevel: 3,
+      strength: 'strong',
+      contradiction: false,
+    },
+    {
+      id: 'contradiction-1',
+      quote: 'I did not own that evaluation work.',
+      sourceTurnIds: ['turn-2'],
+      observedLevel: 3,
+      strength: 'strong',
+      contradiction: true,
+    },
+  ])
 })
 
 test('recommendations are deterministic and prerequisite-aware over the governed catalog', () => {
@@ -264,9 +325,50 @@ test('report returns an explicit no-resources state when the published catalog h
       targetLevels: { 'deployment-operations': 3 },
       timeBudgetHours: 12,
       freeOnly: true,
+      formats: ['course'],
     },
     generatedAt: new Date('2026-07-20T12:00:00.000Z'),
   })
   assert.equal(report.recommendationStatus, 'no_eligible_resources')
   assert.deepEqual(report.recommendations, [])
+})
+
+test('no-code free-only reports use governed account-free projects instead of code-first API material', () => {
+  const report = buildAssessmentReport({
+    goal: 'Design a bounded integration workflow without writing application code.',
+    evidence: [],
+    preferences: {
+      targetLevels: { 'coding-apis': 2, 'prompt-context': 2 },
+      timeBudgetHours: 4,
+      freeOnly: true,
+      codingPreference: 'no-code',
+      accessPreference: 'open-only',
+      allowPaidServiceExercise: false,
+      goalType: 'builder',
+    },
+    generatedAt: new Date('2026-07-20T12:00:00.000Z'),
+  })
+
+  assert.equal(report.recommendationStatus, 'available')
+  assert.ok(report.recommendations.some(resource => resource.id === 'free-ai-school-integration-design-sprint'))
+  assert.ok(!report.recommendations.some(resource => resource.id === 'openai-api-quickstart'))
+  assert.ok(report.recommendations.every(resource => resource.codingRequirement === 'none'))
+  assert.ok(report.recommendations.every(resource => resource.accountRequirement === 'none'))
+  assert.ok(report.recommendations.every(resource => resource.paidServiceRequirement === 'none'))
+})
+
+test('goal-stage policy excludes catalog items the current plan explicitly defers', () => {
+  const selection = selectPublishedCatalogResources({
+    asOf: '2026-07-20T12:00:00.000Z',
+    language: 'en',
+    maximumMinutes: 720,
+    freeOnly: true,
+    codingPreference: 'light-code',
+    accessPreference: 'account-ok',
+    goalType: 'workflows',
+  })
+
+  assert.ok(!selection.resources.some(resource => resource.id === 'free-ai-school-bounded-agent-sprint'))
+  assert.ok(!selection.resources.some(resource => resource.id === 'free-ai-school-operational-pilot-sprint'))
+  assert.ok(!selection.resources.some(resource => resource.id === 'free-ai-school-operational-readiness-tabletop'))
 })

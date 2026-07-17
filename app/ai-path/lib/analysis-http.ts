@@ -7,6 +7,7 @@ import { parseReviewedAssessment } from './reviewed-assessment.ts'
 import { readBoundedJson } from './request-body.ts'
 import { crossOriginMutationResponse } from './request-security.ts'
 import type { AssessmentRequestRuntime } from './request-runtime.ts'
+import { isAiPathGoalType } from './goal-type.ts'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -17,6 +18,14 @@ function json(body: unknown, status = 200) {
 }
 
 const resourceFormats = new Set<ResourceFormat>(['reading', 'course', 'project', 'reference'])
+const codingPreferences = new Set(['no-code', 'light-code', 'code-ready'])
+
+function accessPreference(inputs: readonly { value: string }[]): 'open-only' | 'account-ok' {
+  const constraints = inputs.map(input => input.value).join(' ')
+  return /\b(?:no account|without (?:an? )?account|no sign[- ]?up|cannot sign up|can't sign up|blocked (?:site|account)|no external account)\b/i.test(constraints)
+    ? 'open-only'
+    : 'account-ok'
+}
 
 export async function handleAnalysisPost(request: Request, runtime: AssessmentRequestRuntime) {
   const crossOrigin = crossOriginMutationResponse(request, runtime)
@@ -51,16 +60,21 @@ export async function handleAnalysisPost(request: Request, runtime: AssessmentRe
   const formats = Array.isArray(body.formats)
     ? body.formats.filter((format): format is ResourceFormat => typeof format === 'string' && resourceFormats.has(format as ResourceFormat))
     : undefined
+  const codingPreference = typeof body.codingPreference === 'string' && codingPreferences.has(body.codingPreference)
+    ? body.codingPreference as 'no-code' | 'light-code' | 'code-ready'
+    : null
+  const goalType = ownedSession?.goalType ?? (isAiPathGoalType(body.goalType) ? body.goalType : 'unsure')
 
   const details: string[] = []
   if (goal.length < 20 || goal.length > 1200) details.push('goal must contain 20-1200 characters')
   if (!reviewedAssessment.ok) details.push(...reviewedAssessment.errors)
   if (Array.isArray(body.formats) && formats?.length !== body.formats.length) details.push('formats contains an unsupported value')
+  if (!codingPreference) details.push('codingPreference is required')
   if (reviewedAssessment.ok) {
     const audit = validateEvidenceAgainstTranscript(reviewedAssessment.value.evidence, reviewedAssessment.value.transcriptTurns)
     if (!audit.ok) details.push(...audit.errors)
   }
-  if (details.length || !reviewedAssessment.ok) {
+  if (details.length || !reviewedAssessment.ok || !codingPreference) {
     return json({ error: 'invalid_assessment', details }, 400)
   }
 
@@ -73,6 +87,10 @@ export async function handleAnalysisPost(request: Request, runtime: AssessmentRe
       // Private alpha is deliberately free-only. A client cannot opt into
       // paid recommendations by forging the request body.
       freeOnly: true,
+      codingPreference,
+      accessPreference: accessPreference(reviewedAssessment.value.inputs),
+      allowPaidServiceExercise: false,
+      goalType,
       formats,
       limit: Number.isInteger(body.limit) ? Number(body.limit) : undefined,
     },

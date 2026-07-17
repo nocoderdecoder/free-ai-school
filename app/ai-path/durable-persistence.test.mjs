@@ -303,7 +303,7 @@ const report = {
   reportVersion: '2026-07-16.v1',
   taxonomyVersion: '2026-07-16.v1',
   scoringVersion: '2026-07-16.v1',
-  catalogVersion: '2026-07-16.v1',
+  catalogVersion: '2026-07-17.v2',
   generatedAt: '2026-07-17T02:00:00.000Z',
   goal,
   results: [],
@@ -329,7 +329,7 @@ function completedRow(overrides = {}) {
     taxonomy_version: '2026-07-16.v1',
     scoring_version: '2026-07-16.v1',
     report_version: '2026-07-16.v1',
-    catalog_version: '2026-07-16.v1',
+    catalog_version: '2026-07-17.v2',
     report,
     analysis_attempt_id: reportWriteId,
     analysis_started_at: report.generatedAt,
@@ -645,7 +645,7 @@ test('trusted writer forwards only verified owner binding and pinned server vers
   assert.equal(forwarded.taxonomyVersion, '2026-07-16.v1')
   assert.equal(forwarded.scoringVersion, '2026-07-16.v1')
   assert.equal(forwarded.reportVersion, '2026-07-16.v1')
-  assert.equal(forwarded.catalogVersion, '2026-07-16.v1')
+  assert.equal(forwarded.catalogVersion, '2026-07-17.v2')
   assert.equal(result.session.ownerId, ownerId)
   assert.equal(result.replayed, false)
 })

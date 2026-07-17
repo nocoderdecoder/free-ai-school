@@ -2,7 +2,7 @@
 // TypeScript test runner does not resolve extensionless TypeScript imports,
 // while the application compiler intentionally uses bundler resolution.
 // Snapshot validation catches any drift from the foundation contract.
-export const AI_PATH_CATALOG_VERSION = '2026-07-16.v1' as const
+export const AI_PATH_CATALOG_VERSION = '2026-07-17.v2' as const
 export const AI_PATH_CATALOG_SCHEMA_VERSION = '2026-07-16.v1' as const
 export const AI_PATH_CATALOG_TARGET_AUDIENCE = 'workflow-builder-alpha' as const
 
@@ -26,6 +26,10 @@ export type CatalogPublicationStatus = 'draft' | 'published' | 'retired'
 export type CatalogResourceStatus = 'active' | 'paused' | 'retired'
 export type CatalogDifficulty = 'introductory' | 'beginner' | 'intermediate' | 'advanced'
 export type CatalogLearningMode = 'guided' | 'hands-on' | 'reference' | 'project'
+export type CatalogCodingRequirement = 'none' | 'optional' | 'required'
+export type CatalogAccountRequirement = 'none' | 'required'
+export type CatalogPaidServiceRequirement = 'none' | 'optional' | 'required'
+export type CatalogGoalType = 'workflows' | 'builder' | 'career' | 'leader' | 'foundations' | 'unsure'
 export type CatalogCostKind = 'free' | 'freemium' | 'paid'
 export type CatalogReviewStatus = 'approved' | 'changes-requested' | 'pending'
 export type CatalogLinkStatus = 'unchecked' | 'healthy' | 'redirected' | 'broken' | 'not-applicable'
@@ -53,6 +57,10 @@ export type CatalogResourceV1 = {
   format: ResourceFormat
   difficulty: CatalogDifficulty
   learningModes: CatalogLearningMode[]
+  codingRequirement: CatalogCodingRequirement
+  accountRequirement: CatalogAccountRequirement
+  paidServiceRequirement: CatalogPaidServiceRequirement
+  deferredForGoalTypes: CatalogGoalType[]
   languages: string[]
   estimatedMinutes: number
   qualityScore: number
@@ -116,6 +124,10 @@ const skillIds = new Set<string>(AI_PATH_CATALOG_SKILL_IDS)
 const resourceFormats = new Set<ResourceFormat>(['reading', 'course', 'project', 'reference'])
 const difficulties = new Set<CatalogDifficulty>(['introductory', 'beginner', 'intermediate', 'advanced'])
 const learningModes = new Set<CatalogLearningMode>(['guided', 'hands-on', 'reference', 'project'])
+const codingRequirements = new Set<CatalogCodingRequirement>(['none', 'optional', 'required'])
+const accountRequirements = new Set<CatalogAccountRequirement>(['none', 'required'])
+const paidServiceRequirements = new Set<CatalogPaidServiceRequirement>(['none', 'optional', 'required'])
+const goalTypes = new Set<CatalogGoalType>(['workflows', 'builder', 'career', 'leader', 'foundations', 'unsure'])
 const resourceStatuses = new Set<CatalogResourceStatus>(['active', 'paused', 'retired'])
 const publicationStatuses = new Set<CatalogPublicationStatus>(['draft', 'published', 'retired'])
 const costKinds = new Set<CatalogCostKind>(['free', 'freemium', 'paid'])
@@ -266,6 +278,20 @@ function validateResource(
   }
   if (!Array.isArray(value.learningModes) || value.learningModes.length === 0 || value.learningModes.some(mode => !learningModes.has(mode))) {
     addIssue(issues, `${path}.learningModes`, 'invalid_learning_modes', 'learningModes must contain supported values')
+  }
+  if (typeof value.codingRequirement !== 'string' || !codingRequirements.has(value.codingRequirement as CatalogCodingRequirement)) {
+    addIssue(issues, `${path}.codingRequirement`, 'invalid_coding_requirement', 'codingRequirement must be none, optional, or required')
+  }
+  if (typeof value.accountRequirement !== 'string' || !accountRequirements.has(value.accountRequirement as CatalogAccountRequirement)) {
+    addIssue(issues, `${path}.accountRequirement`, 'invalid_account_requirement', 'accountRequirement must be none or required')
+  }
+  if (typeof value.paidServiceRequirement !== 'string' || !paidServiceRequirements.has(value.paidServiceRequirement as CatalogPaidServiceRequirement)) {
+    addIssue(issues, `${path}.paidServiceRequirement`, 'invalid_paid_service_requirement', 'paidServiceRequirement must be none, optional, or required')
+  }
+  if (!Array.isArray(value.deferredForGoalTypes) || value.deferredForGoalTypes.some(goalType => !goalTypes.has(goalType))) {
+    addIssue(issues, `${path}.deferredForGoalTypes`, 'invalid_deferred_goal_types', 'deferredForGoalTypes must contain only supported goal types')
+  } else if (new Set(value.deferredForGoalTypes).size !== value.deferredForGoalTypes.length) {
+    addIssue(issues, `${path}.deferredForGoalTypes`, 'duplicate_deferred_goal_type', 'deferredForGoalTypes must be unique')
   }
   if (!Array.isArray(value.languages) || value.languages.length === 0 || value.languages.some(language => typeof language !== 'string' || !/^[a-z]{2}(?:-[A-Z]{2})?$/.test(language))) {
     addIssue(issues, `${path}.languages`, 'invalid_languages', 'languages must contain BCP-47-like language codes')
@@ -473,6 +499,10 @@ export type CatalogEligibilityInput = {
   maximumMinutes: number
   freeOnly?: boolean
   formats?: ResourceFormat[]
+  codingPreference?: 'no-code' | 'light-code' | 'code-ready'
+  accessPreference?: 'open-only' | 'account-ok'
+  allowPaidServiceExercise?: boolean
+  goalType?: CatalogGoalType
 }
 
 export function selectEligibleCatalogResources(
@@ -492,5 +522,10 @@ export function selectEligibleCatalogResources(
     .filter(resource => resource.estimatedMinutes <= input.maximumMinutes)
     .filter(resource => !input.freeOnly || resource.cost.kind === 'free')
     .filter(resource => !allowedFormats || allowedFormats.has(resource.format))
+    .filter(resource => input.codingPreference !== 'no-code' || resource.codingRequirement === 'none')
+    .filter(resource => input.codingPreference !== 'light-code' || resource.codingRequirement !== 'required')
+    .filter(resource => input.accessPreference !== 'open-only' || resource.accountRequirement === 'none')
+    .filter(resource => input.allowPaidServiceExercise === true || resource.paidServiceRequirement === 'none')
+    .filter(resource => !input.goalType || !resource.deferredForGoalTypes.includes(input.goalType))
     .sort((left, right) => left.id.localeCompare(right.id))
 }

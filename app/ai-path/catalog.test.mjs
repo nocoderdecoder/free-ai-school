@@ -73,15 +73,18 @@ test('first-party evidence sprints cover every skill with deterministic, free pr
 
   assert.deepEqual(
     AI_PATH_CATALOG_SKILL_IDS.filter(skillId => !coveredSkills.has(skillId)),
-    ['foundations', 'coding-apis']
+    []
   )
   assert.deepEqual(
     projects.map(resource => resource.id).sort(),
     [
       'free-ai-school-bounded-agent-sprint',
+      'free-ai-school-capability-decision-sprint',
       'free-ai-school-context-evaluation-sprint',
       'free-ai-school-grounded-retrieval-sprint',
+      'free-ai-school-integration-design-sprint',
       'free-ai-school-operational-pilot-sprint',
+      'free-ai-school-operational-readiness-tabletop',
       'free-ai-school-workflow-evidence-sprint',
     ]
   )
@@ -127,7 +130,7 @@ test('review dates and link-health checks become stale deterministically', () =>
   const catalog = publicationReadyCatalog()
   const validation = validateCatalogForPublication(catalog, '2026-10-16T00:00:00.000Z')
   assert.equal(validation.ok, false)
-  assert.equal(validation.issues.filter(issue => issue.code === 'review_stale').length, 9)
+  assert.equal(validation.issues.filter(issue => issue.code === 'review_stale').length, 12)
   assert.equal(validation.issues.filter(issue => issue.code === 'link_check_stale').length, 4)
 })
 
@@ -142,9 +145,12 @@ test('eligible resource selection excludes unchecked, stale, oversized, and nonm
   })
   assert.deepEqual(eligible.map(resource => resource.id), [
     'free-ai-school-bounded-agent-sprint',
+    'free-ai-school-capability-decision-sprint',
     'free-ai-school-context-evaluation-sprint',
     'free-ai-school-grounded-retrieval-sprint',
+    'free-ai-school-integration-design-sprint',
     'free-ai-school-operational-pilot-sprint',
+    'free-ai-school-operational-readiness-tabletop',
     'free-ai-school-workflow-evidence-sprint',
   ])
 
@@ -189,9 +195,12 @@ test('production adapter excludes freemium and other ineligible resources before
   assert.equal(selection.status, 'available')
   assert.deepEqual(selection.resources.map(resource => resource.id), [
     'free-ai-school-bounded-agent-sprint',
+    'free-ai-school-capability-decision-sprint',
     'free-ai-school-context-evaluation-sprint',
     'free-ai-school-grounded-retrieval-sprint',
+    'free-ai-school-integration-design-sprint',
     'free-ai-school-operational-pilot-sprint',
+    'free-ai-school-operational-readiness-tabletop',
     'free-ai-school-workflow-evidence-sprint',
   ])
 
@@ -201,8 +210,34 @@ test('production adapter excludes freemium and other ineligible resources before
     maximumMinutes: 1_000,
     freeOnly: true,
   })
-  const quickstart = broadSelection.resources.find(resource => resource.id === 'openai-api-quickstart')
+  assert.ok(!broadSelection.resources.some(resource => resource.id === 'openai-api-quickstart'))
+  const paidExerciseOptIn = selectPublishedCatalogResources({
+    asOf: AS_OF,
+    language: 'en',
+    maximumMinutes: 1_000,
+    freeOnly: true,
+    codingPreference: 'code-ready',
+    accessPreference: 'account-ok',
+    allowPaidServiceExercise: true,
+    goalType: 'builder',
+  })
+  const quickstart = paidExerciseOptIn.resources.find(resource => resource.id === 'openai-api-quickstart')
   assert.match(quickstart.costDisclosure, /paid API usage/)
+
+  const noCode = selectPublishedCatalogResources({
+    asOf: AS_OF,
+    language: 'en',
+    maximumMinutes: 1_000,
+    freeOnly: true,
+    codingPreference: 'no-code',
+    accessPreference: 'open-only',
+    goalType: 'builder',
+  })
+  assert.ok(noCode.resources.length > 0)
+  assert.ok(noCode.resources.every(resource => resource.codingRequirement === 'none'))
+  assert.ok(noCode.resources.every(resource => resource.accountRequirement === 'none'))
+  assert.ok(noCode.resources.every(resource => resource.paidServiceRequirement === 'none'))
+  assert.ok(!noCode.resources.some(resource => resource.id === 'openai-api-quickstart'))
 
   const paused = structuredClone(AI_PATH_CATALOG_V1)
   paused.resources

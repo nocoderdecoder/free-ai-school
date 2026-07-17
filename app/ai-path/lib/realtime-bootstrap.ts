@@ -1,4 +1,5 @@
 import type { AssessmentRequestRuntime } from './request-runtime.ts'
+import { AI_PATH_VOICE_CONSENT_VERSION } from './foundation.ts'
 import {
   createVerifiedRealtimeAdmissionBinding,
   type RealtimeAdmissionIntent,
@@ -124,6 +125,7 @@ export async function prepareAuthenticatedRealtimeBootstrap(
   if (
     ownedSession.ownerId !== runtime.principal.userId
     || ownedSession.mode !== 'voice'
+    || ownedSession.consentVersion !== AI_PATH_VOICE_CONSENT_VERSION
     || !reservableStatuses.has(ownedSession.status)
   ) {
     return { ok: false, response: json('assessment_session_not_reservable', 409) }

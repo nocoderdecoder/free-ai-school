@@ -13,6 +13,7 @@ import {
   RealtimeAdmissionService,
   createVerifiedRealtimeAdmissionIntent,
 } from './lib/realtime-admission.ts'
+import { AI_PATH_CONSENT_VERSION, AI_PATH_VOICE_CONSENT_VERSION } from './lib/foundation.ts'
 import {
   AssessmentSessionService,
   InMemoryAssessmentSessionRepository,
@@ -37,7 +38,7 @@ const policy = {
   },
 }
 const voiceSession = {
-  consentVersion: '2026-07-16.v1',
+  consentVersion: AI_PATH_VOICE_CONSENT_VERSION,
   locale: 'en-US',
   mode: 'voice',
   goal: 'Build a reliable AI evaluation workflow.',
@@ -188,7 +189,7 @@ test('strict body parser rejects unknown keys, malformed UUID, non-SDP, NUL, and
   }
 })
 
-test('unowned, non-voice, and non-reservable sessions stop before intent issuance', async () => {
+test('unowned, non-voice, stale-consent, and non-reservable sessions stop before intent issuance', async () => {
   let calls = 0
   const admission = { issueIntent: async () => { calls += 1; throw new Error('must not run') }, reserve: async () => { calls += 1; throw new Error('must not run') } }
 
@@ -200,6 +201,11 @@ test('unowned, non-voice, and non-reservable sessions stop before intent issuanc
   const text = await prepareAuthenticatedRealtimeBootstrap(request(), await runtime({ service: textService }), admission)
   assert.equal(text.ok, false)
   if (!text.ok) assert.equal(text.response.status, 409)
+
+  const staleConsentService = await sessionService({ ...voiceSession, consentVersion: AI_PATH_CONSENT_VERSION })
+  const staleConsent = await prepareAuthenticatedRealtimeBootstrap(request(), await runtime({ service: staleConsentService }), admission)
+  assert.equal(staleConsent.ok, false)
+  if (!staleConsent.ok) assert.equal(staleConsent.response.status, 409)
 
   const endedService = { getOwnedSession: async () => ({
     ...(await (await sessionService()).getOwnedSession({ userId, source: 'supabase' }, sessionId)),

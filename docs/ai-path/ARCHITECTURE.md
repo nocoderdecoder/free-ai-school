@@ -19,7 +19,7 @@ flowchart LR
   C --> E
 ```
 
-The current private-alpha slice implements the page shell, a complete text interaction, a deterministic five-to-seven-question evidence interview, reviewed-input contracts, conservative server-owned evidence extraction, deterministic scoring and governed catalog recommendations, an evidence-and-constraint-aware plan composer, mock-safe route handlers, dormant owner-scoped persistence, and a fail-closed OpenAI Realtime boundary.
+The current private-alpha slice implements the page shell, a complete text interaction, a deterministic five-to-seven-question evidence interview, reviewed-input contracts, conservative server-owned evidence extraction, deterministic scoring and governed catalog recommendations, an evidence-and-constraint-aware plan composer, mock-safe route handlers, dormant owner-scoped persistence, and a fail-closed OpenAI Realtime boundary. The browser voice foundation now includes versioned voice consent, native WebRTC/SDP/audio adapters, transcript normalization, reconnect/device-loss/fallback states, deterministic cleanup, and a finalized-user-transcript bridge into the same reviewed-input contract. Production transport remains code-latched off.
 
 ## Runtime components
 
@@ -31,6 +31,12 @@ The current private-alpha slice implements the page shell, a complete text inter
 - The interview chooses application-owned follow-ups from missing evidence dimensions; learner text is treated as bounded data and never becomes an instruction or generated question.
 - The 30-day plan is recomposed from assessed growth areas, weekly time, coding comfort, role category, blocker category, and governed resource identifiers. Raw free-form profile text is never interpolated into plan instructions.
 - The browser never receives the OpenAI API key or server-only safety configuration.
+- A provider-marked browser transport is rejected before microphone permission,
+  peer creation, audio attachment, SDP exchange, or fetch while the reviewed
+  client latch is closed. Mock-injected tests cover the complete lifecycle.
+- Only finalized learner transcript items cross into assessment review. Assistant,
+  partial, empty, oversized, and duplicate items are excluded; retained voice
+  items preserve `voice-transcript` provenance.
 
 ### Application API
 

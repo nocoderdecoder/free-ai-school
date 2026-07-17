@@ -25,6 +25,10 @@ function adaptResource(resource) {
     quality: resource.qualityScore,
     skills: resource.skills.map(mapping => ({ ...mapping })),
     prerequisites: resource.prerequisites.map(prerequisite => ({ ...prerequisite })),
+    codingRequirement: resource.codingRequirement,
+    accountRequirement: resource.accountRequirement,
+    paidServiceRequirement: resource.paidServiceRequirement,
+    deferredForGoalTypes: [...resource.deferredForGoalTypes],
     reason: resource.reason,
   }
 }

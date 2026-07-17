@@ -9,6 +9,7 @@ import { deriveRealtimeSafetyIdentifier } from './realtime-safety'
 
 const OPENAI_REALTIME_URL = 'https://api.openai.com/v1/realtime/calls'
 const DEFAULT_REALTIME_MODEL = 'gpt-realtime-2.1'
+const SUPPORTED_INPUT_TRANSCRIPTION_MODELS = new Set(['gpt-4o-transcribe'])
 
 export type RealtimeCapability = {
   mode: 'mock' | 'live'
@@ -35,7 +36,7 @@ export class RealtimeBootstrapError extends Error {
 }
 
 export function getRealtimeCapability(): RealtimeCapability {
-  return resolveRealtimeCapability({
+  const capability = resolveRealtimeCapability({
     enableLiveRealtime: process.env.AI_PATH_ENABLE_LIVE_REALTIME,
     allowPaidApiCalls: process.env.AI_PATH_ALLOW_PAID_API_CALLS,
     authReady: process.env.AI_PATH_AUTH_READY,
@@ -47,6 +48,15 @@ export function getRealtimeCapability(): RealtimeCapability {
     safetyIdentifierSalt: process.env.AI_PATH_SAFETY_IDENTIFIER_SALT,
     model: process.env.AI_PATH_REALTIME_MODEL || DEFAULT_REALTIME_MODEL,
   })
+  if (capability.liveEnabled && !SUPPORTED_INPUT_TRANSCRIPTION_MODELS.has(process.env.AI_PATH_REALTIME_TRANSCRIPTION_MODEL ?? '')) {
+    return {
+      mode: 'mock',
+      liveEnabled: false,
+      reason: 'a reviewed input-transcription model is required for editable transcript evidence',
+      model: capability.model,
+    }
+  }
+  return capability
 }
 
 function safetyIdentifier(verifiedUserId: string): string {
@@ -60,12 +70,19 @@ function safetyIdentifier(verifiedUserId: string): string {
 }
 
 function sessionConfiguration(model: string) {
+  const transcriptionModel = process.env.AI_PATH_REALTIME_TRANSCRIPTION_MODEL
+  if (!transcriptionModel || !SUPPORTED_INPUT_TRANSCRIPTION_MODELS.has(transcriptionModel)) {
+    throw new RealtimeBootstrapError('Realtime transcription configuration is incomplete.', 503)
+  }
   return {
     type: 'realtime',
     model,
     output_modalities: ['audio'],
     audio: {
-      input: { turn_detection: { type: 'semantic_vad' } },
+      input: {
+        transcription: { model: transcriptionModel },
+        turn_detection: { type: 'semantic_vad' },
+      },
       output: { voice: process.env.AI_PATH_REALTIME_VOICE?.trim() || 'marin' },
     },
     truncation: {

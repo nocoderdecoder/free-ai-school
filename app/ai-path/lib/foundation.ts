@@ -4,8 +4,9 @@ import { isAiPathGoalType, type AiPathGoalType } from './goal-type.ts'
 export const AI_PATH_TAXONOMY_VERSION = '2026-07-16.v1' as const
 export const AI_PATH_SCORING_VERSION = '2026-07-16.v1' as const
 export const AI_PATH_REPORT_VERSION = '2026-07-16.v1' as const
-export const AI_PATH_CATALOG_VERSION = '2026-07-16.v1' as const
+export const AI_PATH_CATALOG_VERSION = '2026-07-17.v2' as const
 export const AI_PATH_CONSENT_VERSION = '2026-07-16.v1' as const
+export const AI_PATH_VOICE_CONSENT_VERSION = '2026-07-17.voice.v1' as const
 
 export const AI_PATH_SKILL_IDS = [
   'foundations',
@@ -193,6 +194,14 @@ export type SkillResult = {
   confidence: Confidence
   evidenceIds: string[]
   contradictionIds: string[]
+  evidenceReferences: Array<{
+    id: string
+    quote: string
+    sourceTurnIds: string[]
+    observedLevel: SkillLevel
+    strength: EvidenceStrength
+    contradiction: boolean
+  }>
   rationale: string
 }
 
@@ -210,6 +219,10 @@ export type CatalogResource = {
   quality: number
   skills: Array<{ skillId: SkillId; entryLevel: SkillLevel; exitLevel: SkillLevel }>
   prerequisites: Array<{ skillId: SkillId; minimumLevel: SkillLevel }>
+  codingRequirement: 'none' | 'optional' | 'required'
+  accountRequirement: 'none' | 'required'
+  paidServiceRequirement: 'none' | 'optional' | 'required'
+  deferredForGoalTypes: AiPathGoalType[]
   reason: string
 }
 
@@ -220,7 +233,10 @@ export type RankedRecommendation = CatalogResource & {
 }
 
 /** @deprecated Migration reference only. buildAssessmentReport cannot access this array. */
-export const LEGACY_CURATED_RESOURCES: readonly Omit<CatalogResource, 'costDisclosure'>[] = [
+export const LEGACY_CURATED_RESOURCES: readonly Omit<
+  CatalogResource,
+  'costDisclosure' | 'codingRequirement' | 'accountRequirement' | 'paidServiceRequirement' | 'deferredForGoalTypes'
+>[] = [
   {
     id: 'google-ml-crash-course',
     title: 'Machine Learning Crash Course',
@@ -517,23 +533,47 @@ function achievedLevel(items: EvidenceRecord[]): SkillLevel {
 export function scoreSkills(evidence: readonly EvidenceRecord[]): SkillResult[] {
   return AI_PATH_SKILL_IDS.map(skillId => {
     const items = evidence.filter(item => item.skillId === skillId)
-    if (items.length === 0) {
+    const supporting = items.filter(item => !item.contradiction)
+    const contradictions = items.filter(item => item.contradiction)
+    const evidenceReferences = items.map(item => ({
+      id: item.id,
+      quote: item.quote,
+      sourceTurnIds: [...item.sourceTurnIds],
+      observedLevel: item.observedLevel,
+      strength: item.strength,
+      contradiction: item.contradiction === true,
+    }))
+    if (supporting.length === 0) {
       return {
         skillId,
         status: 'not_assessed',
         level: null,
         confidence: 'low',
         evidenceIds: [],
-        contradictionIds: [],
-        rationale: 'No evidence was collected; this is not a zero score.',
+        contradictionIds: contradictions.map(item => item.id),
+        evidenceReferences,
+        rationale: contradictions.length
+          ? 'Only contradictory or experience-denial evidence was collected; this remains not assessed rather than becoming a zero score.'
+          : 'No evidence was collected; this is not a zero score.',
       }
     }
 
-    const supporting = items.filter(item => !item.contradiction)
-    const contradictions = items.filter(item => item.contradiction)
     let assessedLevel = achievedLevel(supporting)
     if (contradictions.some(item => item.observedLevel >= assessedLevel) && assessedLevel > 0) {
       assessedLevel = (assessedLevel - 1) as SkillLevel
+    }
+
+    if (assessedLevel === 0 && contradictions.length > 0) {
+      return {
+        skillId,
+        status: 'not_assessed',
+        level: null,
+        confidence: 'low',
+        evidenceIds: supporting.map(item => item.id),
+        contradictionIds: contradictions.map(item => item.id),
+        evidenceReferences,
+        rationale: 'The available supporting claim was directly contradicted, so this remains not assessed rather than becoming a zero score.',
+      }
     }
 
     const totalPoints = supporting.reduce((sum, item) => sum + evidencePoints(item), 0)
@@ -553,6 +593,7 @@ export function scoreSkills(evidence: readonly EvidenceRecord[]): SkillResult[] 
       confidence,
       evidenceIds: supporting.map(item => item.id),
       contradictionIds: contradictions.map(item => item.id),
+      evidenceReferences,
       rationale: contradictions.length
         ? 'Supporting and contradictory evidence were both found, so the level or confidence was reduced.'
         : `Level ${assessedLevel} is supported by ${supporting.length} evidence item${supporting.length === 1 ? '' : 's'}.`,
@@ -566,6 +607,10 @@ export type RecommendationPreferences = {
   freeOnly?: boolean
   formats?: ResourceFormat[]
   limit?: number
+  codingPreference?: 'no-code' | 'light-code' | 'code-ready'
+  accessPreference?: 'open-only' | 'account-ok'
+  allowPaidServiceExercise?: boolean
+  goalType?: AiPathGoalType
 }
 
 function currentLevel(results: readonly SkillResult[], skillId: SkillId): SkillLevel {
@@ -585,6 +630,11 @@ export function rankRecommendations(
     .filter(resource => !preferences.freeOnly || resource.free)
     .filter(resource => !allowedFormats || allowedFormats.has(resource.format))
     .filter(resource => resource.estimatedHours <= budget)
+    .filter(resource => preferences.codingPreference !== 'no-code' || resource.codingRequirement === 'none')
+    .filter(resource => preferences.codingPreference !== 'light-code' || resource.codingRequirement !== 'required')
+    .filter(resource => preferences.accessPreference !== 'open-only' || resource.accountRequirement === 'none')
+    .filter(resource => preferences.allowPaidServiceExercise === true || resource.paidServiceRequirement === 'none')
+    .filter(resource => !preferences.goalType || !resource.deferredForGoalTypes.includes(preferences.goalType))
     .filter(resource => resource.prerequisites.every(prerequisite =>
       currentLevel(results, prerequisite.skillId) >= prerequisite.minimumLevel
     ))
@@ -638,8 +688,11 @@ export function parseSessionStartInput(value: unknown): ValidationResult<Session
   const targetRole = value.targetRole === undefined ? undefined : boundedString(value.targetRole, 1, 160)
   const saveTranscript = value.saveTranscript === true
 
+  const expectedConsentVersion = mode === 'voice'
+    ? AI_PATH_VOICE_CONSENT_VERSION
+    : AI_PATH_CONSENT_VERSION
   if (!consentVersion) errors.push('consentVersion is required')
-  else if (consentVersion !== AI_PATH_CONSENT_VERSION) errors.push(`consentVersion must be ${AI_PATH_CONSENT_VERSION}`)
+  else if (consentVersion !== expectedConsentVersion) errors.push(`consentVersion must be ${expectedConsentVersion}`)
   if (!locale) errors.push('locale is invalid')
   if (!mode) errors.push('mode must be voice or text')
   if (!goal) errors.push('goal must contain 20-1200 characters')
@@ -827,6 +880,10 @@ export function buildAssessmentReport(input: BuildReportInput): AssessmentReport
     maximumMinutes: Math.max(60, Math.floor(input.preferences.timeBudgetHours * 60)),
     freeOnly: input.preferences.freeOnly,
     formats: input.preferences.formats,
+    codingPreference: input.preferences.codingPreference,
+    accessPreference: input.preferences.accessPreference,
+    allowPaidServiceExercise: input.preferences.allowPaidServiceExercise,
+    goalType: input.preferences.goalType,
   }) as {
     status: 'available' | 'no_eligible_resources' | 'catalog_unavailable'
     resources: CatalogResource[]

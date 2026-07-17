@@ -40,17 +40,19 @@ The target is rejected unless its host is `127.0.0.1` or `localhost`.
 - The session fixture declares `owned: false`, `persistence: none`, and
   `productionReady: false`.
 - The analysis fixture pins report, taxonomy, scoring, and catalog versions.
-- The run also asserts that the browser submitted reviewed inputs, did not assign
-  competency evidence, and did not request transcript persistence.
+- The run also asserts that the browser submitted reviewed inputs, preserved the
+  no-code preference, excluded a removed interpretation, restored it only for
+  later attempts, did not assign competency evidence, and did not request
+  transcript persistence.
 
 ## Covered workflow
 
 | Area | Assertions |
 | --- | --- |
 | Entry | Landing content, programmatic heading focus, visible keyboard focus, keyboard activation |
-| Profile | Long role/outcome/blocker content, time and coding selections, explicit consent |
+| Profile | Blank workflow-builder fields populated with long role/outcome/blocker content, time and no-code selections, explicit consent |
 | Assessment | One text session, all three guided responses, phase transitions |
-| Review | Adaptive review inputs, multiple corrections, corrected values reach every analysis retry |
+| Review | Adaptive review inputs, multiple corrections, remove/restore exclusion contract, corrected values reach every applicable analysis retry |
 | Adversarial content | Near-2,000-character reviewed response, layout resilience, retry preservation, no analytics leakage |
 | Report | Temporary failure and retry, empty recommendation state, version badge, assessed count, explicit unassessed state, long recommendation card |
 | Feedback | Keyboard-only numeric ratings, disabled-to-enabled submission, polite closed-sink status |

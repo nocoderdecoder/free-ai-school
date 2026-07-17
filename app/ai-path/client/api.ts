@@ -1,19 +1,21 @@
 import {
   AI_PATH_CONSENT_VERSION,
+  AI_PATH_VOICE_CONSENT_VERSION,
   type AssessmentReport,
 } from '../lib/foundation.ts'
 import type { AiPathGoalType } from '../lib/goal-type.ts'
 
 import { buildAnalysisPayload, type ReviewedAssessmentInput } from './analysis-payload.ts'
+import { isCurrentVoiceConsent, type VoiceConsent } from './realtime-consent.ts'
 
 export { buildAnalysisPayload }
 export type { ReviewedAssessmentInput, ReviewedInput } from './analysis-payload.ts'
 
-export type TextSession = {
+export type AssessmentSession<Mode extends 'text' | 'voice' = 'text' | 'voice'> = {
   id: string
   status: 'consented'
   createdAt: string
-  mode: 'text'
+  mode: Mode
   locale: string
   goal: string
   goalType: AiPathGoalType
@@ -22,12 +24,17 @@ export type TextSession = {
   saveTranscript: boolean
 }
 
+export type TextSession = AssessmentSession<'text'>
+export type VoiceSession = AssessmentSession<'voice'>
+
 export type TextSessionResult = {
   session: TextSession
   owned: boolean
   persistence: 'none' | 'ephemeral-memory' | 'supabase-postgres'
   productionReady: boolean
 }
+
+export type VoiceSessionResult = Omit<TextSessionResult, 'session'> & { session: VoiceSession }
 
 export class AIPathApiError extends Error {
   readonly status: number
@@ -94,6 +101,37 @@ export async function createTextSession(input: {
   return parseResponse<TextSessionResult>(response)
 }
 
+/**
+ * Creates the owned voice-session envelope required before WebRTC bootstrap.
+ * This records consent only; it never requests microphone access or contacts a provider.
+ */
+export async function createVoiceSession(input: {
+  goal: string
+  goalType: AiPathGoalType
+  targetRole: string
+  consent: VoiceConsent
+  saveTranscript?: boolean
+}): Promise<VoiceSessionResult> {
+  if (!isCurrentVoiceConsent(input.consent) || input.consent.version !== AI_PATH_VOICE_CONSENT_VERSION) {
+    throw new AIPathApiError('Review and accept the current voice consent before starting voice.', 400)
+  }
+  const response = await fetch('/api/ai-path/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+    body: JSON.stringify({
+      consentVersion: input.consent.version,
+      locale: navigator.language || 'en-US',
+      mode: 'voice',
+      goal: input.goal,
+      goalType: input.goalType,
+      targetRole: input.targetRole,
+      saveTranscript: input.saveTranscript === true,
+    }),
+  })
+  return parseResponse<VoiceSessionResult>(response)
+}
+
 export async function analyzeReviewedAssessment(input: ReviewedAssessmentInput): Promise<AssessmentReport> {
   const response = await fetch('/api/ai-path/analysis', {
     method: 'POST',
@@ -108,7 +146,7 @@ export async function analyzeReviewedAssessment(input: ReviewedAssessmentInput):
 export type ExportedAssessmentSession = {
   exportedAt: string
   persistence: 'ephemeral-memory' | 'supabase-postgres'
-  session: TextSession & { updatedAt: string; hasReport: boolean; report: AssessmentReport | null }
+  session: AssessmentSession & { updatedAt: string; hasReport: boolean; report: AssessmentReport | null }
 }
 
 export async function exportOwnedSession(sessionId: string): Promise<ExportedAssessmentSession> {

@@ -31,6 +31,14 @@ the `gpt-realtime-2.1` default, server-owned configuration, and no beta header.
 It must not be connected to the public route until every release gate below is
 proven.
 
+Editable learner evidence also requires input transcription. The provider
+boundary therefore fails closed unless a reviewed
+`AI_PATH_REALTIME_TRANSCRIPTION_MODEL` is configured; the current allowlist is
+`gpt-4o-transcribe`. OpenAI documents input transcription as a separate ASR
+process with separate billing, so its usage must be included in every approved
+session, user, daily, and monthly cost ceiling. The ASR transcript is a rough
+guide and must still pass the learner review step before assessment.
+
 The preceding authenticated preparation boundary is implemented through an
 exact atomic admission reservation, with deterministic server-owned retry
 identity and adversarial zero-provider-call tests. A dormant server-only

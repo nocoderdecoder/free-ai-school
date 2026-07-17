@@ -1,6 +1,10 @@
 import type {
   CatalogDifficulty,
+  CatalogAccountRequirement,
+  CatalogCodingRequirement,
+  CatalogGoalType,
   CatalogLearningMode,
+  CatalogPaidServiceRequirement,
   CatalogResourceV1,
   CatalogSnapshotV1,
   ResourceFormat,
@@ -10,7 +14,7 @@ import type {
 
 // Deliberately pinned here so this draft snapshot remains directly loadable by
 // Node's TypeScript test runner. validateCatalogSnapshot detects version drift.
-const AI_PATH_CATALOG_VERSION = '2026-07-16.v1' as const
+const AI_PATH_CATALOG_VERSION = '2026-07-17.v2' as const
 const AI_PATH_CATALOG_SCHEMA_VERSION = '2026-07-16.v1' as const
 const AI_PATH_CATALOG_TARGET_AUDIENCE = 'workflow-builder-alpha' as const
 
@@ -27,6 +31,10 @@ type SeedInput = {
   format: ResourceFormat
   difficulty: CatalogDifficulty
   learningModes: CatalogLearningMode[]
+  codingRequirement?: CatalogCodingRequirement
+  accountRequirement?: CatalogAccountRequirement
+  paidServiceRequirement?: CatalogPaidServiceRequirement
+  deferredForGoalTypes?: CatalogGoalType[]
   estimatedMinutes: number
   qualityScore: number
   skills: Array<{ skillId: SkillId; entryLevel: SkillLevel; exitLevel: SkillLevel }>
@@ -58,6 +66,10 @@ function seed(input: SeedInput): CatalogResourceV1 {
     format: input.format,
     difficulty: input.difficulty,
     learningModes: input.learningModes,
+    codingRequirement: input.codingRequirement ?? 'none',
+    accountRequirement: input.accountRequirement ?? 'none',
+    paidServiceRequirement: input.paidServiceRequirement ?? 'none',
+    deferredForGoalTypes: input.deferredForGoalTypes ?? [],
     languages: ['en'],
     estimatedMinutes: input.estimatedMinutes,
     qualityScore: input.qualityScore,
@@ -132,6 +144,7 @@ export const AI_PATH_CATALOG_V1: CatalogSnapshotV1 = {
       format: 'course',
       difficulty: 'beginner',
       learningModes: ['guided', 'hands-on'],
+      codingRequirement: 'optional',
       estimatedMinutes: 720,
       qualityScore: 0.93,
       skills: [{ skillId: 'foundations', entryLevel: 0, exitLevel: 2 }],
@@ -152,6 +165,7 @@ export const AI_PATH_CATALOG_V1: CatalogSnapshotV1 = {
       format: 'course',
       difficulty: 'introductory',
       learningModes: ['guided'],
+      accountRequirement: 'required',
       estimatedMinutes: 300,
       qualityScore: 0.91,
       skills: [
@@ -180,6 +194,10 @@ export const AI_PATH_CATALOG_V1: CatalogSnapshotV1 = {
       format: 'reading',
       difficulty: 'beginner',
       learningModes: ['guided', 'hands-on'],
+      codingRequirement: 'required',
+      accountRequirement: 'required',
+      paidServiceRequirement: 'optional',
+      deferredForGoalTypes: ['workflows', 'leader', 'foundations', 'unsure'],
       estimatedMinutes: 120,
       qualityScore: 0.92,
       skills: [
@@ -219,6 +237,74 @@ export const AI_PATH_CATALOG_V1: CatalogSnapshotV1 = {
       linkHealth: { status: 'healthy', httpStatus: 200, finalUrl: null },
     }),
     seed({
+      id: 'free-ai-school-capability-decision-sprint',
+      title: 'AI capability decision sprint',
+      provider: 'Free AI School',
+      canonicalUrl: null,
+      format: 'project',
+      difficulty: 'introductory',
+      learningModes: ['guided', 'project'],
+      estimatedMinutes: 90,
+      qualityScore: 0.86,
+      skills: [
+        { skillId: 'foundations', entryLevel: 0, exitLevel: 1 },
+        { skillId: 'workflow-design', entryLevel: 0, exitLevel: 1 },
+        { skillId: 'safety-governance', entryLevel: 0, exitLevel: 1 },
+      ],
+      prerequisites: [],
+      outcome: 'Compare one suitable and one unsuitable AI task, then document capability, evidence, privacy, and human-review boundaries.',
+      reason: 'Gives a beginner a short, no-code way to establish the judgment needed before choosing a tool, course, or implementation path.',
+      provenanceOrigin: 'first-party',
+      sourceReference: 'docs/ai-path/CATALOG.md#first-party-capability-decision-sprint',
+      disclosure: 'Original project specification; it has no external URL and must be delivered as first-party plan content.',
+      costDisclosure: 'This first-party project is free, requires no account, and can be completed without a paid service.',
+    }),
+    seed({
+      id: 'free-ai-school-integration-design-sprint',
+      title: 'No-code integration contract sprint',
+      provider: 'Free AI School',
+      canonicalUrl: null,
+      format: 'project',
+      difficulty: 'beginner',
+      learningModes: ['guided', 'project'],
+      estimatedMinutes: 60,
+      qualityScore: 0.86,
+      skills: [
+        { skillId: 'coding-apis', entryLevel: 0, exitLevel: 1 },
+        { skillId: 'prompt-context', entryLevel: 0, exitLevel: 1 },
+      ],
+      prerequisites: [],
+      outcome: 'Produce an input/output contract, one mocked request and response, validation rules, and a failure-handling checklist without writing application code.',
+      reason: 'Builds API and integration literacy for a no-code learner without sending them to a code-first quickstart or requiring paid API access.',
+      provenanceOrigin: 'first-party',
+      sourceReference: 'docs/ai-path/CATALOG.md#first-party-integration-design-sprint',
+      disclosure: 'Original project specification; it has no external URL and must be delivered as first-party plan content.',
+      costDisclosure: 'This first-party project is free, requires no account, and uses mocked requests instead of a paid API.',
+    }),
+    seed({
+      id: 'free-ai-school-operational-readiness-tabletop',
+      title: 'AI workflow operational-readiness tabletop',
+      provider: 'Free AI School',
+      canonicalUrl: null,
+      format: 'project',
+      difficulty: 'beginner',
+      learningModes: ['guided', 'project'],
+      estimatedMinutes: 180,
+      qualityScore: 0.86,
+      deferredForGoalTypes: ['workflows', 'career', 'foundations', 'unsure'],
+      skills: [
+        { skillId: 'deployment-operations', entryLevel: 0, exitLevel: 1 },
+        { skillId: 'safety-governance', entryLevel: 0, exitLevel: 1 },
+      ],
+      prerequisites: [],
+      outcome: 'Produce a simulated release checklist, monitoring map, rollback decision, and incident walkthrough without deploying a live service.',
+      reason: 'Provides a safe operations on-ramp when a live pilot would exceed the learner’s evidence, access, or current plan stage.',
+      provenanceOrigin: 'first-party',
+      sourceReference: 'docs/ai-path/CATALOG.md#first-party-operational-readiness-tabletop',
+      disclosure: 'Original project specification; it has no external URL and must be delivered as first-party plan content.',
+      costDisclosure: 'This first-party tabletop is free, requires no account, and does not deploy or call a paid service.',
+    }),
+    seed({
       id: 'free-ai-school-workflow-evidence-sprint',
       title: 'AI workflow evidence sprint',
       provider: 'Free AI School',
@@ -232,7 +318,7 @@ export const AI_PATH_CATALOG_V1: CatalogSnapshotV1 = {
         { skillId: 'workflow-design', entryLevel: 1, exitLevel: 3 },
         { skillId: 'evaluation-reliability', entryLevel: 1, exitLevel: 2 },
       ],
-      prerequisites: [{ skillId: 'foundations', minimumLevel: 1 }],
+      prerequisites: [],
       outcome: 'Produce a workflow map, a small evaluation set, a tested artifact, and a short outcome log.',
       reason: 'Turns learning into inspectable evidence and anchors the plan in a useful work artifact rather than course completion.',
       provenanceOrigin: 'first-party',
@@ -254,7 +340,7 @@ export const AI_PATH_CATALOG_V1: CatalogSnapshotV1 = {
         { skillId: 'prompt-context', entryLevel: 1, exitLevel: 3 },
         { skillId: 'evaluation-reliability', entryLevel: 1, exitLevel: 3 },
       ],
-      prerequisites: [{ skillId: 'foundations', minimumLevel: 1 }],
+      prerequisites: [],
       outcome: 'Produce a versioned instruction, a representative test set, and evidence showing which context changes improve results.',
       reason: 'Provides a free, tool-agnostic route from ad hoc prompting to repeatable context design and evaluation.',
       provenanceOrigin: 'first-party',
@@ -270,6 +356,7 @@ export const AI_PATH_CATALOG_V1: CatalogSnapshotV1 = {
       format: 'project',
       difficulty: 'intermediate',
       learningModes: ['project', 'hands-on'],
+      codingRequirement: 'optional',
       estimatedMinutes: 300,
       qualityScore: 0.88,
       skills: [
@@ -292,6 +379,8 @@ export const AI_PATH_CATALOG_V1: CatalogSnapshotV1 = {
       format: 'project',
       difficulty: 'intermediate',
       learningModes: ['project', 'hands-on'],
+      codingRequirement: 'optional',
+      deferredForGoalTypes: ['workflows', 'foundations', 'unsure'],
       estimatedMinutes: 360,
       qualityScore: 0.89,
       skills: [
@@ -315,6 +404,8 @@ export const AI_PATH_CATALOG_V1: CatalogSnapshotV1 = {
       format: 'project',
       difficulty: 'intermediate',
       learningModes: ['project', 'hands-on'],
+      codingRequirement: 'optional',
+      deferredForGoalTypes: ['workflows', 'career', 'foundations', 'unsure'],
       estimatedMinutes: 360,
       qualityScore: 0.88,
       skills: [

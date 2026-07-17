@@ -88,7 +88,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     reportVersion: '2026-07-16.v1',
     taxonomyVersion: '2026-07-16.v1',
     scoringVersion: '2026-07-16.v1',
-    catalogVersion: '2026-07-16.v1',
+    catalogVersion: '2026-07-17.v2',
     generatedAt: '2026-07-17T02:30:00.000Z',
     goal: reportGoal,
     results: skillIds.map((skillId) => {
@@ -121,6 +121,10 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
         quality: 0.95,
         skills: [{ skillId: 'workflow-design', entryLevel: 1, exitLevel: 2 }],
         prerequisites: [],
+        codingRequirement: 'none',
+        accountRequirement: 'none',
+        paidServiceRequirement: 'none',
+        deferredForGoalTypes: [],
         reason: 'This long recommendation reason stress-tests card layout while explaining that the project directly addresses the learner’s reviewed workflow-design gap.',
         rank: 1,
         score: 240,
@@ -171,6 +175,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
           mode: 'text',
           locale: 'en-US',
           goal: reportGoal,
+          goalType: 'workflows',
           targetRole: 'Product marketing and research operations lead',
           consentVersion: '2026-07-16.v1',
           saveTranscript: false,
@@ -246,7 +251,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   const longOutcome = `${reportGoal} The workflow should retain exact citations, show uncertainty, handle missing sources, preserve a clear reviewer checkpoint, and produce a handoff that remains understandable when project names, market segments, and source titles are unusually long.`
   const longBlocker = 'The calendar is fragmented across meetings and urgent requests, so long courses lose momentum before a useful artifact appears. I need small tasks, explicit stopping points, and a visible proof of progress every week.'
   await page.getByLabel('Your role or area of work').fill(longRole)
-  await page.getByLabel('What would you like to be able to do?').fill(longOutcome)
+  await page.getByLabel('Which work workflow should improve in 30 days?').fill(longOutcome)
   await page.getByLabel('Time available each week').selectOption('3')
   await page.getByLabel('Coding comfort').selectOption({ label: 'Some, but I prefer no-code first' })
   await page.getByLabel('What most often gets in the way?').fill(longBlocker)
@@ -302,7 +307,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   assert(adaptiveAnswerCount >= 5, `adaptive interview ended too early after ${adaptiveAnswerCount} answers`)
   await waitForHeading('Here is what I understood.')
   assert(await page.locator('.ap-evidenceCount strong').getByText(String(adaptiveAnswerCount + 2), { exact: true }).isVisible(), 'each adaptive answer plus the profile constraint was not preserved as a separate reviewed input')
-  assert(await page.locator('.ap-evidenceCount').getByText('reviewable inputs', { exact: true }).isVisible(), 'review input count label is missing')
+  assert(await page.locator('.ap-evidenceCount').getByText('included · 0 removed', { exact: true }).isVisible(), 'review input inclusion label is missing')
   for (const [width, height] of [[375, 812], [768, 1024], [1440, 900]]) {
     await captureViewport('review', width, height)
   }
@@ -328,11 +333,22 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   await assertNoHorizontalOverflow('review with near-limit response')
   checkpoint('near-limit reviewed content remained layout-safe')
 
+  const removableCard = page.locator('.ap-understandingCard').nth(2)
+  const removedReviewedResponse = (await removableCard.locator('.ap-reviewedValue').textContent())?.trim() || ''
+  assert(removedReviewedResponse.length > 0, 'remove/restore QA did not capture a reviewed response')
+  await removableCard.getByRole('button', { name: 'Remove from report' }).click()
+  assert(await removableCard.getByText('Rejected interpretation · excluded from the report', { exact: true }).isVisible(), 'removed interpretation was not visibly excluded')
+  assert(await page.locator('.ap-evidenceCount').getByText('included · 1 removed', { exact: true }).isVisible(), 'removed interpretation did not update the included count')
+  checkpoint('reviewed interpretation removed before analysis')
+
   await page.getByRole('button', { name: 'Use this to build my report' }).click()
   const analysisAlert = page.getByRole('alert').filter({ hasText: 'We could not build the report.' })
   await analysisAlert.waitFor({ state: 'visible', timeout: 5_000 })
   assert(await analysisAlert.getByText('Deterministic QA injected a temporary report failure.', { exact: true }).isVisible(), 'temporary report failure was not explained')
   assert(await page.getByText(privacyCanary, { exact: false }).isVisible(), 'reviewed responses were not retained after report failure')
+  assert(!analysisRequests[0].reviewedInputs.some(input => input.value === removedReviewedResponse), 'removed interpretation reached the analysis request')
+  await removableCard.getByRole('button', { name: 'Restore interpretation' }).click()
+  assert(await removableCard.getByRole('button', { name: 'Remove from report' }).isVisible(), 'restored interpretation did not return to the included state')
   await analysisAlert.getByRole('button', { name: 'Try again' }).click()
   await waitForHeading(/Working direction:/)
   await assertHeadingFocused(/Working direction:/, 'empty report')
@@ -358,6 +374,8 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   assert(analysisRequests[0].goal === correctedOutcome, 'reviewed goal did not become the analysis goal')
   assert(analysisRequests[0].reviewedInputs.at(-1).value === correctedConstraint, 'reviewed constraint did not reach analysis')
   assert(analysisRequests.every(request => request.reviewedInputs.some(input => input.value === nearLimitReviewedResponse)), 'near-limit reviewed response was not retained across report retries')
+  assert(analysisRequests.slice(1).every(request => request.reviewedInputs.some(input => input.value === removedReviewedResponse)), 'restored interpretation did not reach later report attempts')
+  assert(analysisRequests.every(request => request.codingPreference === 'no-code'), 'coding comfort was not carried into governed recommendation selection')
   checkpoint('request trust boundary validated')
 
   for (const [width, height] of [[375, 812], [768, 1024], [1440, 900]]) {
@@ -447,6 +465,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   for await (const chunk of exportStream) exportText += chunk.toString('utf8')
   const exported = JSON.parse(exportText)
   assert(exported.report.reportVersion === '2026-07-16.v1', 'export omitted the report version')
+  assert(exported.report.catalogVersion === '2026-07-17.v2', 'export omitted the catalog version')
   assert(exported.plan.weeklyHours === 1, 'export omitted the changed time budget')
   assert(exported.plan.adaptationStatus.includes('Accepted:'), 'export omitted the accepted adaptation status')
   await page.getByText('Export prepared.', { exact: false }).waitFor({ state: 'visible' })
