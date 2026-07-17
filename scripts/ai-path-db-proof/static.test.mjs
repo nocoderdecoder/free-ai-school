@@ -55,7 +55,7 @@ test("harness refuses unsafe targets before migration apply", () => {
     "parsed.search || parsed.hash",
     "parsed.password",
     "PGPASSWORD is not accepted",
-    "the PostgreSQL server is not loopback-local",
+    "the PostgreSQL server is not on an isolated loopback or private service network",
     "the target is not empty",
     "psql is not installed",
   ]) {
@@ -64,6 +64,9 @@ test("harness refuses unsafe targets before migration apply", () => {
   }
   assert.doesNotMatch(harness, /\b(docker|supabase start|createdb|dropdb)\b/);
   assert.doesNotMatch(harness, /psql\s+[^\n]*\$\{[^}]*PASSWORD/);
+  for (const network of ["127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]) {
+    assert.ok(harness.includes(network), `harness is missing isolated network guard ${network}`);
+  }
 });
 
 test("preflight is source-verifiable and fails closed without a PostgreSQL runtime", () => {

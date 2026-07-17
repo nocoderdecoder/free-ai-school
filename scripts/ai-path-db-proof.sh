@@ -84,7 +84,10 @@ select concat_ws('|',
     when inet_server_addr() is null
       or inet_server_addr() <<= inet '127.0.0.0/8'
       or inet_server_addr() <<= inet '::1/128'
-    then 'loopback'
+      or inet_server_addr() <<= inet '10.0.0.0/8'
+      or inet_server_addr() <<= inet '172.16.0.0/12'
+      or inet_server_addr() <<= inet '192.168.0.0/16'
+    then 'isolated_local'
     else 'remote'
   end,
   current_setting('server_version_num')::integer,
@@ -126,7 +129,7 @@ SQL
 IFS='|' read -r actual_database server_address locality server_version is_superuser required_role_count relation_count public_type_count procedure_count custom_schema_count extension_count <<<"${preflight}"
 
 [[ "${actual_database}" == "${requested_database}" ]] || fail "the connected database does not match the validated URL"
-[[ "${locality}" == "loopback" ]] || fail "the PostgreSQL server is not loopback-local"
+[[ "${locality}" == "isolated_local" ]] || fail "the PostgreSQL server is not on an isolated loopback or private service network"
 [[ "${server_version}" =~ ^[0-9]+$ && "${server_version}" -ge 150000 ]] || fail "PostgreSQL 15 or newer is required"
 [[ "${is_superuser}" == "t" ]] || fail "a superuser in a dedicated disposable local cluster is required for deterministic role/RLS proof"
 [[ "${required_role_count}" == "3" ]] || fail "the local cluster must already provide anon, authenticated, and service_role roles"

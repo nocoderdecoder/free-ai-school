@@ -78,7 +78,8 @@ scripts/ai-path-db-proof.sh
 The explicit confirmation is required on every run. The harness then performs
 a read-only preflight and refuses the target unless all of these are true:
 
-1. The parsed URL and connected server are loopback-local.
+1. The parsed URL is loopback-only and the connected server reports loopback or
+   an RFC1918 private service-network address.
 2. The connected database name is exactly the reserved `ai_path_proof_*` name.
 3. The database has no user relations, functions, custom schemas, non-default
    extensions, or public enum/domain/composite types.
