@@ -880,7 +880,7 @@ select public.ai_path_proof_assert(
   'service-only finalization/cancellation did not preserve terminal state'
 );
 
--- Create one stale unconsumed intent on a completed source. Maintenance must
+-- Create one stale unconsumed intent on a terminal source. Maintenance must
 -- clean the intent, then its session mapping, then both newly orphaned owners
 -- (this owner and the earlier unused owner) within the explicit bounds.
 insert into public.ai_path_assessment_sessions (
@@ -902,7 +902,7 @@ select public.issue_ai_path_realtime_admission_intent(
 ) as cleanup_intent \gset
 reset role;
 update public.ai_path_assessment_sessions
-set status = 'complete'
+set status = 'failed'
 where id = '63000000-0000-4000-8000-000000000001';
 update public.ai_path_realtime_admission_intents
 set issued_at = clock_timestamp() - interval '10 days',

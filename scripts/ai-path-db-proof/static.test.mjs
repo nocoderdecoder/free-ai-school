@@ -155,6 +155,9 @@ test("contracts cover RLS, denial, ownership, bounded retention, and idempotency
     assert.match(contracts, new RegExp(evidence.replace(/[()]/g, "\\$&")));
   }
 
+  assert.match(contracts, /set status = 'failed'[\s\S]*63000000-0000-4000-8000-000000000001/);
+  assert.doesNotMatch(contracts, /set status = 'complete'[\s\S]*63000000-0000-4000-8000-000000000001/);
+
   assert.match(harness, /two-connection DB-owned-continuity Realtime admission race/);
   assert.match(harness, /issue_ai_path_realtime_admission_intent/);
   assert.match(harness, /DB-owned-continuity Realtime admission race/);
