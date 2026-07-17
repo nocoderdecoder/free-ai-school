@@ -358,49 +358,46 @@ export type Database = {
         Args: { p_limit: number }
         Returns: number
       }
+      issue_ai_path_realtime_admission_intent: {
+        Args: {
+          p_policy_id: string
+          p_assessment_session_id: string
+        }
+        Returns: Json
+      }
       reserve_ai_path_realtime_admission: {
         Args: {
-          p_user_key: string
-          p_session_key: string
+          p_policy_id: string
+          p_intent_id: string
           p_idempotency_key: string
-          p_utc_day: string
-          p_now: string
-          p_expires_at: string
           p_estimated_cents: number
-          p_max_global_concurrent: number
-          p_max_user_concurrent: number
-          p_max_user_daily_cents: number
-          p_max_global_daily_cents: number
-          p_max_reservation_cents: number
-          p_reservation_ttl_ms: number
         }
         Returns: Json
       }
       finalize_ai_path_realtime_admission: {
         Args: {
+          p_policy_id: string
+          p_intent_id: string
           p_reservation_id: string
-          p_user_key: string
-          p_session_key: string
           p_actual_cents: number
-          p_now: string
-          p_max_user_daily_cents: number
-          p_max_global_daily_cents: number
         }
         Returns: Json
       }
       cancel_ai_path_realtime_admission: {
         Args: {
+          p_policy_id: string
+          p_intent_id: string
           p_reservation_id: string
-          p_user_key: string
-          p_session_key: string
-          p_now: string
         }
         Returns: Json
       }
       maintain_ai_path_realtime_admission: {
         Args: {
+          p_policy_id: string
           p_expire_limit: number
           p_purge_limit: number
+          p_intent_cleanup_limit: number
+          p_mapping_gc_limit: number
         }
         Returns: Json
       }

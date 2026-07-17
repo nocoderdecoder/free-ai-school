@@ -1,92 +1,48 @@
 # Dormant Supabase Realtime admission adapter
 
-Status: implemented but impossible to construct in production while this
-independent reviewed latch remains closed:
+Status: implemented against schema `20260717080000`, but unreachable while its independent literal-false gateway and policy latches remain closed.
 
-```ts
-AI_PATH_SUPABASE_REALTIME_ADMISSION_GATEWAY_LATCH = false as const
+## Split-credential boundary
+
+The adapter deliberately uses two already-created Supabase clients:
+
+- the authenticated user client may call only `issue_ai_path_realtime_admission_intent(policy, assessment_session)` so Postgres can prove `auth.uid()` ownership;
+- the service-role client may call only reserve, finalize, and cancel with opaque intent/reservation IDs.
+
+The server factory requires exact schema, credential-scope, SQL-proof, lifecycle-proof, policy-version, and policy-ID attestations. It accepts no caller policy or caps. Construction makes no network call and the module is not imported by a public route.
+
+Every command and response uses exact keys and bounded values. Reservation responses contain the opaque intent capability and no raw owner/session or database-continuity identifier. Finalize and cancel must present that original branded intent, and Postgres verifies the intent/reservation pair before mutation. Database/provider errors are normalized to content-free gateway errors and are never logged or returned.
+
+## Deadlines and ambiguous commits
+
+Intent, reserve, finalize, and cancel use a fixed four-second client deadline. The RPC transport receives an `AbortSignal`, while an independent promise deadline also bounds a non-cooperative transport.
+
+A timeout is not proof of rollback. Intent issuance is retry-safe for the same owned session and policy. Reserve retries must reuse the exact intent ID, idempotency key, and estimate; a consumed intent resolves the committed reservation or fails closed. No provider bootstrap may occur after an ambiguous result. Finalize retries use the same reservation and amount. Cancellation is never inferred from a lost bootstrap response.
+
+## Bounded maintenance adapter
+
+The separate maintenance adapter calls only:
+
+```text
+maintain_ai_path_realtime_admission(
+  policy_id,
+  expire_limit,
+  purge_limit,
+  intent_cleanup_limit,
+  mapping_gc_limit
+)
 ```
 
-This adapter is an application boundary for the service-role-only reserve,
-finalize, and cancel RPCs defined by migration
-`20260717040000_ai_path_realtime_admission.sql` and constrained by lifecycle
-migration `20260717070000_ai_path_realtime_admission_lifecycle.sql`. It does not
-create a public route, read credentials, call OpenAI, enable Realtime, or modify
-the separate public and admission-production latches.
-
-## Boundaries
-
-- `realtime-admission-supabase.ts` exposes a narrow client with only the three
-  reviewed RPC names. It has no table, auth, storage, logging, or arbitrary-RPC
-  API.
-- Every command is validated before transport access, including opaque binding
-  keys, UUIDs, UTC timestamps, integer cents, policy limits, and exact lease
-  duration.
-- Every provider wrapper and RPC payload is treated as untrusted. Successful
-  objects require an exact key set, bounded values, known lifecycle states, and
-  binding/reservation agreement. Unknown denial or terminal states fail closed.
-- Provider errors and thrown transport details are replaced with a stable
-  `SupabaseRealtimeAdmissionGatewayError`; database messages are never returned
-  or logged.
-- `realtime-admission-supabase.server.ts` accepts an already-created service-role
-  client. It no longer accepts caller-supplied caps: every durable instance uses
-  the immutable server-only policy described in `REALTIME_ADMISSION_POLICY.md`.
-  Construction additionally requires exact activation, schema-version,
-  credential-scope, atomic-SQL-proof, lifecycle-SQL-proof, policy-version, and
-  derived-policy-identifier attestations, but none can override the independent
-  literal-false policy-rollout and gateway latches.
-
-## Fail-closed transport deadlines
-
-Admission RPCs have a fixed four-second deadline and the bounded maintenance RPC
-has a fixed fifteen-second deadline. These values live inside the dormant
-transports; route, factory, and operation inputs cannot extend or disable them.
-Each call receives an `AbortSignal`, and the server-only Supabase wrappers attach
-it to the PostgREST RPC builder. A Promise deadline also bounds the caller if a
-test double or future transport fails to honor cancellation.
-
-An admission timeout is normalized by the admission service to
-`store_unavailable`, so the result can never authorize a paid provider call. A
-maintenance timeout becomes the content-free `rpc_timeout` runner error. Neither
-error includes database codes, messages, row data, credentials, or provider
-details. Cancellation is best-effort at the HTTP/database boundary; the durable
-RPCs remain atomic and idempotent because a timeout cannot prove whether the
-database committed before transport cancellation.
-
-## Dormant lifecycle maintenance adapter
-
-`realtime-admission-maintenance-supabase.ts` is a separate narrow boundary for
-only `maintain_ai_path_realtime_admission(p_expire_limit, p_purge_limit)`. Both
-limits must be integers from 1 through 1,000. Its response parser accepts only
-the reviewed policy version, an exact UTC timestamp, bounded transition and
-purge counts, the three exact terminal status keys whose counts sum to the
-reported purge total, and the exact `hasMoreToExpire`, `hasMoreToPurge`, and
-combined `hasMore` booleans. It cannot return row identifiers or opaque
-identity keys, and provider errors are normalized without logging details.
-
-Its server factory has a separate literal-false maintenance latch plus exact
-schema, service-role, lifecycle-proof, and retention-operations attestations.
-It is not imported by a route or scheduler, so no maintenance mutation can run.
+Each limit is an integer from 1 through 1,000. The exact response contains the pinned policy ID, retention cutoff, bounded expiry/purge/intent/mapping counts, status totals, four continuation flags, and their exact combined OR. The server runner closes over the reviewed policy ID, requires schema `20260717080000`, and remains behind a separate literal-false latch. It has a fixed fifteen-second client deadline and is not wired to a scheduler.
 
 ## Activation prerequisites
 
-Do not open the adapter latch until all of the following are complete:
+Before opening any latch:
 
-1. Apply and roll back all migrations through `20260717070000` in a disposable
-   Supabase/PostgreSQL environment.
-2. Prove the RPC role checks, grants, forced RLS behavior, exact timestamp
-   contract, and malformed-response behavior.
-3. Run true multi-connection races for the last global/user slot, the same
-   session, idempotent retries, concurrent finalize/reserve, expiry, and UTC-day
-   rollover.
-4. Prove the fixed seven-day late-reconciliation window, database-derived
-   90-day terminal/idempotency retention, content-free accounting archive, and
-   bounded maintenance RPC under concurrent reserve/finalize/purge operations.
-   Prove that reserve fails closed during an expiry backlog and that finalize
-   and cancel transition only their target without a global expiry sweep.
-5. Complete authenticated owner-scoped route integration, failure-path tests
-   proving zero OpenAI calls, kill-switch and rollback operations, and explicit
-   paid-service approval.
+1. Apply all eight migrations to an empty disposable PostgreSQL 15+ database.
+2. Pass the real role/RLS/signature, continuity, ownership, disabled-policy, concurrency, rollback, timeout, and archive suite.
+3. Prove unknown-commit recovery with zero provider calls on every ambiguous path.
+4. Capacity-test bounded maintenance alongside reserve/finalize/cancel.
+5. Complete authenticated route integration, distributed abuse controls, monitoring, incident rollback, and explicit paid-service approval.
 
-Until those steps pass, the adapter is testable infrastructure only. It is not
-evidence that production Realtime is ready.
+Until then this is testable infrastructure, not evidence that production Realtime is ready.

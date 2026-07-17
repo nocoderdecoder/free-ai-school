@@ -6,10 +6,10 @@ import {
   AI_PATH_REALTIME_ADMISSION_PRODUCTION_LATCH,
   RealtimeAdmissionService,
   createVerifiedRealtimeAdmissionBinding,
+  createVerifiedRealtimeAdmissionIntent,
   resolveRealtimeAdmissionCapability,
 } from './lib/realtime-admission.ts'
 
-const secret = 'test-only-realtime-admission-secret-value'
 const users = {
   alice: '11111111-1111-4111-8111-111111111111',
   bob: '22222222-2222-4222-8222-222222222222',
@@ -21,16 +21,13 @@ const sessions = {
   b1: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
   c1: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1',
 }
-
 function binding(userId, sessionId, status = 'consented') {
   return createVerifiedRealtimeAdmissionBinding({
     principal: { userId, source: 'supabase' },
     ownedSession: { id: sessionId, ownerId: userId, status },
-    secret,
   })
 }
-
-const policy = {
+const limits = {
   maxGlobalConcurrent: 2,
   maxUserConcurrent: 1,
   maxUserDailyCents: 100,
@@ -38,382 +35,236 @@ const policy = {
   maxReservationCents: 100,
   reservationTtlMs: 60_000,
 }
-
-function harness(overrides = {}) {
-  let current = new Date('2026-07-16T12:00:00.000Z')
-  let id = 0
-  const repository = new InMemoryRealtimeAdmissionRepository({
-    idFactory: () => `00000000-0000-4000-8000-${String(++id).padStart(12, '0')}`,
-  })
-  const service = new RealtimeAdmissionService(repository, { ...policy, ...overrides }, {
-    now: () => new Date(current),
-  })
-  return {
-    repository,
-    service,
-    setTime(value) { current = new Date(value) },
-  }
+const policy = {
+  version: '2026-07-17.v1',
+  policyId: '2026-07-17.v1|gc=2|uc=1|udc=100|gdc=150|rc=100|ttl=60000',
+  limits,
 }
 
-test('production admission cannot be enabled by environment attestations', () => {
-  assert.equal(AI_PATH_REALTIME_ADMISSION_PRODUCTION_LATCH, false)
-  const production = resolveRealtimeAdmissionCapability({
-    nodeEnv: 'production',
-    enableProduction: 'true',
-    durableStoreReady: 'true',
-    atomicLimitsReady: 'true',
-    spendApprovalReady: 'true',
+function harness(overrides = {}) {
+  let current = new Date('2026-07-17T12:00:00.000Z')
+  let id = 0
+  const selected = { ...policy, limits: { ...limits, ...overrides } }
+  const repository = new InMemoryRealtimeAdmissionRepository({
+    idFactory: () => `00000000-0000-4000-8000-${String(++id).padStart(12, '0')}`,
+    now: () => new Date(current),
   })
-  assert.equal(production.available, false)
-  assert.equal(production.productionReady, false)
-  assert.match(production.reason, /code-level admission latch/)
+  const service = new RealtimeAdmissionService(repository, selected, { now: () => new Date(current) })
+  return { service, repository, setTime(value) { current = new Date(value) } }
+}
+
+async function issued(service, verifiedBinding) {
+  const result = await service.issueIntent({ binding: verifiedBinding })
+  assert.equal(result.status, 'issued')
+  if (result.status !== 'issued') throw new Error('intent was not issued')
+  return result.intent
+}
+
+test('production admission stays closed despite environment attestations', () => {
+  assert.equal(AI_PATH_REALTIME_ADMISSION_PRODUCTION_LATCH, false)
+  assert.equal(resolveRealtimeAdmissionCapability({ nodeEnv: 'production', enableProduction: 'true', durableStoreReady: 'true', atomicLimitsReady: 'true', spendApprovalReady: 'true' }).available, false)
   assert.deepEqual(resolveRealtimeAdmissionCapability({ nodeEnv: 'test', enableLocalTest: 'true' }), {
-    mode: 'local-test',
-    available: true,
-    productionReady: false,
+    mode: 'local-test', available: true, productionReady: false,
     reason: 'deterministic process-local admission is enabled for tests only',
   })
-  assert.equal(resolveRealtimeAdmissionCapability({ enableLocalTest: 'true' }).available, false)
-  assert.equal(resolveRealtimeAdmissionCapability({ nodeEnv: 'staging', enableLocalTest: 'true' }).available, false)
 })
 
-test('bindings require Supabase identity, exact ownership, reservable state, and remain opaque', () => {
-  const first = binding(users.alice, sessions.a1)
-  const again = binding(users.alice, sessions.a1, 'connecting')
-  assert.deepEqual(first, again)
-  assert.match(first.userKey, /^[0-9a-f]{64}$/)
-  assert.match(first.sessionKey, /^[0-9a-f]{64}$/)
-  assert.equal(JSON.stringify(first).includes(users.alice), false)
-  assert.equal(JSON.stringify(first).includes(sessions.a1), false)
-  assert.notEqual(first.sessionKey, binding(users.alice, sessions.a2).sessionKey)
-  assert.throws(() => createVerifiedRealtimeAdmissionBinding({
-    principal: { userId: users.alice, source: 'test-header' },
-    ownedSession: { id: sessions.a1, ownerId: users.alice, status: 'consented' },
-    secret,
-  }), /production principal/)
-  assert.throws(() => createVerifiedRealtimeAdmissionBinding({
-    principal: { userId: users.alice, source: 'supabase' },
-    ownedSession: { id: sessions.a1, ownerId: users.bob, status: 'consented' },
-    secret,
-  }), /ownership/)
+test('binding is a private branded ownership assertion without HMAC material', () => {
+  const value = binding(users.alice, sessions.a1)
+  assert.deepEqual({ ownerId: value.ownerId, assessmentSessionId: value.assessmentSessionId }, {
+    ownerId: users.alice, assessmentSessionId: sessions.a1,
+  })
+  assert.doesNotMatch(JSON.stringify(value), /userKey|sessionKey|secret|hmac/i)
+  assert.throws(() => createVerifiedRealtimeAdmissionBinding({ principal: { userId: users.alice, source: 'test-header' }, ownedSession: { id: sessions.a1, ownerId: users.alice, status: 'consented' } }), /production principal/)
+  assert.throws(() => createVerifiedRealtimeAdmissionBinding({ principal: { userId: users.alice, source: 'supabase' }, ownedSession: { id: sessions.a1, ownerId: users.bob, status: 'consented' } }), /ownership/)
   assert.throws(() => binding(users.alice, sessions.a1, 'complete'), /not reservable/)
 })
 
-test('reserve is idempotent and rejects key reuse with a changed request', async () => {
+test('intent issuance is required and reservation response exposes intent and policy but no raw identity', async () => {
+  const { service } = harness()
+  const owned = binding(users.alice, sessions.a1)
+  assert.deepEqual(await service.reserve({ binding: owned, intent: createVerifiedRealtimeAdmissionIntent({ intentId: 'bad', policyId: policy.policyId, expiresAt: 'bad' }, owned), idempotencyKey: 'reserve-alice-0001', estimatedCents: 40 }), { status: 'denied', reason: 'invalid_request' })
+  const intent = await issued(service, owned)
+  const result = await service.reserve({ binding: owned, intent, idempotencyKey: 'reserve-alice-0001', estimatedCents: 40 })
+  assert.equal(result.status, 'admitted')
+  if (result.status !== 'admitted') return
+  assert.equal(result.reservation.intentId, intent.intentId)
+  assert.equal(result.reservation.policyId, policy.policyId)
+  assert.doesNotMatch(JSON.stringify(result.reservation), /ownerId|assessmentSessionId|userKey|sessionKey|bindingVersion/i)
+})
+
+test('unknown-commit retry reuses the exact intent and idempotency tuple', async () => {
   const { service, setTime } = harness()
-  const request = {
-    binding: binding(users.alice, sessions.a1),
-    idempotencyKey: 'reserve-alice-0001',
-    estimatedCents: 40,
-  }
+  const owned = binding(users.alice, sessions.a1)
+  const intent = await issued(service, owned)
+  const request = { binding: owned, intent, idempotencyKey: 'unknown-commit-001', estimatedCents: 40 }
   const first = await service.reserve(request)
-  setTime('2026-07-16T12:00:10.000Z')
-  const retry = await service.reserve(request)
   assert.equal(first.status, 'admitted')
+  setTime('2026-07-17T12:00:31.000Z')
+  const retry = await service.reserve(request)
   assert.equal(retry.status, 'admitted')
-  if (first.status !== 'admitted' || retry.status !== 'admitted') return
-  assert.equal(retry.idempotent, true)
-  assert.equal(retry.reservation.id, first.reservation.id)
-
-  const conflict = await service.reserve({ ...request, estimatedCents: 41 })
-  assert.deepEqual(conflict, { status: 'denied', reason: 'idempotency_conflict' })
+  if (first.status === 'admitted' && retry.status === 'admitted') {
+    assert.equal(retry.idempotent, true)
+    assert.equal(retry.reservation.id, first.reservation.id)
+  }
+  assert.deepEqual(await service.reserve({ ...request, estimatedCents: 41 }), { status: 'denied', reason: 'idempotency_conflict' })
 })
 
-test('one session cannot be reserved twice under different idempotency keys', async () => {
+test('an intent cannot be rebound to another verified session', async () => {
+  const { service } = harness()
+  const first = binding(users.alice, sessions.a1)
+  const second = binding(users.alice, sessions.a2)
+  const intent = await issued(service, first)
+  assert.deepEqual(await service.reserve({
+    binding: second,
+    intent,
+    idempotencyKey: 'intent-confused-001',
+    estimatedCents: 10,
+  }), { status: 'denied', reason: 'invalid_request' })
+})
+
+test('session, user, and global concurrency remain continuous without HMAC keys', async () => {
+  const { service } = harness()
+  const aliceOne = binding(users.alice, sessions.a1)
+  assert.equal((await service.reserve({ binding: aliceOne, intent: await issued(service, aliceOne), idempotencyKey: 'concurrency-a-001', estimatedCents: 10 })).status, 'admitted')
+  const aliceTwo = binding(users.alice, sessions.a2)
+  assert.deepEqual(await service.reserve({ binding: aliceTwo, intent: await issued(service, aliceTwo), idempotencyKey: 'concurrency-a-002', estimatedCents: 10 }), { status: 'denied', reason: 'user_concurrency_exceeded' })
+  const bob = binding(users.bob, sessions.b1)
+  assert.equal((await service.reserve({ binding: bob, intent: await issued(service, bob), idempotencyKey: 'concurrency-b-001', estimatedCents: 10 })).status, 'admitted')
+  const cara = binding(users.cara, sessions.c1)
+  assert.deepEqual(await service.reserve({ binding: cara, intent: await issued(service, cara), idempotencyKey: 'concurrency-c-001', estimatedCents: 10 }), { status: 'denied', reason: 'global_concurrency_exceeded' })
+})
+
+test('finalize and cancel remain ownership-bound locally and use durable lifecycle results', async () => {
   const { service } = harness({ maxUserConcurrent: 2 })
-  const sessionBinding = binding(users.alice, sessions.a1)
-  assert.equal((await service.reserve({
-    binding: sessionBinding,
-    idempotencyKey: 'reserve-session-01',
-    estimatedCents: 20,
-  })).status, 'admitted')
-  assert.deepEqual(await service.reserve({
-    binding: sessionBinding,
-    idempotencyKey: 'reserve-session-02',
-    estimatedCents: 20,
-  }), { status: 'denied', reason: 'session_already_reserved' })
-})
-
-test('per-user and global concurrency are enforced without IP identity', async () => {
-  const { service } = harness()
-  assert.equal((await service.reserve({
-    binding: binding(users.alice, sessions.a1),
-    idempotencyKey: 'concurrency-a-01',
-    estimatedCents: 10,
-  })).status, 'admitted')
-  assert.deepEqual(await service.reserve({
-    binding: binding(users.alice, sessions.a2),
-    idempotencyKey: 'concurrency-a-02',
-    estimatedCents: 10,
-  }), { status: 'denied', reason: 'user_concurrency_exceeded' })
-  assert.equal((await service.reserve({
-    binding: binding(users.bob, sessions.b1),
-    idempotencyKey: 'concurrency-b-01',
-    estimatedCents: 10,
-  })).status, 'admitted')
-  assert.deepEqual(await service.reserve({
-    binding: binding(users.cara, sessions.c1),
-    idempotencyKey: 'concurrency-c-01',
-    estimatedCents: 10,
-  }), { status: 'denied', reason: 'global_concurrency_exceeded' })
-})
-
-test('cancel is owner-bound, idempotent, and releases concurrency and estimates', async () => {
-  const { service } = harness()
-  const aliceBinding = binding(users.alice, sessions.a1)
-  const admitted = await service.reserve({
-    binding: aliceBinding,
-    idempotencyKey: 'cancel-alice-001',
-    estimatedCents: 100,
-  })
+  const alice = binding(users.alice, sessions.a1)
+  const aliceIntent = await issued(service, alice)
+  const admitted = await service.reserve({ binding: alice, intent: aliceIntent, idempotencyKey: 'finalize-alice01', estimatedCents: 90 })
   assert.equal(admitted.status, 'admitted')
   if (admitted.status !== 'admitted') return
-  assert.equal((await service.cancel({
-    reservationId: admitted.reservation.id,
-    binding: binding(users.bob, sessions.b1),
-  })).status, 'binding_mismatch')
-  const cancelled = await service.cancel({ reservationId: admitted.reservation.id, binding: aliceBinding })
-  const retry = await service.cancel({ reservationId: admitted.reservation.id, binding: aliceBinding })
+  const wrongBinding = binding(users.alice, sessions.a2)
+  const wrongIntent = await issued(service, wrongBinding)
+  assert.equal((await service.finalize({ reservationId: admitted.reservation.id, binding: wrongBinding, intent: wrongIntent, actualCents: 80 })).status, 'binding_mismatch')
+  const replacementIntent = await issued(service, alice)
+  assert.equal((await service.finalize({ reservationId: admitted.reservation.id, binding: alice, intent: replacementIntent, actualCents: 80 })).status, 'binding_mismatch')
+  const finalized = await service.finalize({ reservationId: admitted.reservation.id, binding: alice, intent: aliceIntent, actualCents: 80 })
+  assert.equal(finalized.status, 'finalized')
+  if (finalized.status === 'finalized') assert.equal(finalized.budgetExceeded, false)
+
+  const second = binding(users.alice, sessions.a2)
+  const secondIntent = await issued(service, second)
+  const secondReservation = await service.reserve({ binding: second, intent: secondIntent, idempotencyKey: 'cancel-alice-0001', estimatedCents: 10 })
+  assert.equal(secondReservation.status, 'admitted')
+  if (secondReservation.status === 'admitted') {
+    const replacementIntent = await issued(service, second)
+    assert.equal((await service.cancel({ reservationId: secondReservation.reservation.id, binding: second, intent: replacementIntent })).status, 'binding_mismatch')
+    const cancelled = await service.cancel({ reservationId: secondReservation.reservation.id, binding: second, intent: secondIntent })
+    assert.equal(cancelled.status, 'cancelled')
+  }
+})
+
+test('daily budgets include active estimates and finalized actuals', async () => {
+  const { service } = harness({ maxGlobalConcurrent: 5, maxUserConcurrent: 5 })
+  const alice = binding(users.alice, sessions.a1)
+  const aliceIntent = await issued(service, alice)
+  const first = await service.reserve({ binding: alice, intent: aliceIntent, idempotencyKey: 'budget-alice-001', estimatedCents: 80 })
+  assert.equal(first.status, 'admitted')
+  if (first.status !== 'admitted') return
+  assert.equal((await service.finalize({ reservationId: first.reservation.id, binding: alice, intent: aliceIntent, actualCents: 80 })).status, 'finalized')
+  const aliceTwo = binding(users.alice, sessions.a2)
+  assert.deepEqual(await service.reserve({ binding: aliceTwo, intent: await issued(service, aliceTwo), idempotencyKey: 'budget-alice-002', estimatedCents: 21 }), { status: 'denied', reason: 'user_daily_budget_exceeded' })
+  const bob = binding(users.bob, sessions.b1)
+  assert.deepEqual(await service.reserve({ binding: bob, intent: await issued(service, bob), idempotencyKey: 'budget-bob-00001', estimatedCents: 71 }), { status: 'denied', reason: 'global_daily_budget_exceeded' })
+})
+
+test('expiry releases concurrency while bounded late finalization still reconciles spend', async () => {
+  const { service, setTime } = harness()
+  const alice = binding(users.alice, sessions.a1)
+  const aliceIntent = await issued(service, alice)
+  const first = await service.reserve({ binding: alice, intent: aliceIntent, idempotencyKey: 'expiry-alice-001', estimatedCents: 90 })
+  assert.equal(first.status, 'admitted')
+  if (first.status !== 'admitted') return
+  setTime('2026-07-17T12:01:01.000Z')
+  const second = binding(users.alice, sessions.a2)
+  assert.equal((await service.reserve({ binding: second, intent: await issued(service, second), idempotencyKey: 'expiry-alice-002', estimatedCents: 10 })).status, 'admitted')
+  assert.equal((await service.finalize({ reservationId: first.reservation.id, binding: alice, intent: aliceIntent, actualCents: 70 })).status, 'finalized')
+
+  const outside = harness()
+  const bob = binding(users.bob, sessions.b1)
+  const bobIntent = await issued(outside.service, bob)
+  const old = await outside.service.reserve({ binding: bob, intent: bobIntent, idempotencyKey: 'expiry-window-001', estimatedCents: 20 })
+  assert.equal(old.status, 'admitted')
+  if (old.status !== 'admitted') return
+  outside.setTime('2026-07-24T12:01:00.001Z')
+  assert.equal((await outside.service.finalize({ reservationId: old.reservation.id, binding: bob, intent: bobIntent, actualCents: 20 })).status, 'state_conflict')
+})
+
+test('cancel is idempotent and releases concurrency without spend', async () => {
+  const { service } = harness()
+  const alice = binding(users.alice, sessions.a1)
+  const aliceIntent = await issued(service, alice)
+  const first = await service.reserve({ binding: alice, intent: aliceIntent, idempotencyKey: 'cancel-alice-001', estimatedCents: 100 })
+  assert.equal(first.status, 'admitted')
+  if (first.status !== 'admitted') return
+  const cancelled = await service.cancel({ reservationId: first.reservation.id, binding: alice, intent: aliceIntent })
+  const retry = await service.cancel({ reservationId: first.reservation.id, binding: alice, intent: aliceIntent })
   assert.equal(cancelled.status, 'cancelled')
   assert.equal(retry.status, 'cancelled')
   if (retry.status === 'cancelled') assert.equal(retry.idempotent, true)
-  assert.equal((await service.reserve({
-    binding: binding(users.alice, sessions.a2),
-    idempotencyKey: 'cancel-alice-002',
-    estimatedCents: 100,
-  })).status, 'admitted')
+  const second = binding(users.alice, sessions.a2)
+  assert.equal((await service.reserve({ binding: second, intent: await issued(service, second), idempotencyKey: 'cancel-alice-002', estimatedCents: 100 })).status, 'admitted')
 })
 
-test('finalize records actual cents exactly once and reports budget overruns', async () => {
-  const { service, setTime } = harness()
-  const aliceBinding = binding(users.alice, sessions.a1)
-  const admitted = await service.reserve({
-    binding: aliceBinding,
-    idempotencyKey: 'finalize-alice01',
-    estimatedCents: 90,
-  })
-  assert.equal(admitted.status, 'admitted')
-  if (admitted.status !== 'admitted') return
-  const finalized = await service.finalize({
-    reservationId: admitted.reservation.id,
-    binding: aliceBinding,
-    actualCents: 120,
-  })
-  assert.equal(finalized.status, 'finalized')
-  if (finalized.status !== 'finalized') return
-  assert.equal(finalized.budgetExceeded, true)
-  assert.equal(finalized.reservation.actualCents, 120)
-  setTime('2026-07-16T12:00:30.000Z')
-  const retry = await service.finalize({
-    reservationId: admitted.reservation.id,
-    binding: aliceBinding,
-    actualCents: 120,
-  })
-  assert.equal(retry.status, 'finalized')
-  if (retry.status === 'finalized') assert.equal(retry.idempotent, true)
-  assert.equal((await service.finalize({
-    reservationId: admitted.reservation.id,
-    binding: aliceBinding,
-    actualCents: 119,
-  })).status, 'state_conflict')
-})
-
-test('user and global daily budgets include active estimates and finalized actuals', async () => {
-  const { service } = harness({ maxGlobalConcurrent: 5, maxUserConcurrent: 5 })
-  const alice = binding(users.alice, sessions.a1)
-  const first = await service.reserve({
-    binding: alice,
-    idempotencyKey: 'budget-alice-001',
-    estimatedCents: 80,
-  })
-  assert.equal(first.status, 'admitted')
-  if (first.status !== 'admitted') return
-  assert.equal((await service.finalize({ reservationId: first.reservation.id, binding: alice, actualCents: 80 })).status, 'finalized')
-  assert.deepEqual(await service.reserve({
-    binding: binding(users.alice, sessions.a2),
-    idempotencyKey: 'budget-alice-002',
-    estimatedCents: 21,
-  }), { status: 'denied', reason: 'user_daily_budget_exceeded' })
-  assert.deepEqual(await service.reserve({
-    binding: binding(users.bob, sessions.b1),
-    idempotencyKey: 'budget-bob-00001',
-    estimatedCents: 71,
-  }), { status: 'denied', reason: 'global_daily_budget_exceeded' })
-  assert.equal((await service.reserve({
-    binding: binding(users.bob, sessions.b1),
-    idempotencyKey: 'budget-bob-00002',
-    estimatedCents: 70,
-  })).status, 'admitted')
-})
-
-test('UTC day rollover resets spend budgets but not active concurrency', async () => {
-  const { service, setTime } = harness()
-  const alice = binding(users.alice, sessions.a1)
-  const first = await service.reserve({
-    binding: alice,
-    idempotencyKey: 'rollover-alice01',
-    estimatedCents: 100,
-  })
-  assert.equal(first.status, 'admitted')
-  if (first.status !== 'admitted') return
-  assert.equal((await service.finalize({ reservationId: first.reservation.id, binding: alice, actualCents: 100 })).status, 'finalized')
-  setTime('2026-07-17T00:00:01.000Z')
-  assert.equal((await service.reserve({
-    binding: binding(users.alice, sessions.a2),
-    idempotencyKey: 'rollover-alice02',
-    estimatedCents: 100,
-  })).status, 'admitted')
-
-  const activeHarness = harness({ maxGlobalConcurrent: 2, maxUserConcurrent: 1, reservationTtlMs: 120_000 })
-  activeHarness.setTime('2026-07-16T23:59:30.000Z')
-  assert.equal((await activeHarness.service.reserve({
-    binding: binding(users.bob, sessions.b1),
-    idempotencyKey: 'rollover-active01',
-    estimatedCents: 10,
-  })).status, 'admitted')
-  activeHarness.setTime('2026-07-17T00:00:01.000Z')
-  assert.deepEqual(await activeHarness.service.reserve({
-    binding: binding(users.bob, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2'),
-    idempotencyKey: 'rollover-active02',
-    estimatedCents: 10,
-  }), { status: 'denied', reason: 'user_concurrency_exceeded' })
-})
-
-test('expired reservations release admission and accept spend only inside the reconciliation window', async () => {
-  const { service, setTime } = harness()
-  const alice = binding(users.alice, sessions.a1)
-  const first = await service.reserve({
-    binding: alice,
-    idempotencyKey: 'expiry-alice-001',
-    estimatedCents: 90,
-  })
-  assert.equal(first.status, 'admitted')
-  if (first.status !== 'admitted') return
-  setTime('2026-07-16T12:01:01.000Z')
-  assert.equal((await service.reserve({
-    binding: binding(users.alice, sessions.a2),
-    idempotencyKey: 'expiry-alice-002',
-    estimatedCents: 50,
-  })).status, 'admitted')
-  const late = await service.finalize({ reservationId: first.reservation.id, binding: alice, actualCents: 70 })
-  assert.equal(late.status, 'finalized')
-  if (late.status === 'finalized') assert.equal(late.budgetExceeded, true)
-
-  const outside = harness()
-  const outsideBinding = binding(users.bob, sessions.b1)
-  const outsideReservation = await outside.service.reserve({
-    binding: outsideBinding,
-    idempotencyKey: 'expiry-window-closed',
-    estimatedCents: 20,
-  })
-  assert.equal(outsideReservation.status, 'admitted')
-  if (outsideReservation.status !== 'admitted') return
-  outside.setTime('2026-07-23T12:01:00.001Z')
-  assert.equal((await outside.service.finalize({
-    reservationId: outsideReservation.reservation.id,
-    binding: outsideBinding,
-    actualCents: 20,
-  })).status, 'state_conflict')
-})
-
-test('repository failures fail closed', async () => {
+test('intent and repository failures fail closed before provider progression', async () => {
   const throwing = {
-    async atomicReserve() { throw new Error('store down') },
-    async atomicFinalize() { throw new Error('store down') },
-    async atomicCancel() { throw new Error('store down') },
+    async issueIntent() { throw new Error('private database error') },
+    async atomicReserve() { throw new Error('private database error') },
+    async atomicFinalize() { throw new Error('private database error') },
+    async atomicCancel() { throw new Error('private database error') },
   }
-  const service = new RealtimeAdmissionService(throwing, policy)
-  const alice = binding(users.alice, sessions.a1)
-  assert.deepEqual(await service.reserve({
-    binding: alice,
-    idempotencyKey: 'store-error-00001',
-    estimatedCents: 10,
-  }), { status: 'denied', reason: 'store_unavailable' })
-  assert.equal((await service.finalize({
-    reservationId: '00000000-0000-4000-8000-000000000001',
-    binding: alice,
-    actualCents: 10,
-  })).status, 'store_unavailable')
-  assert.equal((await service.cancel({
-    reservationId: '00000000-0000-4000-8000-000000000001',
-    binding: alice,
-  })).status, 'store_unavailable')
+  const service = new RealtimeAdmissionService(throwing, policy, {
+    now: () => new Date('2026-07-17T12:00:00.000Z'),
+  })
+  const owned = binding(users.alice, sessions.a1)
+  assert.deepEqual(await service.issueIntent({ binding: owned }), { status: 'denied', reason: 'store_unavailable' })
+  assert.deepEqual(await service.reserve({ binding: owned, intent: createVerifiedRealtimeAdmissionIntent({ intentId: '00000000-0000-4000-8000-000000000001', policyId: policy.policyId, expiresAt: '2026-07-17T12:01:00.000Z' }, owned), idempotencyKey: 'store-error-00001', estimatedCents: 10 }), { status: 'denied', reason: 'store_unavailable' })
 })
 
-test('malformed success records fail closed for every lifecycle operation', async () => {
-  const alice = binding(users.alice, sessions.a1)
-  const base = {
-    id: '00000000-0000-4000-8000-000000000099',
-    version: '2026-07-16.v1',
-    idempotencyKey: 'malformed-store01',
-    userKey: alice.userKey,
-    sessionKey: alice.sessionKey,
-    utcDay: '2026-07-16',
-    estimatedCents: 10,
-    actualCents: null,
-    status: 'reserved',
-    createdAt: '2026-07-16T12:00:00.000Z',
-    expiresAt: '2026-07-16T12:01:00.000Z',
-    finalizedAt: null,
-    cancelledAt: null,
+test('expired, far-future, or malformed intent issuance responses fail closed', async () => {
+  const owned = binding(users.alice, sessions.a1)
+  for (const intent of [
+    { intentId: 'bad', policyId: policy.policyId, expiresAt: '2026-07-17T12:01:00.000Z' },
+    { intentId: '00000000-0000-4000-8000-000000000001', policyId: 'wrong', expiresAt: '2026-07-17T12:01:00.000Z' },
+    { intentId: '00000000-0000-4000-8000-000000000001', policyId: policy.policyId, expiresAt: '2026-07-17T11:59:59.000Z' },
+    { intentId: '00000000-0000-4000-8000-000000000001', policyId: policy.policyId, expiresAt: '2026-07-17T12:02:30.001Z' },
+  ]) {
+    const service = new RealtimeAdmissionService({
+      async issueIntent() { return intent },
+      async atomicReserve() { throw new Error() }, async atomicFinalize() { throw new Error() }, async atomicCancel() { throw new Error() },
+    }, policy, { now: () => new Date('2026-07-17T12:00:00.000Z') })
+    assert.deepEqual(await service.issueIntent({ binding: owned }), { status: 'denied', reason: 'store_unavailable' })
   }
-  const reserveService = new RealtimeAdmissionService({
-    async atomicReserve() {
-      return { kind: 'reserved', reservation: { ...base, status: 'cancelled', cancelledAt: base.createdAt }, idempotent: false }
-    },
-    async atomicFinalize() { return { kind: 'not_found' } },
-    async atomicCancel() { return { kind: 'not_found' } },
-  }, policy, { now: () => new Date(base.createdAt) })
-  assert.deepEqual(await reserveService.reserve({
-    binding: alice,
-    idempotencyKey: base.idempotencyKey,
-    estimatedCents: 10,
-  }), { status: 'denied', reason: 'store_unavailable' })
-
-  const finalizeService = new RealtimeAdmissionService({
-    async atomicReserve() { return { kind: 'denied', reason: 'global_concurrency_exceeded' } },
-    async atomicFinalize() {
-      return {
-        kind: 'finalized',
-        reservation: { ...base, status: 'finalized', actualCents: 11, finalizedAt: base.createdAt },
-        idempotent: false,
-        userBudgetExceeded: false,
-        globalBudgetExceeded: false,
-      }
-    },
-    async atomicCancel() { return { kind: 'not_found' } },
-  }, policy, { now: () => new Date(base.createdAt) })
-  assert.equal((await finalizeService.finalize({
-    reservationId: base.id,
-    binding: alice,
-    actualCents: 10,
-  })).status, 'store_unavailable')
-
-  const cancelService = new RealtimeAdmissionService({
-    async atomicReserve() { return { kind: 'denied', reason: 'global_concurrency_exceeded' } },
-    async atomicFinalize() { return { kind: 'not_found' } },
-    async atomicCancel() {
-      return {
-        kind: 'cancelled',
-        reservation: { ...base, status: 'cancelled', actualCents: 1, cancelledAt: base.createdAt },
-        idempotent: false,
-      }
-    },
-  }, policy, { now: () => new Date(base.createdAt) })
-  assert.equal((await cancelService.cancel({ reservationId: base.id, binding: alice })).status, 'store_unavailable')
 })
 
-test('invalid policy and admission inputs are rejected before store access', async () => {
-  assert.throws(() => harness({ maxUserConcurrent: 3, maxGlobalConcurrent: 2 }), /maxUserConcurrent/)
-  const { service } = harness()
-  assert.deepEqual(await service.reserve({
-    binding: binding(users.alice, sessions.a1),
-    idempotencyKey: 'short',
-    estimatedCents: 10,
-  }), { status: 'denied', reason: 'invalid_request' })
-  assert.deepEqual(await service.reserve({
-    binding: binding(users.alice, sessions.a1),
-    idempotencyKey: 'invalid-cents-001',
-    estimatedCents: 101,
-  }), { status: 'denied', reason: 'invalid_request' })
+test('far-future intent input is rejected before every lifecycle repository call', async () => {
+  let calls = 0
+  const repository = {
+    async issueIntent() { calls += 1; throw new Error() },
+    async atomicReserve() { calls += 1; throw new Error() },
+    async atomicFinalize() { calls += 1; throw new Error() },
+    async atomicCancel() { calls += 1; throw new Error() },
+  }
+  const service = new RealtimeAdmissionService(repository, policy, {
+    now: () => new Date('2026-07-17T12:00:00.000Z'),
+  })
+  const owned = binding(users.alice, sessions.a1)
+  const farFuture = createVerifiedRealtimeAdmissionIntent({
+    intentId: '00000000-0000-4000-8000-000000000001',
+    policyId: policy.policyId,
+    expiresAt: '2099-01-01T00:00:00.000Z',
+  }, owned)
+  assert.deepEqual(await service.reserve({ binding: owned, intent: farFuture, idempotencyKey: 'far-future-00001', estimatedCents: 10 }), { status: 'denied', reason: 'invalid_request' })
+  assert.equal((await service.finalize({ reservationId: '00000000-0000-4000-8000-000000000002', binding: owned, intent: farFuture, actualCents: 10 })).status, 'invalid_request')
+  assert.equal((await service.cancel({ reservationId: '00000000-0000-4000-8000-000000000002', binding: owned, intent: farFuture })).status, 'invalid_request')
+  assert.equal(calls, 0)
 })

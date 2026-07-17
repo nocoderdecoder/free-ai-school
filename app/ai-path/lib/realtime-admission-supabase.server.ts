@@ -13,7 +13,7 @@ import {
 } from './realtime-admission-policy.server.ts'
 import { RealtimeAdmissionService } from './realtime-admission.ts'
 
-export const AI_PATH_SUPABASE_REALTIME_ADMISSION_SCHEMA_VERSION = '20260717070000' as const
+export const AI_PATH_SUPABASE_REALTIME_ADMISSION_SCHEMA_VERSION = '20260717080000' as const
 
 // Independent review gate. Deployment flags, credentials, migration claims,
 // and the public Realtime latch cannot activate this adapter while it is false.
@@ -30,11 +30,14 @@ export type SupabaseRealtimeAdmissionActivation = {
 }
 
 /**
- * Dormant server-only construction boundary for the service-role RPC adapter.
+ * Dormant server-only construction boundary for the split-credential RPC adapter.
  * It does not read credentials, construct a route, or make a network call.
  */
 export function createSupabaseRealtimeAdmissionService(
-  serviceRoleClient: SupabaseClient<Database>,
+  clients: {
+    authenticatedClient: SupabaseClient<Database>
+    serviceRoleClient: SupabaseClient<Database>
+  },
   activation: SupabaseRealtimeAdmissionActivation,
 ) {
   if (
@@ -42,7 +45,7 @@ export function createSupabaseRealtimeAdmissionService(
     || !AI_PATH_REALTIME_ADMISSION_POLICY_ROLLOUT_LATCH
     || activation.enabled !== 'true'
     || activation.schemaVersion !== AI_PATH_SUPABASE_REALTIME_ADMISSION_SCHEMA_VERSION
-    || activation.credentialScope !== 'service-role'
+    || activation.credentialScope !== 'authenticated-intent+service-role'
     || activation.atomicSqlProof !== 'passed'
     || activation.lifecycleSqlProof !== 'passed'
     || activation.policyVersion !== AI_PATH_REALTIME_ADMISSION_POLICY.version
@@ -51,18 +54,17 @@ export function createSupabaseRealtimeAdmissionService(
     throw new Error('Durable Realtime admission networking is disabled by the reviewed code-level latch.')
   }
 
-  // Narrow the service-role client to the three reviewed RPC names. The
-  // repository has no table, auth, storage, logging, or arbitrary-RPC surface.
-  const rpcClient: SupabaseRealtimeAdmissionRpcClient = {
+  const narrowRpcClient = (client: SupabaseClient<Database>): SupabaseRealtimeAdmissionRpcClient => ({
     rpc(name, args, signal) {
-      // The narrow adapter has already correlated each reviewed RPC name with
-      // its exact validated argument object. `never` bridges Supabase's
-      // generated overload union without broadening this boundary.
-      return serviceRoleClient.rpc(name, args as never).abortSignal(signal)
+      return client.rpc(name as never, args as never).abortSignal(signal)
     },
-  }
+  })
+  const repository = new SupabaseRealtimeAdmissionRepository({
+    authenticatedClient: narrowRpcClient(clients.authenticatedClient),
+    serviceRoleClient: narrowRpcClient(clients.serviceRoleClient),
+  })
   return new RealtimeAdmissionService(
-    new SupabaseRealtimeAdmissionRepository(rpcClient),
-    AI_PATH_REALTIME_ADMISSION_POLICY.limits,
+    repository,
+    AI_PATH_REALTIME_ADMISSION_POLICY,
   )
 }

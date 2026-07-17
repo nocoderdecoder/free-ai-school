@@ -156,11 +156,44 @@ for required_migration in "${REQUIRED_BASELINE_MIGRATIONS[@]}"; do
   [[ -f "${required_path}" ]] || fail "required baseline migration is missing: ${required_migration}"
 done
 
+readonly -a CONTINUITY_MIGRATIONS=(
+  "${REPO_ROOT}"/supabase/migrations/20260717080000_ai_path_realtime_admission_*.sql
+)
+[[ "${#CONTINUITY_MIGRATIONS[@]}" == "1" && -f "${CONTINUITY_MIGRATIONS[0]}" ]] \
+  || fail "exactly one 20260717080000 Realtime admission continuity migration is required"
+
 log "installing a minimal local Supabase compatibility schema"
 psql "${DB_URL}" -X -q -v ON_ERROR_STOP=1 -1 -f "${PROOF_DIR}/00-local-supabase-compat.sql"
 
 for migration_path in "${MIGRATION_PATHS[@]}"; do
   migration="${migration_path##*/}"
+  if [[ "${migration}" == 20260717080000_ai_path_realtime_admission_*.sql ]]; then
+    log "proving ${migration} refuses a non-empty legacy admission ledger"
+    psql "${DB_URL}" -X -q -v ON_ERROR_STOP=1 <<'SQL'
+insert into public.ai_path_realtime_admission_reservations (
+  id, user_key, session_key, idempotency_key_hash, utc_day,
+  estimated_cents, status, created_at, expires_at
+) values (
+  '88000000-0000-4000-8000-000000000001',
+  repeat('8', 64), repeat('9', 64), repeat('a', 64),
+  (clock_timestamp() at time zone 'UTC')::date,
+  1, 'reserved', clock_timestamp(), clock_timestamp() + interval '2 minutes'
+);
+SQL
+    continuity_guard_output=""
+    if continuity_guard_output="$(psql "${DB_URL}" -X -q -v ON_ERROR_STOP=1 -1 -f "${migration_path}" 2>&1)"; then
+      fail "${migration} accepted a non-empty legacy admission ledger"
+    fi
+    case "${continuity_guard_output}" in
+      *empty*|*Empty*|*legacy*|*Legacy*) ;;
+      *)
+        printf '%s\n' "${continuity_guard_output}" >&2
+        fail "${migration} failed without an explicit empty-ledger cutover reason"
+        ;;
+    esac
+    psql "${DB_URL}" -X -q -v ON_ERROR_STOP=1 -c \
+      "delete from public.ai_path_realtime_admission_reservations where id = '88000000-0000-4000-8000-000000000001'" >/dev/null
+  fi
   log "applying ${migration}"
   psql "${DB_URL}" -X -q -v ON_ERROR_STOP=1 -1 -f "${migration_path}"
 done
@@ -195,11 +228,73 @@ expect_denied \
   "service-role direct Realtime archive read" \
   "set role service_role; select count(*) from public.ai_path_realtime_admission_daily_archive"
 expect_denied \
+  "service-role direct Realtime policy-contract read" \
+  "set role service_role; select count(*) from public.ai_path_realtime_admission_policy_contracts"
+expect_denied \
+  "service-role direct Realtime policy-state read" \
+  "set role service_role; select count(*) from public.ai_path_realtime_admission_policy_state"
+expect_denied \
+  "service-role direct Realtime continuity subject read" \
+  "set role service_role; select count(*) from public.ai_path_realtime_owner_continuity"
+expect_denied \
+  "service-role direct Realtime continuity session read" \
+  "set role service_role; select count(*) from public.ai_path_realtime_session_continuity"
+expect_denied \
+  "service-role direct Realtime intent read" \
+  "set role service_role; select count(*) from public.ai_path_realtime_admission_intents"
+expect_denied \
+  "service-role intent issuance" \
+  "set role service_role; select public.issue_ai_path_realtime_admission_intent('policy', '00000000-0000-4000-8000-000000000001')"
+expect_denied \
+  "anonymous intent issuance" \
+  "set role anon; select public.issue_ai_path_realtime_admission_intent('policy', '00000000-0000-4000-8000-000000000001')"
+expect_denied \
+  "authenticated direct reserve RPC" \
+  "set role authenticated; select public.reserve_ai_path_realtime_admission('policy', '00000000-0000-4000-8000-000000000001', 'proof-not-authorized', 1)"
+expect_denied \
   "authenticated retention RPC" \
   "set role authenticated; select public.purge_expired_ai_path_sessions(1)"
 
-log "running two-connection Realtime admission race"
+log "running two-connection DB-owned-continuity Realtime admission race"
 psql "${DB_URL}" -X -q -v ON_ERROR_STOP=1 -c "truncate public.ai_path_realtime_admission_reservations" >/dev/null
+
+readonly PROOF_POLICY_ID="2026-07-17.v1|gc=2|uc=1|udc=100|gdc=1000|rc=100|ttl=120000"
+psql "${DB_URL}" -X -q -v ON_ERROR_STOP=1 <<SQL
+insert into auth.users (id) values
+  ('90000000-0000-4000-8000-000000000001'),
+  ('90000000-0000-4000-8000-000000000002'),
+  ('90000000-0000-4000-8000-000000000003');
+insert into public.ai_path_assessment_sessions (
+  id, owner_id, status, mode, locale, goal, goal_type, retention_expires_at
+) values
+  ('91000000-0000-4000-8000-000000000001', '90000000-0000-4000-8000-000000000001',
+   'consented', 'voice', 'en-US', 'Prove one atomic continuity reservation under concurrent load.',
+   'workflows', clock_timestamp() + interval '1 day'),
+  ('91000000-0000-4000-8000-000000000002', '90000000-0000-4000-8000-000000000002',
+   'consented', 'voice', 'en-US', 'Prove one atomic continuity reservation under concurrent load.',
+   'workflows', clock_timestamp() + interval '1 day'),
+  ('91000000-0000-4000-8000-000000000003', '90000000-0000-4000-8000-000000000003',
+   'consented', 'voice', 'en-US', 'Seed one slot before the final concurrent admission boundary.',
+   'workflows', clock_timestamp() + interval '1 day');
+update public.ai_path_realtime_admission_policy_state set admission_enabled = true;
+SQL
+
+issue_intent() {
+  local owner_id="$1"
+  local session_id="$2"
+  psql "${DB_URL}" -X -A -t -q -v ON_ERROR_STOP=1 \
+    -c "set role authenticated; set request.jwt.claim.role = 'authenticated'; set request.jwt.claim.sub = '${owner_id}'; select public.issue_ai_path_realtime_admission_intent('${PROOF_POLICY_ID}', '${session_id}') ->> 'intentId'"
+}
+
+intent_a="$(issue_intent '90000000-0000-4000-8000-000000000001' '91000000-0000-4000-8000-000000000001')"
+intent_b="$(issue_intent '90000000-0000-4000-8000-000000000002' '91000000-0000-4000-8000-000000000002')"
+intent_seed="$(issue_intent '90000000-0000-4000-8000-000000000003' '91000000-0000-4000-8000-000000000003')"
+[[ "${intent_a}" =~ ^[0-9a-f-]{36}$ && "${intent_b}" =~ ^[0-9a-f-]{36}$ && "${intent_seed}" =~ ^[0-9a-f-]{36}$ ]] \
+  || fail "authenticated intent issuance did not return three opaque UUIDs"
+
+seed_kind="$(psql "${DB_URL}" -X -A -t -q -v ON_ERROR_STOP=1 -c \
+  "set role service_role; set request.jwt.claim.role = 'service_role'; select public.reserve_ai_path_realtime_admission('${PROOF_POLICY_ID}', '${intent_seed}', 'proof-capacity-seed', 5) ->> 'kind'")"
+[[ "${seed_kind}" == "reserved" ]] || fail "could not seed one database-owned global capacity slot"
 
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ai-path-db-proof.XXXXXX")"
 out_a="${tmp_dir}/a.out"
@@ -214,15 +309,15 @@ cleanup() {
 trap cleanup EXIT
 
 psql "${DB_URL}" -X -A -t -q -v ON_ERROR_STOP=1 \
-  -v user_key="$(printf '1%.0s' {1..64})" \
-  -v session_key="$(printf '2%.0s' {1..64})" \
+  -v policy_id="${PROOF_POLICY_ID}" \
+  -v intent_id="${intent_a}" \
   -v idempotency_key="proof-concurrent-a" \
   -f "${PROOF_DIR}/20-concurrency-reserve.sql" >"${out_a}" 2>"${err_a}" &
 pid_a=$!
 
 psql "${DB_URL}" -X -A -t -q -v ON_ERROR_STOP=1 \
-  -v user_key="$(printf '3%.0s' {1..64})" \
-  -v session_key="$(printf '4%.0s' {1..64})" \
+  -v policy_id="${PROOF_POLICY_ID}" \
+  -v intent_id="${intent_b}" \
   -v idempotency_key="proof-concurrent-b" \
   -f "${PROOF_DIR}/20-concurrency-reserve.sql" >"${out_b}" 2>"${err_b}" &
 pid_b=$!
@@ -247,7 +342,10 @@ denied_count="$(printf '%s\n' "${race_results}" | grep -c '^denied|global_concur
 
 ledger_count="$(psql "${DB_URL}" -X -A -t -q -v ON_ERROR_STOP=1 -c \
   "select count(*) from public.ai_path_realtime_admission_reservations where status = 'reserved'")"
-[[ "${ledger_count}" == "1" ]] || fail "the concurrent admission race persisted an unexpected reservation count"
+[[ "${ledger_count}" == "2" ]] || fail "the seeded concurrent admission race persisted an unexpected reservation count"
+
+psql "${DB_URL}" -X -q -v ON_ERROR_STOP=1 -c \
+  "update public.ai_path_realtime_admission_policy_state set admission_enabled = false" >/dev/null
 
 log "PASS: ${#MIGRATION_PATHS[@]} migrations and all disposable database contracts succeeded"
 log "the disposable database was intentionally left intact for operator inspection"

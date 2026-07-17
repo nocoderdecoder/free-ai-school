@@ -62,11 +62,6 @@ test('durable construction has no caller policy seam and remains doubly latched'
     new URL('./lib/realtime-admission-supabase.server.ts', import.meta.url),
     'utf8',
   )
-  const lifecycleSql = await readFile(
-    new URL('../../supabase/migrations/20260717070000_ai_path_realtime_admission_lifecycle.sql', import.meta.url),
-    'utf8',
-  )
-
   assert.match(policySource, /import 'server-only'/)
   assert.match(policySource, /AI_PATH_REALTIME_ADMISSION_POLICY_ROLLOUT_LATCH = false as const/)
   assert.match(policySource, /maxGlobalConcurrent: 2/)
@@ -75,8 +70,8 @@ test('durable construction has no caller policy seam and remains doubly latched'
   assert.match(factorySource, /!AI_PATH_REALTIME_ADMISSION_POLICY_ROLLOUT_LATCH/)
   assert.match(factorySource, /activation\.policyVersion !== AI_PATH_REALTIME_ADMISSION_POLICY\.version/)
   assert.match(factorySource, /activation\.policyId !== AI_PATH_REALTIME_ADMISSION_POLICY\.policyId/)
-  assert.match(factorySource, /AI_PATH_REALTIME_ADMISSION_POLICY\.limits/)
+  assert.match(factorySource, /AI_PATH_REALTIME_ADMISSION_POLICY,/)
+  assert.match(factorySource, /activation\.credentialScope !== 'authenticated-intent\+service-role'/)
   assert.doesNotMatch(factorySource, /policy:\s*RealtimeAdmissionPolicy/)
   assert.doesNotMatch(factorySource, /process\.env|fetch\s*\(|console\./)
-  assert.match(lifecycleSql, /policy_version text not null default '2026-07-17\.v1'/)
 })

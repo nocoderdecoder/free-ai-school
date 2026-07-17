@@ -3,13 +3,14 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { Database } from './database.types.ts'
+import { AI_PATH_REALTIME_ADMISSION_POLICY } from './realtime-admission-policy.server.ts'
 import {
   maintainSupabaseRealtimeAdmission,
   type SupabaseRealtimeAdmissionMaintenanceRpcClient,
 } from './realtime-admission-maintenance-supabase.ts'
 
 export const AI_PATH_SUPABASE_REALTIME_ADMISSION_MAINTENANCE_SCHEMA_VERSION =
-  '20260717070000' as const
+  '20260717080000' as const
 
 // Scheduler flags, credentials, and lifecycle attestations cannot activate a
 // database mutation while this independent reviewed latch remains false.
@@ -21,6 +22,7 @@ export type SupabaseRealtimeAdmissionMaintenanceActivation = {
   credentialScope?: string
   lifecycleSqlProof?: string
   retentionOperationsReady?: string
+  policyId?: string
 }
 
 /**
@@ -38,16 +40,17 @@ export function createSupabaseRealtimeAdmissionMaintenanceRunner(
     || activation.credentialScope !== 'service-role'
     || activation.lifecycleSqlProof !== 'passed'
     || activation.retentionOperationsReady !== 'true'
+    || activation.policyId !== AI_PATH_REALTIME_ADMISSION_POLICY.policyId
   ) {
     throw new Error('Durable Realtime admission maintenance is disabled by the reviewed code-level latch.')
   }
 
   const client: SupabaseRealtimeAdmissionMaintenanceRpcClient = {
     rpc(name, args, signal) {
-      return serviceRoleClient.rpc(name, args).abortSignal(signal)
+      return serviceRoleClient.rpc(name as never, args as never).abortSignal(signal)
     },
   }
-  return (input: Parameters<typeof maintainSupabaseRealtimeAdmission>[1]) => (
-    maintainSupabaseRealtimeAdmission(client, input)
+  return (input: Parameters<typeof maintainSupabaseRealtimeAdmission>[2]) => (
+    maintainSupabaseRealtimeAdmission(client, AI_PATH_REALTIME_ADMISSION_POLICY.policyId, input)
   )
 }

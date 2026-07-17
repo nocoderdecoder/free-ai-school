@@ -58,8 +58,8 @@ literal-false export. Commented declarations, environment-derived expressions,
 The actionable production blockers separate unfinished application/platform
 engineering from operator configuration and approval. Engineering blockers
 include durable plan request-runtime selection, the authenticated Realtime
-route, disposable-database execution, database-enforced policy identity,
-versioned HMAC tuple persistence/rotation, and bounded-retention runner
+route, disposable-database execution of the database-owned continuity and
+policy contracts, unknown-commit proof, and bounded-retention runner
 wiring/capacity proof.
 Operator and governance blockers cover production Supabase and authentication,
 migration and RLS proof, trusted server credentials, retention operations,

@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
 const root = new URL("../../", import.meta.url);
 const harness = await readFile(new URL("../ai-path-db-proof.sh", import.meta.url), "utf8");
 const contracts = await readFile(new URL("./10-contracts.sql", import.meta.url), "utf8");
 const concurrency = await readFile(new URL("./20-concurrency-reserve.sql", import.meta.url), "utf8");
+const migrationNames = await readdir(new URL("supabase/migrations/", root));
+const continuityMigrationNames = migrationNames.filter(name =>
+  /^20260717080000_ai_path_realtime_admission_.*\.sql$/.test(name)
+);
 
 const migrations = [
   "20260717000000_ai_path_assessment_sessions.sql",
@@ -26,6 +30,13 @@ test("harness requires the migration baseline and discovers later migrations", (
   }
   assert.match(harness, /MIGRATION_PATHS=\("\$\{REPO_ROOT\}"\/supabase\/migrations\/\*_ai_path_\*\.sql\)/);
   assert.match(harness, /for migration_path in "\$\{MIGRATION_PATHS\[@\]\}"/);
+  assert.equal(continuityMigrationNames.length, 1, "one 80000 Realtime continuity migration is required");
+  assert.match(harness, /CONTINUITY_MIGRATIONS/);
+  assert.match(harness, /20260717080000_ai_path_realtime_admission_/);
+  assert.match(harness, /refuses a non-empty legacy admission ledger/);
+  assert.match(harness, /88000000-0000-4000-8000-000000000001/);
+  assert.match(harness, /accepted a non-empty legacy admission ledger/);
+  assert.match(harness, /delete from public\.ai_path_realtime_admission_reservations/);
 });
 
 test("harness refuses unsafe targets before migration apply", () => {
@@ -61,7 +72,7 @@ test("contracts cover RLS, denial, ownership, bounded retention, and idempotency
     "purge_expired_ai_path_sessions(2)",
     "purge_expired_ai_path_sessions(0)",
     "purge_expired_ai_path_learning_plans(2)",
-    "proof-idempotency-1",
+    "proof-continuity-idempotency-1",
     "idempotency_conflict",
     "ai_path_realtime_admission_daily_archive",
     "maintain_ai_path_realtime_admission",
@@ -69,13 +80,105 @@ test("contracts cover RLS, denial, ownership, bounded retention, and idempotency
     "purgedTotal",
     "current-UTC-day row",
     "archive did not preserve content-free accounting totals",
+    "wrong intent capability mutated a reservation",
+    "consumed replay returned reserved after its database lease elapsed",
+    "active source delete guard did not preserve the source session",
+    "active direct account delete guard did not preserve account, mapping, and lease",
+    "deidentified ledger could not reconcile after source deletion",
+    "elapsed direct account deletion did not cascade raw state and retain its ledger",
+    "pseudonymous ledger could not reconcile after direct account deletion",
+    "policy rollover guard stranded live intent or reservation detail",
+    "ledger immutability guard did not preserve the estimated cents",
+    "intent cleanup and mapping GC did not remove the exact stale capability",
   ]) {
     assert.match(contracts, new RegExp(evidence.replace(/[()]/g, "\\$&")));
   }
 
-  assert.match(harness, /two-connection Realtime admission race/);
-  assert.match(concurrency, /p_max_global_concurrent|\n\s*1,/s);
+  assert.match(harness, /two-connection DB-owned-continuity Realtime admission race/);
+  assert.match(harness, /issue_ai_path_realtime_admission_intent/);
+  assert.match(harness, /DB-owned-continuity Realtime admission race/);
+  assert.match(concurrency, /:'policy_id'/);
+  assert.match(concurrency, /:'intent_id'::uuid/);
+  assert.doesNotMatch(concurrency, /user_key|session_key|p_max_|p_reservation_ttl|p_now|p_expires_at/);
   assert.match(harness, /global_concurrency_exceeded/);
+  assert.doesNotMatch(contracts, /\\if false/);
+  assert.match(contracts, /finalize_ai_path_realtime_admission\(text,uuid,uuid,integer\)/);
+  assert.match(contracts, /cancel_ai_path_realtime_admission\(text,uuid,uuid\)/);
+  assert.match(contracts, /delete from auth\.users/);
+});
+
+test("80000 cutover makes continuity, intent, and spend policy database-owned", async () => {
+  assert.equal(continuityMigrationNames.length, 1, "continuity migration is absent or ambiguous");
+  const sql = await readFile(new URL(`supabase/migrations/${continuityMigrationNames[0]}`, root), "utf8");
+
+  for (const table of [
+    "ai_path_realtime_admission_policy_contracts",
+    "ai_path_realtime_admission_policy_state",
+    "ai_path_realtime_owner_continuity",
+    "ai_path_realtime_session_continuity",
+    "ai_path_realtime_admission_intents",
+  ]) {
+    assert.match(sql, new RegExp(`create table public\\.${table}`));
+    assert.match(sql, new RegExp(`alter table public\\.${table} enable row level security`));
+    assert.match(sql, new RegExp(`alter table public\\.${table} force row level security`));
+    assert.match(sql, new RegExp(`revoke all on public\\.${table}[\\s\\S]*from public, anon, authenticated, service_role`));
+  }
+
+  assert.match(sql, /issue_ai_path_realtime_admission_intent\([\s\S]*p_policy_id text[\s\S]*p_assessment_session_id uuid/);
+  assert.match(sql, /auth\.uid\(\)/);
+  assert.match(sql, /caller_role\s*<>\s*'authenticated'/);
+  assert.match(sql, /owner_id\s*=\s*(?:auth\.uid\(\)|caller_id)/);
+  assert.match(sql, /status\s+in\s*\('consented',\s*'connecting'\)/i);
+  assert.match(sql, /grant execute on function public\.issue_ai_path_realtime_admission_intent\([\s\S]*to authenticated/);
+  assert.match(sql, /revoke all on function public\.issue_ai_path_realtime_admission_intent\([\s\S]*from public, anon, service_role/);
+
+  assert.match(sql, /reserve_ai_path_realtime_admission\([\s\S]*p_policy_id text[\s\S]*p_intent_id uuid[\s\S]*p_idempotency_key text[\s\S]*p_estimated_cents integer/);
+  assert.match(sql, /finalize_ai_path_realtime_admission\([\s\S]*p_policy_id text[\s\S]*p_intent_id uuid[\s\S]*p_reservation_id uuid[\s\S]*p_actual_cents integer/);
+  assert.match(sql, /cancel_ai_path_realtime_admission\([\s\S]*p_policy_id text[\s\S]*p_intent_id uuid[\s\S]*p_reservation_id uuid/);
+  assert.match(sql, /maintain_ai_path_realtime_admission\([\s\S]*p_policy_id text[\s\S]*integer[\s\S]*integer[\s\S]*integer[\s\S]*integer/);
+
+  for (const rpc of [
+    "reserve_ai_path_realtime_admission",
+    "finalize_ai_path_realtime_admission",
+    "cancel_ai_path_realtime_admission",
+    "maintain_ai_path_realtime_admission",
+  ]) {
+    assert.match(sql, new RegExp(`grant execute on function public\\.${rpc}\\([\\s\\S]*?\\)\\s+to service_role`));
+    assert.doesNotMatch(sql, new RegExp(`grant execute on function public\\.${rpc}\\([\\s\\S]*?\\)\\s+to (?:anon|authenticated)`));
+  }
+
+  assert.match(sql, /max_global_concurrent[\s\S]*2/);
+  assert.match(sql, /max_user_concurrent[\s\S]*1/);
+  assert.match(sql, /max_user_daily_cents[\s\S]*100/);
+  assert.match(sql, /max_global_daily_cents[\s\S]*1000/);
+  assert.match(sql, /max_reservation_cents[\s\S]*100/);
+  assert.match(sql, /reservation_ttl_ms[\s\S]*120000/);
+  assert.match(sql, /enabled\s+boolean|disabled\s+boolean/);
+  assert.match(sql, /statement_timeout[^\n]*(?:3500ms|3\.5s)/i);
+  assert.ok(
+    (sql.match(/pg_advisory_xact_lock\(17291,\s*20260717\)/g) ?? []).length >= 5,
+    "intent, reserve, finalize, cancel, and maintenance must share the admission lock",
+  );
+  assert.ok(
+    (sql.match(/caller_role\s*<>\s*'service_role'/g) ?? []).length >= 4,
+    "every privileged lifecycle RPC must independently verify service role",
+  );
+
+  assert.match(sql, /ai_path_realtime_admission_reservations[\s\S]*count\(\*\)[\s\S]*(?:raise exception|assert)/i);
+  assert.match(sql, /add column admission_intent_id uuid not null unique/);
+  assert.match(sql, /'intentId',\s*\(p_reservation\)\.admission_intent_id/);
+  assert.match(sql, /guard_ai_path_realtime_session_delete/);
+  assert.match(sql, /guard_ai_path_realtime_owner_delete/);
+  assert.match(sql, /before delete on auth\.users/);
+  assert.match(sql, /revoke all on function public\.guard_ai_path_realtime_owner_delete\(\)[\s\S]*from public, anon, authenticated, service_role/);
+  assert.match(sql, /guard_ai_path_realtime_policy_state_rollover/);
+  assert.match(sql, /guard_ai_path_realtime_ledger_immutability/);
+  assert.match(sql, /drop function[\s\S]*reserve_ai_path_realtime_admission\(text,\s*text,\s*text,\s*date/i);
+  assert.match(sql, /drop function[\s\S]*finalize_ai_path_realtime_admission\(uuid,\s*text,\s*text/i);
+  assert.match(sql, /drop function[\s\S]*cancel_ai_path_realtime_admission\(uuid,\s*text,\s*text/i);
+
+  const finalSignatures = sql.slice(sql.lastIndexOf("create or replace function public.reserve_ai_path_realtime_admission"));
+  assert.doesNotMatch(finalSignatures, /user_key|session_key|p_max_|p_reservation_ttl_ms|p_now|p_expires_at|binding_key_version|hmac/i);
 });
 
 test("lifecycle migration fixes late-finalization and bounded archival policy", async () => {

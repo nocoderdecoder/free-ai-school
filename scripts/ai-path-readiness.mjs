@@ -33,6 +33,7 @@ const productionFoundationFiles = [
   'supabase/migrations/20260717050000_ai_path_goal_type_binding.sql',
   'supabase/migrations/20260717060000_ai_path_bounded_retention.sql',
   'supabase/migrations/20260717070000_ai_path_realtime_admission_lifecycle.sql',
+  'supabase/migrations/20260717080000_ai_path_realtime_admission_continuity_policy.sql',
   'app/api/ai-path/session/[sessionId]/route.ts',
   'app/api/ai-path/plan/route.ts',
   'app/api/ai-path/plan/[planId]/route.ts',
@@ -73,7 +74,6 @@ const productionFoundationFiles = [
   'app/ai-path/lib/realtime-admission.ts',
   'app/ai-path/lib/realtime-admission-policy-contract.ts',
   'app/ai-path/lib/realtime-admission-policy.server.ts',
-  'app/ai-path/lib/realtime-admission-hmac-keyring.ts',
   'app/ai-path/lib/realtime-admission-supabase.server.ts',
   'app/ai-path/lib/realtime-admission-supabase.ts',
   'app/ai-path/lib/realtime-admission-maintenance-supabase.server.ts',
@@ -89,7 +89,6 @@ const productionFoundationFiles = [
   'app/ai-path/realtime-admission-sql.test.mjs',
   'app/ai-path/realtime-admission-lifecycle-sql.test.mjs',
   'app/ai-path/realtime-admission-policy.test.mjs',
-  'app/ai-path/realtime-admission-hmac-keyring.test.mjs',
   'app/ai-path/realtime-admission-supabase.test.mjs',
   'app/ai-path/realtime-admission-maintenance-supabase.test.mjs',
   'app/ai-path/retention.test.mjs',
@@ -104,7 +103,7 @@ const productionFoundationFiles = [
   'docs/ai-path/REALTIME_ADMISSION.md',
   'docs/ai-path/REALTIME_ADMISSION_SUPABASE_ADAPTER.md',
   'docs/ai-path/REALTIME_ADMISSION_POLICY.md',
-  'docs/ai-path/REALTIME_HMAC_ROTATION.md',
+  'docs/ai-path/REALTIME_CONTINUITY_DATABASE_PROOF.md',
   'docs/ai-path/DATABASE_PROOF_RUNBOOK.md',
   'docs/ai-path/RETENTION_OPERATIONS.md',
   'docs/ai-path/RETENTION_SUPABASE_ADAPTER.md',
@@ -207,7 +206,7 @@ const externalBlockers = [
   {
     id: 'durable_plan_runtime_engineering',
     owner: 'Application and data engineering',
-    action: 'Wire the dormant Supabase plan adapter into request selection only after the seven-migration disposable-database suite passes race, rollback, ownership, and export tests.',
+    action: 'Wire the dormant Supabase plan adapter into request selection only after the eight-migration disposable-database suite passes race, rollback, ownership, and export tests.',
   },
   {
     id: 'realtime_route_engineering',
@@ -217,7 +216,7 @@ const externalBlockers = [
   {
     id: 'realtime_admission_proof_and_rollout',
     owner: 'Platform and data engineering',
-    action: 'Enforce the exact policy ID and versioned HMAC binding tuples in SQL/RPCs, then run the disposable database rotation, concurrency, timeout, and rollout suite before opening any admission latch.',
+    action: 'Prove authenticated intent issuance, database-owned continuity, exact policy enforcement, unknown-commit replay, concurrency, timeout, and rollback before opening any admission latch.',
   },
   {
     id: 'retention_adapter_engineering',
@@ -232,7 +231,7 @@ const externalBlockers = [
   {
     id: 'database_migrations_and_rls_proof',
     owner: 'Platform engineering',
-    action: 'Apply all seven migrations with the fail-closed local harness and pass RLS, RPC permission, concurrency, cascade, replay, rollback, export, bounded retention, lifecycle archive, and deletion tests.',
+    action: 'Apply all eight migrations with the fail-closed local harness and pass RLS, RPC permission, continuity, concurrency, cascade, replay, rollback, export, bounded retention, lifecycle archive, and deletion tests.',
   },
   {
     id: 'trusted_server_credentials',

@@ -61,6 +61,8 @@ suite.
 - Every migration applies successfully in the expected order.
 - Final tables, RLS flags, forced RLS on the paid-admission ledger, RPC
   signatures, and role grants exist.
+- Migration `20260717080000` refuses a non-empty legacy admission ledger before
+  replacing opaque HMAC keys with database-owned continuity UUIDs.
 - Anonymous, authenticated, and service-role direct accesses that should be
   unavailable fail in separate connections.
 - Each authenticated owner sees only its own assessment and cannot export or
@@ -68,15 +70,35 @@ suite.
 - Goal binding is immutable.
 - Session and plan retention reject an invalid zero limit and delete no more
   than the requested batch size.
-- Realtime admission replays the same idempotency key and denies a changed
-  request that reuses it.
+- Only an authenticated owner can issue a short-lived intent for an owned
+  `consented` or `connecting` assessment session. Anonymous and service-role
+  issuance are denied, and no continuity identifier is returned.
+- Private owner/session continuity mappings are stable across intent retry,
+  forced-RLS, and unavailable through direct authenticated or service-role
+  table access.
+- Service-only reservation consumes an authenticated intent, replays the same
+  idempotency key, and denies a changed request that reuses the intent/key.
+- Direct source-session and `auth.users` deletion are rejected while an
+  unexpired lease exists. After database-time expiry, direct account deletion
+  transitions the lease, cascades every raw mapping/intent, and leaves only the
+  pseudonymous intent-bound ledger capability for seven-day reconciliation.
+- Caller-supplied caps, TTLs, clocks, opaque HMAC keys, and old RPC overloads are
+  absent. The database policy identifier, disabled state, caps, and lease TTL
+  are authoritative.
 - Realtime late finalization succeeds inside the fixed seven-day reconciliation
   window and fails outside it.
 - Admission maintenance transitions expired leases and purges terminal detail
   in caller-bounded batches, never purges the current UTC day, and atomically
   preserves content-free accounting totals in the forced-RLS daily archive.
-- Two simultaneous connections contend for one global Realtime slot; exactly
-  one reserves it and the other receives `global_concurrency_exceeded`.
+- Two simultaneous service connections consume independently authenticated
+  intents while contending for one database-owned global Realtime slot;
+  exactly one reserves it and the other receives
+  `global_concurrency_exceeded`.
+
+The application RPC deadline is four seconds. The proof also inspects the
+database function timeout ceiling, which must remain below that deadline. A
+timeout is still an unknown commit: callers make zero provider requests and
+retry the same intent/idempotency key to discover the one durable result.
 
 Success ends with:
 

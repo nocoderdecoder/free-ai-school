@@ -25,14 +25,17 @@ tests and local simulations.
 ## Fail-closed rollout
 
 Durable construction requires exact `policyVersion` and derived `policyId`
-attestations in addition to schema, service-role, atomic-SQL, and lifecycle-SQL
-proof. It is then stopped by two independent literal-false code latches: the
-policy-rollout latch and the Supabase gateway latch. Environment variables
-cannot override either latch.
+attestations in addition to schema, split-credential, atomic-SQL, and
+lifecycle-SQL proof. It is then stopped by two independent literal-false code
+latches: the policy-rollout latch and the Supabase gateway latch. Environment
+variables cannot override either latch.
 
-Before opening them, disposable-database tests must prove that the SQL RPCs
-enforce the exact pinned caps under real concurrent connections. A reviewed
-follow-up should make the database validate the exact policy identifier rather
-than trusting service-role cap parameters. Until that proof and explicit spend
-approval exist, this contract only removes per-instance configuration drift in
-the reviewed application construction path.
+Migration `20260717080000` now stores an append-only policy contract whose ID is
+derived from the exact caps. The singleton database state is seeded disabled;
+reserve accepts only a policy ID and reads every cap, clock, UTC day, and TTL
+from Postgres. No caller-supplied cap overload remains.
+
+Before opening the latches, disposable-database tests must prove those
+constraints under real concurrent connections and verify that disabled state,
+wrong policy IDs, timeouts, and rollbacks make zero provider calls. Explicit
+spend approval remains a separate mandatory gate.

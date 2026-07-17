@@ -3,172 +3,168 @@ import type {
   AtomicFinalizeResult,
   AtomicReserveCommand,
   AtomicReserveResult,
-  RealtimeAdmissionBinding,
-  RealtimeAdmissionPolicy,
   RealtimeAdmissionRepository,
+  RealtimeAdmissionIntent,
   RealtimeAdmissionReservation,
 } from './realtime-admission.ts'
 import {
   AI_PATH_REALTIME_ADMISSION_LATE_FINALIZE_WINDOW_MS,
   AI_PATH_REALTIME_ADMISSION_VERSION,
+  createVerifiedRealtimeAdmissionIntent,
 } from './realtime-admission.ts'
 
-type MutableReservation = {
-  -readonly [Key in keyof RealtimeAdmissionReservation]: RealtimeAdmissionReservation[Key]
+type StoredReservation = RealtimeAdmissionReservation & {
+  ownerId: string
+  assessmentSessionId: string
 }
 
 /** Process-local deterministic adapter for unit tests and local development only. */
 export class InMemoryRealtimeAdmissionRepository implements RealtimeAdmissionRepository {
-  readonly #reservations = new Map<string, MutableReservation>()
+  readonly #reservations = new Map<string, StoredReservation>()
   readonly #idempotency = new Map<string, string>()
+  readonly #intents = new Map<string, { intent: RealtimeAdmissionIntent; ownerId: string; assessmentSessionId: string }>()
   readonly #idFactory: () => string
+  readonly #now: () => Date
 
-  constructor(options: { idFactory?: () => string } = {}) {
+  constructor(options: { idFactory?: () => string; now?: () => Date } = {}) {
     this.#idFactory = options.idFactory ?? (() => crypto.randomUUID())
+    this.#now = options.now ?? (() => new Date())
   }
 
-  #copy(reservation: MutableReservation): RealtimeAdmissionReservation {
-    return structuredClone(reservation)
+  #copy(stored: StoredReservation): RealtimeAdmissionReservation {
+    const reservation: Partial<StoredReservation> = structuredClone(stored)
+    delete reservation.ownerId
+    delete reservation.assessmentSessionId
+    return reservation as RealtimeAdmissionReservation
   }
 
   #expire(now: string) {
     const nowMs = Date.parse(now)
     for (const reservation of this.#reservations.values()) {
       if (reservation.status === 'reserved' && Date.parse(reservation.expiresAt) <= nowMs) {
-        reservation.status = 'expired'
+        this.#reservations.set(reservation.id, { ...reservation, status: 'expired' })
       }
     }
   }
 
-  #active() {
-    return [...this.#reservations.values()].filter(reservation => reservation.status === 'reserved')
+  #active() { return [...this.#reservations.values()].filter(item => item.status === 'reserved') }
+  #daily(utcDay: string, ownerId?: string) {
+    return [...this.#reservations.values()]
+      .filter(item => item.utcDay === utcDay && (!ownerId || item.ownerId === ownerId))
+      .reduce((sum, item) => sum + (item.status === 'reserved' ? item.estimatedCents : item.status === 'finalized' ? (item.actualCents ?? 0) : 0), 0)
   }
 
-  #daily(utcDay: string, userKey?: string) {
-    return [...this.#reservations.values()]
-      .filter(reservation => reservation.utcDay === utcDay && (!userKey || reservation.userKey === userKey))
-      .reduce((sum, reservation) => {
-        if (reservation.status === 'reserved') return sum + reservation.estimatedCents
-        if (reservation.status === 'finalized') return sum + (reservation.actualCents ?? 0)
-        return sum
-      }, 0)
+  async issueIntent(command: Parameters<RealtimeAdmissionRepository['issueIntent']>[0]): Promise<RealtimeAdmissionIntent> {
+    const now = this.#now()
+    const intent = createVerifiedRealtimeAdmissionIntent({
+      intentId: this.#idFactory(),
+      policyId: command.policy.policyId,
+      expiresAt: new Date(now.getTime() + 30_000).toISOString(),
+    }, command.binding)
+    this.#intents.set(intent.intentId, {
+      intent,
+      ownerId: command.binding.ownerId,
+      assessmentSessionId: command.binding.assessmentSessionId,
+    })
+    return intent
   }
 
   async atomicReserve(command: AtomicReserveCommand): Promise<AtomicReserveResult> {
-    this.#expire(command.now)
-    const idempotencyScope = `${command.binding.userKey}:${command.idempotencyKey}`
+    const now = this.#now().toISOString()
+    this.#expire(now)
+    const { ownerId, assessmentSessionId } = command.binding
+    const issuedIntent = this.#intents.get(command.intent.intentId)
+    if (!issuedIntent || issuedIntent.intent.policyId !== command.policy.policyId || issuedIntent.ownerId !== ownerId || issuedIntent.assessmentSessionId !== assessmentSessionId) {
+      return { kind: 'denied', reason: 'idempotency_conflict' }
+    }
+    const limits = command.policy.limits
+    const idempotencyScope = `${ownerId}:${command.idempotencyKey}`
     const priorId = this.#idempotency.get(idempotencyScope)
     if (priorId) {
       const prior = this.#reservations.get(priorId)
       if (!prior) throw new Error('idempotency index is inconsistent')
-      if (
-        prior.userKey !== command.binding.userKey
-        || prior.sessionKey !== command.binding.sessionKey
-        || prior.estimatedCents !== command.estimatedCents
-      ) return { kind: 'denied', reason: 'idempotency_conflict' }
+      if (prior.intentId !== command.intent.intentId || prior.assessmentSessionId !== assessmentSessionId || prior.estimatedCents !== command.estimatedCents || prior.policyId !== command.policy.policyId) {
+        return { kind: 'denied', reason: 'idempotency_conflict' }
+      }
       if (prior.status !== 'reserved') return { kind: 'denied', reason: 'idempotency_terminal' }
       return { kind: 'reserved', reservation: this.#copy(prior), idempotent: true }
     }
-
+    if (Date.parse(issuedIntent.intent.expiresAt) <= Date.parse(now)) return { kind: 'denied', reason: 'idempotency_conflict' }
     const active = this.#active()
-    if (active.some(reservation => reservation.sessionKey === command.binding.sessionKey)) {
-      return { kind: 'denied', reason: 'session_already_reserved' }
-    }
-    if (active.filter(reservation => reservation.userKey === command.binding.userKey).length >= command.policy.maxUserConcurrent) {
-      return { kind: 'denied', reason: 'user_concurrency_exceeded' }
-    }
-    if (active.length >= command.policy.maxGlobalConcurrent) {
-      return { kind: 'denied', reason: 'global_concurrency_exceeded' }
-    }
-    if (this.#daily(command.utcDay, command.binding.userKey) + command.estimatedCents > command.policy.maxUserDailyCents) {
-      return { kind: 'denied', reason: 'user_daily_budget_exceeded' }
-    }
-    if (this.#daily(command.utcDay) + command.estimatedCents > command.policy.maxGlobalDailyCents) {
-      return { kind: 'denied', reason: 'global_daily_budget_exceeded' }
-    }
+    if (active.some(item => item.assessmentSessionId === assessmentSessionId)) return { kind: 'denied', reason: 'session_already_reserved' }
+    if (active.filter(item => item.ownerId === ownerId).length >= limits.maxUserConcurrent) return { kind: 'denied', reason: 'user_concurrency_exceeded' }
+    if (active.length >= limits.maxGlobalConcurrent) return { kind: 'denied', reason: 'global_concurrency_exceeded' }
+    const utcDay = now.slice(0, 10)
+    if (this.#daily(utcDay, ownerId) + command.estimatedCents > limits.maxUserDailyCents) return { kind: 'denied', reason: 'user_daily_budget_exceeded' }
+    if (this.#daily(utcDay) + command.estimatedCents > limits.maxGlobalDailyCents) return { kind: 'denied', reason: 'global_daily_budget_exceeded' }
 
-    const reservation: MutableReservation = {
+    const stored: StoredReservation = {
       id: this.#idFactory(),
       version: AI_PATH_REALTIME_ADMISSION_VERSION,
+      policyId: command.policy.policyId,
+      intentId: command.intent.intentId,
+      assessmentSessionId,
       idempotencyKey: command.idempotencyKey,
-      userKey: command.binding.userKey,
-      sessionKey: command.binding.sessionKey,
-      utcDay: command.utcDay,
+      utcDay,
       estimatedCents: command.estimatedCents,
       actualCents: null,
       status: 'reserved',
-      createdAt: command.now,
-      expiresAt: command.expiresAt,
+      createdAt: now,
+      expiresAt: new Date(Date.parse(now) + limits.reservationTtlMs).toISOString(),
       finalizedAt: null,
       cancelledAt: null,
+      ownerId,
     }
-    this.#reservations.set(reservation.id, reservation)
-    this.#idempotency.set(idempotencyScope, reservation.id)
-    return { kind: 'reserved', reservation: this.#copy(reservation), idempotent: false }
+    this.#reservations.set(stored.id, stored)
+    this.#idempotency.set(idempotencyScope, stored.id)
+    return { kind: 'reserved', reservation: this.#copy(stored), idempotent: false }
   }
 
-  async atomicFinalize(command: {
-    reservationId: string
-    binding: RealtimeAdmissionBinding
-    actualCents: number
-    now: string
-    policy: RealtimeAdmissionPolicy
-  }): Promise<AtomicFinalizeResult> {
-    this.#expire(command.now)
+  async atomicFinalize(command: Parameters<RealtimeAdmissionRepository['atomicFinalize']>[0]): Promise<AtomicFinalizeResult> {
+    const now = this.#now().toISOString()
+    this.#expire(now)
     const reservation = this.#reservations.get(command.reservationId)
     if (!reservation) return { kind: 'not_found' }
-    if (reservation.userKey !== command.binding.userKey || reservation.sessionKey !== command.binding.sessionKey) {
-      return { kind: 'binding_mismatch' }
-    }
+    const intent = this.#intents.get(command.intent.intentId)
+    if (
+      !intent
+      || reservation.intentId !== command.intent.intentId
+      || intent.ownerId !== command.binding.ownerId
+      || intent.assessmentSessionId !== command.binding.assessmentSessionId
+      || reservation.ownerId !== command.binding.ownerId
+      || reservation.assessmentSessionId !== command.binding.assessmentSessionId
+    ) return { kind: 'binding_mismatch' }
+    if (reservation.policyId !== command.policy.policyId) return { kind: 'state_conflict' }
     if (reservation.status === 'finalized') {
       if (reservation.actualCents !== command.actualCents) return { kind: 'state_conflict' }
-      return {
-        kind: 'finalized',
-        reservation: this.#copy(reservation),
-        idempotent: true,
-        userBudgetExceeded: this.#daily(reservation.utcDay, reservation.userKey) > command.policy.maxUserDailyCents,
-        globalBudgetExceeded: this.#daily(reservation.utcDay) > command.policy.maxGlobalDailyCents,
-      }
+      return { kind: 'finalized', reservation: this.#copy(reservation), idempotent: true, userBudgetExceeded: this.#daily(reservation.utcDay, reservation.ownerId) > command.policy.limits.maxUserDailyCents, globalBudgetExceeded: this.#daily(reservation.utcDay) > command.policy.limits.maxGlobalDailyCents }
     }
-    // A bounded late usage reconciliation records spend after lease expiry.
-    // Expiry releases concurrency; the fixed window prevents permanent ledger
-    // retention and mirrors the dormant durable SQL lifecycle policy.
-    if (reservation.status !== 'reserved' && reservation.status !== 'expired') {
-      return { kind: 'state_conflict' }
-    }
-    if (
-      reservation.status === 'expired'
-      && Date.parse(command.now) > Date.parse(reservation.expiresAt) + AI_PATH_REALTIME_ADMISSION_LATE_FINALIZE_WINDOW_MS
-    ) return { kind: 'state_conflict' }
-    reservation.status = 'finalized'
-    reservation.actualCents = command.actualCents
-    reservation.finalizedAt = command.now
-    return {
-      kind: 'finalized',
-      reservation: this.#copy(reservation),
-      idempotent: false,
-      userBudgetExceeded: this.#daily(reservation.utcDay, reservation.userKey) > command.policy.maxUserDailyCents,
-      globalBudgetExceeded: this.#daily(reservation.utcDay) > command.policy.maxGlobalDailyCents,
-    }
+    if (reservation.status !== 'reserved' && reservation.status !== 'expired') return { kind: 'state_conflict' }
+    if (reservation.status === 'expired' && Date.parse(now) > Date.parse(reservation.expiresAt) + AI_PATH_REALTIME_ADMISSION_LATE_FINALIZE_WINDOW_MS) return { kind: 'state_conflict' }
+    const updated: StoredReservation = { ...reservation, status: 'finalized', actualCents: command.actualCents, finalizedAt: now }
+    this.#reservations.set(updated.id, updated)
+    return { kind: 'finalized', reservation: this.#copy(updated), idempotent: false, userBudgetExceeded: this.#daily(updated.utcDay, updated.ownerId) > command.policy.limits.maxUserDailyCents, globalBudgetExceeded: this.#daily(updated.utcDay) > command.policy.limits.maxGlobalDailyCents }
   }
 
-  async atomicCancel(command: {
-    reservationId: string
-    binding: RealtimeAdmissionBinding
-    now: string
-  }): Promise<AtomicCancelResult> {
-    this.#expire(command.now)
+  async atomicCancel(command: Parameters<RealtimeAdmissionRepository['atomicCancel']>[0]): Promise<AtomicCancelResult> {
+    const now = this.#now().toISOString()
+    this.#expire(now)
     const reservation = this.#reservations.get(command.reservationId)
     if (!reservation) return { kind: 'not_found' }
-    if (reservation.userKey !== command.binding.userKey || reservation.sessionKey !== command.binding.sessionKey) {
-      return { kind: 'binding_mismatch' }
-    }
-    if (reservation.status === 'cancelled') {
-      return { kind: 'cancelled', reservation: this.#copy(reservation), idempotent: true }
-    }
+    const intent = this.#intents.get(command.intent.intentId)
+    if (
+      !intent
+      || reservation.intentId !== command.intent.intentId
+      || intent.ownerId !== command.binding.ownerId
+      || intent.assessmentSessionId !== command.binding.assessmentSessionId
+      || reservation.ownerId !== command.binding.ownerId
+      || reservation.assessmentSessionId !== command.binding.assessmentSessionId
+    ) return { kind: 'binding_mismatch' }
+    if (reservation.policyId !== command.policy.policyId) return { kind: 'state_conflict' }
+    if (reservation.status === 'cancelled') return { kind: 'cancelled', reservation: this.#copy(reservation), idempotent: true }
     if (reservation.status !== 'reserved') return { kind: 'state_conflict' }
-    reservation.status = 'cancelled'
-    reservation.cancelledAt = command.now
-    return { kind: 'cancelled', reservation: this.#copy(reservation), idempotent: false }
+    const updated: StoredReservation = { ...reservation, status: 'cancelled', cancelledAt: now }
+    this.#reservations.set(updated.id, updated)
+    return { kind: 'cancelled', reservation: this.#copy(updated), idempotent: false }
   }
 }

@@ -28,7 +28,7 @@ The build is split into independently reviewable workstreams with explicit gates
 - Unit/contract fixtures, production build, and responsive screenshot QA.
 - Architecture, product, and delivery decisions documented.
 
-Verified in the repository on 2026-07-17: 202 deterministic tests, TypeScript, scoped ESLint, production build, and responsive browser QA at 375×812, 768×1024, and 1440×900. The source-readiness gate reports 14/14 private-alpha files, 88/88 production-foundation files, thirteen locked safety gates, and zero broken gates. The browser path remains text-only and makes no paid model call.
+Verified in the repository on 2026-07-17: 193 deterministic tests, TypeScript, scoped ESLint, production build, and responsive browser QA at 375×812, 768×1024, and 1440×900. The source-readiness gate reports 14/14 private-alpha files, 87/87 production-foundation files, thirteen locked safety gates, and zero broken gates. The browser path remains text-only and makes no paid model call.
 
 ### M1 — Research prototype
 
@@ -68,8 +68,8 @@ The owner-scoped plan aggregate, HTTP routes, dormant Supabase adapter, immutabl
 ## Current critical path
 
 1. Wire the dormant durable plan adapter into request selection only after the new goal-binding migration passes the disposable-database suite; keep both code latches closed until then.
-2. Enforce the exact policy ID and versioned HMAC binding tuples in SQL/RPCs, then run the fail-closed disposable-database harness under races, rollback, seven-day reconciliation, 90-day purge/archive, timeout, rotation, backlog, and deletion before activation.
-3. Apply all seven dormant migrations to a disposable Supabase-compatible PostgreSQL project and behaviorally prove RLS and RPC behavior with two users plus the service role. The harness is implemented, but this machine still needs `psql` and a disposable local database.
+2. Run the fail-closed disposable-database harness against the new authenticated-intent, database-owned-continuity, and authoritative-policy RPCs under races, rollback, unknown commits, seven-day reconciliation, 90-day purge/archive, backlog, and deletion before activation.
+3. Apply all eight dormant migrations to a disposable Supabase-compatible PostgreSQL project and behaviorally prove RLS and RPC behavior with authenticated users plus the service role. The harness is implemented, but this machine still needs `psql` and a disposable local database.
 4. Configure monitored retention, distributed abuse controls, deletion alerts, and secret rotation after infrastructure and privacy decisions are supplied.
 5. Run five moderated text-alpha sessions and two independent assessment reviewers; this needs recruited participants and reviewer availability.
 6. Complete accessibility, adversarial, and long-content audits, then resolve every release-blocking result.
@@ -87,3 +87,5 @@ The owner-scoped plan aggregate, HTTP routes, dormant Supabase adapter, immutabl
 - **2026-07-17:** Treat every production integration as a literal code-latched capability; environment flags alone cannot enable durable writes, analytics sinks, retention mutation, or paid voice.
 - **2026-07-17:** Align derived-plan retention with the 90-day source-assessment lifecycle and preserve immediate account/session deletion cascades.
 - **2026-07-17:** Require atomic reservation, owner binding, per-user/global concurrency, and daily spend ceilings before a Realtime call can become reachable.
+- **2026-07-17:** Replace application-trusted rotating HMAC tuples with an authenticated database intent and stable DB-owned continuity handles; keep raw identities out of the accounting ledger.
+- **2026-07-17:** Make Postgres authoritative for admission policy, clock, UTC day, lease TTL, and kill switch; seed admission disabled and remove all caller-cap RPC overloads.
