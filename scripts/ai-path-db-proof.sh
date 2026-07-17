@@ -259,7 +259,9 @@ expect_denied \
   "set role authenticated; select public.purge_expired_ai_path_sessions(1)"
 
 log "running two-connection DB-owned-continuity Realtime admission race"
-psql "${DB_URL}" -X -q -v ON_ERROR_STOP=1 -c "truncate public.ai_path_realtime_admission_reservations" >/dev/null
+psql "${DB_URL}" -X -q -v ON_ERROR_STOP=1 \
+  -c "truncate public.ai_path_realtime_admission_intents, public.ai_path_realtime_admission_reservations" \
+  >/dev/null
 
 readonly PROOF_POLICY_ID="2026-07-17.v1|gc=2|uc=1|udc=100|gdc=1000|rc=100|ttl=120000"
 psql "${DB_URL}" -X -q -v ON_ERROR_STOP=1 <<SQL
