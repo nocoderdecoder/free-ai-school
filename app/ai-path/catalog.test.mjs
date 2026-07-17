@@ -65,6 +65,42 @@ test('published catalog is structurally valid and carries current review and lin
   assert.equal(deepLearning.linkHealth.finalUrl, 'https://www.deeplearning.ai/courses/generative-ai-for-everyone')
 })
 
+test('first-party evidence sprints cover every skill with deterministic, free project options', () => {
+  const projects = AI_PATH_CATALOG_V1.resources.filter(resource =>
+    resource.provider === 'Free AI School' && resource.format === 'project'
+  )
+  const coveredSkills = new Set(projects.flatMap(resource => resource.skills.map(mapping => mapping.skillId)))
+
+  assert.deepEqual(
+    AI_PATH_CATALOG_SKILL_IDS.filter(skillId => !coveredSkills.has(skillId)),
+    ['foundations', 'coding-apis']
+  )
+  assert.deepEqual(
+    projects.map(resource => resource.id).sort(),
+    [
+      'free-ai-school-bounded-agent-sprint',
+      'free-ai-school-context-evaluation-sprint',
+      'free-ai-school-grounded-retrieval-sprint',
+      'free-ai-school-operational-pilot-sprint',
+      'free-ai-school-workflow-evidence-sprint',
+    ]
+  )
+  assert.ok(projects.every(resource => resource.cost.kind === 'free' && resource.canonicalUrl === null))
+})
+
+test('the governed stack covers every skill without depending on one provider or format', () => {
+  const active = AI_PATH_CATALOG_V1.resources.filter(resource => resource.status === 'active')
+  const coveredSkills = new Set(active.flatMap(resource => resource.skills.map(mapping => mapping.skillId)))
+  const providers = new Set(active.map(resource => resource.provider))
+  const formats = new Set(active.map(resource => resource.format))
+
+  assert.deepEqual(AI_PATH_CATALOG_SKILL_IDS.filter(skillId => !coveredSkills.has(skillId)), [])
+  assert.ok(providers.size >= 5)
+  assert.deepEqual([...formats].sort(), ['course', 'project', 'reading', 'reference'])
+  assert.ok(active.some(resource => resource.id === 'openai-api-quickstart' && resource.skills.some(mapping => mapping.skillId === 'coding-apis')))
+  assert.ok(active.filter(resource => resource.provenance.origin === 'first-party').every(resource => resource.canonicalUrl === null))
+})
+
 test('publication requires deterministic review and link-health evidence', () => {
   const catalog = publicationReadyCatalog()
   const validation = validateCatalogForPublication(catalog, AS_OF)
@@ -91,7 +127,7 @@ test('review dates and link-health checks become stale deterministically', () =>
   const catalog = publicationReadyCatalog()
   const validation = validateCatalogForPublication(catalog, '2026-10-16T00:00:00.000Z')
   assert.equal(validation.ok, false)
-  assert.equal(validation.issues.filter(issue => issue.code === 'review_stale').length, 5)
+  assert.equal(validation.issues.filter(issue => issue.code === 'review_stale').length, 9)
   assert.equal(validation.issues.filter(issue => issue.code === 'link_check_stale').length, 4)
 })
 
@@ -105,6 +141,10 @@ test('eligible resource selection excludes unchecked, stale, oversized, and nonm
     formats: ['course', 'project'],
   })
   assert.deepEqual(eligible.map(resource => resource.id), [
+    'free-ai-school-bounded-agent-sprint',
+    'free-ai-school-context-evaluation-sprint',
+    'free-ai-school-grounded-retrieval-sprint',
+    'free-ai-school-operational-pilot-sprint',
     'free-ai-school-workflow-evidence-sprint',
   ])
 
@@ -147,7 +187,13 @@ test('production adapter excludes freemium and other ineligible resources before
     formats: ['course', 'project'],
   })
   assert.equal(selection.status, 'available')
-  assert.deepEqual(selection.resources.map(resource => resource.id), ['free-ai-school-workflow-evidence-sprint'])
+  assert.deepEqual(selection.resources.map(resource => resource.id), [
+    'free-ai-school-bounded-agent-sprint',
+    'free-ai-school-context-evaluation-sprint',
+    'free-ai-school-grounded-retrieval-sprint',
+    'free-ai-school-operational-pilot-sprint',
+    'free-ai-school-workflow-evidence-sprint',
+  ])
 
   const broadSelection = selectPublishedCatalogResources({
     asOf: AS_OF,
@@ -159,7 +205,9 @@ test('production adapter excludes freemium and other ineligible resources before
   assert.match(quickstart.costDisclosure, /paid API usage/)
 
   const paused = structuredClone(AI_PATH_CATALOG_V1)
-  paused.resources.find(resource => resource.id === 'free-ai-school-workflow-evidence-sprint').status = 'paused'
+  paused.resources
+    .filter(resource => resource.provider === 'Free AI School' && resource.format === 'project')
+    .forEach(resource => { resource.status = 'paused' })
   const noMatch = selectPublishedCatalogResources({
     asOf: AS_OF,
     language: 'en',

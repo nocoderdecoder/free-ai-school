@@ -256,6 +256,23 @@
 .ap-resultsCta { align-items: center; background: var(--ap-lime); border-radius: 22px; display: flex; gap: 30px; justify-content: space-between; padding: clamp(24px,4vw,42px); }
 .ap-resultsCta h2 { font-size: 38px; margin-bottom: 8px; }
 .ap-resultsCta p { margin-bottom: 0; }
+.ap-feedbackCard { align-items: start; background: #edf3e9; border: 1px solid #cbd8c8; border-radius: 22px; display: grid; gap: 28px; grid-template-columns: minmax(220px,.72fr) minmax(0,1.28fr); margin-bottom: 64px; padding: clamp(22px,4vw,36px); }
+.ap-feedbackCard h2 { font-size: clamp(30px,4vw,44px); line-height: 1.08; margin: 8px 0 12px; }
+.ap-feedbackCard > div > p:last-child { color: var(--ap-muted); line-height: 1.5; }
+.ap-feedbackCard form { display: grid; gap: 18px; min-width: 0; }
+.ap-feedbackCard fieldset { border: 0; margin: 0; min-width: 0; padding: 0; }
+.ap-feedbackCard legend, .ap-feedbackSelect > span { font-size: 13px; font-weight: 750; line-height: 1.4; margin-bottom: 9px; }
+.ap-feedbackCard fieldset > small { color: var(--ap-muted); display: block; margin-top: 7px; }
+.ap-ratingOptions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ap-ratingOptions label { cursor: pointer; }
+.ap-ratingOptions input { height: 1px; opacity: 0; position: absolute; width: 1px; }
+.ap-ratingOptions span { align-items: center; background: rgba(255,255,255,.78); border: 1px solid #aab9ad; border-radius: 10px; display: flex; font-weight: 750; height: 44px; justify-content: center; width: 44px; }
+.ap-ratingOptions input:checked + span { background: var(--ap-green-dark); border-color: var(--ap-green-dark); color: white; }
+.ap-ratingOptions input:focus-visible + span { outline: 3px solid #91b69f; outline-offset: 2px; }
+.ap-feedbackSelect { display: grid; gap: 8px; }
+.ap-feedbackSelect select { background: white; border: 1px solid #aab9ad; border-radius: 10px; min-height: 44px; padding: 9px 36px 9px 12px; width: min(100%, 180px); }
+.ap-feedbackCard form > button { justify-self: start; }
+.ap-feedbackStatus { background: rgba(255,255,255,.74); border-left: 3px solid var(--ap-green); border-radius: 8px; line-height: 1.5; margin: 0; padding: 11px 13px; }
 
 .ap-planHeader { background: #e5efe7; padding: clamp(40px, 6vw, 72px) max(24px, calc((100vw - 1240px) / 2)); }
 .ap-planTitle { align-items: center; display: flex; gap: 32px; justify-content: space-between; margin-top: 24px; }
@@ -335,6 +352,7 @@
   .ap-planSettings { align-items: stretch; grid-template-columns: minmax(180px,1fr) auto; }
   .ap-planSettings small { grid-column: 1 / -1; }
   .ap-planRationale { grid-template-columns: 1fr; }
+  .ap-feedbackCard { grid-template-columns: 1fr; }
   .ap-checkinCard { grid-template-columns: auto minmax(0,1fr); }
   .ap-checkinCard > button { grid-column: 2; justify-self: start; }
 }
@@ -384,6 +402,8 @@
   .ap-planSettings { grid-template-columns: 1fr; }
   .ap-planSettings small { grid-column: auto; }
   .ap-planRationale { gap: 16px; padding: 18px; }
+  .ap-feedbackCard { padding: 20px 16px; }
+  .ap-feedbackCard form > button { width: 100%; }
   .ap-checkinCard { grid-template-columns: auto minmax(0,1fr); }
   .ap-checkinCard > div:nth-child(2) { grid-column: 1 / -1; }
   .ap-checkinCard > button { grid-column: 1 / -1; width: 100%; }

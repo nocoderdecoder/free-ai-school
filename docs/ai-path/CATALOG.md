@@ -90,6 +90,24 @@ The `free-ai-school-workflow-evidence-sprint` resource has no external URL. Its 
 
 This resource is eligible only when its first-party content is actually available in the plan experience.
 
+## First-party context evaluation sprint
+
+The `free-ai-school-context-evaluation-sprint` produces a versioned instruction, at least eight representative examples, a simple pass/fail rubric, one controlled context change, and a before/after result table. The learner must record one regression as well as one improvement. This closes the prompt/context gap without requiring an API integration.
+
+## First-party grounded retrieval sprint
+
+The `free-ai-school-grounded-retrieval-sprint` uses a small, learner-owned source set. Its definition of done is a source-grounded prototype, at least eight answerable and four unanswerable test questions, citations linked to the supplied evidence, and an explicit refusal or escalation behavior when evidence is absent. Paid vector storage and paid model APIs are not required.
+
+## First-party bounded agent sprint
+
+The `free-ai-school-bounded-agent-sprint` requires a tool inventory, an allowlist of permitted actions, mocked or reversible tool calls, human approval before consequential actions, and at least six abuse or failure tests. The learner documents one blocked unsafe action and one recovery path. The sprint does not require autonomous or live external execution.
+
+## First-party operational pilot sprint
+
+The `free-ai-school-operational-pilot-sprint` is a simulated or local pilot, not a production launch. Its definition of done includes release criteria, a minimal monitoring checklist, an owner and escalation path, rollback steps, and one incident rehearsal. The learner records pilot evidence and a go, revise, or stop decision; no paid hosting is required.
+
+Together, the five first-party projects cover the seven applied private-alpha skills. `foundations` retains two reviewed provider courses and `coding-apis` retains the reviewed provider quickstart. Across first-party and provider resources, all nine skills are covered. Quality scores remain deliberately below the strongest provider references until moderated learner evidence supports promotion.
+
 ## Promotion checklist
 
 - Structural validation passes with zero issues.

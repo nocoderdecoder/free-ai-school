@@ -47,7 +47,12 @@ Stable results:
 | 422 | `{"error":"event_time_out_of_bounds"}` | Stale or future event |
 | 503 | `analytics_unavailable` / `sink_error` | No reviewed sink or sink failure |
 
-The endpoint is intentionally not used by the UI in this milestone.
+The UI now uses a narrow `AiPathBrowserAnalytics` client for the core text
+funnel, numeric plan/report feedback, first-task actions, plan pinning, and the
+preview-deletion lifecycle signal. The client creates random in-memory opaque
+IDs, exposes only event-specific methods, accepts no learner-authored strings,
+and treats 503/network failure as non-blocking. Because the production sink
+latch remains closed, deployed UI calls fail safely with 503 and store nothing.
 
 ## Local test mode
 
@@ -108,24 +113,21 @@ Suggested operational alerts after a reviewed production sink exists:
 
 ## Integration steps
 
-1. Add a browser event client that generates a random, non-fingerprinted
-   `anon_...` identifier. Do not derive it from email, account ID, device traits,
-   or work content.
-2. Map UI actions to the existing event/property allowlist. Do not offer a generic
-   `track(name, properties)` escape hatch to feature code.
-3. Treat analytics as non-blocking product behavior: UI calls may ignore 503s, but
-   operational counters must surface sink outages.
-4. Connect verified deletion workflows to `deleteAnonymousEvents()` and test the
+1. Keep browser instrumentation event-specific. Do not add a generic
+   `track(name, properties)` escape hatch or persistent/fingerprinted IDs.
+2. Extend UI coverage only by adding a governed schema and a typed method with
+   enum/numeric inputs; never forward component state or free-form text.
+3. Connect verified deletion workflows to `deleteAnonymousEvents()` and test the
    24-hour service-level objective end to end.
-5. Select a production sink only after privacy/legal review, data-region and
+4. Select a production sink only after privacy/legal review, data-region and
    retention decisions, vendor/spend approval, access control, encryption,
    deletion support, replay-safe writes, distributed rate limiting, and rollback
    exist.
-6. Implement the sink behind the existing interface without logging request
+5. Implement the sink behind the existing interface without logging request
    bodies. Add disposable-environment integration and concurrency tests.
-7. Add minimum cohort thresholds and authorized internal reporting before exposing
+6. Add minimum cohort thresholds and authorized internal reporting before exposing
    metrics outside engineering.
-8. Change the literal production latch in a reviewed code change only after all
+7. Change the literal production latch in a reviewed code change only after all
    prior gates pass.
 
 ## Verification
@@ -133,9 +135,10 @@ Suggested operational alerts after a reviewed production sink exists:
 Run the standalone suite without editing the package scripts:
 
 ```bash
-node --test app/ai-path/analytics.test.mjs app/ai-path/analytics-http.test.mjs
+node --test app/ai-path/analytics.test.mjs app/ai-path/analytics-http.test.mjs app/ai-path/client/analytics.test.mjs
 ```
 
 These tests cover activation gates, same-origin enforcement, bounded bodies,
 closed schemas, replay handling, event-time limits, stable errors, deletion
-latency, content-free counters, sink failures, and governed metric computation.
+latency, content-free counters, sink failures, governed metric computation, typed
+browser events, numeric-only feedback, opaque identifiers, and non-blocking 503s.

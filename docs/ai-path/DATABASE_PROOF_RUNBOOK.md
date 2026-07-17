@@ -30,6 +30,38 @@ If a prerequisite is absent, provision it separately using the team's approved
 local database workflow. The harness will report the missing prerequisite and
 exit without installing, starting, creating, or dropping anything.
 
+Run the non-connecting source preflight on any machine:
+
+```bash
+node scripts/ai-path-db-proof-preflight.mjs --source-only --json
+```
+
+Run the runtime-required preflight before preparing a local database:
+
+```bash
+node scripts/ai-path-db-proof-preflight.mjs --json
+```
+
+It exits `2` when `psql` is absent, unreadable, or older than PostgreSQL 15.
+Neither mode reads a database URL or opens a connection.
+
+## Ephemeral CI proof
+
+`.github/workflows/ai-path-db-proof.yml` runs the same behavioral harness on a
+fresh PostgreSQL 16 service for relevant pull requests, pushes to `main`, or a
+manual dispatch. The workflow has read-only repository permissions, uses no
+secrets, exposes PostgreSQL only through the runner's loopback port, creates the
+three compatibility roles and reserved `ai_path_proof_ci` database only inside
+that disposable service, and uploads the proof log for 14 days. The service is
+destroyed with the job.
+
+The CI bootstrap is intentionally separate from the behavioral harness. It
+refuses a non-loopback server, a non-`postgres` maintenance database, an
+unexpected user, an existing proof database, or pre-existing compatibility
+roles. It also requires a CI-specific disposable-cluster confirmation distinct
+from the harness confirmation. It contains no drop operation and cannot
+activate application latches.
+
 ## Run
 
 From the repository root:

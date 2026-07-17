@@ -28,7 +28,7 @@ The build is split into independently reviewable workstreams with explicit gates
 - Unit/contract fixtures, production build, and responsive screenshot QA.
 - Architecture, product, and delivery decisions documented.
 
-Verified in the repository on 2026-07-17: 216 deterministic tests, TypeScript, scoped ESLint, production build, and a complete responsive browser journey at 375×812, 768×1024, and 1440×900. The browser proof completed a seven-question adaptive interview, lossless per-answer review, causal learner corrections, deterministic assessment, personalized plan, time-budget recomposition, explicit adaptation decisions, export, reassessment, and deletion with zero external requests. The source-readiness gate reports 18/18 private-alpha files, 87/87 production-foundation files, thirteen locked safety gates, and zero broken gates. The browser path remains text-only and makes no paid model call.
+Verified in the repository on 2026-07-17: 237 deterministic tests, TypeScript, scoped ESLint, production build, and a complete responsive browser journey at 375×812, 768×1024, and 1440×900. The browser proof completed a seven-question adaptive interview, near-limit long-content review, injected report failure and empty-catalog recovery, causal learner corrections, deterministic assessment, numeric-only feedback, personalized plan, time-budget recomposition, explicit adaptation decisions, export, reassessment, and deletion with zero external requests. It validated 15 closed-sink analytics attempts without learner-authored text leakage. The source-readiness gate reports 26/26 private-alpha files, 94/94 production-foundation files, thirteen locked safety gates, and zero broken gates. The browser path remains text-only and makes no paid model call.
 
 ### M1 — Research prototype
 
@@ -67,14 +67,14 @@ The owner-scoped plan aggregate, HTTP routes, dormant Supabase adapter, immutabl
 
 ## Current critical path
 
-1. Wire the dormant durable plan adapter into request selection only after the new goal-binding migration passes the disposable-database suite; keep both code latches closed until then.
-2. Run the fail-closed disposable-database harness against the new authenticated-intent, database-owned-continuity, and authoritative-policy RPCs under races, rollback, unknown commits, seven-day reconciliation, 90-day purge/archive, backlog, and deletion before activation.
-3. Apply all eight dormant migrations to a disposable Supabase-compatible PostgreSQL project and behaviorally prove RLS and RPC behavior with authenticated users plus the service role. The harness is implemented, but this machine still needs `psql` and a disposable local database.
-4. Configure monitored retention, distributed abuse controls, deletion alerts, and secret rotation after infrastructure and privacy decisions are supplied.
-5. Run five moderated text-alpha sessions and two independent assessment reviewers; this needs recruited participants and reviewer availability.
-6. Complete accessibility, adversarial, and long-content audits, then resolve every release-blocking result.
-7. Obtain explicit paid-usage approval and a bounded budget before enabling or testing live OpenAI Realtime traffic.
-8. Stage voice behind authenticated ownership, atomic admission, distributed limits, concurrency/spend caps, a kill switch, and transcript-free operational telemetry.
+1. Push this checkpoint and require the new disposable PostgreSQL 16 GitHub workflow to pass for the exact release commit. Local `psql` is absent, so local behavioral database evidence remains unavailable.
+2. Create the commit-bound durable-text evidence packet from successful database, authenticated staging, retention-operations, and owner/cross-owner export-delete runs. Keep all four durable-text latches closed until the offline gate reports only `READY_FOR_REVIEWED_ACTIVATION` and a separate change is approved.
+3. Configure a Supabase-compatible project, verified authentication, server-only credential rotation, monitored bounded retention, deletion alerts, backups, rollback, and incident revocation; this requires platform/operator decisions.
+4. Run the checked-in five-participant moderated protocol and two independent assessment reviews; recruiting, consent, restricted research storage, and human adjudication remain operator work.
+5. Review the responsive browser screenshots and decide whether the current high-signal accessibility checks require a separately approved full WCAG audit or multi-browser baseline before inviting participants.
+6. Choose and privacy-review a production analytics sink, region, access model, cohort floor, retention, and deletion implementation before opening the analytics latch.
+7. Obtain explicit paid-usage approval and bounded budgets before enabling or testing live OpenAI Realtime traffic.
+8. Only after calibrated text results, stage voice behind authenticated ownership, atomic database admission, distributed limits, concurrency/spend caps, a kill switch, typed fallback, and transcript-free operational telemetry.
 
 ## Decision log
 
@@ -91,3 +91,8 @@ The owner-scoped plan aggregate, HTTP routes, dormant Supabase adapter, immutabl
 - **2026-07-17:** Make Postgres authoritative for admission policy, clock, UTC day, lease TTL, and kill switch; seed admission disabled and remove all caller-cap RPC overloads.
 - **2026-07-17:** Replace the fixed interview script with a deterministic five-to-seven-question engine that asks only application-owned follow-ups for missing evidence dimensions.
 - **2026-07-17:** Recompose plans from assessed growth areas and bounded learner constraints while keeping unassessed skills explicit and raw free-form profile text out of generated instructions.
+- **2026-07-17:** Instrument only typed, governed funnel and numeric-feedback events; keep random analytics IDs in memory and the production sink code-latched off.
+- **2026-07-17:** Require a five-participant moderated packet plus two independent coded reviewers before interpreting private-alpha assessment validity.
+- **2026-07-17:** Bind durable-text activation evidence to the exact successful GitHub database-proof commit and require separate platform, privacy, release, and security approvals.
+- **2026-07-17:** Fill catalog gaps with first-party evidence sprints that can be completed without paid infrastructure; retain external provider resources for foundations and API implementation.
+- **2026-07-17:** Keep the GA unified WebRTC boundary dormant; Realtime remains downstream of durable text, calibrated voice evidence, and explicit spend approval.

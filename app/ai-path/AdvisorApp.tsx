@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { AIPathApiError, analyzeReviewedAssessment, createTextSession, deleteOwnedSession, exportOwnedSession } from './client/api'
+import { AiPathBrowserAnalytics, weeklyHoursBand } from './client/analytics'
 import { proposeCheckInAdaptation, taskSwapAlternative, type CheckInProposal } from './client/plan-actions'
 import {
   AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS,
@@ -227,8 +228,21 @@ export function AdvisorApp() {
   const [adaptationStatus, setAdaptationStatus] = useState('')
   const [dataActionState, setDataActionState] = useState<'idle' | 'working' | 'done' | 'error'>('idle')
   const [dataActionMessage, setDataActionMessage] = useState('')
+  const [correctedInputIds, setCorrectedInputIds] = useState<Record<string, true>>({})
+  const [firstTaskStarted, setFirstTaskStarted] = useState(false)
+  const [planFitRating, setPlanFitRating] = useState('')
+  const [reportUsefulnessRating, setReportUsefulnessRating] = useState('')
+  const [wrongFindingCount, setWrongFindingCount] = useState('0')
+  const [feedbackState, setFeedbackState] = useState<'idle' | 'sending' | 'done'>('idle')
+  const [feedbackMessage, setFeedbackMessage] = useState('')
   const headingRef = useRef<HTMLHeadingElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const analyticsRef = useRef<AiPathBrowserAnalytics | null>(null)
+  const assessmentStartedAtRef = useRef<number | null>(null)
+  const assessmentCompletionRecordedRef = useRef(false)
+  const firstTaskStartedAtRef = useRef<number | null>(null)
+
+  if (!analyticsRef.current) analyticsRef.current = new AiPathBrowserAnalytics()
 
   const selectedGoal = goalOptions.find(option => option.id === goal) ?? goalOptions[0]
   const reviewedGoal = understanding.find(item => item.id === 'goal')?.value.trim() || outcome.trim()
@@ -266,6 +280,11 @@ export function AdvisorApp() {
   })), [assessmentReport])
   const recommendations = assessmentReport?.recommendations ?? []
   const assessedCount = assessmentReport?.results.filter(result => result.status === 'assessed').length ?? 0
+  const totalFindingCount = Math.max(1, assessmentReport?.results.length ?? 1)
+
+  useEffect(() => {
+    void analyticsRef.current?.landingViewed('unknown')
+  }, [])
 
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true })
@@ -274,6 +293,15 @@ export function AdvisorApp() {
 
   useEffect(() => () => {
     streamRef.current?.getTracks().forEach(track => track.stop())
+  }, [])
+
+  const recordAssessmentCompletion = useCallback(() => {
+    if (assessmentCompletionRecordedRef.current) return
+    assessmentCompletionRecordedRef.current = true
+    const durationSeconds = assessmentStartedAtRef.current
+      ? (Date.now() - assessmentStartedAtRef.current) / 1_000
+      : 1
+    void analyticsRef.current?.assessmentCompleted(durationSeconds)
   }, [])
 
   useEffect(() => {
@@ -286,6 +314,7 @@ export function AdvisorApp() {
     if (interviewStatus !== 'processing') return
     const timeout = window.setTimeout(() => {
       if (adaptiveInterview?.status === 'complete') {
+        recordAssessmentCompletion()
         setUnderstanding(buildUnderstandingFromInterview(adaptiveInterview, outcome, hours, blocker))
         setStage('understanding')
         setInterviewStatus('agent')
@@ -294,7 +323,7 @@ export function AdvisorApp() {
       setInterviewStatus('agent')
     }, 650)
     return () => window.clearTimeout(timeout)
-  }, [adaptiveInterview, blocker, hours, interviewStatus, outcome])
+  }, [adaptiveInterview, blocker, hours, interviewStatus, outcome, recordAssessmentCompletion])
 
   const stopMicrophone = () => {
     streamRef.current?.getTracks().forEach(track => track.stop())
@@ -348,6 +377,11 @@ export function AdvisorApp() {
       setMicState('idle')
       setAdaptiveInterview(interview.state)
       setUnderstanding([])
+      setCorrectedInputIds({})
+      assessmentStartedAtRef.current = Date.now()
+      assessmentCompletionRecordedRef.current = false
+      void analyticsRef.current?.profileCompleted(goal, weeklyHoursBand(hours))
+      void analyticsRef.current?.assessmentStarted()
       setStage('interview')
     } catch (error) {
       setSessionState('error')
@@ -376,6 +410,7 @@ export function AdvisorApp() {
     if (!restarted.ok) return
     setAdaptiveInterview(restarted.state)
     setUnderstanding([])
+    setCorrectedInputIds({})
     setAnswer('')
     setInterviewStatus('agent')
     setStage('interview')
@@ -384,6 +419,7 @@ export function AdvisorApp() {
   const endInterviewAndReview = () => {
     stopMicrophone()
     if (!adaptiveInterview || adaptiveInterview.turns.length === 0) return
+    recordAssessmentCompletion()
     setUnderstanding(buildUnderstandingFromInterview(adaptiveInterview, outcome, hours, blocker))
     setInterviewStatus('agent')
     setStage('understanding')
@@ -391,6 +427,7 @@ export function AdvisorApp() {
 
   const updateUnderstanding = (id: string, value: string) => {
     setUnderstanding(items => items.map(item => item.id === id ? { ...item, value } : item))
+    setCorrectedInputIds(ids => ({ ...ids, [id]: true }))
   }
 
   const buildAssessment = async () => {
@@ -411,6 +448,7 @@ export function AdvisorApp() {
     }
     setAnalysisState('running')
     setAnalysisError('')
+    void analyticsRef.current?.understandingReviewed(Object.keys(correctedInputIds).length)
     try {
       const report = await analyzeReviewedAssessment({
         assessmentSessionId: sessionId,
@@ -423,6 +461,7 @@ export function AdvisorApp() {
       setPlanHours(hours)
       setPendingPlanHours(hours)
       setAnalysisState('ready')
+      void analyticsRef.current?.reportViewed()
       setStage('results')
     } catch (error) {
       setAnalysisState('error')
@@ -431,7 +470,53 @@ export function AdvisorApp() {
   }
 
   const toggleTask = (key: string) => {
-    setCompletedTasks(tasks => ({ ...tasks, [key]: !tasks[key] }))
+    setCompletedTasks(tasks => {
+      const completing = !tasks[key]
+      if (key === '0-0' && completing) {
+        if (!firstTaskStartedAtRef.current) {
+          firstTaskStartedAtRef.current = Date.now()
+          setFirstTaskStarted(true)
+          void analyticsRef.current?.firstTaskStarted()
+        }
+        const elapsedMinutes = Math.max(1, Math.round((Date.now() - firstTaskStartedAtRef.current) / 60_000))
+        void analyticsRef.current?.firstTaskCompleted(elapsedMinutes)
+      }
+      return { ...tasks, [key]: completing }
+    })
+  }
+
+  const startOrCompleteFirstTask = () => {
+    if (completedTasks['0-0']) return
+    if (!firstTaskStarted) {
+      firstTaskStartedAtRef.current = Date.now()
+      setFirstTaskStarted(true)
+      void analyticsRef.current?.firstTaskStarted()
+      setAdaptationStatus('First task started. When the artifact is ready, mark it complete here or in Week 1.')
+      return
+    }
+    toggleTask('0-0')
+  }
+
+  const togglePlanSaved = () => {
+    setPlanSaved(value => {
+      const next = !value
+      if (next) void analyticsRef.current?.planSaved('private-alpha-v1')
+      return next
+    })
+  }
+
+  const submitFeedback = async () => {
+    if (!planFitRating || !reportUsefulnessRating || feedbackState === 'sending') return
+    setFeedbackState('sending')
+    const deliveries = await Promise.all([
+      analyticsRef.current?.feedbackSubmitted(Number(planFitRating), Number(reportUsefulnessRating)),
+      analyticsRef.current?.findingFeedbackSubmitted(totalFindingCount, Number(wrongFindingCount)),
+    ])
+    const accepted = deliveries.every(delivery => delivery === 'accepted')
+    setFeedbackState('done')
+    setFeedbackMessage(accepted
+      ? 'Thank you. Only these numeric ratings were accepted; no written responses were included.'
+      : 'Thank you. Your ratings remain visible in this browser tab. The production analytics sink is still disabled, so nothing was stored externally.')
   }
 
   const restartForReassessment = () => {
@@ -449,6 +534,16 @@ export function AdvisorApp() {
     setCheckInProposal(null)
     setAdaptationStatus('')
     setPlanSaved(false)
+    setCorrectedInputIds({})
+    setFirstTaskStarted(false)
+    firstTaskStartedAtRef.current = null
+    assessmentStartedAtRef.current = null
+    assessmentCompletionRecordedRef.current = false
+    setPlanFitRating('')
+    setReportUsefulnessRating('')
+    setWrongFindingCount('0')
+    setFeedbackState('idle')
+    setFeedbackMessage('')
     setDataActionState('idle')
     setDataActionMessage('')
     setInterviewStatus('agent')
@@ -460,6 +555,16 @@ export function AdvisorApp() {
     setUnderstanding([])
     setCompletedTasks({})
     setPlanSaved(false)
+    setCorrectedInputIds({})
+    setFirstTaskStarted(false)
+    firstTaskStartedAtRef.current = null
+    assessmentStartedAtRef.current = null
+    assessmentCompletionRecordedRef.current = false
+    setPlanFitRating('')
+    setReportUsefulnessRating('')
+    setWrongFindingCount('0')
+    setFeedbackState('idle')
+    setFeedbackMessage('')
     setSessionId(null)
     setSessionOwned(false)
     setSessionPersistence('none')
@@ -494,6 +599,7 @@ export function AdvisorApp() {
         return
       }
     }
+    await analyticsRef.current?.dataDeleted()
     clearPreview()
   }
 
@@ -909,6 +1015,33 @@ export function AdvisorApp() {
               )}
             </section>
 
+            <section className="ap-feedbackCard" aria-labelledby="ap-feedback-title">
+              <div>
+                <p className="ap-kicker">Private-alpha feedback</p>
+                <h2 id="ap-feedback-title">Did this direction fit?</h2>
+                <p>Share numeric ratings only. Your typed assessment responses are never copied into analytics.</p>
+              </div>
+              <form onSubmit={event => { event.preventDefault(); void submitFeedback() }}>
+                <fieldset>
+                  <legend>How well does the plan fit your goal and constraints?</legend>
+                  <div className="ap-ratingOptions">
+                    {[1, 2, 3, 4, 5].map(rating => <label key={`fit-${rating}`}><input type="radio" name="plan-fit" value={rating} checked={planFitRating === String(rating)} onChange={event => setPlanFitRating(event.target.value)} /><span>{rating}</span></label>)}
+                  </div>
+                  <small>1 = poor fit · 5 = excellent fit</small>
+                </fieldset>
+                <fieldset>
+                  <legend>How useful is the report for deciding what to do next?</legend>
+                  <div className="ap-ratingOptions">
+                    {[1, 2, 3, 4, 5].map(rating => <label key={`useful-${rating}`}><input type="radio" name="report-usefulness" value={rating} checked={reportUsefulnessRating === String(rating)} onChange={event => setReportUsefulnessRating(event.target.value)} /><span>{rating}</span></label>)}
+                  </div>
+                  <small>1 = not useful · 5 = very useful</small>
+                </fieldset>
+                <label className="ap-feedbackSelect"><span>How many of the {totalFindingCount} skill findings are materially wrong?</span><select value={wrongFindingCount} onChange={event => setWrongFindingCount(event.target.value)}>{Array.from({ length: totalFindingCount + 1 }, (_, count) => <option value={count} key={count}>{count}</option>)}</select></label>
+                <button type="submit" className="ap-secondary" disabled={!planFitRating || !reportUsefulnessRating || feedbackState === 'sending'}>{feedbackState === 'sending' ? 'Sending numeric ratings…' : feedbackState === 'done' ? 'Update ratings' : 'Submit numeric feedback'}</button>
+                {feedbackMessage && <p className="ap-feedbackStatus" role="status" aria-live="polite">{feedbackMessage}</p>}
+              </form>
+            </section>
+
             <div className="ap-resultsCta">
               <div><p className="ap-kicker">Ready when you are</p><h2>Your first task takes about 45 minutes.</h2><p>{plan.firstTask}.</p></div>
               <PrimaryButton onClick={() => setStage('plan')}>Open my 30-day plan</PrimaryButton>
@@ -927,7 +1060,7 @@ export function AdvisorApp() {
               <div className="ap-progressRing" style={{ '--ap-progress': `${progress * 3.6}deg` } as React.CSSProperties}><span><strong>{progress}%</strong><small>complete</small></span></div>
             </div>
             <div className="ap-planActions">
-              <button type="button" className="ap-secondary" onClick={() => setPlanSaved(value => !value)}>{planSaved ? 'Pinned in this browser tab' : 'Pin in this browser tab'}</button>
+              <button type="button" className="ap-secondary" onClick={togglePlanSaved}>{planSaved ? 'Pinned in this browser tab' : 'Pin in this browser tab'}</button>
               <button type="button" className="ap-quietButton" onClick={exportPlan} disabled={dataActionState === 'working'}>Export report & plan</button>
               <button type="button" className="ap-quietButton" onClick={() => setStage('history')}>View preview history</button>
             </div>
@@ -950,7 +1083,7 @@ export function AdvisorApp() {
             )}
             <div className="ap-nextAction">
               <div><span>Next action</span><h2>{plan.firstTask}.</h2><p>About 45 minutes · Produces the first inspectable artifact in this plan.</p></div>
-              <button type="button" className="ap-primary" onClick={() => toggleTask('0-0')}>{completedTasks['0-0'] ? 'Marked complete' : 'Start first task'}<ArrowIcon /></button>
+              <button type="button" className="ap-primary" onClick={startOrCompleteFirstTask} disabled={Boolean(completedTasks['0-0'])}>{completedTasks['0-0'] ? 'First task complete' : firstTaskStarted ? 'Mark first task complete' : 'Start first task'}<ArrowIcon /></button>
             </div>
 
             <div className="ap-weekList">

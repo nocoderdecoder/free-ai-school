@@ -16,6 +16,7 @@ const privateAlphaFiles = [
   'app/ai-path/lib/foundation.ts',
   'app/ai-path/lib/plan-composer.ts',
   'app/ai-path/lib/plan.ts',
+  'app/ai-path/client/analytics.ts',
   'app/api/ai-path/session/route.ts',
   'app/api/ai-path/analysis/route.ts',
   'app/ai-path/foundation.test.mjs',
@@ -24,9 +25,16 @@ const privateAlphaFiles = [
   'app/ai-path/route-handlers.test.mjs',
   'app/ai-path/reviewed-assessment.test.mjs',
   'app/ai-path/plan.test.mjs',
+  'app/ai-path/client/analytics.test.mjs',
   'docs/ai-path/PRODUCT.md',
   'docs/ai-path/ARCHITECTURE.md',
   'docs/ai-path/DELIVERY.md',
+  'docs/ai-path/research/README.md',
+  'docs/ai-path/research/review-packet.schema.json',
+  'scripts/ai-path-research-agreement.mjs',
+  'scripts/ai-path-research-agreement.test.mjs',
+  'scripts/ai-path-e2e-qa.js',
+  'scripts/ai-path-qa.md',
 ]
 
 const productionFoundationFiles = [
@@ -83,6 +91,7 @@ const productionFoundationFiles = [
   'app/ai-path/lib/realtime-admission-maintenance-supabase.server.ts',
   'app/ai-path/lib/realtime-admission-maintenance-supabase.ts',
   'app/ai-path/durable-persistence.test.mjs',
+  'app/ai-path/durable-text-gate.test.mjs',
   'app/ai-path/goal-type-binding-sql.test.mjs',
   'app/ai-path/learning-plan.test.mjs',
   'app/ai-path/learning-plan-sql.test.mjs',
@@ -109,14 +118,20 @@ const productionFoundationFiles = [
   'docs/ai-path/REALTIME_ADMISSION_POLICY.md',
   'docs/ai-path/REALTIME_CONTINUITY_DATABASE_PROOF.md',
   'docs/ai-path/DATABASE_PROOF_RUNBOOK.md',
+  'docs/ai-path/DURABLE_TEXT_RELEASE_GATE.md',
+  'docs/ai-path/REALTIME_PROVIDER_READINESS.md',
   'docs/ai-path/RETENTION_OPERATIONS.md',
   'docs/ai-path/RETENTION_SUPABASE_ADAPTER.md',
   'docs/ai-path/OBSERVABILITY.md',
   'scripts/ai-path-db-proof.sh',
+  '.github/workflows/ai-path-db-proof.yml',
+  'scripts/ai-path-db-proof-preflight.mjs',
   'scripts/ai-path-db-proof/00-local-supabase-compat.sql',
   'scripts/ai-path-db-proof/10-contracts.sql',
   'scripts/ai-path-db-proof/20-concurrency-reserve.sql',
+  'scripts/ai-path-db-proof/ci-bootstrap.sql',
   'scripts/ai-path-db-proof/static.test.mjs',
+  'scripts/ai-path-durable-text-gate.mjs',
 ]
 
 const latchChecks = [

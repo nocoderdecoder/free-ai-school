@@ -14,6 +14,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   const consoleErrors = []
   const sessionRequests = []
   const analysisRequests = []
+  const analyticsRequests = []
 
   const assert = (condition, message) => {
     if (!condition) throw new Error(message)
@@ -64,6 +65,11 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
       })
     ))
     assert(unnamed.length === 0, `${label} has unnamed interactive controls: ${unnamed.join(', ')}`)
+  }
+  const assertHeadingFocused = async (name, label = name) => {
+    const heading = page.getByRole('heading', { name }).first()
+    await heading.waitFor({ state: 'visible', timeout: 15_000 })
+    assert(await heading.evaluate(element => document.activeElement === element), `${label} heading did not receive programmatic focus`)
   }
 
   const reportGoal = 'Build a citation-preserving weekly market intelligence workflow that colleagues can inspect, rerun, and improve without relying on hidden context.'
@@ -123,6 +129,11 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     ],
     disclaimer: 'This learning assessment reflects reviewed evidence and is guidance, not a credential or employment decision.',
   }
+  const emptyReport = {
+    ...report,
+    recommendationStatus: 'no_eligible_resources',
+    recommendations: [],
+  }
 
   page.on('console', (message) => {
     if (message.type() === 'error') consoleErrors.push(message.text())
@@ -171,21 +182,49 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     })
   })
 
+  await page.route('**/api/ai-path/events', async (route) => {
+    const request = route.request()
+    assert(request.method() === 'POST', `unexpected analytics method ${request.method()}`)
+    assert((request.headers()['content-type'] || '').startsWith('application/json'), 'analytics request omitted JSON content type')
+    const rawBody = request.postData() || ''
+    const utf8ByteLength = [...rawBody].reduce((total, character) => {
+      const codePoint = character.codePointAt(0)
+      return total + (codePoint <= 0x7f ? 1 : codePoint <= 0x7ff ? 2 : codePoint <= 0xffff ? 3 : 4)
+    }, 0)
+    assert(utf8ByteLength <= 8 * 1024, 'analytics request exceeded the governed 8 KiB limit')
+    analyticsRequests.push(request.postDataJSON())
+    // The production sink is intentionally latched closed. A 503 must never
+    // interrupt the learner flow or encourage the UI to claim external storage.
+    await route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'analytics_unavailable' }),
+    })
+  })
+
   await page.route('**/api/ai-path/analysis', async (route) => {
     const request = route.request()
     assert(request.method() === 'POST', `unexpected analysis method ${request.method()}`)
     analysisRequests.push(request.postDataJSON())
+    if (analysisRequests.length === 1) {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'analysis_unavailable', details: ['Deterministic QA injected a temporary report failure.'] }),
+      })
+      return
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ report }),
+      body: JSON.stringify({ report: analysisRequests.length === 2 ? emptyReport : report }),
     })
   })
 
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' })
   await waitForHeading('Find your next useful AI move.')
-  assert((await page.locator('h1').first().evaluate((element) => document.activeElement === element)), 'landing heading did not receive programmatic focus')
+  await assertHeadingFocused('Find your next useful AI move.', 'landing')
   await assertNoHorizontalOverflow('landing desktop')
   await page.screenshot({ path: `${artifactDir}/landing-1440x900.png`, fullPage: true })
   checkpoint('landing loaded and focused')
@@ -278,22 +317,47 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   await page.getByRole('button', { name: 'Edit this' }).last().click()
   await page.getByLabel('Edit Profile constraint the plan must respect').fill(correctedConstraint)
   await page.getByRole('button', { name: 'Save correction' }).last().click()
+  const privacyCanary = 'QA_PRIVATE_REVIEW_CANARY_DO_NOT_COPY_TO_ANALYTICS'
+  const nearLimitReviewedResponse = `${privacyCanary}: ${'A citation-preserving, reviewer-visible workflow step with explicit uncertainty and recovery. '.repeat(21)}`.slice(0, 1_950)
+  const nearLimitCard = page.locator('.ap-understandingCard').nth(1)
+  await nearLimitCard.getByRole('button', { name: 'Edit this' }).click()
+  const nearLimitTextarea = nearLimitCard.locator('textarea')
+  assert(await nearLimitTextarea.getAttribute('maxlength') === '2000', 'review correction did not expose the governed 2,000-character limit')
+  await nearLimitTextarea.fill(nearLimitReviewedResponse)
+  await nearLimitCard.getByRole('button', { name: 'Save correction' }).click()
+  await assertNoHorizontalOverflow('review with near-limit response')
+  checkpoint('near-limit reviewed content remained layout-safe')
+
+  await page.getByRole('button', { name: 'Use this to build my report' }).click()
+  const analysisAlert = page.getByRole('alert').filter({ hasText: 'We could not build the report.' })
+  await analysisAlert.waitFor({ state: 'visible', timeout: 5_000 })
+  assert(await analysisAlert.getByText('Deterministic QA injected a temporary report failure.', { exact: true }).isVisible(), 'temporary report failure was not explained')
+  assert(await page.getByText(privacyCanary, { exact: false }).isVisible(), 'reviewed responses were not retained after report failure')
+  await analysisAlert.getByRole('button', { name: 'Try again' }).click()
+  await waitForHeading(/Working direction:/)
+  await assertHeadingFocused(/Working direction:/, 'empty report')
+  assert(await page.getByRole('status').filter({ hasText: 'No governed resource fits this report yet.' }).isVisible(), 'empty recommendation state was not rendered')
+  assert(await page.getByText('The current evidence, prerequisites, format, and time filters produced no eligible match.', { exact: false }).isVisible(), 'empty recommendation state omitted recovery context')
+  await page.getByRole('button', { name: 'Edit what we understood' }).click()
+  await assertHeadingFocused('Here is what I understood.', 'return to reviewed understanding')
   await page.getByRole('button', { name: 'Use this to build my report' }).click()
   await waitForHeading(/Working direction:/)
+  await assertHeadingFocused(/Working direction:/, 'populated report')
   assert(await page.getByText('2 skills assessed', { exact: false }).isVisible(), 'report did not display assessed skill count')
   assert(await page.getByText('No evidence was collected; this is not a zero score.').first().isVisible(), 'unassessed skills were not explicit')
   assert(await page.getByText('Designing a citation-preserving research workflow', { exact: false }).isVisible(), 'long recommendation was not rendered')
-  checkpoint('review correction and deterministic report rendered')
+  checkpoint('report failure recovery, empty state, and populated report rendered')
 
   assert(sessionRequests.length === 1, `expected one session request, saw ${sessionRequests.length}`)
   assert(sessionRequests[0].mode === 'text', 'session did not use text mode')
   assert(sessionRequests[0].saveTranscript === false, 'session unexpectedly requested transcript persistence')
-  assert(analysisRequests.length === 1, `expected one analysis request, saw ${analysisRequests.length}`)
+  assert(analysisRequests.length === 3, `expected three analysis attempts, saw ${analysisRequests.length}`)
   assert(!('evidence' in analysisRequests[0]), 'browser assigned competency evidence')
   assert(Array.isArray(analysisRequests[0].reviewedInputs), 'analysis omitted reviewed inputs')
   assert(analysisRequests[0].reviewedInputs[0].value === correctedOutcome, 'review correction did not reach analysis request')
   assert(analysisRequests[0].goal === correctedOutcome, 'reviewed goal did not become the analysis goal')
   assert(analysisRequests[0].reviewedInputs.at(-1).value === correctedConstraint, 'reviewed constraint did not reach analysis')
+  assert(analysisRequests.every(request => request.reviewedInputs.some(input => input.value === nearLimitReviewedResponse)), 'near-limit reviewed response was not retained across report retries')
   checkpoint('request trust boundary validated')
 
   for (const [width, height] of [[375, 812], [768, 1024], [1440, 900]]) {
@@ -302,13 +366,39 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   await assertInteractiveNames('results')
   checkpoint('results responsive and named-control audit')
 
+  const planFitFieldset = page.locator('fieldset').filter({ hasText: 'How well does the plan fit your goal and constraints?' })
+  const reportUsefulnessFieldset = page.locator('fieldset').filter({ hasText: 'How useful is the report for deciding what to do next?' })
+  const planFitFive = planFitFieldset.getByRole('radio', { name: '5', exact: true })
+  await planFitFive.focus()
+  assert(await planFitFive.evaluate(element => document.activeElement === element), 'plan-fit rating was not keyboard focusable')
+  await page.keyboard.press('Space')
+  assert(await planFitFive.isChecked(), 'Space did not select the plan-fit rating')
+  const reportUsefulFour = reportUsefulnessFieldset.getByRole('radio', { name: '4', exact: true })
+  await reportUsefulFour.focus()
+  await page.keyboard.press('Space')
+  assert(await reportUsefulFour.isChecked(), 'Space did not select the report-usefulness rating')
+  await page.getByLabel(/How many of the .* skill findings are materially wrong/).selectOption('1')
+  const feedbackButton = page.getByRole('button', { name: 'Submit numeric feedback' })
+  assert(await feedbackButton.isEnabled(), 'numeric feedback submission did not enable after both ratings')
+  await feedbackButton.focus()
+  await page.keyboard.press('Enter')
+  const feedbackStatus = page.getByRole('status').filter({ hasText: 'production analytics sink is still disabled' })
+  await feedbackStatus.waitFor({ state: 'visible', timeout: 5_000 })
+  assert(await feedbackStatus.getAttribute('aria-live') === 'polite', 'feedback status was not announced politely')
+  checkpoint('keyboard numeric feedback and closed-sink recovery')
+
   await page.getByRole('button', { name: 'Open my 30-day plan' }).first().click()
   await page.locator('.ap-planTitle h1').waitFor({ state: 'visible', timeout: 15_000 })
+  assert(await page.locator('.ap-planTitle h1').evaluate(element => document.activeElement === element), 'plan heading did not receive programmatic focus')
   assert(await page.getByText('The first week includes the application-owned access recovery pattern.', { exact: true }).isVisible(), 'reviewed constraint did not causally change the personalized plan')
   await page.setViewportSize({ width: 1440, height: 900 })
   const firstTask = page.locator('.ap-weekList article').first().locator('li strong').first()
   let originalFirstTask = (await firstTask.textContent()).trim()
 
+  const pinButton = page.getByRole('button', { name: 'Pin in this browser tab' })
+  await pinButton.focus()
+  await page.keyboard.press('Enter')
+  assert(await page.getByRole('button', { name: 'Pinned in this browser tab' }).isVisible(), 'keyboard activation did not pin the plan')
   await page.locator('.ap-weekList input[type="checkbox"]').first().check()
   assert(await page.getByText('8%', { exact: true }).isVisible(), 'task completion did not update progress to 8%')
   await page.getByLabel('Weekly time budget').selectOption('1')
@@ -371,11 +461,92 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
 
   await page.getByRole('button', { name: 'Delete browser preview' }).click()
   await waitForHeading('Find your next useful AI move.')
+  await assertHeadingFocused('Find your next useful AI move.', 'post-deletion landing')
   assert(await page.getByRole('button', { name: 'Build my plan' }).isVisible(), 'deletion did not return to an empty landing state')
   checkpoint('browser-preview deletion')
 
+  const analyticsPropertyKeys = {
+    landing_viewed: ['audience', 'source'],
+    profile_completed: ['audience', 'pathIntent', 'weeklyHoursBand'],
+    assessment_started: ['audience', 'mode'],
+    assessment_completed: ['audience', 'durationSeconds', 'mode'],
+    understanding_reviewed: ['audience', 'correctionCount', 'removedObservationCount'],
+    report_viewed: ['audience', 'resultStatus'],
+    plan_saved: ['audience', 'planVersion'],
+    first_task_started: ['audience', 'taskKind'],
+    first_task_completed: ['audience', 'elapsedMinutes', 'taskKind'],
+    feedback_submitted: ['audience', 'planFitRating', 'reportUsefulnessRating'],
+    finding_feedback_submitted: ['audience', 'materiallyWrongFindings', 'totalFindings'],
+    data_deleted: ['audience', 'scope'],
+  }
+  const expectedEventCounts = {
+    landing_viewed: 1,
+    profile_completed: 1,
+    assessment_started: 1,
+    assessment_completed: 1,
+    understanding_reviewed: 3,
+    report_viewed: 2,
+    plan_saved: 1,
+    first_task_started: 1,
+    first_task_completed: 1,
+    feedback_submitted: 1,
+    finding_feedback_submitted: 1,
+    data_deleted: 1,
+  }
+  const eventCounts = analyticsRequests.reduce((counts, event) => ({
+    ...counts,
+    [event.eventName]: (counts[event.eventName] || 0) + 1,
+  }), {})
+  assert(Object.keys(eventCounts).length === Object.keys(expectedEventCounts).length, `unexpected governed analytics events: ${JSON.stringify(eventCounts)}`)
+  for (const [eventName, expectedCount] of Object.entries(expectedEventCounts)) {
+    assert(eventCounts[eventName] === expectedCount, `expected ${expectedCount} ${eventName} event(s), saw ${eventCounts[eventName] || 0}`)
+  }
+  const anonymousIds = new Set(analyticsRequests.map(event => event.anonymousId))
+  assert(anonymousIds.size === 1, 'analytics rotated or correlated more than one anonymous browser identifier')
+  const [anonymousId] = anonymousIds
+  assert(/^anon_[a-f0-9]{32}$/.test(anonymousId), `anonymous analytics id was not opaque: ${anonymousId}`)
+  const sessionEvents = new Set([
+    'assessment_started',
+    'assessment_completed',
+    'understanding_reviewed',
+    'report_viewed',
+    'plan_saved',
+    'first_task_started',
+    'first_task_completed',
+    'feedback_submitted',
+    'finding_feedback_submitted',
+  ])
+  const assessmentIds = new Set(analyticsRequests.filter(event => sessionEvents.has(event.eventName)).map(event => event.assessmentSessionId))
+  assert(assessmentIds.size === 1, 'session-scoped analytics did not use one opaque assessment identifier')
+  const [assessmentId] = assessmentIds
+  assert(/^assessment_[a-f0-9]{32}$/.test(assessmentId), `assessment analytics id was not opaque: ${assessmentId}`)
+  for (const event of analyticsRequests) {
+    assert(event.measurementVersion === '2026-07-16.v1', `${event.eventName} used an unexpected measurement version`)
+    assert(Number.isFinite(Date.parse(event.occurredAt)), `${event.eventName} omitted a valid occurrence time`)
+    assert(JSON.stringify(Object.keys(event).sort()) === JSON.stringify(['anonymousId', 'assessmentSessionId', 'eventName', 'measurementVersion', 'occurredAt', 'properties']), `${event.eventName} emitted unexpected envelope fields`)
+    assert(Object.prototype.hasOwnProperty.call(analyticsPropertyKeys, event.eventName), `ungoverned analytics event emitted: ${event.eventName}`)
+    assert(JSON.stringify(Object.keys(event.properties).sort()) === JSON.stringify(analyticsPropertyKeys[event.eventName]), `${event.eventName} emitted unexpected property fields: ${JSON.stringify(event.properties)}`)
+    assert(event.properties.audience === 'workflow-builder-alpha', `${event.eventName} used an unexpected audience`)
+    assert(sessionEvents.has(event.eventName) ? event.assessmentSessionId === assessmentId : event.assessmentSessionId === null, `${event.eventName} used an invalid assessment identifier scope`)
+  }
+  const serializedAnalytics = JSON.stringify(analyticsRequests)
+  for (const privateText of [privacyCanary, longRole, longOutcome, longBlocker, correctedOutcome, correctedConstraint]) {
+    assert(!serializedAnalytics.includes(privateText), `learner-authored text leaked into analytics: ${privateText.slice(0, 40)}`)
+  }
+  const feedbackEvent = analyticsRequests.find(event => event.eventName === 'feedback_submitted')
+  assert(feedbackEvent.properties.planFitRating === 5 && feedbackEvent.properties.reportUsefulnessRating === 4, 'numeric feedback payload did not match keyboard selections')
+  const findingFeedbackEvent = analyticsRequests.find(event => event.eventName === 'finding_feedback_submitted')
+  assert(findingFeedbackEvent.properties.totalFindings === skillIds.length && findingFeedbackEvent.properties.materiallyWrongFindings === 1, 'numeric finding feedback payload was incorrect')
+  assert(analyticsRequests.every(event => JSON.stringify(event).length < 8 * 1024), 'analytics payload exceeded the intake body budget')
+  checkpoint('analytics envelope, governance, opaque identity, and no-free-text invariants')
+
   assert(blockedRequests.length === 0, `the app attempted external requests: ${blockedRequests.join(', ')}`)
-  const actionableConsoleErrors = consoleErrors.filter((message) => !message.includes('favicon'))
+  const expectedUnavailableResourceError = 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)'
+  const expectedUnavailableConsoleErrors = consoleErrors.filter(message => message === expectedUnavailableResourceError)
+  assert(expectedUnavailableConsoleErrors.length <= analyticsRequests.length + 1, 'more 503 console messages appeared than the intercepted analytics and injected report failures can explain')
+  const actionableConsoleErrors = consoleErrors.filter((message) => (
+    !message.includes('favicon') && message !== expectedUnavailableResourceError
+  ))
   assert(actionableConsoleErrors.length === 0, `browser console errors: ${actionableConsoleErrors.join(' | ')}`)
 
   return {
@@ -387,6 +558,9 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
       paidRequestsAllowed: false,
       sessionRequests: sessionRequests.length,
       analysisRequests: analysisRequests.length,
+      analyticsRequests: analyticsRequests.length,
+      analyticsSinkAccepted: false,
+      expectedUnavailableConsoleErrors: expectedUnavailableConsoleErrors.length,
     },
     artifacts: artifactDir,
   }

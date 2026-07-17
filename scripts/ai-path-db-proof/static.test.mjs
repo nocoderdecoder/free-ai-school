@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 const root = new URL("../../", import.meta.url);
 const harness = await readFile(new URL("../ai-path-db-proof.sh", import.meta.url), "utf8");
 const contracts = await readFile(new URL("./10-contracts.sql", import.meta.url), "utf8");
 const concurrency = await readFile(new URL("./20-concurrency-reserve.sql", import.meta.url), "utf8");
+const bootstrap = await readFile(new URL("./ci-bootstrap.sql", import.meta.url), "utf8");
+const workflow = await readFile(new URL("../../.github/workflows/ai-path-db-proof.yml", import.meta.url), "utf8");
+const preflightPath = fileURLToPath(new URL("../ai-path-db-proof-preflight.mjs", import.meta.url));
 const migrationNames = await readdir(new URL("supabase/migrations/", root));
 const continuityMigrationNames = migrationNames.filter(name =>
   /^20260717080000_ai_path_realtime_admission_.*\.sql$/.test(name)
@@ -59,6 +64,55 @@ test("harness refuses unsafe targets before migration apply", () => {
   }
   assert.doesNotMatch(harness, /\b(docker|supabase start|createdb|dropdb)\b/);
   assert.doesNotMatch(harness, /psql\s+[^\n]*\$\{[^}]*PASSWORD/);
+});
+
+test("preflight is source-verifiable and fails closed without a PostgreSQL runtime", () => {
+  const sourceOnly = spawnSync(process.execPath, [preflightPath, "--source-only", "--json"], {
+    cwd: fileURLToPath(root),
+    encoding: "utf8",
+    env: { ...process.env, PATH: "/ai-path-proof-no-runtime" },
+  });
+  assert.equal(sourceOnly.status, 0, sourceOnly.stderr);
+  const sourceReport = JSON.parse(sourceOnly.stdout);
+  assert.equal(sourceReport.ok, true);
+  assert.equal(sourceReport.mode, "source-only");
+  assert.equal(sourceReport.connectsToDatabase, false);
+  assert.equal(sourceReport.mutatesDatabase, false);
+
+  const runtimeRequired = spawnSync(process.execPath, [preflightPath, "--json"], {
+    cwd: fileURLToPath(root),
+    encoding: "utf8",
+    env: { ...process.env, PATH: "/ai-path-proof-no-runtime" },
+  });
+  assert.equal(runtimeRequired.status, 2, runtimeRequired.stderr);
+  const runtimeReport = JSON.parse(runtimeRequired.stdout);
+  assert.equal(runtimeReport.ok, false);
+  assert.equal(runtimeReport.runtime.reason, "psql_not_found");
+});
+
+test("CI proof is isolated to a fresh loopback PostgreSQL service", () => {
+  for (const invariant of [
+    "postgres:16-alpine",
+    "POSTGRES_HOST_AUTH_METHOD: trust",
+    "127.0.0.1:5432",
+    "ai_path_proof_ci",
+    "I_UNDERSTAND_THIS_CI_CLUSTER_IS_DISPOSABLE",
+    "I_UNDERSTAND_THIS_DATABASE_WILL_BE_MUTATED",
+    "timeout-minutes: 12",
+    "permissions:",
+    "contents: read",
+    "scripts/ai-path-db-proof.sh",
+  ]) assert.ok(workflow.includes(invariant), `workflow is missing ${invariant}`);
+  assert.doesNotMatch(workflow, /secrets\.|supabase\.co|openai|AI_PATH_.*LATCH/iu);
+
+  assert.match(bootstrap, /current_database\(\) <> 'postgres'/);
+  assert.match(bootstrap, /inet_server_addr\(\)/);
+  assert.match(bootstrap, /ai_path_proof_ci/);
+  assert.match(bootstrap, /ci_disposable_confirmation/);
+  for (const role of ["anon", "authenticated", "service_role"]) {
+    assert.match(bootstrap, new RegExp(`create role ${role} nologin`));
+  }
+  assert.doesNotMatch(bootstrap, /drop\s+(?:database|role)/i);
 });
 
 test("contracts cover RLS, denial, ownership, bounded retention, and idempotency", () => {
