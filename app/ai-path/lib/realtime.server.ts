@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { resolveRealtimeCapability } from './foundation'
+import { AI_PATH_REALTIME_ADMISSION_PRODUCTION_LATCH } from './realtime-admission'
 import { deriveRealtimeSafetyIdentifier } from './realtime-safety'
 
 const OPENAI_REALTIME_URL = 'https://api.openai.com/v1/realtime/calls'
@@ -37,6 +38,7 @@ export function getRealtimeCapability(): RealtimeCapability {
     authReady: process.env.AI_PATH_AUTH_READY,
     distributedRateLimitReady: process.env.AI_PATH_DISTRIBUTED_RATE_LIMIT_READY,
     spendControlsReady: process.env.AI_PATH_REALTIME_SPEND_CONTROLS_READY,
+    admissionReady: AI_PATH_REALTIME_ADMISSION_PRODUCTION_LATCH,
     approvedDailyBudgetUsd: process.env.AI_PATH_REALTIME_APPROVED_DAILY_BUDGET_USD,
     apiKey: process.env.OPENAI_API_KEY,
     safetyIdentifierSalt: process.env.AI_PATH_SAFETY_IDENTIFIER_SALT,

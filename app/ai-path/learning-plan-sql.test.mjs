@@ -74,8 +74,8 @@ test('account or assessment hard-delete removes derived plans and cascades throu
   }
 })
 
-test('plan retention is deliberately longer than session retention and private check-in text is not emitted to analytics', () => {
-  assert.match(sql, /retention_expires_at timestamptz not null default \(now\(\) \+ interval '180 days'\)/)
+test('plan retention matches source-session retention and private check-in text is not emitted to analytics', () => {
+  assert.match(sql, /retention_expires_at timestamptz not null default \(now\(\) \+ interval '90 days'\)/)
   assert.match(sessionSql, /retention_expires_at timestamptz not null default \(now\(\) \+ interval '90 days'\)/)
   assert.match(sql, /Never copy check_in_text into analytics or operational telemetry/)
   assert.doesNotMatch(sql, /insert into public\.[A-Za-z0-9_]*analytics[\s\S]*check_in_text/i)

@@ -64,7 +64,7 @@ test('snapshots require exactly 12 uniquely placed tasks across four weeks', () 
   assert.throws(() => validateLearningPlanTasks(duplicateSlot), /week positions must be unique/)
 })
 
-test('plans are owner-scoped, source-session unique, retained for 180 days, and defensively copied', async () => {
+test('plans are owner-scoped, source-session unique, retained for 90 days, and defensively copied', async () => {
   const { service } = harness()
   const created = await createPlan(service)
   assert.equal(created.snapshots[0].tasks.length, 12)

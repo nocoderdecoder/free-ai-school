@@ -49,11 +49,19 @@ Forgery-sensitive operations are service-role-only:
 
 The service role is restricted to trusted server jobs and must never be exposed to a browser or accepted from a user-controlled route. The learner alone approves or rejects a proposal through the authenticated owner RPC.
 
+## HTTP and activation boundary
+
+The plan API has bounded routes for create/read, task progress, time budget, weekly check-in, adaptation approval/rejection, export, and hard delete. Every operation requires a verified principal. Durable identifiers must be UUIDs; cookie-authenticated mutations also require an exact same-origin `Origin`. Revision-bearing mutations return a conflict instead of overwriting newer state.
+
+Plan creation first verifies an owned completed assessment report. Repeating the same create request resumes the existing plan; changing its initial goal preference or time budget returns a conflict. In-memory persistence requires exact `test` or `development` mode plus explicit plan-store, assessment-store, and test-auth flags. Production capability and Supabase gateway construction each remain behind literal-false code latches, so environment flags cannot initiate database traffic.
+
+The currently submitted `goalType` is a bounded learner preference used to select one server-owned blueprint. It is not assessment evidence and must not be described as an inferred outcome. Before durable activation, persist and bind that preference server-side when the assessment session is created, then derive plan selection from the trusted binding. Until that shared-session schema change is reviewed, the durable plan latch must remain closed.
+
 ## Retention, export, and deletion
 
-Assessment sessions and saved reports default to 90-day retention. Plan-loop records default to 180 days because learners need a longer period to complete tasks, check in, and compare reassessments. Product privacy copy must state both periods rather than presenting one ambiguous retention window.
+Assessment sessions, saved reports, and their derived plan-loop records default to the same 90-day retention window. This matches the required source-session relationship and the product disclosure. Account or session deletion cascades immediately rather than waiting for the retention job.
 
-The longer default does not weaken deletion:
+Deletion behavior is immediate when requested:
 
 - deleting the account cascades from `auth.users` through plans and every plan child;
 - deleting any assessment session used by the initial plan or a reassessment deletes the derived plan and its check-ins, snapshots, progress, proposals, and history;
@@ -67,6 +75,6 @@ Weekly check-in text is private product content. It may appear in the learner's 
 
 Pure service tests cover task shape, owner isolation, defensive copies, duplicate source-session prevention, strict task transitions, stale revisions, immutable terminal plans, check-ins, time changes, proposal approval/rejection, bounded swaps, reassessment history, export, delete, and retention purge.
 
-Static SQL contract tests cover RLS, table grants, service-only generation functions, authenticated owner RPCs, terminal immutability, 12-task checks, approval gates, delete cascades, distinct retention periods, and private check-in analytics exclusion.
+Static SQL contract tests cover RLS, table grants, service-only generation functions, authenticated owner RPCs, terminal immutability, 12-task checks, approval gates, delete cascades, aligned retention, and private check-in analytics exclusion.
 
 Before production activation, apply both migrations to a disposable Supabase project and run database integration tests with two authenticated users plus the service role. Those tests must prove policy behavior, RPC concurrency, cascading deletes from `auth.users` and every linked assessment session, transaction rollback on malformed JSON, and the exact nested export shape. This disposable-database proof remains an external configuration gate, not a reason to enable a paid service automatically.

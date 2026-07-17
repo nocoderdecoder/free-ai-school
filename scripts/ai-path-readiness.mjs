@@ -1,0 +1,379 @@
+#!/usr/bin/env node
+
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, join, relative, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+export const AI_PATH_READINESS_VERSION = '2026-07-17.v1'
+
+const scriptRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+
+const privateAlphaFiles = [
+  'app/ai-path/page.tsx',
+  'app/ai-path/AdvisorApp.tsx',
+  'app/ai-path/ai-path.css',
+  'app/ai-path/lib/foundation.ts',
+  'app/ai-path/lib/plan.ts',
+  'app/api/ai-path/session/route.ts',
+  'app/api/ai-path/analysis/route.ts',
+  'app/ai-path/foundation.test.mjs',
+  'app/ai-path/route-handlers.test.mjs',
+  'app/ai-path/reviewed-assessment.test.mjs',
+  'app/ai-path/plan.test.mjs',
+  'docs/ai-path/PRODUCT.md',
+  'docs/ai-path/ARCHITECTURE.md',
+  'docs/ai-path/DELIVERY.md',
+]
+
+const productionFoundationFiles = [
+  'supabase/migrations/20260717000000_ai_path_assessment_sessions.sql',
+  'supabase/migrations/20260717010000_ai_path_learning_plans.sql',
+  'supabase/migrations/20260717020000_ai_path_trusted_report_writer.sql',
+  'app/api/ai-path/session/[sessionId]/route.ts',
+  'app/api/ai-path/plan/route.ts',
+  'app/api/ai-path/plan/[planId]/route.ts',
+  'app/api/ai-path/plan/[planId]/tasks/[taskId]/route.ts',
+  'app/api/ai-path/plan/[planId]/check-ins/route.ts',
+  'app/api/ai-path/plan/[planId]/adaptations/[adaptationId]/route.ts',
+  'app/api/ai-path/plan/[planId]/export/route.ts',
+  'app/api/ai-path/plan/[planId]/time-budget/route.ts',
+  'app/api/ai-path/events/route.ts',
+  'app/api/ai-path/realtime/session/route.ts',
+  'app/api/cron/ai-path-retention/route.ts',
+  'app/ai-path/lib/learning-plan-capability.ts',
+  'app/ai-path/lib/learning-plan-http.ts',
+  'app/ai-path/lib/learning-plan-persistence.server.ts',
+  'app/ai-path/lib/learning-plan-runtime-response.ts',
+  'app/ai-path/lib/learning-plan-runtime.ts',
+  'app/ai-path/lib/learning-plan-service.ts',
+  'app/ai-path/lib/learning-plan-supabase.server.ts',
+  'app/ai-path/lib/learning-plan-supabase.ts',
+  'app/ai-path/lib/analytics-http.ts',
+  'app/ai-path/lib/analytics.server.ts',
+  'app/ai-path/lib/analytics.ts',
+  'app/ai-path/lib/retention-http.ts',
+  'app/ai-path/lib/retention.ts',
+  'app/ai-path/lib/realtime.server.ts',
+  'app/ai-path/lib/realtime-admission.ts',
+  'app/ai-path/durable-persistence.test.mjs',
+  'app/ai-path/learning-plan.test.mjs',
+  'app/ai-path/learning-plan-sql.test.mjs',
+  'app/ai-path/learning-plan-http.test.mjs',
+  'app/ai-path/learning-plan-durable.test.mjs',
+  'app/ai-path/realtime-safety.test.mjs',
+  'app/ai-path/realtime-admission.test.mjs',
+  'app/ai-path/retention.test.mjs',
+  'app/ai-path/analytics.test.mjs',
+  'app/ai-path/analytics-http.test.mjs',
+  'docs/ai-path/CATALOG.md',
+  'docs/ai-path/MEASUREMENT.md',
+  'docs/ai-path/PLAN_LOOP.md',
+  'docs/ai-path/TRUSTED_REPORT_WRITER.md',
+  'docs/ai-path/REALTIME_ADMISSION.md',
+  'docs/ai-path/RETENTION_OPERATIONS.md',
+  'docs/ai-path/OBSERVABILITY.md',
+]
+
+const latchChecks = [
+  {
+    id: 'durable_sessions',
+    label: 'Durable assessment sessions',
+    file: 'app/ai-path/lib/supabase-persistence.ts',
+    constant: 'AI_PATH_SUPABASE_PRODUCTION_LATCH',
+    optional: false,
+  },
+  {
+    id: 'trusted_report_writer',
+    label: 'Trusted durable report writer',
+    file: 'app/ai-path/lib/supabase-session-repository.server.ts',
+    constant: 'AI_PATH_TRUSTED_REPORT_WRITER_LATCH',
+    optional: false,
+  },
+  {
+    id: 'durable_plans',
+    label: 'Durable learning-plan persistence',
+    file: 'app/ai-path/lib/learning-plan-capability.ts',
+    constant: 'AI_PATH_DURABLE_LEARNING_PLAN_LATCH',
+    optional: true,
+  },
+  {
+    id: 'durable_plan_gateway',
+    label: 'Durable learning-plan Supabase gateway',
+    file: 'app/ai-path/lib/learning-plan-supabase.server.ts',
+    constant: 'AI_PATH_SUPABASE_PLAN_GATEWAY_LATCH',
+    optional: true,
+  },
+  {
+    id: 'analytics_sink',
+    label: 'Production analytics sink',
+    file: 'app/ai-path/lib/analytics.ts',
+    constant: 'AI_PATH_ANALYTICS_PRODUCTION_SINK_LATCH',
+    optional: false,
+  },
+  {
+    id: 'retention_job',
+    label: 'Durable retention mutation job',
+    file: 'app/api/cron/ai-path-retention/route.ts',
+    constant: 'AI_PATH_RETENTION_JOB_READY',
+    optional: false,
+  },
+  {
+    id: 'realtime_public_bootstrap',
+    label: 'Paid Realtime public bootstrap',
+    file: 'app/ai-path/lib/foundation.ts',
+    constant: 'AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY',
+    optional: false,
+  },
+  {
+    id: 'realtime_admission',
+    label: 'Realtime production admission store',
+    file: 'app/ai-path/lib/realtime-admission.ts',
+    constant: 'AI_PATH_REALTIME_ADMISSION_PRODUCTION_LATCH',
+    optional: true,
+  },
+]
+
+const externalBlockers = [
+  {
+    id: 'durable_plan_runtime_engineering',
+    owner: 'Application and data engineering',
+    action: 'Persist the learner goal preference on the trusted assessment session, wire the dormant Supabase plan adapter into request selection, and pass race and rollback integration tests.',
+  },
+  {
+    id: 'realtime_route_engineering',
+    owner: 'Application and security engineering',
+    action: 'Implement the authenticated owner-session bootstrap sequence and require an atomic admission reservation before any paid OpenAI Realtime call.',
+  },
+  {
+    id: 'realtime_admission_adapter_engineering',
+    owner: 'Platform and data engineering',
+    action: 'Build a durable atomic admission repository with multi-connection concurrency, expiry, reconciliation, and secret-rotation tests.',
+  },
+  {
+    id: 'retention_adapter_engineering',
+    owner: 'Platform engineering',
+    action: 'Implement the durable purge adapters and prove bounded, idempotent, observable deletion behavior before opening the retention route latch.',
+  },
+  {
+    id: 'supabase_project_and_auth',
+    owner: 'User / platform operator',
+    action: 'Provide and configure the production Supabase project, verified auth provider, cookie refresh flow, and secret storage.',
+  },
+  {
+    id: 'database_migrations_and_rls_proof',
+    owner: 'Platform engineering',
+    action: 'Apply all three migrations in a disposable project and pass RLS, RPC permission, concurrency, cascade, replay, rollback, export, and deletion tests.',
+  },
+  {
+    id: 'trusted_server_credentials',
+    owner: 'Security / platform operator',
+    action: 'Provision server-only service credentials with rotation, audit, redaction, and incident-revocation procedures.',
+  },
+  {
+    id: 'retention_operations',
+    owner: 'Platform operations',
+    action: 'Configure the authenticated scheduler, behavioral purge verification, alerting, runbooks, and deletion-latency monitoring.',
+  },
+  {
+    id: 'distributed_abuse_and_spend_controls',
+    owner: 'Platform / finance owner',
+    action: 'Approve and configure distributed rate limiting, per-user concurrency, daily spend ceilings, alerts, and a kill switch.',
+  },
+  {
+    id: 'analytics_governance',
+    owner: 'Privacy / product analytics',
+    action: 'Approve a privacy-reviewed sink, region, retention, deletion behavior, cohort thresholds, access control, and any vendor spend.',
+  },
+  {
+    id: 'openai_realtime_approval',
+    owner: 'User / spend approver',
+    action: 'Explicitly approve paid OpenAI Realtime usage and configure production credentials only after authenticated admission tests pass.',
+  },
+  {
+    id: 'deployment_and_launch',
+    owner: 'Release owner',
+    action: 'Configure the production deployment, domain, security headers, monitoring, backups, rollback, calibration study, accessibility audit, and launch acceptance.',
+  },
+]
+
+function normalizePath(root, path) {
+  return relative(root, join(root, path)).split('\\').join('/')
+}
+
+function filePresence(root, paths) {
+  return paths.map((path) => ({ path: normalizePath(root, path), present: existsSync(join(root, path)) }))
+}
+
+function uncommentedSource(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '')
+}
+
+export function inspectLiteralFalse(source, constant) {
+  const sanitized = uncommentedSource(source)
+  const escaped = constant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const declaration = new RegExp(`\\bexport\\s+const\\s+${escaped}\\s*=\\s*([^;\\r\\n]+)`, 'g')
+  const values = [...sanitized.matchAll(declaration)].map((match) => match[1].trim())
+  return {
+    declarations: values.length,
+    literalFalse: values.length === 1 && values[0] === 'false as const',
+  }
+}
+
+function inspectLatch(root, check) {
+  const absolute = join(root, check.file)
+  if (!existsSync(absolute)) {
+    return {
+      id: check.id,
+      label: check.label,
+      file: check.file,
+      constant: check.constant,
+      status: check.optional ? 'not_present' : 'broken',
+      detail: check.optional
+        ? 'Optional module is not present; no activation surface was found.'
+        : 'Required latch source is missing, so fail-closed state cannot be verified.',
+    }
+  }
+  const result = inspectLiteralFalse(readFileSync(absolute, 'utf8'), check.constant)
+  return {
+    id: check.id,
+    label: check.label,
+    file: check.file,
+    constant: check.constant,
+    status: result.literalFalse ? 'locked' : 'broken',
+    detail: result.literalFalse
+      ? 'Literal false code gate verified.'
+      : `Expected one literal false export; found ${result.declarations} matching declaration(s).`,
+  }
+}
+
+function inspectRealtimeRoute(root) {
+  const file = 'app/api/ai-path/realtime/session/route.ts'
+  const absolute = join(root, file)
+  if (!existsSync(absolute)) {
+    return {
+      id: 'realtime_route_network_isolation',
+      label: 'Realtime public-route network isolation',
+      file,
+      constant: null,
+      status: 'broken',
+      detail: 'Realtime public route is missing, so its paid-network isolation cannot be verified.',
+    }
+  }
+  const source = uncommentedSource(readFileSync(absolute, 'utf8'))
+  const forbidden = /createLiveRealtimeCall|api\.openai\.com|\bfetch\s*\(/
+  return {
+    id: 'realtime_route_network_isolation',
+    label: 'Realtime public-route network isolation',
+    file,
+    constant: null,
+    status: forbidden.test(source) ? 'broken' : 'locked',
+    detail: forbidden.test(source)
+      ? 'Public route contains a direct live-network call surface.'
+      : 'Public route has no direct OpenAI/fetch/live-call invocation.',
+  }
+}
+
+export function inspectAiPathReadiness(options = {}) {
+  const root = resolve(options.root ?? scriptRoot)
+  const privateInventory = filePresence(root, privateAlphaFiles)
+  const productionInventory = filePresence(root, productionFoundationFiles)
+  const safetyChecks = [
+    ...latchChecks.map((check) => inspectLatch(root, check)),
+    inspectRealtimeRoute(root),
+  ]
+  const brokenSafety = safetyChecks.filter((check) => check.status === 'broken')
+  const missingPrivateAlpha = privateInventory.filter((item) => !item.present)
+  const missingProductionFoundation = productionInventory.filter((item) => !item.present)
+  const safePrivateAlpha = brokenSafety.length === 0 && missingPrivateAlpha.length === 0
+
+  // External operational proof is intentionally not inferred from environment
+  // variables, credentials, or local files. Those blockers require human attestation.
+  const productionReady = safePrivateAlpha
+    && missingProductionFoundation.length === 0
+    && externalBlockers.length === 0
+
+  return {
+    readinessVersion: AI_PATH_READINESS_VERSION,
+    safePrivateAlpha,
+    productionReady,
+    safety: {
+      ok: brokenSafety.length === 0,
+      locked: safetyChecks.filter((check) => check.status === 'locked').length,
+      optionalNotPresent: safetyChecks.filter((check) => check.status === 'not_present').length,
+      broken: brokenSafety.length,
+      checks: safetyChecks,
+    },
+    inventory: {
+      privateAlpha: {
+        complete: missingPrivateAlpha.length === 0,
+        present: privateInventory.filter((item) => item.present).length,
+        required: privateInventory.length,
+        missing: missingPrivateAlpha.map((item) => item.path),
+      },
+      productionFoundation: {
+        complete: missingProductionFoundation.length === 0,
+        present: productionInventory.filter((item) => item.present).length,
+        required: productionInventory.length,
+        missing: missingProductionFoundation.map((item) => item.path),
+      },
+    },
+    externalBlockers,
+    policy: {
+      readsSecrets: false,
+      makesNetworkCalls: false,
+      mutatesWorkspace: false,
+      defaultExitNonzeroOnlyForBrokenSafety: true,
+    },
+  }
+}
+
+export function formatHumanReadiness(report) {
+  const lines = [
+    'AI Path readiness',
+    `Safe private alpha: ${report.safePrivateAlpha ? 'YES' : 'NO'}`,
+    `Production ready: ${report.productionReady ? 'YES' : 'NO'}`,
+    `Safety gates: ${report.safety.locked} locked, ${report.safety.optionalNotPresent} optional absent, ${report.safety.broken} broken`,
+    `Private-alpha source inventory: ${report.inventory.privateAlpha.present}/${report.inventory.privateAlpha.required}`,
+    `Production-foundation inventory: ${report.inventory.productionFoundation.present}/${report.inventory.productionFoundation.required}`,
+  ]
+  if (report.inventory.privateAlpha.missing.length) {
+    lines.push('Missing private-alpha files:')
+    report.inventory.privateAlpha.missing.forEach((path) => lines.push(`  - ${path}`))
+  }
+  if (report.inventory.productionFoundation.missing.length) {
+    lines.push('Missing production-foundation files:')
+    report.inventory.productionFoundation.missing.forEach((path) => lines.push(`  - ${path}`))
+  }
+  lines.push('Safety checks:')
+  report.safety.checks.forEach((check) => lines.push(`  - [${check.status.toUpperCase()}] ${check.label}: ${check.detail}`))
+  lines.push('Actionable external blockers:')
+  report.externalBlockers.forEach((blocker) => lines.push(`  - ${blocker.id} (${blocker.owner}): ${blocker.action}`))
+  lines.push('No environment files, credentials, or secret values were read or printed.')
+  return lines.join('\n')
+}
+
+function parseCli(argv) {
+  return {
+    json: argv.includes('--json'),
+    requireProduction: argv.includes('--require-production'),
+  }
+}
+
+export function readinessExitCode(report, options = {}) {
+  if (!report.safety.ok) return 1
+  if (options.requireProduction && !report.productionReady) return 2
+  return 0
+}
+
+function main() {
+  const options = parseCli(process.argv.slice(2))
+  const report = inspectAiPathReadiness()
+  process.stdout.write(options.json
+    ? `${JSON.stringify(report, null, 2)}\n`
+    : `${formatHumanReadiness(report)}\n`)
+  process.exitCode = readinessExitCode(report, options)
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()

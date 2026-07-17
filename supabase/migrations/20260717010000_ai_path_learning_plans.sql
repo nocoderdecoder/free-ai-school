@@ -40,7 +40,7 @@ create table public.ai_path_learning_plans (
   revision integer not null default 1 check (revision >= 1),
   current_snapshot_version integer not null default 1 check (current_snapshot_version >= 1),
   weekly_minutes integer not null check (weekly_minutes between 15 and 1200),
-  retention_expires_at timestamptz not null default (now() + interval '180 days'),
+  retention_expires_at timestamptz not null default (now() + interval '90 days'),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (owner_id, source_assessment_session_id),
@@ -109,7 +109,7 @@ create table public.ai_path_learning_plan_adaptations (
 comment on table public.ai_path_learning_plan_check_ins is
   'Private owner text. Never copy check_in_text into analytics or operational telemetry; emit only content-free lifecycle events.';
 comment on column public.ai_path_learning_plans.retention_expires_at is
-  'Plan-loop records default to 180 days, intentionally longer than the 90-day assessment-session default. Account/session deletion still cascades immediately.';
+  'Plan-loop records match the 90-day source assessment retention. Account/session deletion cascades immediately.';
 
 create or replace function public.delete_ai_path_plans_for_assessment_session()
 returns trigger

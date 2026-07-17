@@ -714,6 +714,7 @@ export type RealtimeEnvironment = {
   authReady?: string
   distributedRateLimitReady?: string
   spendControlsReady?: string
+  admissionReady?: boolean
   approvedDailyBudgetUsd?: string
   apiKey?: string
   safetyIdentifierSalt?: string
@@ -749,6 +750,9 @@ export function resolveRealtimeCapability(environment: RealtimeEnvironment): {
   }
   if (environment.spendControlsReady !== 'true') {
     return { mode: 'mock', liveEnabled: false, reason: 'per-user concurrency and spend controls are not ready', model }
+  }
+  if (environment.admissionReady !== true) {
+    return { mode: 'mock', liveEnabled: false, reason: 'atomic Realtime admission is not ready', model }
   }
   const dailyBudgetUsd = Number(environment.approvedDailyBudgetUsd)
   if (!Number.isFinite(dailyBudgetUsd) || dailyBudgetUsd <= 0 || dailyBudgetUsd > 10_000) {

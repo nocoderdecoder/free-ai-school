@@ -1,6 +1,6 @@
 export const AI_PATH_PLAN_VERSION = '2026-07-17.v1' as const
 export const AI_PATH_PLAN_TASK_COUNT = 12 as const
-export const AI_PATH_PLAN_RETENTION_DAYS = 180 as const
+export const AI_PATH_PLAN_RETENTION_DAYS = 90 as const
 
 export type LearningPlanPrincipal = { userId: string }
 export type LearningPlanStatus = 'active' | 'completed' | 'archived'
@@ -186,6 +186,7 @@ function validateSnapshotInput(input: LearningPlanSnapshotInput) {
 export interface LearningPlanRepository {
   create(plan: LearningPlanRecord): Promise<{ ok: true; plan: LearningPlanRecord } | { ok: false; reason: 'source_session_exists' }>
   findOwnedById(planId: string, ownerId: string): Promise<LearningPlanRecord | null>
+  findOwnedBySourceAssessment(sourceAssessmentSessionId: string, ownerId: string): Promise<LearningPlanRecord | null>
   replaceOwned(plan: LearningPlanRecord, expectedRevision: number): Promise<'saved' | 'not_found' | 'conflict'>
   deleteOwnedById(planId: string, ownerId: string): Promise<boolean>
   listExpired(nowIso: string): Promise<LearningPlanRecord[]>
@@ -211,6 +212,13 @@ export class InMemoryLearningPlanRepository implements LearningPlanRepository {
   async findOwnedById(planId: string, ownerId: string) {
     const plan = this.#plans.get(planId)
     return plan?.ownerId === ownerId ? clone(plan) : null
+  }
+
+  async findOwnedBySourceAssessment(sourceAssessmentSessionId: string, ownerId: string) {
+    const plan = [...this.#plans.values()].find((candidate) =>
+      candidate.ownerId === ownerId
+      && candidate.sourceAssessmentSessionId === sourceAssessmentSessionId)
+    return plan ? clone(plan) : null
   }
 
   async replaceOwned(plan: LearningPlanRecord, expectedRevision: number) {
@@ -296,6 +304,13 @@ export class LearningPlanService {
 
   getOwnedPlan(principal: LearningPlanPrincipal, planId: string) {
     return this.#repository.findOwnedById(planId, principal.userId)
+  }
+
+  getOwnedPlanBySourceAssessment(
+    principal: LearningPlanPrincipal,
+    sourceAssessmentSessionId: string,
+  ) {
+    return this.#repository.findOwnedBySourceAssessment(sourceAssessmentSessionId, principal.userId)
   }
 
   async transitionTask(

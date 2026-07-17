@@ -189,8 +189,20 @@ test('Realtime remains inert until every server-side live and paid gate is expli
     spendControlsReady: 'true',
     approvedDailyBudgetUsd: '25',
   })
-  assert.equal(fullyConfiguredCapability.liveEnabled, true)
-  assert.equal(canBootstrapPublicRealtime(fullyConfiguredCapability), false)
+  assert.equal(fullyConfiguredCapability.liveEnabled, false)
+  assert.match(fullyConfiguredCapability.reason, /admission/)
+  const admittedCapability = resolveRealtimeCapability({
+    ...base,
+    enableLiveRealtime: 'true',
+    allowPaidApiCalls: 'true',
+    authReady: 'true',
+    distributedRateLimitReady: 'true',
+    spendControlsReady: 'true',
+    admissionReady: true,
+    approvedDailyBudgetUsd: '25',
+  })
+  assert.equal(admittedCapability.liveEnabled, true)
+  assert.equal(canBootstrapPublicRealtime(admittedCapability), false)
   assert.equal(resolveRealtimeCapability({
     ...base,
     enableLiveRealtime: 'true',

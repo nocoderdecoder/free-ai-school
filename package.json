@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:ai-path": "node --test app/ai-path/foundation.test.mjs app/ai-path/catalog.test.mjs app/ai-path/client/api.test.mjs app/ai-path/client/plan-actions.test.mjs app/ai-path/durable-persistence.test.mjs app/ai-path/learning-plan.test.mjs app/ai-path/learning-plan-sql.test.mjs app/ai-path/reviewed-assessment.test.mjs app/ai-path/plan.test.mjs app/ai-path/realtime-safety.test.mjs app/ai-path/request-body.test.mjs app/ai-path/route-handlers.test.mjs app/ai-path/session-persistence.test.mjs"
+    "test:ai-path": "node --test app/ai-path/foundation.test.mjs app/ai-path/catalog.test.mjs app/ai-path/client/api.test.mjs app/ai-path/client/plan-actions.test.mjs app/ai-path/durable-persistence.test.mjs app/ai-path/learning-plan.test.mjs app/ai-path/learning-plan-sql.test.mjs app/ai-path/learning-plan-http.test.mjs app/ai-path/learning-plan-durable.test.mjs app/ai-path/analytics.test.mjs app/ai-path/analytics-http.test.mjs app/ai-path/retention.test.mjs app/ai-path/readiness-script.test.mjs app/ai-path/reviewed-assessment.test.mjs app/ai-path/plan.test.mjs app/ai-path/realtime-admission.test.mjs app/ai-path/realtime-safety.test.mjs app/ai-path/request-body.test.mjs app/ai-path/route-handlers.test.mjs app/ai-path/session-persistence.test.mjs",
+    "check:ai-path-readiness": "node scripts/ai-path-readiness.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.102.0",

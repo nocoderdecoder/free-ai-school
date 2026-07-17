@@ -11,6 +11,11 @@ export type AiPathSessionStatus =
   | 'failed'
   | 'expired'
 
+export type AiPathLearningPlanStatus = 'active' | 'completed' | 'archived'
+export type AiPathPlanSnapshotReason = 'initial' | 'adaptation' | 'reassessment'
+export type AiPathPlanTaskStatus = 'pending' | 'in_progress' | 'completed' | 'skipped'
+export type AiPathPlanAdaptationStatus = 'proposed' | 'approved' | 'rejected' | 'superseded'
+
 export type Database = {
   public: {
     Tables: {
@@ -83,6 +88,186 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_path_learning_plans: {
+        Row: {
+          id: string
+          owner_id: string
+          source_assessment_session_id: string
+          plan_version: string
+          status: AiPathLearningPlanStatus
+          revision: number
+          current_snapshot_version: number
+          weekly_minutes: number
+          retention_expires_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          owner_id: string
+          source_assessment_session_id: string
+          plan_version?: string
+          status?: AiPathLearningPlanStatus
+          revision?: number
+          current_snapshot_version?: number
+          weekly_minutes: number
+          retention_expires_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          owner_id?: string
+          source_assessment_session_id?: string
+          plan_version?: string
+          status?: AiPathLearningPlanStatus
+          revision?: number
+          current_snapshot_version?: number
+          weekly_minutes?: number
+          retention_expires_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_path_learning_plan_snapshots: {
+        Row: {
+          id: string
+          plan_id: string
+          version: number
+          reason: AiPathPlanSnapshotReason
+          source_assessment_session_id: string
+          title: string
+          proof: string
+          focus_now: string
+          not_yet: string
+          tasks: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          plan_id: string
+          version: number
+          reason: AiPathPlanSnapshotReason
+          source_assessment_session_id: string
+          title: string
+          proof: string
+          focus_now: string
+          not_yet: string
+          tasks: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          plan_id?: string
+          version?: number
+          reason?: AiPathPlanSnapshotReason
+          source_assessment_session_id?: string
+          title?: string
+          proof?: string
+          focus_now?: string
+          not_yet?: string
+          tasks?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
+      ai_path_learning_plan_task_progress: {
+        Row: {
+          plan_id: string
+          snapshot_version: number
+          task_id: string
+          status: AiPathPlanTaskStatus
+          updated_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          plan_id: string
+          snapshot_version: number
+          task_id: string
+          status?: AiPathPlanTaskStatus
+          updated_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          plan_id?: string
+          snapshot_version?: number
+          task_id?: string
+          status?: AiPathPlanTaskStatus
+          updated_at?: string
+          completed_at?: string | null
+        }
+        Relationships: []
+      }
+      ai_path_learning_plan_check_ins: {
+        Row: { id: string; plan_id: string; week_number: number; check_in_text: string; created_at: string }
+        Insert: { id?: string; plan_id: string; week_number: number; check_in_text: string; created_at?: string }
+        Update: { id?: string; plan_id?: string; week_number?: number; check_in_text?: string; created_at?: string }
+        Relationships: []
+      }
+      ai_path_learning_plan_time_budget_changes: {
+        Row: {
+          id: string
+          plan_id: string
+          from_minutes: number
+          to_minutes: number
+          reason: string
+          source: 'user' | 'adaptation'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          plan_id: string
+          from_minutes: number
+          to_minutes: number
+          reason: string
+          source: 'user' | 'adaptation'
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          plan_id?: string
+          from_minutes?: number
+          to_minutes?: number
+          reason?: string
+          source?: 'user' | 'adaptation'
+          created_at?: string
+        }
+        Relationships: []
+      }
+      ai_path_learning_plan_adaptations: {
+        Row: {
+          id: string
+          plan_id: string
+          proposal_text: string
+          operations: Json
+          status: AiPathPlanAdaptationStatus
+          base_snapshot_version: number
+          created_at: string
+          decided_at: string | null
+        }
+        Insert: {
+          id?: string
+          plan_id: string
+          proposal_text: string
+          operations: Json
+          status?: AiPathPlanAdaptationStatus
+          base_snapshot_version: number
+          created_at?: string
+          decided_at?: string | null
+        }
+        Update: {
+          id?: string
+          plan_id?: string
+          proposal_text?: string
+          operations?: Json
+          status?: AiPathPlanAdaptationStatus
+          base_snapshot_version?: number
+          created_at?: string
+          decided_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -122,9 +307,54 @@ export type Database = {
         }
         Returns: Json
       }
+      create_ai_path_learning_plan: {
+        Args: {
+          p_owner_id: string
+          p_source_assessment_session_id: string
+          p_weekly_minutes: number
+          p_title: string
+          p_proof: string
+          p_focus_now: string
+          p_not_yet: string
+          p_tasks: Json
+        }
+        Returns: string
+      }
+      set_owned_ai_path_plan_task_progress: {
+        Args: { p_plan_id: string; p_task_id: string; p_next_status: AiPathPlanTaskStatus; p_expected_revision: number }
+        Returns: Json
+      }
+      adjust_owned_ai_path_plan_time_budget: {
+        Args: { p_plan_id: string; p_weekly_minutes: number; p_reason: string; p_expected_revision: number }
+        Returns: Json
+      }
+      add_owned_ai_path_plan_check_in: {
+        Args: { p_plan_id: string; p_week_number: number; p_check_in_text: string; p_expected_revision: number }
+        Returns: Json
+      }
+      respond_to_owned_ai_path_plan_adaptation: {
+        Args: { p_plan_id: string; p_adaptation_id: string; p_decision: string; p_expected_revision: number }
+        Returns: Json
+      }
+      export_owned_ai_path_learning_plan: {
+        Args: { p_plan_id: string }
+        Returns: Json
+      }
+      delete_owned_ai_path_learning_plan: {
+        Args: { p_plan_id: string }
+        Returns: boolean
+      }
+      purge_expired_ai_path_learning_plans: {
+        Args: Record<string, never>
+        Returns: number
+      }
     }
     Enums: {
       ai_path_session_status: AiPathSessionStatus
+      ai_path_learning_plan_status: AiPathLearningPlanStatus
+      ai_path_plan_snapshot_reason: AiPathPlanSnapshotReason
+      ai_path_plan_task_status: AiPathPlanTaskStatus
+      ai_path_plan_adaptation_status: AiPathPlanAdaptationStatus
     }
     CompositeTypes: Record<string, never>
   }
