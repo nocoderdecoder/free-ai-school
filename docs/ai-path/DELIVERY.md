@@ -37,7 +37,7 @@ Verified in the repository on 2026-07-17: 237 deterministic tests, TypeScript, s
 - Collapse or rename skills that users cannot distinguish.
 - Measure correction rate at the understanding checkpoint.
 - Deterministic API report rendering is implemented for the private-alpha path.
-- Owner-scoped persistence, export, deletion, and trusted report-writing contracts are implemented behind closed production latches; disposable-database proof and hosted auth remain open.
+- Owner-scoped persistence, export, deletion, and trusted report-writing contracts are implemented behind closed production latches. The disposable PostgreSQL 16 behavioral suite passes; hosted auth and exact-release staging evidence remain open.
 
 ### M2 — Voice alpha
 
@@ -56,7 +56,7 @@ Verified in the repository on 2026-07-17: 237 deterministic tests, TypeScript, s
 - Show report deltas and why each level changed.
 - Add catalog review dates, availability checks, and recommendation outcome feedback.
 
-The owner-scoped plan aggregate, HTTP routes, dormant Supabase adapter, immutable server-bound learner goal preference, SQL/RLS contract, task progress, check-ins, time changes, explicit adaptation decisions, reassessment snapshots, export/delete, and retention purge are implemented behind dormant persistence boundaries. The private-alpha UI currently keeps plan changes in the browser and labels them as a preview. Durable activation still requires request-runtime wiring, disposable-database proof, and versioned retention disclosure.
+The owner-scoped plan aggregate, HTTP routes, dormant Supabase adapter, immutable server-bound learner goal preference, SQL/RLS contract, task progress, check-ins, time changes, explicit adaptation decisions, reassessment snapshots, export/delete, and retention purge are implemented behind dormant persistence boundaries. The private-alpha UI currently keeps plan changes in the browser and labels them as a preview. The disposable PostgreSQL 16 behavioral suite passes. Durable activation still requires authenticated non-production runtime wiring, exact-release evidence, and versioned retention disclosure.
 
 ### M4 — Beta decision
 
@@ -67,9 +67,9 @@ The owner-scoped plan aggregate, HTTP routes, dormant Supabase adapter, immutabl
 
 ## Current critical path
 
-1. Push this checkpoint and require the new disposable PostgreSQL 16 GitHub workflow to pass for the exact release commit. Local `psql` is absent, so local behavioral database evidence remains unavailable.
-2. Create the commit-bound durable-text evidence packet from successful database, authenticated staging, retention-operations, and owner/cross-owner export-delete runs. Keep all four durable-text latches closed until the offline gate reports only `READY_FOR_REVIEWED_ACTIVATION` and a separate change is approved.
-3. Configure a Supabase-compatible project, verified authentication, server-only credential rotation, monitored bounded retention, deletion alerts, backups, rollback, and incident revocation; this requires platform/operator decisions.
+1. Configure an isolated non-production Supabase-compatible project, verified authentication, server-only credential rotation, monitored bounded retention, deletion alerts, backups, rollback, and incident revocation; this requires platform/operator decisions.
+2. Run authenticated owner/cross-owner, export/delete, retention, rollback, and cookie-refresh checks in that staging environment. Re-run the green disposable PostgreSQL 16 workflow for the exact release commit using an accepted push or workflow-dispatch event.
+3. Create the commit-bound durable-text evidence packet from successful database, authenticated staging, retention-operations, and owner/cross-owner export-delete runs. Keep all four durable-text latches closed until the offline gate reports only `READY_FOR_REVIEWED_ACTIVATION` and a separate change is approved.
 4. Run the checked-in five-participant moderated protocol and two independent assessment reviews; recruiting, consent, restricted research storage, and human adjudication remain operator work.
 5. Review the responsive browser screenshots and decide whether the current high-signal accessibility checks require a separately approved full WCAG audit or multi-browser baseline before inviting participants.
 6. Choose and privacy-review a production analytics sink, region, access model, cohort floor, retention, and deletion implementation before opening the analytics latch.

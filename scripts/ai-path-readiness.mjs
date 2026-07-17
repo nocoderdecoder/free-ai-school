@@ -225,7 +225,7 @@ const externalBlockers = [
   {
     id: 'durable_plan_runtime_engineering',
     owner: 'Application and data engineering',
-    action: 'Wire the dormant Supabase plan adapter into request selection only after the eight-migration disposable-database suite passes race, rollback, ownership, and export tests.',
+    action: 'The eight-migration disposable-database suite passes. Wire the dormant Supabase plan adapter only in authenticated non-production staging, then collect exact-release ownership, rollback, export, deletion, and retention evidence before any latch review.',
   },
   {
     id: 'realtime_route_engineering',
@@ -250,7 +250,7 @@ const externalBlockers = [
   {
     id: 'database_migrations_and_rls_proof',
     owner: 'Platform engineering',
-    action: 'Apply all eight migrations with the fail-closed local harness and pass RLS, RPC permission, continuity, concurrency, cascade, replay, rollback, export, bounded retention, lifecycle archive, and deletion tests.',
+    action: 'The disposable PostgreSQL 16 behavioral suite passes on the pull request. Re-run it for the exact release commit using an accepted push or workflow-dispatch event and bind the successful run metadata plus artifact hashes into the reviewed release evidence packet.',
   },
   {
     id: 'trusted_server_credentials',
