@@ -17,6 +17,10 @@ export const AI_PATH_REALTIME_ADMISSION_RPC_NAMES = {
   cancel: 'cancel_ai_path_realtime_admission',
 } as const
 
+// A caller cannot override this deadline. The repository is the last durable
+// boundary before a successful reservation could authorize paid Realtime work.
+export const AI_PATH_REALTIME_ADMISSION_RPC_DEADLINE_MS = 4_000 as const
+
 type SupabaseRealtimeAdmissionRpcName =
   typeof AI_PATH_REALTIME_ADMISSION_RPC_NAMES[keyof typeof AI_PATH_REALTIME_ADMISSION_RPC_NAMES]
 
@@ -33,11 +37,12 @@ export type SupabaseRealtimeAdmissionRpcClient = {
   rpc: (
     name: SupabaseRealtimeAdmissionRpcName,
     args: Record<string, string | number>,
+    signal: AbortSignal,
   ) => PromiseLike<SupabaseRpcResult>
 }
 
 export class SupabaseRealtimeAdmissionGatewayError extends Error {
-  readonly code: 'invalid_command' | 'rpc_failed' | 'malformed_response'
+  readonly code: 'invalid_command' | 'rpc_failed' | 'rpc_timeout' | 'malformed_response'
 
   constructor(code: SupabaseRealtimeAdmissionGatewayError['code']) {
     super('The durable Realtime admission operation failed closed.')
@@ -45,6 +50,8 @@ export class SupabaseRealtimeAdmissionGatewayError extends Error {
     this.code = code
   }
 }
+
+class SupabaseRealtimeAdmissionDeadlineError extends Error {}
 
 const opaqueKeyPattern = /^[0-9a-f]{64}$/
 const idempotencyKeyPattern = /^[A-Za-z0-9_-]{16,128}$/
@@ -282,8 +289,15 @@ async function invokeRpc(
   name: SupabaseRealtimeAdmissionRpcName,
   args: Record<string, string | number>,
 ) {
+  const signal = AbortSignal.timeout(AI_PATH_REALTIME_ADMISSION_RPC_DEADLINE_MS)
   try {
-    const result = await client.rpc(name, args)
+    const rpc = Promise.resolve(client.rpc(name, args, signal))
+    const deadline = new Promise<never>((_, reject) => {
+      const rejectForDeadline = () => reject(new SupabaseRealtimeAdmissionDeadlineError())
+      if (signal.aborted) rejectForDeadline()
+      else signal.addEventListener('abort', rejectForDeadline, { once: true })
+    })
+    const result = await Promise.race([rpc, deadline])
     if (
       !isRecord(result)
       || !Object.hasOwn(result, 'data')
@@ -303,6 +317,9 @@ async function invokeRpc(
     return result.data
   } catch (error) {
     if (error instanceof SupabaseRealtimeAdmissionGatewayError) throw error
+    if (error instanceof SupabaseRealtimeAdmissionDeadlineError || signal.aborted) {
+      throw new SupabaseRealtimeAdmissionGatewayError('rpc_timeout')
+    }
     throw new SupabaseRealtimeAdmissionGatewayError('rpc_failed')
   }
 }

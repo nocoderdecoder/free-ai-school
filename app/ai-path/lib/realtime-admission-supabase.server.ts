@@ -8,9 +8,10 @@ import {
   type SupabaseRealtimeAdmissionRpcClient,
 } from './realtime-admission-supabase.ts'
 import {
-  RealtimeAdmissionService,
-  type RealtimeAdmissionPolicy,
-} from './realtime-admission.ts'
+  AI_PATH_REALTIME_ADMISSION_POLICY,
+  AI_PATH_REALTIME_ADMISSION_POLICY_ROLLOUT_LATCH,
+} from './realtime-admission-policy.server.ts'
+import { RealtimeAdmissionService } from './realtime-admission.ts'
 
 export const AI_PATH_SUPABASE_REALTIME_ADMISSION_SCHEMA_VERSION = '20260717070000' as const
 
@@ -24,6 +25,8 @@ export type SupabaseRealtimeAdmissionActivation = {
   credentialScope?: string
   atomicSqlProof?: string
   lifecycleSqlProof?: string
+  policyVersion?: string
+  policyId?: string
 }
 
 /**
@@ -32,16 +35,18 @@ export type SupabaseRealtimeAdmissionActivation = {
  */
 export function createSupabaseRealtimeAdmissionService(
   serviceRoleClient: SupabaseClient<Database>,
-  policy: RealtimeAdmissionPolicy,
   activation: SupabaseRealtimeAdmissionActivation,
 ) {
   if (
     !AI_PATH_SUPABASE_REALTIME_ADMISSION_GATEWAY_LATCH
+    || !AI_PATH_REALTIME_ADMISSION_POLICY_ROLLOUT_LATCH
     || activation.enabled !== 'true'
     || activation.schemaVersion !== AI_PATH_SUPABASE_REALTIME_ADMISSION_SCHEMA_VERSION
     || activation.credentialScope !== 'service-role'
     || activation.atomicSqlProof !== 'passed'
     || activation.lifecycleSqlProof !== 'passed'
+    || activation.policyVersion !== AI_PATH_REALTIME_ADMISSION_POLICY.version
+    || activation.policyId !== AI_PATH_REALTIME_ADMISSION_POLICY.policyId
   ) {
     throw new Error('Durable Realtime admission networking is disabled by the reviewed code-level latch.')
   }
@@ -49,15 +54,15 @@ export function createSupabaseRealtimeAdmissionService(
   // Narrow the service-role client to the three reviewed RPC names. The
   // repository has no table, auth, storage, logging, or arbitrary-RPC surface.
   const rpcClient: SupabaseRealtimeAdmissionRpcClient = {
-    rpc(name, args) {
+    rpc(name, args, signal) {
       // The narrow adapter has already correlated each reviewed RPC name with
       // its exact validated argument object. `never` bridges Supabase's
       // generated overload union without broadening this boundary.
-      return serviceRoleClient.rpc(name, args as never)
+      return serviceRoleClient.rpc(name, args as never).abortSignal(signal)
     },
   }
   return new RealtimeAdmissionService(
     new SupabaseRealtimeAdmissionRepository(rpcClient),
-    policy,
+    AI_PATH_REALTIME_ADMISSION_POLICY.limits,
   )
 }

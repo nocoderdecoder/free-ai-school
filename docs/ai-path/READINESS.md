@@ -44,21 +44,23 @@ The source-only inventory covers the private-alpha UI, routes, their high-risk r
 - durable Supabase retention gateway, when present;
 - public paid Realtime bootstrap;
 - Realtime production admission store, when present;
+- Realtime admission policy rollout, when present;
 - durable Realtime admission Supabase gateway, when present;
 - Realtime admission lifecycle-maintenance gateway, when present;
 - direct `fetch`, OpenAI URL, or live-call invocation in the public Realtime session route.
 
-Optional plan, plan-gateway, retention-gateway, admission, durable-admission,
-and admission-maintenance modules are reported as `not_present` when absent. If
-present, their latch must be one exact literal-false export. Commented
-declarations, environment-derived expressions, `true`, or duplicate
-declarations fail closed.
+Optional plan, plan-gateway, retention-gateway, admission, admission-policy,
+durable-admission, and admission-maintenance modules are reported as
+`not_present` when absent. If present, their latch must be one exact
+literal-false export. Commented declarations, environment-derived expressions,
+`true`, or duplicate declarations fail closed.
 
 The actionable production blockers separate unfinished application/platform
 engineering from operator configuration and approval. Engineering blockers
 include durable plan request-runtime selection, the authenticated Realtime
-route, disposable-database execution, uniform RPC deadlines, HMAC rotation,
-policy-version rollout, and bounded-retention runner wiring/capacity proof.
+route, disposable-database execution, database-enforced policy identity,
+versioned HMAC tuple persistence/rotation, and bounded-retention runner
+wiring/capacity proof.
 Operator and governance blockers cover production Supabase and authentication,
 migration and RLS proof, trusted server credentials, retention operations,
 abuse and spend controls, analytics governance, explicit paid OpenAI Realtime

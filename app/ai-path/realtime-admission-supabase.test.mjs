@@ -3,11 +3,13 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 import {
+  AI_PATH_REALTIME_ADMISSION_RPC_DEADLINE_MS,
   AI_PATH_REALTIME_ADMISSION_RPC_NAMES,
   SupabaseRealtimeAdmissionGatewayError,
   SupabaseRealtimeAdmissionRepository,
 } from './lib/realtime-admission-supabase.ts'
 import {
+  RealtimeAdmissionService,
   createVerifiedRealtimeAdmissionBinding,
 } from './lib/realtime-admission.ts'
 
@@ -273,6 +275,59 @@ test('provider errors, thrown values, and malformed wrappers are normalized with
   }
 })
 
+test('fixed admission deadline aborts a stalled RPC and service denies provider progression', { concurrency: false }, async () => {
+  const originalTimeout = AbortSignal.timeout
+  let receivedSignal
+  let resolveRpc
+  let providerProgressed = false
+  AbortSignal.timeout = milliseconds => {
+    assert.equal(milliseconds, 4_000)
+    const controller = new AbortController()
+    queueMicrotask(() => controller.abort())
+    return controller.signal
+  }
+
+  try {
+    const repository = new SupabaseRealtimeAdmissionRepository({
+      rpc(_name, _args, signal) {
+        receivedSignal = signal
+        return new Promise(resolve => { resolveRpc = resolve })
+      },
+    })
+    await assert.rejects(
+      repository.atomicReserve(reserveCommand),
+      error => (
+        error instanceof SupabaseRealtimeAdmissionGatewayError
+        && error.code === 'rpc_timeout'
+        && error.message === 'The durable Realtime admission operation failed closed.'
+      ),
+    )
+    assert.equal(receivedSignal.aborted, true)
+
+    const service = new RealtimeAdmissionService(repository, policy, {
+      now: () => new Date(reserveCommand.now),
+    })
+    const result = await service.reserve({
+      binding,
+      idempotencyKey: reserveCommand.idempotencyKey,
+      estimatedCents: reserveCommand.estimatedCents,
+    })
+    if (result.status === 'admitted') providerProgressed = true
+
+    assert.deepEqual(result, { status: 'denied', reason: 'store_unavailable' })
+    assert.equal(providerProgressed, false)
+    resolveRpc({
+      data: { kind: 'reserved', reservation: reservation(), idempotent: false },
+      error: null,
+    })
+    await Promise.resolve()
+    assert.equal(providerProgressed, false)
+    assert.equal(AI_PATH_REALTIME_ADMISSION_RPC_DEADLINE_MS, 4_000)
+  } finally {
+    AbortSignal.timeout = originalTimeout
+  }
+})
+
 test('server factory is independently latched, server-only, and route-free', async () => {
   const serverSource = await readFile(
     new URL('./lib/realtime-admission-supabase.server.ts', import.meta.url),
@@ -293,7 +348,10 @@ test('server factory is independently latched, server-only, and route-free', asy
   assert.match(serverSource, /activation\.atomicSqlProof !== 'passed'/)
   assert.match(serverSource, /activation\.lifecycleSqlProof !== 'passed'/)
   assert.match(serverSource, /AI_PATH_SUPABASE_REALTIME_ADMISSION_SCHEMA_VERSION = '20260717070000'/)
+  assert.match(serverSource, /\.abortSignal\(signal\)/)
   assert.doesNotMatch(serverSource, /process\.env|fetch\s*\(|console\./)
+  assert.match(domainSource, /AbortSignal\.timeout\(AI_PATH_REALTIME_ADMISSION_RPC_DEADLINE_MS\)/)
+  assert.doesNotMatch(domainSource, /deadlineMs\??:/)
   assert.doesNotMatch(domainSource, /process\.env|fetch\s*\(|console\.|transcript|audio|sdp/i)
   assert.match(publicAdmissionSource, /AI_PATH_REALTIME_ADMISSION_PRODUCTION_LATCH = false as const/)
 

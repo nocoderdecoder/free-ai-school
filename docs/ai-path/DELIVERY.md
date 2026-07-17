@@ -28,7 +28,7 @@ The build is split into independently reviewable workstreams with explicit gates
 - Unit/contract fixtures, production build, and responsive screenshot QA.
 - Architecture, product, and delivery decisions documented.
 
-Verified in the repository on 2026-07-17: 186 deterministic tests, TypeScript, scoped ESLint, production build, and responsive browser QA at 375×812, 768×1024, and 1440×900. The source-readiness gate reports 14/14 private-alpha files, 81/81 production-foundation files, twelve locked safety gates, and zero broken gates. The browser path remains text-only and makes no paid model call.
+Verified in the repository on 2026-07-17: 202 deterministic tests, TypeScript, scoped ESLint, production build, and responsive browser QA at 375×812, 768×1024, and 1440×900. The source-readiness gate reports 14/14 private-alpha files, 88/88 production-foundation files, thirteen locked safety gates, and zero broken gates. The browser path remains text-only and makes no paid model call.
 
 ### M1 — Research prototype
 
@@ -68,7 +68,7 @@ The owner-scoped plan aggregate, HTTP routes, dormant Supabase adapter, immutabl
 ## Current critical path
 
 1. Wire the dormant durable plan adapter into request selection only after the new goal-binding migration passes the disposable-database suite; keep both code latches closed until then.
-2. Run the new fail-closed disposable-database harness to prove the atomic Realtime admission/lifecycle adapters under races, rollback, seven-day reconciliation, 90-day purge/archive, backlog, and deletion; add uniform RPC deadlines plus HMAC/policy-version rollout proof before activation.
+2. Enforce the exact policy ID and versioned HMAC binding tuples in SQL/RPCs, then run the fail-closed disposable-database harness under races, rollback, seven-day reconciliation, 90-day purge/archive, timeout, rotation, backlog, and deletion before activation.
 3. Apply all seven dormant migrations to a disposable Supabase-compatible PostgreSQL project and behaviorally prove RLS and RPC behavior with two users plus the service role. The harness is implemented, but this machine still needs `psql` and a disposable local database.
 4. Configure monitored retention, distributed abuse controls, deletion alerts, and secret rotation after infrastructure and privacy decisions are supplied.
 5. Run five moderated text-alpha sessions and two independent assessment reviewers; this needs recruited participants and reviewer availability.

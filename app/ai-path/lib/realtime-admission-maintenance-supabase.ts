@@ -1,8 +1,13 @@
+import { AI_PATH_REALTIME_ADMISSION_POLICY_VERSION } from './realtime-admission-policy-contract.ts'
+
 export const AI_PATH_REALTIME_ADMISSION_MAINTENANCE_RPC_NAME =
   'maintain_ai_path_realtime_admission' as const
 export const AI_PATH_REALTIME_ADMISSION_MAINTENANCE_POLICY_VERSION =
-  '2026-07-17.v1' as const
+  AI_PATH_REALTIME_ADMISSION_POLICY_VERSION
 export const AI_PATH_REALTIME_ADMISSION_MAINTENANCE_MAXIMUM_BATCH = 1_000 as const
+// Maintenance may scan a bounded batch, so it has a larger fixed deadline than
+// admission. Callers cannot extend or disable it.
+export const AI_PATH_REALTIME_ADMISSION_MAINTENANCE_RPC_DEADLINE_MS = 15_000 as const
 
 type SupabaseRpcError = { code?: string; message: string }
 type SupabaseRpcResult = {
@@ -17,6 +22,7 @@ export type SupabaseRealtimeAdmissionMaintenanceRpcClient = {
   rpc: (
     name: typeof AI_PATH_REALTIME_ADMISSION_MAINTENANCE_RPC_NAME,
     args: { p_expire_limit: number; p_purge_limit: number },
+    signal: AbortSignal,
   ) => PromiseLike<SupabaseRpcResult>
 }
 
@@ -36,7 +42,7 @@ export type RealtimeAdmissionMaintenanceResult = Readonly<{
 }>
 
 export class SupabaseRealtimeAdmissionMaintenanceError extends Error {
-  readonly code: 'invalid_limits' | 'rpc_failed' | 'malformed_response'
+  readonly code: 'invalid_limits' | 'rpc_failed' | 'rpc_timeout' | 'malformed_response'
 
   constructor(code: SupabaseRealtimeAdmissionMaintenanceError['code']) {
     super('The durable Realtime admission maintenance operation failed closed.')
@@ -44,6 +50,8 @@ export class SupabaseRealtimeAdmissionMaintenanceError extends Error {
     this.code = code
   }
 }
+
+class SupabaseRealtimeAdmissionMaintenanceDeadlineError extends Error {}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -130,11 +138,18 @@ export async function maintainSupabaseRealtimeAdmission(
     || !integerBetween(input.purgeLimit, 1, AI_PATH_REALTIME_ADMISSION_MAINTENANCE_MAXIMUM_BATCH)
   ) throw new SupabaseRealtimeAdmissionMaintenanceError('invalid_limits')
 
+  const signal = AbortSignal.timeout(AI_PATH_REALTIME_ADMISSION_MAINTENANCE_RPC_DEADLINE_MS)
   try {
-    const response = await client.rpc(AI_PATH_REALTIME_ADMISSION_MAINTENANCE_RPC_NAME, {
+    const rpc = Promise.resolve(client.rpc(AI_PATH_REALTIME_ADMISSION_MAINTENANCE_RPC_NAME, {
       p_expire_limit: input.expireLimit,
       p_purge_limit: input.purgeLimit,
+    }, signal))
+    const deadline = new Promise<never>((_, reject) => {
+      const rejectForDeadline = () => reject(new SupabaseRealtimeAdmissionMaintenanceDeadlineError())
+      if (signal.aborted) rejectForDeadline()
+      else signal.addEventListener('abort', rejectForDeadline, { once: true })
     })
+    const response = await Promise.race([rpc, deadline])
     if (
       !isRecord(response)
       || !Object.hasOwn(response, 'data')
@@ -152,6 +167,9 @@ export async function maintainSupabaseRealtimeAdmission(
     return parseMaintenanceResult(response.data, input.expireLimit, input.purgeLimit)
   } catch (error) {
     if (error instanceof SupabaseRealtimeAdmissionMaintenanceError) throw error
+    if (error instanceof SupabaseRealtimeAdmissionMaintenanceDeadlineError || signal.aborted) {
+      throw new SupabaseRealtimeAdmissionMaintenanceError('rpc_timeout')
+    }
     throw new SupabaseRealtimeAdmissionMaintenanceError('rpc_failed')
   }
 }

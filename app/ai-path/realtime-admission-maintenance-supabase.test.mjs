@@ -5,6 +5,7 @@ import test from 'node:test'
 import {
   AI_PATH_REALTIME_ADMISSION_MAINTENANCE_MAXIMUM_BATCH,
   AI_PATH_REALTIME_ADMISSION_MAINTENANCE_POLICY_VERSION,
+  AI_PATH_REALTIME_ADMISSION_MAINTENANCE_RPC_DEADLINE_MS,
   AI_PATH_REALTIME_ADMISSION_MAINTENANCE_RPC_NAME,
   SupabaseRealtimeAdmissionMaintenanceError,
   maintainSupabaseRealtimeAdmission,
@@ -132,6 +133,37 @@ test('provider errors, thrown details, and unknown wrapper fields fail closed wi
   }
 })
 
+test('fixed maintenance deadline aborts a stalled RPC with a content-free runner error', { concurrency: false }, async () => {
+  const originalTimeout = AbortSignal.timeout
+  let receivedSignal
+  AbortSignal.timeout = milliseconds => {
+    assert.equal(milliseconds, 15_000)
+    const controller = new AbortController()
+    queueMicrotask(() => controller.abort())
+    return controller.signal
+  }
+
+  try {
+    await assert.rejects(
+      maintainSupabaseRealtimeAdmission({
+        rpc(_name, _args, signal) {
+          receivedSignal = signal
+          return new Promise(() => {})
+        },
+      }, { expireLimit: 20, purgeLimit: 10 }),
+      error => (
+        error instanceof SupabaseRealtimeAdmissionMaintenanceError
+        && error.code === 'rpc_timeout'
+        && error.message === 'The durable Realtime admission maintenance operation failed closed.'
+      ),
+    )
+    assert.equal(receivedSignal.aborted, true)
+    assert.equal(AI_PATH_REALTIME_ADMISSION_MAINTENANCE_RPC_DEADLINE_MS, 15_000)
+  } finally {
+    AbortSignal.timeout = originalTimeout
+  }
+})
+
 test('maintenance factory is independently latched, server-only, and unwired', async () => {
   const serverSource = await readFile(
     new URL('./lib/realtime-admission-maintenance-supabase.server.ts', import.meta.url),
@@ -155,7 +187,10 @@ test('maintenance factory is independently latched, server-only, and unwired', a
   assert.match(serverSource, /activation\.credentialScope !== 'service-role'/)
   assert.match(serverSource, /activation\.lifecycleSqlProof !== 'passed'/)
   assert.match(serverSource, /activation\.retentionOperationsReady !== 'true'/)
+  assert.match(serverSource, /\.abortSignal\(signal\)/)
   assert.doesNotMatch(serverSource, /process\.env|fetch\s*\(|console\./)
+  assert.match(domainSource, /AbortSignal\.timeout\(AI_PATH_REALTIME_ADMISSION_MAINTENANCE_RPC_DEADLINE_MS\)/)
+  assert.doesNotMatch(domainSource, /deadlineMs\??:/)
   assert.doesNotMatch(domainSource, /process\.env|fetch\s*\(|console\.|userKey|sessionKey|reservationId|idempotency/i)
   assert.doesNotMatch(realtimeRoute, /realtime-admission-maintenance-supabase\.server/)
   assert.doesNotMatch(retentionRoute, /realtime-admission-maintenance-supabase\.server/)

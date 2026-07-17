@@ -29,9 +29,29 @@ the separate public and admission-production latches.
   `SupabaseRealtimeAdmissionGatewayError`; database messages are never returned
   or logged.
 - `realtime-admission-supabase.server.ts` accepts an already-created service-role
-  client. Construction additionally requires exact activation, schema-version,
-  credential-scope, atomic-SQL-proof, and lifecycle-SQL-proof attestations, but
-  none can override the literal false code latch.
+  client. It no longer accepts caller-supplied caps: every durable instance uses
+  the immutable server-only policy described in `REALTIME_ADMISSION_POLICY.md`.
+  Construction additionally requires exact activation, schema-version,
+  credential-scope, atomic-SQL-proof, lifecycle-SQL-proof, policy-version, and
+  derived-policy-identifier attestations, but none can override the independent
+  literal-false policy-rollout and gateway latches.
+
+## Fail-closed transport deadlines
+
+Admission RPCs have a fixed four-second deadline and the bounded maintenance RPC
+has a fixed fifteen-second deadline. These values live inside the dormant
+transports; route, factory, and operation inputs cannot extend or disable them.
+Each call receives an `AbortSignal`, and the server-only Supabase wrappers attach
+it to the PostgREST RPC builder. A Promise deadline also bounds the caller if a
+test double or future transport fails to honor cancellation.
+
+An admission timeout is normalized by the admission service to
+`store_unavailable`, so the result can never authorize a paid provider call. A
+maintenance timeout becomes the content-free `rpc_timeout` runner error. Neither
+error includes database codes, messages, row data, credentials, or provider
+details. Cancellation is best-effort at the HTTP/database boundary; the durable
+RPCs remain atomic and idempotent because a timeout cannot prove whether the
+database committed before transport cancellation.
 
 ## Dormant lifecycle maintenance adapter
 

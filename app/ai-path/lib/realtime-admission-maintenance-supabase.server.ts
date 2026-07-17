@@ -43,8 +43,8 @@ export function createSupabaseRealtimeAdmissionMaintenanceRunner(
   }
 
   const client: SupabaseRealtimeAdmissionMaintenanceRpcClient = {
-    rpc(name, args) {
-      return serviceRoleClient.rpc(name, args)
+    rpc(name, args, signal) {
+      return serviceRoleClient.rpc(name, args).abortSignal(signal)
     },
   }
   return (input: Parameters<typeof maintainSupabaseRealtimeAdmission>[1]) => (
