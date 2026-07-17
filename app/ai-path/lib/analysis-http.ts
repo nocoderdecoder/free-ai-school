@@ -22,7 +22,7 @@ export async function handleAnalysisPost(request: Request, runtime: AssessmentRe
   const crossOrigin = crossOriginMutationResponse(request, runtime)
   if (crossOrigin) return crossOrigin
 
-  const bodyResult = await readBoundedJson(request, 16_384)
+  const bodyResult = await readBoundedJson(request, 32_768)
   if (!bodyResult.ok) return json({ error: bodyResult.error }, bodyResult.status)
   const body = bodyResult.value
   if (!isRecord(body)) return json({ error: 'invalid_body' }, 400)

@@ -4,9 +4,18 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AIPathApiError, analyzeReviewedAssessment, createTextSession, deleteOwnedSession, exportOwnedSession } from './client/api'
 import { proposeCheckInAdaptation, taskSwapAlternative, type CheckInProposal } from './client/plan-actions'
+import {
+  AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS,
+  startAdaptiveInterview,
+  submitAdaptiveInterviewAnswer,
+  summarizeAdaptiveInterview,
+  type AdaptiveInterviewQuestion,
+  type AdaptiveInterviewState,
+} from './lib/adaptive-interview'
 import type { AssessmentReport, SkillId, SkillLevel } from './lib/foundation'
 import type { AiPathGoalType } from './lib/goal-type'
 import { getPlanBlueprint } from './lib/plan'
+import { composePersonalizedPlan } from './lib/plan-composer'
 
 type Stage = 'landing' | 'profile' | 'setup' | 'interview' | 'understanding' | 'results' | 'plan' | 'history'
 type MicState = 'idle' | 'requesting' | 'ready' | 'denied'
@@ -28,37 +37,66 @@ const goalOptions = [
   { id: 'unsure', title: 'I am not sure yet', detail: 'Use the conversation to find a useful direction.' },
 ] as const
 
-const interviewQuestions = [
-  {
-    phase: 'Your destination',
-    eyebrow: 'Start with the outcome',
-    question: 'Imagine this goes well. What can you do 30 days from now that you cannot do today?',
-    helper: 'A concrete work outcome is more useful than a topic. “Automate my weekly research brief” is stronger than “learn agents.”',
-    example: 'For example: “In 30 days, I want to turn five or six sources into a reliable weekly market brief.”',
-  },
-  {
-    phase: 'What you do today',
-    eyebrow: 'Show us a real example',
-    question: 'Walk me through the last time you used AI for research or synthesis. Where did the workflow break down?',
-    helper: 'Mention the tools, what you did yourself, what you delegated, and where you stopped trusting the output.',
-    example: 'For example: describe the tools, the steps you owned, and the point where you stopped trusting the result.',
-  },
-  {
-    phase: 'What gets in the way',
-    eyebrow: 'Make the plan realistic',
-    question: 'You have three hours a week. What usually prevents a learning plan from surviving contact with your calendar?',
-    helper: 'There is no ideal answer. This determines the size and pace of your plan.',
-    example: 'For example: “Long courses lose me when the practical payoff arrives too late.”',
-  },
-] as const
+const interviewCheckpointLabels: Record<string, string> = {
+  'concrete_example': 'Concrete example',
+  'ownership_independence': 'Your ownership',
+  artifact: 'Inspectable artifact',
+  'measurable_outcome': 'Observable outcome',
+  'failure_limitation': 'Failure or limitation',
+  'evaluation_reliability': 'Quality checks',
+  'safety_privacy': 'Safety boundary',
+  'constraint_time': 'Real constraint',
+}
 
-const experienceQuestionByGoal: Record<string, string> = {
-  workflows: 'Walk me through the last time you used AI in a real workflow. What did you do, and where did it break down?',
-  builder: 'Walk me through the last app, automation, or technical project you built. What did you own, and where did you get stuck?',
-  career: 'What is the strongest example you could show an employer today, and what important skill does it not prove yet?',
-  leader: 'Describe the last AI use case you evaluated with a team. How did you judge value, risk, and readiness?',
-  foundations: 'Tell me about one AI concept or tool you have tried to understand. What feels clear, and what still feels fuzzy?',
-  unsure: 'Tell me about one task or problem where you hoped AI might help. What did you try, if anything?',
+function interviewPhase(question: Pick<AdaptiveInterviewQuestion, 'dimensions'> | null) {
+  const firstDimension = question?.dimensions[0]
+  return firstDimension ? interviewCheckpointLabels[firstDimension] : 'Review your evidence'
+}
+
+function buildUnderstandingFromInterview(
+  state: AdaptiveInterviewState,
+  outcome: string,
+  weeklyHours: string,
+  blocker: string,
+): UnderstandingItem[] {
+  const summary = summarizeAdaptiveInterview(state)
+  const evidenceTurns = state.turns.filter(turn => !turn.dimensionsProbed.includes('constraint_time'))
+  const constraintTurns = state.turns.filter(turn => turn.dimensionsProbed.includes('constraint_time'))
+  const missing = summary?.missingDimensions.map(dimension => interviewCheckpointLabels[dimension]).join(', ')
+  const evidenceItems: UnderstandingItem[] = evidenceTurns.map((turn, index) => ({
+    id: `evidence-${index + 1}`,
+    label: `${interviewPhase({ dimensions: turn.dimensionsProbed })} evidence`,
+    value: turn.answer,
+    evidence: `Your exact typed answer to: “${turn.question}”`,
+    confidence: summary?.contradictoryDimensions.some(dimension => turn.dimensionsProbed.includes(dimension)) ? 'Tentative' : 'Clear',
+  }))
+
+  return [
+    {
+      id: 'goal',
+      label: 'Your 30-day outcome',
+      value: outcome.trim(),
+      evidence: `From the outcome you entered: “${outcome.trim()}”`,
+      confidence: 'Clear',
+    },
+    ...evidenceItems,
+    ...constraintTurns.map(turn => ({
+      id: 'constraint-follow-up',
+      label: 'Constraint follow-up',
+      value: turn.answer,
+      evidence: `Your exact typed answer to: “${turn.question}”`,
+      confidence: 'Clear' as const,
+    })),
+    {
+      id: 'constraint',
+      label: 'Profile constraint the plan must respect',
+      value: blocker.trim(),
+      evidence: constraintTurns.length
+        ? `From your stated blocker; the exact constraint follow-up is preserved separately. Your structured time budget remains ${hourLabel(weeklyHours)} per week.${missing ? ` Evidence gaps remain: ${missing}.` : ''}`
+        : `From the blocker you entered. Your structured time budget remains ${hourLabel(weeklyHours)} per week.${missing ? ` Evidence gaps remain: ${missing}.` : ''}`,
+      confidence: 'Clear',
+    },
+  ]
 }
 
 const skillNames: Record<SkillId, string> = {
@@ -166,9 +204,8 @@ export function AdvisorApp() {
   const [micState, setMicState] = useState<MicState>('idle')
   const [captions, setCaptions] = useState(true)
   const [interviewStatus, setInterviewStatus] = useState<InterviewStatus>('agent')
-  const [questionIndex, setQuestionIndex] = useState(0)
+  const [adaptiveInterview, setAdaptiveInterview] = useState<AdaptiveInterviewState | null>(null)
   const [answer, setAnswer] = useState('')
-  const [conversation, setConversation] = useState<Array<{ role: 'advisor' | 'you'; text: string }>>([])
   const [understanding, setUnderstanding] = useState<UnderstandingItem[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [completedTasks, setCompletedTasks] = useState<Record<string, boolean>>({})
@@ -194,7 +231,23 @@ export function AdvisorApp() {
   const streamRef = useRef<MediaStream | null>(null)
 
   const selectedGoal = goalOptions.find(option => option.id === goal) ?? goalOptions[0]
-  const plan = useMemo(() => getPlanBlueprint(goal), [goal])
+  const reviewedGoal = understanding.find(item => item.id === 'goal')?.value.trim() || outcome.trim()
+  const reviewedConstraint = understanding
+    .filter(item => item.id === 'constraint' || item.id === 'constraint-follow-up')
+    .map(item => item.value.trim())
+    .filter(Boolean)
+    .join(' ') || blocker.trim()
+  const personalizedPlan = useMemo(() => assessmentReport ? composePersonalizedPlan({
+    goalType: goal,
+    weeklyHours: Number(planHours) || 1,
+    codingComfort,
+    role,
+    blocker: reviewedConstraint,
+    results: assessmentReport.results,
+    growthAreas: assessmentReport.growthAreas,
+    recommendations: assessmentReport.recommendations,
+  }) : null, [assessmentReport, codingComfort, goal, planHours, reviewedConstraint, role])
+  const plan = personalizedPlan ?? getPlanBlueprint(goal)
   const weeks = plan.weeks
   const scheduledWeeks = useMemo(() => weeks.map(week => ({
     ...week,
@@ -204,12 +257,8 @@ export function AdvisorApp() {
   const totalTasks = scheduledWeeks.reduce((total, week) => total + week.tasks.length, 0)
   const completedCount = Object.values(completedTasks).filter(Boolean).length
   const progress = Math.round((completedCount / totalTasks) * 100)
-  const currentQuestion = useMemo(() => {
-    const base = interviewQuestions[questionIndex]
-    if (questionIndex === 1) return { ...base, question: experienceQuestionByGoal[goal] ?? experienceQuestionByGoal.unsure }
-    if (questionIndex === 2) return { ...base, question: `You have ${hourLabel(hours)} a week. What usually prevents a learning plan from surviving contact with your calendar?` }
-    return base
-  }, [goal, hours, questionIndex])
+  const currentQuestion = adaptiveInterview?.currentQuestion ?? null
+  const questionOrdinal = currentQuestion?.ordinal ?? Math.max(1, adaptiveInterview?.turns.length ?? 1)
   const skillObservations = useMemo(() => (assessmentReport?.results ?? []).map(result => ({
     label: skillNames[result.skillId],
     stage: learnerStage(result.level),
@@ -236,41 +285,16 @@ export function AdvisorApp() {
   useEffect(() => {
     if (interviewStatus !== 'processing') return
     const timeout = window.setTimeout(() => {
-      if (questionIndex === interviewQuestions.length - 1) {
-        const learnerAnswers = conversation.filter(item => item.role === 'you').map(item => item.text)
-        setUnderstanding([
-          {
-            id: 'goal',
-            label: 'Your 30-day outcome',
-            value: learnerAnswers[0] || outcome.trim(),
-            evidence: learnerAnswers[0] ? `From your first response: “${learnerAnswers[0]}”` : `From the outcome you entered: “${outcome.trim()}”`,
-            confidence: 'Clear',
-          },
-          {
-            id: 'starting-point',
-            label: 'Example or starting point you shared',
-            value: learnerAnswers[1] || 'No concrete example was captured. Keep this unassessed or return to add one.',
-            evidence: learnerAnswers[1] ? `From your second response: “${learnerAnswers[1]}”` : 'No learner-owned transcript evidence is available.',
-            confidence: learnerAnswers[1] ? 'Clear' : 'Tentative',
-          },
-          {
-            id: 'constraint',
-            label: 'Constraint the plan must respect',
-            value: learnerAnswers[2] ? `${hourLabel(hours)} per week. ${learnerAnswers[2]}` : `${hourLabel(hours)} per week. ${blocker.trim()}`,
-            evidence: learnerAnswers[2] ? `From your third response: “${learnerAnswers[2]}”` : `From the time budget and blocker you entered: “${blocker.trim()}”`,
-            confidence: 'Clear',
-          },
-        ])
+      if (adaptiveInterview?.status === 'complete') {
+        setUnderstanding(buildUnderstandingFromInterview(adaptiveInterview, outcome, hours, blocker))
         setStage('understanding')
         setInterviewStatus('agent')
         return
       }
-      setQuestionIndex(index => index + 1)
-      setAnswer('')
       setInterviewStatus('agent')
-    }, 850)
+    }, 650)
     return () => window.clearTimeout(timeout)
-  }, [blocker, conversation, hours, interviewStatus, outcome, questionIndex])
+  }, [adaptiveInterview, blocker, hours, interviewStatus, outcome])
 
   const stopMicrophone = () => {
     streamRef.current?.getTracks().forEach(track => track.stop())
@@ -309,11 +333,21 @@ export function AdvisorApp() {
     setSessionError('')
     try {
       const result = await createTextSession({ goal: outcome.trim(), goalType: goal, targetRole: role.trim() })
+      const interview = startAdaptiveInterview({
+        goalType: goal,
+        goal: outcome.trim(),
+        role: role.trim(),
+        weeklyMinutes: Math.max(15, Math.min(1_200, (Number(hours) || 1) * 60)),
+        blocker: blocker.trim(),
+      })
+      if (!interview.ok) throw new Error('The adaptive interview could not be initialized.')
       setSessionId(result.session.id)
       setSessionOwned(result.owned)
       setSessionPersistence(result.persistence)
       setSessionState('ready')
       setMicState('idle')
+      setAdaptiveInterview(interview.state)
+      setUnderstanding([])
       setStage('interview')
     } catch (error) {
       setSessionState('error')
@@ -323,13 +357,36 @@ export function AdvisorApp() {
 
   const submitInterviewAnswer = () => {
     const trimmed = answer.trim()
-    if (!trimmed) return
-    setConversation(items => [
-      ...items,
-      { role: 'advisor', text: currentQuestion.question },
-      { role: 'you', text: trimmed },
-    ])
+    if (!trimmed || !adaptiveInterview?.currentQuestion) return
+    const submitted = submitAdaptiveInterviewAnswer(adaptiveInterview, trimmed)
+    if (!submitted.ok) return
+    setAdaptiveInterview(submitted.state)
+    setAnswer('')
     setInterviewStatus('processing')
+  }
+
+  const restartAdaptiveQuestions = () => {
+    const restarted = startAdaptiveInterview({
+      goalType: goal,
+      goal: outcome.trim(),
+      role: role.trim(),
+      weeklyMinutes: Math.max(15, Math.min(1_200, (Number(hours) || 1) * 60)),
+      blocker: blocker.trim(),
+    })
+    if (!restarted.ok) return
+    setAdaptiveInterview(restarted.state)
+    setUnderstanding([])
+    setAnswer('')
+    setInterviewStatus('agent')
+    setStage('interview')
+  }
+
+  const endInterviewAndReview = () => {
+    stopMicrophone()
+    if (!adaptiveInterview || adaptiveInterview.turns.length === 0) return
+    setUnderstanding(buildUnderstandingFromInterview(adaptiveInterview, outcome, hours, blocker))
+    setInterviewStatus('agent')
+    setStage('understanding')
   }
 
   const updateUnderstanding = (id: string, value: string) => {
@@ -347,12 +404,17 @@ export function AdvisorApp() {
       setAnalysisError('Add at least two reviewed responses before building your report.')
       return
     }
+    if (sessionOwned && reviewedGoal !== outcome.trim()) {
+      setAnalysisState('error')
+      setAnalysisError('A saved assessment cannot change its goal after the session starts. Return to your profile to start a new assessment with this corrected goal.')
+      return
+    }
     setAnalysisState('running')
     setAnalysisError('')
     try {
       const report = await analyzeReviewedAssessment({
         assessmentSessionId: sessionId,
-        goal: outcome.trim(),
+        goal: reviewedGoal,
         goalType: goal,
         weeklyHours: Number(hours) || 1,
         reviewedInputs: understanding.map(item => ({ id: item.id, value: item.value })),
@@ -378,17 +440,23 @@ export function AdvisorApp() {
     setSessionId(null)
     setSessionOwned(false)
     setSessionPersistence('none')
-    setQuestionIndex(0)
-    setConversation([])
+    setAdaptiveInterview(null)
     setUnderstanding([])
     setAnswer('')
+    setCompletedTasks({})
+    setTaskOverrides({})
+    setCheckIn('')
+    setCheckInProposal(null)
+    setAdaptationStatus('')
+    setPlanSaved(false)
+    setDataActionState('idle')
+    setDataActionMessage('')
     setInterviewStatus('agent')
     setStage('profile')
   }
 
   const clearPreview = () => {
     stopMicrophone()
-    setConversation([])
     setUnderstanding([])
     setCompletedTasks({})
     setPlanSaved(false)
@@ -409,7 +477,7 @@ export function AdvisorApp() {
     setDataActionState('idle')
     setDataActionMessage('')
     setAnswer('')
-    setQuestionIndex(0)
+    setAdaptiveInterview(null)
     setInterviewStatus('agent')
     setStage('landing')
   }
@@ -461,6 +529,9 @@ export function AdvisorApp() {
   const confirmTimeBudget = () => {
     setPlanHours(pendingPlanHours)
     setCompletedTasks({})
+    setTaskOverrides({})
+    setCheckIn('')
+    setCheckInProposal(null)
     setAdaptationStatus(`Time budget changed to ${pendingPlanHours} ${pendingPlanHours === '1' ? 'hour' : 'hours'} per week. Browser-only task completion was reset for the recalculated schedule.`)
   }
 
@@ -502,7 +573,7 @@ export function AdvisorApp() {
             <div className="ap-heroCopy">
               <div className="ap-privatePill"><span /> Private alpha · Your feedback shapes the product</div>
               <h1 ref={headingRef} tabIndex={-1}>Find your next <em>useful</em>{' '}AI move.</h1>
-              <p className="ap-heroLead">Answer three guided questions. Leave with a transparent preview of how a realistic 30-day plan could use your goal, experience, and available time.</p>
+              <p className="ap-heroLead">Answer five to seven evidence-seeking questions. Leave with a transparent preview of how a realistic 30-day plan could use your goal, experience, and available time.</p>
               <div className="ap-heroActions">
                 <PrimaryButton onClick={() => setStage('profile')}>Build my plan</PrimaryButton>
                 <button type="button" className="ap-secondary" onClick={() => setStage('profile')}>See the guided flow</button>
@@ -515,7 +586,7 @@ export function AdvisorApp() {
             </div>
             <div className="ap-previewWrap" aria-label="Example learning plan preview">
               <div className="ap-previewCard">
-                <div className="ap-previewTop"><span>Example direction</span><span>3 guided questions</span></div>
+                <div className="ap-previewTop"><span>Example direction</span><span>5–7 adaptive questions</span></div>
                 <div className="ap-previewMark"><CompassIcon /></div>
                 <p className="ap-kicker">Your fastest route</p>
                 <h2>AI workflow builder</h2>
@@ -543,7 +614,7 @@ export function AdvisorApp() {
               <p className="ap-eyebrow">Step 1 · Your destination</p>
               <h1 ref={headingRef} tabIndex={-1}>Start with what should change.</h1>
               <p>The guided questions use your outcome and constraints so the preview starts from your life instead of an imaginary average learner.</p>
-              <div className="ap-timeNote"><span>About 90 seconds</span><small>Then you will answer three guided questions.</small></div>
+              <div className="ap-timeNote"><span>About 5 minutes</span><small>Then you will answer five to seven adaptive questions.</small></div>
             </aside>
             <div className="ap-formCard">
               <fieldset>
@@ -651,11 +722,11 @@ export function AdvisorApp() {
         <section className="ap-interview">
           <div className="ap-interviewTop">
             <div>
-              <p className="ap-eyebrow">Phase {questionIndex + 1} of {interviewQuestions.length}</p>
-              <strong>{currentQuestion.phase}</strong>
+              <p className="ap-eyebrow">Question {questionOrdinal} of up to {AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS}</p>
+              <strong>{interviewPhase(currentQuestion)}</strong>
             </div>
-            <div className="ap-phaseTrack" role="progressbar" aria-valuemin={1} aria-valuemax={interviewQuestions.length} aria-valuenow={questionIndex + 1} aria-label={`Interview phase ${questionIndex + 1} of ${interviewQuestions.length}`}>
-              {interviewQuestions.map((question, index) => <i key={question.phase} className={index <= questionIndex ? 'is-active' : ''} />)}
+            <div className="ap-phaseTrack" role="progressbar" aria-valuemin={1} aria-valuemax={AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS} aria-valuenow={questionOrdinal} aria-label={`Adaptive interview question ${questionOrdinal} of up to ${AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS}`}>
+              {Array.from({ length: AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS }, (_, index) => <i key={index} className={index < questionOrdinal ? 'is-active' : ''} />)}
             </div>
             <span className="ap-duration">Typed prototype · no live model</span>
           </div>
@@ -664,16 +735,23 @@ export function AdvisorApp() {
             <aside className="ap-journeyPanel">
               <p className="ap-kicker">Conversation outline</p>
               <ol>
-                {interviewQuestions.map((question, index) => (
-                  <li key={question.phase} className={index < questionIndex ? 'is-complete' : index === questionIndex ? 'is-current' : ''}>
-                    <span>{index < questionIndex ? <CheckIcon /> : index + 1}</span>
-                    <div><strong>{question.phase}</strong><small>{index < questionIndex ? 'Answer captured' : index === questionIndex ? 'In progress' : 'Coming next'}</small></div>
+                {Array.from({ length: AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS }, (_, index) => {
+                  const answeredTurn = adaptiveInterview?.turns[index]
+                  const isCurrent = index === (adaptiveInterview?.turns.length ?? 0) && Boolean(currentQuestion)
+                  const label = answeredTurn
+                    ? interviewPhase({ dimensions: answeredTurn.dimensionsProbed })
+                    : isCurrent ? interviewPhase(currentQuestion) : 'Evidence-driven follow-up'
+                  return (
+                  <li key={`${label}-${index}`} className={answeredTurn ? 'is-complete' : isCurrent ? 'is-current' : ''}>
+                    <span>{answeredTurn ? <CheckIcon /> : index + 1}</span>
+                    <div><strong>{label}</strong><small>{answeredTurn ? 'Answer captured' : isCurrent ? 'Selected from the evidence gaps' : 'Only asked if evidence is still missing'}</small></div>
                   </li>
-                ))}
+                  )
+                })}
               </ol>
               <div className="ap-signalCard">
                 <span>What I am testing</span>
-                <p>{questionIndex === 0 ? 'Whether the outcome is concrete enough to plan backward from.' : questionIndex === 1 ? 'Where judgment, process, and tool fluency already exist.' : 'What plan size will survive your real calendar.'}</p>
+                <p>{currentQuestion?.purpose ?? 'Whether the captured evidence is ready for your review.'}</p>
               </div>
             </aside>
 
@@ -681,8 +759,8 @@ export function AdvisorApp() {
               <div className="ap-advisorQuestion">
                 <div className={`ap-agentPulse is-${interviewStatus}`} aria-hidden="true"><span /><i /><b /></div>
                 <div>
-                  <p>{currentQuestion.eyebrow}</p>
-                  <h1 ref={headingRef} tabIndex={-1}>{currentQuestion.question}</h1>
+                  <p>{currentQuestion ? 'Ask for evidence, not confidence' : 'Preparing your review'}</p>
+                  <h1 ref={headingRef} tabIndex={-1} aria-live="polite" aria-atomic="true">{currentQuestion?.prompt ?? 'Your evidence-seeking conversation is complete.'}</h1>
                   {captions && <span className="ap-captionLabel"><CaptionsIcon /> Transcript preview on</span>}
                 </div>
               </div>
@@ -699,11 +777,11 @@ export function AdvisorApp() {
                   <>
                     <label htmlFor="ap-answer">Your response</label>
                     <textarea id="ap-answer" value={answer} onChange={event => setAnswer(event.target.value)} maxLength={2000} rows={6} placeholder="Type your answer here…" />
-                    <p className="ap-helperText">{currentQuestion.helper}</p>
-                    <p className="ap-helperText">{currentQuestion.example}</p>
+                    <p className="ap-helperText">{currentQuestion?.purpose ?? 'Your answers are being prepared for the editable review.'}</p>
+                    <p className="ap-helperText">It is valid to say that evidence does not exist yet; the report will leave that area unassessed.</p>
                     <div className="ap-answerControls">
                       <span className="ap-talkButton" aria-disabled="true"><MicIcon /> Voice coming after privacy testing</span>
-                      <button type="button" className="ap-secondary" onClick={submitInterviewAnswer} disabled={interviewStatus === 'processing' || answer.trim().length === 0}>{interviewStatus === 'processing' ? 'Preparing the next question…' : 'Send typed answer'}</button>
+                      <button type="button" className="ap-secondary" onClick={submitInterviewAnswer} disabled={interviewStatus === 'processing' || !currentQuestion || answer.trim().length === 0}>{interviewStatus === 'processing' ? 'Preparing the next question…' : 'Send typed answer'}</button>
                     </div>
                   </>
                 )}
@@ -712,11 +790,11 @@ export function AdvisorApp() {
               <div className="ap-sessionControls">
                 <button type="button" aria-pressed={captions} onClick={() => setCaptions(value => !value)}><CaptionsIcon /> {captions ? 'Transcript preview on' : 'Transcript preview off'}</button>
                 <button type="button" onClick={() => setInterviewStatus('paused')}><PauseIcon /> Pause</button>
-                <button type="button" className="ap-endButton" onClick={() => { stopMicrophone(); setStage('understanding') }}>End & review</button>
+                <button type="button" className="ap-endButton" onClick={endInterviewAndReview} disabled={!adaptiveInterview?.turns.length}>End & review</button>
               </div>
             </div>
           </div>
-          <p className="ap-interviewPrivacy">This build is text-only and does not call a live model. You can edit every captured answer before future assessment logic uses it.</p>
+          <p className="ap-interviewPrivacy">This build is text-only and does not call a live model. You can review and edit the captured evidence summary before the assessment uses it.</p>
         </section>
       )}
 
@@ -738,8 +816,8 @@ export function AdvisorApp() {
                 <article key={item.id} className="ap-understandingCard">
                   <div className="ap-cardTop"><span>{item.label}</span><i className={item.confidence === 'Clear' ? 'is-clear' : ''}>{item.confidence}</i></div>
                   {editingId === item.id ? (
-                    <textarea aria-label={`Edit ${item.label}`} value={item.value} onChange={event => updateUnderstanding(item.id, event.target.value)} rows={5} />
-                  ) : <h2>{item.value}</h2>}
+                    <textarea aria-label={`Edit ${item.label}`} value={item.value} onChange={event => updateUnderstanding(item.id, event.target.value)} maxLength={2000} rows={5} />
+                  ) : <p className="ap-reviewedValue">{item.value}</p>}
                   <details>
                     <summary>Why I think this</summary>
                     <p>{item.evidence}</p>
@@ -751,7 +829,7 @@ export function AdvisorApp() {
 
             <div className="ap-reviewFooter">
               <div><strong>Anything important still missing?</strong><p>Revise any answer before the server builds a conservative report from this reviewed understanding.</p></div>
-              <button type="button" className="ap-secondary" onClick={() => { setQuestionIndex(0); setConversation([]); setStage('interview') }}>Restart guided questions</button>
+              <button type="button" className="ap-secondary" onClick={restartAdaptiveQuestions}>Restart adaptive questions</button>
               <PrimaryButton onClick={buildAssessment} disabled={analysisState === 'running'}>{analysisState === 'running' ? 'Building the evidence-informed report…' : 'Use this to build my report'}</PrimaryButton>
             </div>
             {analysisError && <div className="ap-error" role="alert"><div><strong>We could not build the report.</strong><p>{analysisError}</p></div><button type="button" onClick={buildAssessment}>Try again</button></div>}
@@ -776,7 +854,8 @@ export function AdvisorApp() {
                 <h2>{plan.proof}</h2>
                 <dl>
                   <div><dt>Time</dt><dd>{hourLabel(hours)} / week</dd></div>
-                  <div><dt>Approach</dt><dd>No-code first</dd></div>
+                  <div><dt>Approach</dt><dd>{personalizedPlan?.profile.codingMode === 'code-ready' ? 'Bounded code build' : personalizedPlan?.profile.codingMode === 'no-code' ? 'No-code first' : 'Visual first, light code'}</dd></div>
+                  <div><dt>Pace</dt><dd>{personalizedPlan?.profile.pace ?? 'Preview'}</dd></div>
                   <div><dt>Status</dt><dd>Self-report signals</dd></div>
                 </dl>
                 <PrimaryButton onClick={() => setStage('plan')}>Open my 30-day plan</PrimaryButton>
@@ -861,6 +940,14 @@ export function AdvisorApp() {
           </div>
 
           <div className="ap-planBody">
+            {personalizedPlan && (
+              <aside className="ap-planRationale" aria-labelledby="ap-plan-rationale-title">
+                <div><p className="ap-kicker">Why this plan changed</p><h2 id="ap-plan-rationale-title">Your evidence and constraints set the sequence.</h2></div>
+                <ul>
+                  {personalizedPlan.reasons.slice(0, 5).map(reason => <li key={reason.id}>{reason.detail}</li>)}
+                </ul>
+              </aside>
+            )}
             <div className="ap-nextAction">
               <div><span>Next action</span><h2>{plan.firstTask}.</h2><p>About 45 minutes · Produces the first inspectable artifact in this plan.</p></div>
               <button type="button" className="ap-primary" onClick={() => toggleTask('0-0')}>{completedTasks['0-0'] ? 'Marked complete' : 'Start first task'}<ArrowIcon /></button>

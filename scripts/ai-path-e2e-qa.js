@@ -213,30 +213,71 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   await page.getByLabel('What most often gets in the way?').fill(longBlocker)
   await page.getByLabel(/I agree to send my typed responses/).check()
   await page.getByRole('button', { name: 'Start guided questions' }).click()
-  await waitForHeading(/Imagine this goes well/)
+  await page.getByRole('progressbar', { name: 'Adaptive interview question 1 of up to 7' }).waitFor({ state: 'visible', timeout: 5_000 })
   checkpoint('text session started')
 
-  const answers = [
-    'In 30 days I can collect six trustworthy sources, extract claims with exact citations, compare disagreements, and publish a weekly brief that a colleague can rerun without asking me for hidden context.',
-    'Last week I gathered sources manually, pasted notes into a chat tool, and reorganized the output myself. It broke when citations drifted from claims, duplicate facts looked independent, and I had no repeatable quality check before sharing.',
-    'Meetings break the week into short blocks. I abandon plans when a task needs an uninterrupted evening or when the learning material delays the first useful artifact for too long.',
+  const promptResponses = [
+    {
+      pattern: /Describe one real work process/,
+      answer: 'Last week I used a specific research workflow to collect six trustworthy sources and produce a cited brief for a colleague.',
+    },
+    {
+      pattern: /Use one specific occasion/,
+      answer: 'For example, the input was six public reports, I compared their claims, and the output was a two-page cited market brief.',
+    },
+    {
+      pattern: /Which parts did you personally decide or complete/,
+      answer: 'I personally gathered the sources, decided which claims to retain, mapped citations, and reviewed the handoff; a colleague only reviewed the final draft.',
+    },
+    {
+      pattern: /What inspectable artifact exists/,
+      answer: 'I created a two-page market brief with claim-level links and a source ledger; a colleague reran one section and found two unsupported claims out of ten.',
+    },
+    {
+      pattern: /What failed, became unreliable/,
+      answer: 'The workflow failed when citations drifted. I tested every claim against its source, reviewed failures, and reduced the brief from ten claims to eight verified claims.',
+    },
+    {
+      pattern: /What data, permission, privacy/,
+      answer: 'I avoid private customer data, use public-source notes, label uncertainty, and require human review before external sharing.',
+    },
+    {
+      pattern: /Given your real calendar, tools, and access/,
+      answer: 'Meetings break the week into short blocks. I have three hours weekly and need tasks with explicit stopping points and visible proof of progress.',
+    },
   ]
-  for (let index = 0; index < answers.length; index += 1) {
-    await page.getByLabel('Your response').fill(answers[index])
+  let adaptiveAnswerCount = 0
+  while (!(await page.getByRole('heading', { name: 'Here is what I understood.' }).isVisible())) {
+    assert(adaptiveAnswerCount < 7, 'adaptive interview exceeded its seven-question bound')
+    const currentPrompt = (await page.locator('.ap-advisorQuestion h1').textContent())?.trim() || ''
+    const response = promptResponses.find(candidate => candidate.pattern.test(currentPrompt))
+    assert(response, `adaptive QA has no semantically matched answer for prompt: ${currentPrompt}`)
+    await page.getByLabel('Your response').fill(response.answer)
     await page.getByRole('button', { name: 'Send typed answer' }).click()
-    if (index < answers.length - 1) {
-      await page.getByText(`Phase ${index + 2} of 3`).waitFor({ state: 'visible', timeout: 5_000 })
-    }
+    adaptiveAnswerCount += 1
+    await page.waitForFunction((previousOrdinal) => (
+      document.querySelector('h1')?.textContent?.includes('Here is what I understood.')
+      || document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') !== String(previousOrdinal)
+    ), adaptiveAnswerCount, { timeout: 5_000 })
   }
+  assert(adaptiveAnswerCount >= 5, `adaptive interview ended too early after ${adaptiveAnswerCount} answers`)
   await waitForHeading('Here is what I understood.')
-  assert(await page.locator('.ap-evidenceCount strong').getByText('3', { exact: true }).isVisible(), 'three interview answers were not captured')
+  assert(await page.locator('.ap-evidenceCount strong').getByText(String(adaptiveAnswerCount + 2), { exact: true }).isVisible(), 'each adaptive answer plus the profile constraint was not preserved as a separate reviewed input')
   assert(await page.locator('.ap-evidenceCount').getByText('reviewable inputs', { exact: true }).isVisible(), 'review input count label is missing')
-  checkpoint('three-question interview completed')
+  for (const [width, height] of [[375, 812], [768, 1024], [1440, 900]]) {
+    await captureViewport('review', width, height)
+  }
+  await assertInteractiveNames('review')
+  checkpoint(`adaptive interview completed in ${adaptiveAnswerCount} questions`)
 
   await page.getByRole('button', { name: 'Edit this' }).first().click()
-  const correctedOutcome = `${answers[0]} Correction: the handoff must also explain what happens when a source disappears or a citation cannot be verified.`
+  const correctedOutcome = `${longOutcome} Correction: the handoff must also explain what happens when a source disappears or a citation cannot be verified.`
   await page.getByLabel('Edit Your 30-day outcome').fill(correctedOutcome)
   await page.getByRole('button', { name: 'Save correction' }).click()
+  const correctedConstraint = 'I only have access to free tools, so every exercise needs a tool-free or free-tier fallback.'
+  await page.getByRole('button', { name: 'Edit this' }).last().click()
+  await page.getByLabel('Edit Profile constraint the plan must respect').fill(correctedConstraint)
+  await page.getByRole('button', { name: 'Save correction' }).last().click()
   await page.getByRole('button', { name: 'Use this to build my report' }).click()
   await waitForHeading(/Working direction:/)
   assert(await page.getByText('2 skills assessed', { exact: false }).isVisible(), 'report did not display assessed skill count')
@@ -251,6 +292,8 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   assert(!('evidence' in analysisRequests[0]), 'browser assigned competency evidence')
   assert(Array.isArray(analysisRequests[0].reviewedInputs), 'analysis omitted reviewed inputs')
   assert(analysisRequests[0].reviewedInputs[0].value === correctedOutcome, 'review correction did not reach analysis request')
+  assert(analysisRequests[0].goal === correctedOutcome, 'reviewed goal did not become the analysis goal')
+  assert(analysisRequests[0].reviewedInputs.at(-1).value === correctedConstraint, 'reviewed constraint did not reach analysis')
   checkpoint('request trust boundary validated')
 
   for (const [width, height] of [[375, 812], [768, 1024], [1440, 900]]) {
@@ -261,9 +304,10 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
 
   await page.getByRole('button', { name: 'Open my 30-day plan' }).first().click()
   await page.locator('.ap-planTitle h1').waitFor({ state: 'visible', timeout: 15_000 })
+  assert(await page.getByText('The first week includes the application-owned access recovery pattern.', { exact: true }).isVisible(), 'reviewed constraint did not causally change the personalized plan')
   await page.setViewportSize({ width: 1440, height: 900 })
   const firstTask = page.locator('.ap-weekList article').first().locator('li strong').first()
-  const originalFirstTask = (await firstTask.textContent()).trim()
+  let originalFirstTask = (await firstTask.textContent()).trim()
 
   await page.locator('.ap-weekList input[type="checkbox"]').first().check()
   assert(await page.getByText('8%', { exact: true }).isVisible(), 'task completion did not update progress to 8%')
@@ -271,6 +315,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   await page.getByRole('button', { name: 'Confirm schedule change' }).click()
   assert(await page.getByText('0%', { exact: true }).isVisible(), 'schedule change did not reset preview progress')
   assert(await page.getByText('Time budget changed to 1 hour per week.', { exact: false }).isVisible(), 'time-budget status was not announced')
+  originalFirstTask = (await firstTask.textContent()).trim()
   checkpoint('task completion and time-budget recalculation')
 
   await page.getByRole('button', { name: 'Use smaller alternatives this week' }).first().click()

@@ -28,7 +28,7 @@ The build is split into independently reviewable workstreams with explicit gates
 - Unit/contract fixtures, production build, and responsive screenshot QA.
 - Architecture, product, and delivery decisions documented.
 
-Verified in the repository on 2026-07-17: 193 deterministic tests, TypeScript, scoped ESLint, production build, and responsive browser QA at 375×812, 768×1024, and 1440×900. The source-readiness gate reports 14/14 private-alpha files, 87/87 production-foundation files, thirteen locked safety gates, and zero broken gates. The browser path remains text-only and makes no paid model call.
+Verified in the repository on 2026-07-17: 216 deterministic tests, TypeScript, scoped ESLint, production build, and a complete responsive browser journey at 375×812, 768×1024, and 1440×900. The browser proof completed a seven-question adaptive interview, lossless per-answer review, causal learner corrections, deterministic assessment, personalized plan, time-budget recomposition, explicit adaptation decisions, export, reassessment, and deletion with zero external requests. The source-readiness gate reports 18/18 private-alpha files, 87/87 production-foundation files, thirteen locked safety gates, and zero broken gates. The browser path remains text-only and makes no paid model call.
 
 ### M1 — Research prototype
 
@@ -89,3 +89,5 @@ The owner-scoped plan aggregate, HTTP routes, dormant Supabase adapter, immutabl
 - **2026-07-17:** Require atomic reservation, owner binding, per-user/global concurrency, and daily spend ceilings before a Realtime call can become reachable.
 - **2026-07-17:** Replace application-trusted rotating HMAC tuples with an authenticated database intent and stable DB-owned continuity handles; keep raw identities out of the accounting ledger.
 - **2026-07-17:** Make Postgres authoritative for admission policy, clock, UTC day, lease TTL, and kill switch; seed admission disabled and remove all caller-cap RPC overloads.
+- **2026-07-17:** Replace the fixed interview script with a deterministic five-to-seven-question engine that asks only application-owned follow-ups for missing evidence dimensions.
+- **2026-07-17:** Recompose plans from assessed growth areas and bounded learner constraints while keeping unassessed skills explicit and raw free-form profile text out of generated instructions.

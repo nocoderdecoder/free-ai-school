@@ -19,7 +19,7 @@ flowchart LR
   C --> E
 ```
 
-The current private-alpha slice implements the page shell, a complete text interaction, reviewed-input contracts, conservative server-owned evidence extraction, deterministic scoring and governed catalog recommendations, mock-safe route handlers, dormant owner-scoped persistence, and a fail-closed OpenAI Realtime boundary.
+The current private-alpha slice implements the page shell, a complete text interaction, a deterministic five-to-seven-question evidence interview, reviewed-input contracts, conservative server-owned evidence extraction, deterministic scoring and governed catalog recommendations, an evidence-and-constraint-aware plan composer, mock-safe route handlers, dormant owner-scoped persistence, and a fail-closed OpenAI Realtime boundary.
 
 ## Runtime components
 
@@ -28,6 +28,8 @@ The current private-alpha slice implements the page shell, a complete text inter
 - Server-rendered page metadata and static shell.
 - A narrowly scoped Client Component owns the multistep interaction and browser microphone API.
 - Typed mode provides the same assessment controls as voice mode.
+- The interview chooses application-owned follow-ups from missing evidence dimensions; learner text is treated as bounded data and never becomes an instruction or generated question.
+- The 30-day plan is recomposed from assessed growth areas, weekly time, coding comfort, role category, blocker category, and governed resource identifiers. Raw free-form profile text is never interpolated into plan instructions.
 - The browser never receives the OpenAI API key or server-only safety configuration.
 
 ### Application API
@@ -41,6 +43,7 @@ The current private-alpha slice implements the page shell, a complete text inter
 - Taxonomy, catalog, consent, scoring, and report versions are immutable identifiers on every generated report.
 - Evidence must quote exact user speech or text and reference one or more known user turn IDs.
 - “Not assessed” is a first-class result, distinct from a beginner level.
+- Aspirations and topic mentions do not count as competence; stronger levels require learner-owned action, an inspectable artifact, or an observable outcome.
 - Recommendation order is deterministic, constrained by prerequisites, time, format, price preference, and an application-owned catalog.
 
 ### Dormant durable persistence foundation
