@@ -55,6 +55,10 @@ The plan API has bounded routes for create/read, task progress, time budget, wee
 
 Plan creation first verifies an owned completed assessment report. Repeating the same create request resumes the existing plan; changing its initial goal preference or time budget returns a conflict. In-memory persistence requires exact `test` or `development` mode plus explicit plan-store, assessment-store, and test-auth flags. Production capability and Supabase gateway construction each remain behind literal-false code latches, so environment flags cannot initiate database traffic.
 
+The plan routes now have a complete dormant request-runtime selection path. A future durable request must pass the plan capability latch, the assessment-session persistence capability, and the independent plan-gateway latch before the runtime authenticates the request, reads the server-only service credential, or constructs a Supabase client. The owner-scoped user client performs reads and learner mutations; a separately constructed server-only client is narrowed by the adapter to initial plan creation. Exact schema, service-role readiness, and the `authenticated-user+service-role` credential-scope attestation are all required. A construction failure returns the generic disabled runtime, never falls back to process memory, and never exposes configuration, authentication, or database details.
+
+Both production latches remain exactly `false as const`. This source wiring is not authorization to configure a credential, deploy durable mode, or run a hosted test.
+
 The currently submitted `goalType` is a bounded learner preference used to select one server-owned blueprint. It is not assessment evidence and must not be described as an inferred outcome. Before durable activation, persist and bind that preference server-side when the assessment session is created, then derive plan selection from the trusted binding. Until that shared-session schema change is reviewed, the durable plan latch must remain closed.
 
 ## Retention, export, and deletion
@@ -73,7 +77,7 @@ Weekly check-in text is private product content. It may appear in the learner's 
 
 ## Verification status
 
-Pure service tests cover task shape, owner isolation, defensive copies, duplicate source-session prevention, strict task transitions, stale revisions, immutable terminal plans, check-ins, time changes, proposal approval/rejection, bounded swaps, reassessment history, export, delete, and retention purge.
+Pure service tests cover task shape, owner isolation, defensive copies, duplicate source-session prevention, strict task transitions, stale revisions, immutable terminal plans, check-ins, time changes, proposal approval/rejection, bounded swaps, reassessment history, export, delete, and retention purge. Request-runtime tests additionally prove dormant durable selection, no memory fallback, split-credential attestation, and capability checks occurring before server credential access or client construction.
 
 Static SQL contract tests cover RLS, table grants, service-only generation functions, authenticated owner RPCs, terminal immutability, 12-task checks, approval gates, delete cascades, aligned retention, and private check-in analytics exclusion.
 

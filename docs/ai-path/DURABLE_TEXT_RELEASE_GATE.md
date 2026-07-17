@@ -103,6 +103,17 @@ file and requires: the same run ID and URL, conclusion `success`, workflow name
 `releaseCommit`. Only a `push` or `workflow_dispatch` run is accepted for final
 evidence; a pull-request merge-ref run is not sufficient commit identity.
 
+The workflow artifact includes a deterministic validation-only candidate from
+`scripts/ai-path-db-proof-evidence.mjs --candidate`. It is intentionally not a
+`ci-proof.json`: a running job cannot attest the workflow's final conclusion.
+After the run completes, export `gh run view` metadata as above and pass that
+file plus the downloaded log and candidate manifest to the same script without
+`--candidate`. The finalizer verifies all candidate digests before proceeding. For an
+accepted successful `push` or `workflow_dispatch`, it emits gate-shaped
+`database-proof.json`, `ci-proof.json`, and normalized `ci-run.json` with
+SHA-256 bindings. The generated manifest explicitly lists the other evidence
+and approvals still missing; generation never means the full gate is ready.
+
 The workflow currently proves PostgreSQL behavior but does not create the four
 operator attestations. Platform/security must separately run authenticated
 staging tests, retention operations tests, and owner/cross-owner export/delete

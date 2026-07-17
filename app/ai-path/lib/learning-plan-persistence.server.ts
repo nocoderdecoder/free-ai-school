@@ -4,6 +4,7 @@ import {
   InMemoryLearningPlanRepository,
   LearningPlanService,
 } from './learning-plan.ts'
+import { createDurableLearningPlanRequestRuntime } from './durable-learning-plan-runtime.server.ts'
 import { resolveLearningPlanPersistenceCapability } from './learning-plan-capability.ts'
 import type {
   LearningPlanRequestRuntime,
@@ -37,6 +38,7 @@ export async function selectLearningPlanRequestRuntime(
     enableTestAuth: process.env.AI_PATH_ENABLE_TEST_AUTH,
     enableDurable: process.env.AI_PATH_ENABLE_DURABLE_PLANS,
     schemaVersion: process.env.AI_PATH_PLAN_SCHEMA_VERSION,
+    serviceRoleReady: process.env.AI_PATH_PLAN_SERVICE_ROLE_READY,
   })
 
   if (capability.mode === 'memory-test') {
@@ -66,9 +68,36 @@ export async function selectLearningPlanRequestRuntime(
     }
   }
 
-  // Durable construction is intentionally absent from request selection while
-  // the literal code latch is false, so no Supabase client or network call can
-  // be reached through deployment flags alone.
+  if (capability.mode === 'supabase') {
+    try {
+      const durable = await createDurableLearningPlanRequestRuntime(request)
+      return {
+        mode: 'supabase',
+        capability: durable.capability,
+        principal: durable.principal,
+        service: durable.service,
+        pendingCookies: durable.pendingCookies,
+        pendingHeaders: durable.pendingHeaders,
+      }
+    } catch {
+      // Do not fall back to process memory or expose configuration/auth/network
+      // details when durable construction fails after selection.
+      return {
+        mode: 'disabled',
+        capability: {
+          available: false,
+          productionReady: false,
+          persistence: 'none',
+          reason: 'the durable learning-plan request runtime is unavailable',
+        },
+        principal: null,
+        service: null,
+        pendingCookies: [],
+        pendingHeaders: {},
+      }
+    }
+  }
+
   return {
     mode: 'disabled',
     capability,

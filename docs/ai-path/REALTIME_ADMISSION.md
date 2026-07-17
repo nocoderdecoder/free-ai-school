@@ -1,6 +1,6 @@
 # Realtime admission control
 
-Status: deterministic local contract plus dormant database-owned production foundation. Production activation is impossible while the admission, policy, gateway, and public Realtime code latches remain `false` and the database policy state remains disabled.
+Status: deterministic local contract, provider-free authenticated bootstrap preparation, and dormant database-owned production foundation. Production activation is impossible while the authenticated bootstrap, admission, policy, gateway, and public Realtime code latches remain `false` and the database policy state remains disabled.
 
 ## Purpose
 
@@ -42,6 +42,31 @@ The public Realtime route must not call OpenAI unless every step succeeds:
 9. Cancel only when bootstrap definitely failed before provider usage. If usage may have occurred, reconcile and finalize instead.
 10. Retry finalization with the same intent, reservation, and amount after an ambiguous response.
 
+## Implemented provider-free route boundary
+
+`prepareAuthenticatedRealtimeBootstrap` now implements steps 1-5 as a strict,
+dependency-injected server orchestration boundary. It requires an exact
+same-origin cookie-authenticated Supabase runtime, verifies the owned session is
+voice-mode and reservable, issues the database-owned intent, derives one stable
+server-owned retry key from that single-use intent, and stops only after an exact
+atomic reservation. The conservative estimate is the full 100-cent
+per-reservation ceiling; the browser cannot lower it.
+
+The boundary accepts exactly `{ assessmentSessionId, sdp }`, rejects unknown
+fields, bounds SDP at 200,000 characters, and never accepts owner identity,
+policy, budget, clock, expiry, estimate, or idempotency input from the browser.
+It contains no OpenAI import, provider URL, credential read, `fetch`, response
+presenter, finalize, or cancel invocation. The prepared object is server-internal
+and includes the original binding, intent, and reservation required for future
+auditable lifecycle handling.
+
+The independent `AI_PATH_REALTIME_AUTHENTICATED_BOOTSTRAP_LATCH` remains literal
+`false`. The public route therefore cannot assemble this boundary or progress to
+a provider through deployment configuration. Adversarial tests cover anonymous,
+test-principal, cross-origin, malformed, oversized, unowned, text-mode,
+non-reservable, store-failure, capacity, and budget-denial paths, and prove all
+stop before a prepared provider input exists.
+
 ## Policy and lifecycle semantics
 
 Private-alpha policy `2026-07-17.v1` is database-enforced at 2 global concurrent reservations, 1 per user, 100 cents per user per UTC day, 1,000 cents globally per UTC day, 100 cents per reservation, and a 120-second lease. These are ceilings, not spend approval.
@@ -66,4 +91,4 @@ Static tests establish source contracts but cannot prove PostgreSQL concurrency 
 - seven-day reconciliation boundaries and 90-day archive/purge accounting;
 - zero provider calls for every denied, malformed, ambiguous, or failed admission.
 
-Even after database proof, live OpenAI Realtime remains blocked pending explicit spend approval, production Supabase/auth configuration, distributed abuse controls, monitoring, incident rollback, privacy review, and route-level integration tests.
+Even after database proof, live OpenAI Realtime remains blocked pending explicit spend approval, request-scoped split-credential staging assembly, production Supabase/auth configuration, distributed abuse controls, monitoring, incident rollback, privacy review, unknown-commit route integration tests, and lifecycle reconciliation.

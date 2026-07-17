@@ -7,6 +7,8 @@ on:
       - '.github/workflows/ai-path-db-proof.yml'
       - 'scripts/ai-path-db-proof.sh'
       - 'scripts/ai-path-db-proof-preflight.mjs'
+      - 'scripts/ai-path-db-proof-evidence.mjs'
+      - 'scripts/ai-path-db-proof-evidence.test.mjs'
       - 'scripts/ai-path-db-proof/**'
       - 'supabase/migrations/*_ai_path_*.sql'
   push:
@@ -15,6 +17,8 @@ on:
       - '.github/workflows/ai-path-db-proof.yml'
       - 'scripts/ai-path-db-proof.sh'
       - 'scripts/ai-path-db-proof-preflight.mjs'
+      - 'scripts/ai-path-db-proof-evidence.mjs'
+      - 'scripts/ai-path-db-proof-evidence.test.mjs'
       - 'scripts/ai-path-db-proof/**'
       - 'supabase/migrations/*_ai_path_*.sql'
 
@@ -54,6 +58,9 @@ jobs:
       - name: Verify proof sources without a database connection
         run: node scripts/ai-path-db-proof-preflight.mjs --source-only --json
 
+      - name: Run database proof source and evidence contract tests
+        run: node --test scripts/ai-path-db-proof/static.test.mjs scripts/ai-path-db-proof-evidence.test.mjs
+
       - name: Ensure the PostgreSQL client is available
         run: |
           if ! command -v psql >/dev/null 2>&1; then
@@ -77,11 +84,28 @@ jobs:
           set -o pipefail
           scripts/ai-path-db-proof.sh 2>&1 | tee ai-path-db-proof.log
 
-      - name: Upload content-free proof log
+      - name: Build validation-only evidence candidate
+        run: >-
+          node scripts/ai-path-db-proof-evidence.mjs
+          --candidate
+          --proof-log ai-path-db-proof.log
+          --postgres-major 16
+          --event '${{ github.event_name }}'
+          --head-sha '${{ github.sha }}'
+          --run-id '${{ github.run_id }}'
+          --run-url 'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+          --out-dir .
+
+      - name: Upload content-free proof log and validation-only candidate
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: ai-path-db-proof-${{ github.run_id }}
-          path: ai-path-db-proof.log
+          path: |
+            ai-path-db-proof.log
+            database-proof.log
+            database-proof.json
+            ci-run-candidate.json
+            database-proof-evidence-manifest.json
           if-no-files-found: warn
           retention-days: 14

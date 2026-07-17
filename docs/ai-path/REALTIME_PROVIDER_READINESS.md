@@ -31,6 +31,13 @@ the `gpt-realtime-2.1` default, server-owned configuration, and no beta header.
 It must not be connected to the public route until every release gate below is
 proven.
 
+The preceding authenticated preparation boundary is now implemented through an
+exact atomic admission reservation, with deterministic server-owned retry
+identity and adversarial zero-provider-call tests. It deliberately stops before
+the provider boundary. Request-scoped split-credential assembly, unknown-commit
+replay evidence, lifecycle reconciliation, and both independent code latches are
+still closed requirements—not implied readiness.
+
 Official references:
 
 - [Realtime and audio](https://developers.openai.com/api/docs/guides/realtime)
@@ -65,9 +72,11 @@ Official references:
 3. Authenticated durable text sessions already operating safely, including
    owner export, immediate deletion, bounded retention, monitoring, rollback,
    credential rotation, and incident revocation.
-4. A route-level test proving anonymous, unowned, expired, non-consented,
-   duplicate, over-budget, over-concurrency, killed, and unknown-commit requests
-   make zero provider calls.
+4. The provider-free route contract proves anonymous, unowned, non-consented,
+   duplicate/capacity, over-budget, and malformed requests stop before a
+   provider input exists. Complete the remaining assembled staging proof for
+   expired, killed, database-timeout, and unknown-commit requests with
+   instrumented zero provider invocations before reviewing either route latch.
 5. Browser tests for permission denial, device loss, interruption, reconnect,
    tab closure, backgrounding, network loss, partial transcript, duplicated
    events, and immediate typed fallback.

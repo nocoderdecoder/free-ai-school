@@ -69,6 +69,7 @@ const productionFoundationFiles = [
   'app/ai-path/lib/supabase-session-repository.server.ts',
   'app/ai-path/lib/supabase-session-repository.ts',
   'app/ai-path/lib/learning-plan-http.ts',
+  'app/ai-path/lib/durable-learning-plan-runtime.server.ts',
   'app/ai-path/lib/learning-plan-persistence.server.ts',
   'app/ai-path/lib/learning-plan-runtime-response.ts',
   'app/ai-path/lib/learning-plan-runtime.ts',
@@ -83,6 +84,7 @@ const productionFoundationFiles = [
   'app/ai-path/lib/retention-supabase.ts',
   'app/ai-path/lib/retention.ts',
   'app/ai-path/lib/realtime.server.ts',
+  'app/ai-path/lib/realtime-bootstrap.ts',
   'app/ai-path/lib/realtime-admission.ts',
   'app/ai-path/lib/realtime-admission-policy-contract.ts',
   'app/ai-path/lib/realtime-admission-policy.server.ts',
@@ -98,6 +100,7 @@ const productionFoundationFiles = [
   'app/ai-path/learning-plan-http.test.mjs',
   'app/ai-path/learning-plan-durable.test.mjs',
   'app/ai-path/realtime-safety.test.mjs',
+  'app/ai-path/realtime-bootstrap.test.mjs',
   'app/ai-path/realtime-admission.test.mjs',
   'app/ai-path/realtime-admission-sql.test.mjs',
   'app/ai-path/realtime-admission-lifecycle-sql.test.mjs',
@@ -192,6 +195,13 @@ const latchChecks = [
     optional: false,
   },
   {
+    id: 'realtime_authenticated_bootstrap',
+    label: 'Authenticated Realtime owner-to-reservation bootstrap',
+    file: 'app/ai-path/lib/realtime-bootstrap.ts',
+    constant: 'AI_PATH_REALTIME_AUTHENTICATED_BOOTSTRAP_LATCH',
+    optional: false,
+  },
+  {
     id: 'realtime_admission',
     label: 'Realtime production admission store',
     file: 'app/ai-path/lib/realtime-admission.ts',
@@ -225,27 +235,27 @@ const externalBlockers = [
   {
     id: 'durable_plan_runtime_engineering',
     owner: 'Application and data engineering',
-    action: 'The eight-migration disposable-database suite passes. Wire the dormant Supabase plan adapter only in authenticated non-production staging, then collect exact-release ownership, rollback, export, deletion, and retention evidence before any latch review.',
+    action: 'Dormant request-runtime wiring and the eight-migration disposable-database suite are complete. Keep every latch closed while platform engineering deploys the exact commit to isolated authenticated staging and collects ownership, rollback, export, deletion, and retention evidence for review.',
   },
   {
     id: 'realtime_route_engineering',
     owner: 'Application and security engineering',
-    action: 'Implement the authenticated owner-session bootstrap sequence and require an atomic admission reservation before any paid OpenAI Realtime call.',
+    action: 'The provider-free authenticated owner-to-intent-to-atomic-reservation sequence is implemented and adversarially tested. Assemble it with request-scoped split Supabase credentials only in non-production staging, prove unknown-commit replay and guaranteed zero-provider-call denials, then review the still-closed route latch.',
   },
   {
     id: 'realtime_admission_proof_and_rollout',
     owner: 'Platform and data engineering',
-    action: 'Prove authenticated intent issuance, database-owned continuity, exact policy enforcement, unknown-commit replay, concurrency, timeout, and rollback before opening any admission latch.',
+    action: 'Database-owned intent, continuity, policy, concurrency, lifecycle, and rollback contracts pass in disposable PostgreSQL. Prove request-level timeouts, unknown-commit replay, reconciliation, and zero-provider-call denials with split credentials in isolated staging before opening any admission latch.',
   },
   {
     id: 'retention_adapter_engineering',
     owner: 'Platform engineering',
-    action: 'Wire the bounded dormant retention runner only after database proof, then capacity-test concurrent batches and prove idempotent observable deletion before opening either retention latch.',
+    action: 'The bounded gateway, database purge contracts, and fixed per-target deadline are complete. Assemble the dormant runner only in isolated staging, then capacity-test concurrent batches and prove idempotent observable deletion before opening either retention latch.',
   },
   {
     id: 'supabase_project_and_auth',
     owner: 'User / platform operator',
-    action: 'Provide and configure the production Supabase project, verified auth provider, cookie refresh flow, and secret storage.',
+    action: 'Provide an isolated non-production Supabase-compatible project, verified auth provider, cookie refresh flow, and server-only secret storage for staging evidence; production provisioning follows reviewed activation readiness.',
   },
   {
     id: 'database_migrations_and_rls_proof',
@@ -363,6 +373,33 @@ function inspectRealtimeRoute(root) {
   }
 }
 
+function inspectRealtimeBootstrapIsolation(root) {
+  const file = 'app/ai-path/lib/realtime-bootstrap.ts'
+  const absolute = join(root, file)
+  if (!existsSync(absolute)) {
+    return {
+      id: 'realtime_bootstrap_provider_isolation',
+      label: 'Authenticated Realtime bootstrap provider isolation',
+      file,
+      constant: null,
+      status: 'broken',
+      detail: 'Authenticated bootstrap source is missing, so provider isolation cannot be verified.',
+    }
+  }
+  const source = uncommentedSource(readFileSync(absolute, 'utf8'))
+  const forbidden = /\bcreateLiveRealtimeCall\b|api\.openai\.com|\bOPENAI_[A-Z0-9_]*KEY\b|\bfetch\s*\(|from\s+['"]openai['"]|import\s*\(\s*['"]openai['"]\s*\)/i
+  return {
+    id: 'realtime_bootstrap_provider_isolation',
+    label: 'Authenticated Realtime bootstrap provider isolation',
+    file,
+    constant: null,
+    status: forbidden.test(source) ? 'broken' : 'locked',
+    detail: forbidden.test(source)
+      ? 'Authenticated bootstrap contains a provider credential or live-network call surface.'
+      : 'Authenticated bootstrap stops at atomic reservation with no provider credential or call surface.',
+  }
+}
+
 export function inspectAiPathReadiness(options = {}) {
   const root = resolve(options.root ?? scriptRoot)
   const privateInventory = filePresence(root, privateAlphaFiles)
@@ -370,6 +407,7 @@ export function inspectAiPathReadiness(options = {}) {
   const safetyChecks = [
     ...latchChecks.map((check) => inspectLatch(root, check)),
     inspectRealtimeRoute(root),
+    inspectRealtimeBootstrapIsolation(root),
   ]
   const brokenSafety = safetyChecks.filter((check) => check.status === 'broken')
   const missingPrivateAlpha = privateInventory.filter((item) => !item.present)

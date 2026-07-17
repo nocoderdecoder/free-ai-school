@@ -32,6 +32,8 @@ const sourceFiles = [
   'docs/ai-path/DATABASE_PROOF_RUNBOOK.md',
   'docs/ai-path/RETENTION_OPERATIONS.md',
   'scripts/ai-path-db-proof.sh',
+  'scripts/ai-path-db-proof-evidence.mjs',
+  'scripts/ai-path-db-proof-evidence.test.mjs',
   'scripts/ai-path-db-proof-preflight.mjs',
   'scripts/ai-path-db-proof/10-contracts.sql',
   'scripts/ai-path-db-proof/static.test.mjs',

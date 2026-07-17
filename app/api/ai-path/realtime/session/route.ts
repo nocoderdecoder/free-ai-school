@@ -2,6 +2,7 @@ import {
   getRealtimeCapability,
 } from '../../../../ai-path/lib/realtime.server'
 import { canBootstrapPublicRealtime } from '../../../../ai-path/lib/foundation'
+import { AI_PATH_REALTIME_AUTHENTICATED_BOOTSTRAP_LATCH } from '../../../../ai-path/lib/realtime-bootstrap'
 import {
   aiPathRateLimitResponse,
   checkAiPathRateLimit,
@@ -46,15 +47,27 @@ export async function POST(request: Request) {
   }
 
   if (canBootstrapPublicRealtime(capability)) {
-    // Intentionally unreachable until the launch invariant in foundation.ts is
-    // changed alongside authenticated persistence and concurrency enforcement.
-    return Response.json({ error: 'live_bootstrap_not_wired' }, { status: 503 })
+    // The provider-free owner -> intent -> atomic-reserve sequence exists in
+    // realtime-bootstrap.ts, but route assembly remains separately review-gated.
+    // This branch cannot open through deployment flags or credentials.
+    if (!AI_PATH_REALTIME_AUTHENTICATED_BOOTSTRAP_LATCH) {
+      return Response.json({
+        error: 'authenticated_admission_bootstrap_not_activated',
+        live: false,
+        noNetworkCall: true,
+      }, { status: 503, headers: { 'Cache-Control': 'no-store' } })
+    }
+
+    return Response.json({ error: 'live_provider_bootstrap_not_wired' }, {
+      status: 503,
+      headers: { 'Cache-Control': 'no-store' },
+    })
   }
 
   return Response.json({
-    error: 'authenticated_persistence_not_implemented',
+    error: 'authenticated_realtime_not_activated',
     live: false,
     noNetworkCall: true,
-    message: 'Live Realtime remains fail-closed until this route verifies persisted session ownership and enforces one active session per user.',
+    message: 'Live Realtime remains fail-closed while authenticated persistence, atomic admission, and provider activation gates are closed.',
   }, { status: 503, headers: { 'Cache-Control': 'no-store' } })
 }

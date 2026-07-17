@@ -14,6 +14,8 @@ import {
 import { getPlanBlueprint } from './lib/plan.ts'
 
 const serverSource = await readFile(new URL('./lib/learning-plan-supabase.server.ts', import.meta.url), 'utf8')
+const runtimeFactorySource = await readFile(new URL('./lib/durable-learning-plan-runtime.server.ts', import.meta.url), 'utf8')
+const runtimeSelectorSource = await readFile(new URL('./lib/learning-plan-persistence.server.ts', import.meta.url), 'utf8')
 const ownerId = '018f47a2-4e8d-7a32-9d10-f4b68a4ee6de'
 const sessionId = '018f47a2-4e8d-7a32-9d10-f4b68a4ee6df'
 const planId = '018f47a2-4e8d-7a32-9d10-f4b68a4ee6e0'
@@ -103,6 +105,7 @@ test('production durable capability stays closed even when every deployment flag
     nodeEnv: 'production',
     enableDurable: 'true',
     schemaVersion: AI_PATH_LEARNING_PLAN_MIGRATION_VERSION,
+    serviceRoleReady: 'true',
   })
   assert.equal(capability.available, false)
   assert.equal(capability.productionReady, false)
@@ -110,6 +113,48 @@ test('production durable capability stays closed even when every deployment flag
   assert.match(serverSource, /AI_PATH_SUPABASE_PLAN_GATEWAY_LATCH = false as const/)
   assert.match(serverSource, /!AI_PATH_SUPABASE_PLAN_GATEWAY_LATCH/)
   assert.doesNotMatch(serverSource, /export function createSupabaseLearningPlanGateway/)
+})
+
+test('request selection includes dormant durable wiring and fails closed without a memory fallback', () => {
+  assert.match(runtimeSelectorSource, /if \(capability\.mode === 'supabase'\)/)
+  assert.match(runtimeSelectorSource, /createDurableLearningPlanRequestRuntime\(request\)/)
+  assert.match(runtimeSelectorSource, /reason: 'the durable learning-plan request runtime is unavailable'/)
+
+  const durableBranch = runtimeSelectorSource.slice(
+    runtimeSelectorSource.indexOf("if (capability.mode === 'supabase')"),
+  )
+  assert.doesNotMatch(durableBranch, /mode: 'memory-test'/)
+})
+
+test('durable request factory checks both capabilities before service credential access or client construction', () => {
+  const planCheck = runtimeFactorySource.indexOf('if (!planCapability.available')
+  const assessmentCheck = runtimeFactorySource.indexOf('if (!assessmentCapability.available')
+  const gatewayCheck = runtimeFactorySource.indexOf('if (!gatewayCapability.available')
+  const credentialRead = runtimeFactorySource.indexOf('process.env.SUPABASE_SERVICE_ROLE_KEY')
+  const credentialTypeCheck = runtimeFactorySource.indexOf('isSafeSupabasePublicKey(serviceRoleKey)')
+  const clientConstruction = runtimeFactorySource.indexOf('createClient<Database>')
+
+  for (const index of [planCheck, assessmentCheck, gatewayCheck, credentialRead, credentialTypeCheck, clientConstruction]) {
+    assert.notEqual(index, -1)
+  }
+  assert.ok(planCheck < assessmentCheck)
+  assert.ok(assessmentCheck < gatewayCheck)
+  assert.ok(gatewayCheck < credentialRead)
+  assert.ok(credentialRead < credentialTypeCheck)
+  assert.ok(credentialTypeCheck < clientConstruction)
+  assert.ok(credentialRead < clientConstruction)
+  assert.match(runtimeFactorySource, /credentialScope: 'authenticated-user\+service-role'/)
+  assert.match(runtimeFactorySource, /autoRefreshToken: false/)
+  assert.match(runtimeFactorySource, /detectSessionInUrl: false/)
+  assert.match(runtimeFactorySource, /persistSession: false/)
+  assert.doesNotMatch(runtimeFactorySource, /console\.|logger|Authorization/i)
+})
+
+test('durable plan gateway requires the reviewed split-credential attestation', () => {
+  assert.match(serverSource, /credentialScope !== 'authenticated-user\+service-role'/)
+  assert.match(serverSource, /AI_PATH_SUPABASE_PLAN_GATEWAY_LATCH = false as const/)
+  assert.match(runtimeFactorySource, /AI_PATH_PLAN_SERVICE_ROLE_READY/)
+  assert.match(runtimeFactorySource, /AI_PATH_PLAN_CREDENTIAL_SCOPE/)
 })
 
 test('durable adapter requires verified Supabase principals and UUID identifiers before gateway calls', async () => {

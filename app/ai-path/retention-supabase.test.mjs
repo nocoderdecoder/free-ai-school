@@ -5,6 +5,7 @@ import test from 'node:test'
 import {
   AI_PATH_RETENTION_MAXIMUM_DELETES_PER_TARGET,
   AI_PATH_RETENTION_RPC_NAMES,
+  AI_PATH_RETENTION_TARGET_TIMEOUT_MS,
   runSupabaseRetentionCycle,
 } from './lib/retention-supabase.ts'
 import { AiPathRetentionError } from './lib/retention.ts'
@@ -152,6 +153,43 @@ test('thrown transport failures are normalized without leaking provider detail',
       && !String(error).includes(secretBody)
     ),
   )
+})
+
+test('stalled RPCs fail within a fixed per-target deadline and remain retry-safe', async () => {
+  const calls = []
+  const client = {
+    rpc(name, args) {
+      calls.push({ name, args })
+      return new Promise(() => {})
+    },
+  }
+  const startedAt = Date.now()
+  await assert.rejects(
+    runSupabaseRetentionCycle(client, {
+      runId: 'retention_timeout01',
+      targetTimeoutMs: 10,
+    }),
+    error => (
+      error instanceof AiPathRetentionError
+      && error.code === 'purge_failed'
+      && error.target === 'learning-plans'
+    ),
+  )
+  assert.ok(Date.now() - startedAt < 1_000)
+  assert.deepEqual(calls, [{
+    name: 'purge_expired_ai_path_learning_plans',
+    args: { p_limit: 100_000 },
+  }])
+
+  for (const invalid of [0, 1.5, AI_PATH_RETENTION_TARGET_TIMEOUT_MS + 1]) {
+    await assert.rejects(
+      runSupabaseRetentionCycle(client, {
+        runId: 'retention_badtimeout01',
+        targetTimeoutMs: invalid,
+      }),
+      error => error instanceof AiPathRetentionError && error.code === 'invalid_configuration',
+    )
+  }
 })
 
 test('session failure after a successful plan purge is explicit and retry-safe', async () => {

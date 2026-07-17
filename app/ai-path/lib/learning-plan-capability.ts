@@ -10,6 +10,7 @@ export type LearningPlanEnvironment = {
   enableTestAuth?: string
   enableDurable?: string
   schemaVersion?: string
+  serviceRoleReady?: string
 }
 export function resolveLearningPlanPersistenceCapability(
   environment: LearningPlanEnvironment,
@@ -32,6 +33,7 @@ export function resolveLearningPlanPersistenceCapability(
     AI_PATH_DURABLE_LEARNING_PLAN_LATCH
     && environment.enableDurable === 'true'
     && environment.schemaVersion === AI_PATH_LEARNING_PLAN_MIGRATION_VERSION
+    && environment.serviceRoleReady === 'true'
   ) {
     return {
       mode: 'supabase',

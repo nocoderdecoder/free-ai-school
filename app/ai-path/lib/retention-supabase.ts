@@ -8,6 +8,7 @@ import {
 } from './retention.ts'
 
 export const AI_PATH_RETENTION_MAXIMUM_DELETES_PER_TARGET = 100_000 as const
+export const AI_PATH_RETENTION_TARGET_TIMEOUT_MS = 20_000 as const
 
 export const AI_PATH_RETENTION_RPC_NAMES = {
   'assessment-sessions': 'purge_expired_ai_path_sessions',
@@ -51,14 +52,23 @@ export class SupabaseRetentionGatewayError extends Error {
 function createSupabaseRetentionPurgers(
   client: SupabaseRetentionRpcClient,
   maximumDeletesPerTarget: number,
+  targetTimeoutMs: number,
 ): readonly AiPathRetentionPurger[] {
   const purger = (target: AiPathRetentionTarget): AiPathRetentionPurger => ({
     target,
     async purgeExpired() {
+      let timeout: ReturnType<typeof setTimeout> | undefined
       try {
-        const { data, error } = await client.rpc(AI_PATH_RETENTION_RPC_NAMES[target], {
+        const rpc = Promise.resolve(client.rpc(AI_PATH_RETENTION_RPC_NAMES[target], {
           p_limit: maximumDeletesPerTarget,
+        }))
+        const deadline = new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new SupabaseRetentionGatewayError(target)),
+            targetTimeoutMs,
+          )
         })
+        const { data, error } = await Promise.race([rpc, deadline])
         if (error) throw new SupabaseRetentionGatewayError(target)
         // The cycle validates this untrusted runtime value before reporting it.
         // Supabase's generated type is numeric, while mocks can exercise null
@@ -67,6 +77,8 @@ function createSupabaseRetentionPurgers(
       } catch (error) {
         if (error instanceof SupabaseRetentionGatewayError) throw error
         throw new SupabaseRetentionGatewayError(target)
+      } finally {
+        if (timeout) clearTimeout(timeout)
       }
     },
   })
@@ -80,6 +92,7 @@ export async function runSupabaseRetentionCycle(
     runId: string
     now?: () => Date
     maximumDeletesPerTarget?: number
+    targetTimeoutMs?: number
     onOperationalEvent?: (
       event: AiPathRetentionOperationalEvent,
     ) => void | Promise<void>
@@ -87,6 +100,7 @@ export async function runSupabaseRetentionCycle(
 ): Promise<AiPathRetentionCycleResult> {
   const maximumDeletesPerTarget = options.maximumDeletesPerTarget
     ?? AI_PATH_RETENTION_MAXIMUM_DELETES_PER_TARGET
+  const targetTimeoutMs = options.targetTimeoutMs ?? AI_PATH_RETENTION_TARGET_TIMEOUT_MS
   if (
     !Number.isInteger(maximumDeletesPerTarget)
     || maximumDeletesPerTarget < 1
@@ -97,8 +111,18 @@ export async function runSupabaseRetentionCycle(
       'Supabase retention batch limit is invalid.',
     )
   }
+  if (
+    !Number.isInteger(targetTimeoutMs)
+    || targetTimeoutMs < 1
+    || targetTimeoutMs > AI_PATH_RETENTION_TARGET_TIMEOUT_MS
+  ) {
+    throw new AiPathRetentionError(
+      'invalid_configuration',
+      'Supabase retention target timeout is invalid.',
+    )
+  }
   return runAiPathRetentionCycle(
-    createSupabaseRetentionPurgers(client, maximumDeletesPerTarget),
+    createSupabaseRetentionPurgers(client, maximumDeletesPerTarget, targetTimeoutMs),
     {
       runId: options.runId,
       now: options.now,

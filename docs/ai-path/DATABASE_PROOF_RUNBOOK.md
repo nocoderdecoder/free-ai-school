@@ -64,6 +64,43 @@ pre-existing compatibility roles. It also requires a CI-specific
 disposable-cluster confirmation distinct from the harness confirmation. It
 contains no drop operation and cannot activate application latches.
 
+After a successful behavioral proof, the workflow runs
+`scripts/ai-path-db-proof-evidence.mjs --candidate`. The uploaded artifact then
+contains the proof log, its SHA-256-bound database proof document, a content-free
+run candidate, and a digest manifest. This in-workflow bundle is always marked
+`validation-only`: the workflow cannot truthfully attest its own final
+conclusion before it has completed. A pull-request run is additionally marked
+as unable to prove the exact release commit.
+
+After an accepted `push` or `workflow_dispatch` run has completed successfully,
+an operator can export authoritative public run metadata and deterministically
+finalize the two database/CI proof documents without reading credentials or
+calling a network from the generator:
+
+```bash
+gh run view RUN_ID \
+  --json conclusion,databaseId,event,headSha,url,workflowName \
+  > /protected/evidence/ci-run-source.json
+
+node scripts/ai-path-db-proof-evidence.mjs \
+  --proof-log /protected/evidence/database-proof.log \
+  --postgres-major 16 \
+  --run-metadata /protected/evidence/ci-run-source.json \
+  --candidate-manifest /protected/evidence/database-proof-evidence-manifest.json \
+  --out-dir /protected/evidence/finalized
+```
+
+The finalizer normalizes and hashes `ci-run.json`, `database-proof.json`, and
+`ci-proof.json`. It accepts only a completed successful run of this exact
+workflow and binds every document to the run's lowercase 40-character head SHA.
+It also requires the candidate manifest from that run's downloaded artifact and
+verifies its proof-log, database-document, and candidate-run digests before
+finalizing anything.
+It can process a successful pull-request run for validation archives, but marks
+it `validation-only`; the durable-text gate independently rejects that event.
+The manifest remains `gatePacketComplete: false` because auth, retention,
+export/delete, approvals, and the evidence index are separate operator proofs.
+
 ## Run
 
 From the repository root:

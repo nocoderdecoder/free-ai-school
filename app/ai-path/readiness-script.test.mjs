@@ -37,6 +37,10 @@ const mandatorySafetyFiles = new Map([
     'export const AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY = false as const\n',
   ],
   [
+    'app/ai-path/lib/realtime-bootstrap.ts',
+    'export const AI_PATH_REALTIME_AUTHENTICATED_BOOTSTRAP_LATCH = false as const\n',
+  ],
+  [
     'app/api/ai-path/realtime/session/route.ts',
     'export async function POST() { return Response.json({ mode: "mock" }) }\n',
   ],
@@ -76,11 +80,13 @@ test('current repository is safe for private alpha but not claimed production-re
         'retention_job',
         'durable_retention_gateway',
         'realtime_public_bootstrap',
+        'realtime_authenticated_bootstrap',
         'realtime_admission',
         'realtime_admission_policy_rollout',
         'durable_realtime_admission_gateway',
         'realtime_admission_maintenance_gateway',
         'realtime_route_network_isolation',
+        'realtime_bootstrap_provider_isolation',
       ],
     )
     assert.equal(report.inventory.privateAlpha.complete, true)
@@ -172,6 +178,46 @@ test('a direct network call in the public Realtime route breaks safety', () => {
     )
 
     assert.equal(report.safety.ok, false)
+    assert.equal(isolation?.status, 'broken')
+    assert.equal(readinessExitCode(report), 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('a provider call or credential read in authenticated bootstrap breaks safety', () => {
+  const root = createSafetyFixture()
+  try {
+    writeFixtureFile(
+      root,
+      'app/ai-path/lib/realtime-bootstrap.ts',
+      'export const AI_PATH_REALTIME_AUTHENTICATED_BOOTSTRAP_LATCH = false as const\nexport async function prepare() { return fetch("https://api.openai.com/v1/realtime", { headers: { Authorization: process.env.OPENAI_API_KEY } }) }\n',
+    )
+    const report = inspectAiPathReadiness({ root })
+    const isolation = report.safety.checks.find(
+      (check) => check.id === 'realtime_bootstrap_provider_isolation',
+    )
+
+    assert.equal(report.safety.ok, false)
+    assert.equal(isolation?.status, 'broken')
+    assert.equal(readinessExitCode(report), 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('an OpenAI SDK import in authenticated bootstrap also breaks provider isolation', () => {
+  const root = createSafetyFixture()
+  try {
+    writeFixtureFile(
+      root,
+      'app/ai-path/lib/realtime-bootstrap.ts',
+      'import OpenAI from "openai"\nexport const AI_PATH_REALTIME_AUTHENTICATED_BOOTSTRAP_LATCH = false as const\nexport function prepare() { return OpenAI }\n',
+    )
+    const report = inspectAiPathReadiness({ root })
+    const isolation = report.safety.checks.find(
+      (check) => check.id === 'realtime_bootstrap_provider_isolation',
+    )
     assert.equal(isolation?.status, 'broken')
     assert.equal(readinessExitCode(report), 1)
   } finally {

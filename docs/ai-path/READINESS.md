@@ -43,11 +43,13 @@ The source-only inventory covers the private-alpha UI, routes, their high-risk r
 - durable retention mutation job;
 - durable Supabase retention gateway, when present;
 - public paid Realtime bootstrap;
+- authenticated owner-to-intent-to-reservation Realtime bootstrap assembly;
 - Realtime production admission store, when present;
 - Realtime admission policy rollout, when present;
 - durable Realtime admission Supabase gateway, when present;
 - Realtime admission lifecycle-maintenance gateway, when present;
 - direct `fetch`, OpenAI URL, or live-call invocation in the public Realtime session route.
+- provider credential, OpenAI URL, `fetch`, or live-call invocation in the authenticated preparation boundary.
 
 Optional plan, plan-gateway, retention-gateway, admission, admission-policy,
 durable-admission, and admission-maintenance modules are reported as
@@ -56,11 +58,12 @@ literal-false export. Commented declarations, environment-derived expressions,
 `true`, or duplicate declarations fail closed.
 
 The actionable production blockers separate unfinished application/platform
-engineering from operator configuration and approval. Engineering blockers
-include durable plan request-runtime selection, the authenticated Realtime
-route, disposable-database execution of the database-owned continuity and
-policy contracts, unknown-commit proof, and bounded-retention runner
-wiring/capacity proof.
+engineering from operator configuration and approval. Dormant durable plan
+request-runtime selection, the provider-free authenticated Realtime preparation
+boundary, and disposable PostgreSQL database-owned continuity/policy contracts
+are complete. Remaining engineering work is request-scoped split-credential
+staging assembly, unknown-commit and lifecycle-reconciliation proof, and
+bounded-retention runtime wiring/capacity proof.
 Operator and governance blockers cover production Supabase and authentication,
 migration and RLS proof, trusted server credentials, retention operations,
 abuse and spend controls, analytics governance, explicit paid OpenAI Realtime

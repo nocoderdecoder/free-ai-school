@@ -11,6 +11,7 @@ const concurrency = await readFile(new URL("./20-concurrency-reserve.sql", impor
 const bootstrap = await readFile(new URL("./ci-bootstrap.sql", import.meta.url), "utf8");
 const workflow = await readFile(new URL("../../.github/workflows/ai-path-db-proof.yml", import.meta.url), "utf8");
 const preflightPath = fileURLToPath(new URL("../ai-path-db-proof-preflight.mjs", import.meta.url));
+const evidence = await readFile(new URL("../ai-path-db-proof-evidence.mjs", import.meta.url), "utf8");
 const migrationNames = await readdir(new URL("supabase/migrations/", root));
 const continuityMigrationNames = migrationNames.filter(name =>
   /^20260717080000_ai_path_realtime_admission_.*\.sql$/.test(name)
@@ -109,8 +110,16 @@ test("CI proof is isolated to a fresh loopback PostgreSQL service", () => {
     "actions/setup-node@v6",
     "package-manager-cache: false",
     "actions/upload-artifact@v6",
+    "scripts/ai-path-db-proof-evidence.mjs",
+    "ci-run-candidate.json",
+    "database-proof-evidence-manifest.json",
+    "node --test scripts/ai-path-db-proof/static.test.mjs scripts/ai-path-db-proof-evidence.test.mjs",
   ]) assert.ok(workflow.includes(invariant), `workflow is missing ${invariant}`);
   assert.doesNotMatch(workflow, /secrets\.|supabase\.co|openai|AI_PATH_.*LATCH/iu);
+  assert.match(evidence, /releaseEligible:\s*false/);
+  assert.match(evidence, /pull_request runs cannot prove the exact release commit/);
+  assert.match(evidence, /\['push', 'workflow_dispatch'|event === 'pull_request'/);
+  assert.doesNotMatch(evidence, /process\.env|child_process|fetch\(|AI_PATH_.*LATCH/iu);
 
   assert.match(bootstrap, /current_database\(\) <> 'postgres'/);
   assert.match(bootstrap, /inet_server_addr\(\)/);

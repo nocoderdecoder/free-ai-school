@@ -147,6 +147,39 @@ function createSupabaseLearningPlanGateway(
 export type SupabaseLearningPlanActivation = {
   enabled?: string
   schemaVersion?: string
+  credentialScope?: string
+}
+
+export type SupabaseLearningPlanGatewayCapability = {
+  available: boolean
+  reason: string
+}
+
+export function resolveSupabaseLearningPlanGatewayCapability(
+  activation: SupabaseLearningPlanActivation,
+): SupabaseLearningPlanGatewayCapability {
+  if (!AI_PATH_SUPABASE_PLAN_GATEWAY_LATCH) {
+    return {
+      available: false,
+      reason: 'the reviewed durable learning-plan gateway latch remains closed',
+    }
+  }
+  if (activation.enabled !== 'true') {
+    return { available: false, reason: 'the durable learning-plan gateway is not explicitly enabled' }
+  }
+  if (activation.schemaVersion !== AI_PATH_SUPABASE_PLAN_SCHEMA_VERSION) {
+    return {
+      available: false,
+      reason: `database migration ${AI_PATH_SUPABASE_PLAN_SCHEMA_VERSION} is not attested`,
+    }
+  }
+  if (activation.credentialScope !== 'authenticated-user+service-role') {
+    return {
+      available: false,
+      reason: 'the split authenticated-user and service-role credential boundary is not attested',
+    }
+  }
+  return { available: true, reason: 'the durable learning-plan gateway is ready' }
 }
 
 export function createSupabaseLearningPlanService(
@@ -154,12 +187,9 @@ export function createSupabaseLearningPlanService(
   serviceRoleClient: SupabaseClient<Database>,
   activation: SupabaseLearningPlanActivation,
 ) {
-  if (
-    !AI_PATH_SUPABASE_PLAN_GATEWAY_LATCH
-    || activation.enabled !== 'true'
-    || activation.schemaVersion !== AI_PATH_SUPABASE_PLAN_SCHEMA_VERSION
-  ) {
-    throw new Error('Durable learning-plan networking is disabled by the reviewed code-level latch.')
+  const capability = resolveSupabaseLearningPlanGatewayCapability(activation)
+  if (!capability.available) {
+    throw new Error(`Durable learning-plan networking is disabled: ${capability.reason}.`)
   }
   return new SupabaseLearningPlanService(
     createSupabaseLearningPlanGateway(authenticatedClient, serviceRoleClient),

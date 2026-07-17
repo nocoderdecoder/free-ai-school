@@ -61,6 +61,8 @@ Implemented migration contracts, not yet applied to a live database:
 
 The current migrations cover assessment sessions/reports and the plan loop. Direct table writes are revoked; owner mutations use bounded RPCs, while report generation, plan generation, adaptation proposals, reassessment snapshots, and purge operations remain service-only. Production latches remain closed until a disposable Supabase environment proves RLS and RPC behavior with separate users, concurrency, deletion cascades, and scheduled retention.
 
+Assessment-session and learning-plan routes both have request-runtime selectors. The learning-plan selector is wired to its future Supabase adapter but remains unreachable behind two independent literal-false plan latches plus the closed assessment-session persistence latch. Its factory verifies every capability before authentication, service-credential access, or client construction; it uses separate authenticated-user and service-role clients and fails to a generic disabled runtime without an in-memory fallback. No environment variable can open any code latch.
+
 Raw audio is not an entity in the default architecture.
 
 ## Realtime integration gate
