@@ -8,7 +8,10 @@ import type {
   RealtimeAdmissionRepository,
   RealtimeAdmissionReservation,
 } from './realtime-admission.ts'
-import { AI_PATH_REALTIME_ADMISSION_VERSION } from './realtime-admission.ts'
+import {
+  AI_PATH_REALTIME_ADMISSION_LATE_FINALIZE_WINDOW_MS,
+  AI_PATH_REALTIME_ADMISSION_VERSION,
+} from './realtime-admission.ts'
 
 type MutableReservation = {
   -readonly [Key in keyof RealtimeAdmissionReservation]: RealtimeAdmissionReservation[Key]
@@ -127,11 +130,16 @@ export class InMemoryRealtimeAdmissionRepository implements RealtimeAdmissionRep
         globalBudgetExceeded: this.#daily(reservation.utcDay) > command.policy.maxGlobalDailyCents,
       }
     }
-    // A late usage reconciliation must still record spend after a lease expires.
-    // Expiry releases concurrency; it must not erase provider usage already incurred.
+    // A bounded late usage reconciliation records spend after lease expiry.
+    // Expiry releases concurrency; the fixed window prevents permanent ledger
+    // retention and mirrors the dormant durable SQL lifecycle policy.
     if (reservation.status !== 'reserved' && reservation.status !== 'expired') {
       return { kind: 'state_conflict' }
     }
+    if (
+      reservation.status === 'expired'
+      && Date.parse(command.now) > Date.parse(reservation.expiresAt) + AI_PATH_REALTIME_ADMISSION_LATE_FINALIZE_WINDOW_MS
+    ) return { kind: 'state_conflict' }
     reservation.status = 'finalized'
     reservation.actualCents = command.actualCents
     reservation.finalizedAt = command.now

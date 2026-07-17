@@ -32,6 +32,7 @@ const productionFoundationFiles = [
   'supabase/migrations/20260717040000_ai_path_realtime_admission.sql',
   'supabase/migrations/20260717050000_ai_path_goal_type_binding.sql',
   'supabase/migrations/20260717060000_ai_path_bounded_retention.sql',
+  'supabase/migrations/20260717070000_ai_path_realtime_admission_lifecycle.sql',
   'app/api/ai-path/session/[sessionId]/route.ts',
   'app/api/ai-path/plan/route.ts',
   'app/api/ai-path/plan/[planId]/route.ts',
@@ -70,6 +71,10 @@ const productionFoundationFiles = [
   'app/ai-path/lib/retention.ts',
   'app/ai-path/lib/realtime.server.ts',
   'app/ai-path/lib/realtime-admission.ts',
+  'app/ai-path/lib/realtime-admission-supabase.server.ts',
+  'app/ai-path/lib/realtime-admission-supabase.ts',
+  'app/ai-path/lib/realtime-admission-maintenance-supabase.server.ts',
+  'app/ai-path/lib/realtime-admission-maintenance-supabase.ts',
   'app/ai-path/durable-persistence.test.mjs',
   'app/ai-path/goal-type-binding-sql.test.mjs',
   'app/ai-path/learning-plan.test.mjs',
@@ -79,6 +84,9 @@ const productionFoundationFiles = [
   'app/ai-path/realtime-safety.test.mjs',
   'app/ai-path/realtime-admission.test.mjs',
   'app/ai-path/realtime-admission-sql.test.mjs',
+  'app/ai-path/realtime-admission-lifecycle-sql.test.mjs',
+  'app/ai-path/realtime-admission-supabase.test.mjs',
+  'app/ai-path/realtime-admission-maintenance-supabase.test.mjs',
   'app/ai-path/retention.test.mjs',
   'app/ai-path/retention-supabase.test.mjs',
   'app/ai-path/retention-bounded-sql.test.mjs',
@@ -89,9 +97,16 @@ const productionFoundationFiles = [
   'docs/ai-path/PLAN_LOOP.md',
   'docs/ai-path/TRUSTED_REPORT_WRITER.md',
   'docs/ai-path/REALTIME_ADMISSION.md',
+  'docs/ai-path/REALTIME_ADMISSION_SUPABASE_ADAPTER.md',
+  'docs/ai-path/DATABASE_PROOF_RUNBOOK.md',
   'docs/ai-path/RETENTION_OPERATIONS.md',
   'docs/ai-path/RETENTION_SUPABASE_ADAPTER.md',
   'docs/ai-path/OBSERVABILITY.md',
+  'scripts/ai-path-db-proof.sh',
+  'scripts/ai-path-db-proof/00-local-supabase-compat.sql',
+  'scripts/ai-path-db-proof/10-contracts.sql',
+  'scripts/ai-path-db-proof/20-concurrency-reserve.sql',
+  'scripts/ai-path-db-proof/static.test.mjs',
 ]
 
 const latchChecks = [
@@ -158,13 +173,27 @@ const latchChecks = [
     constant: 'AI_PATH_REALTIME_ADMISSION_PRODUCTION_LATCH',
     optional: true,
   },
+  {
+    id: 'durable_realtime_admission_gateway',
+    label: 'Durable Realtime admission Supabase gateway',
+    file: 'app/ai-path/lib/realtime-admission-supabase.server.ts',
+    constant: 'AI_PATH_SUPABASE_REALTIME_ADMISSION_GATEWAY_LATCH',
+    optional: true,
+  },
+  {
+    id: 'realtime_admission_maintenance_gateway',
+    label: 'Realtime admission maintenance gateway',
+    file: 'app/ai-path/lib/realtime-admission-maintenance-supabase.server.ts',
+    constant: 'AI_PATH_SUPABASE_REALTIME_ADMISSION_MAINTENANCE_GATEWAY_LATCH',
+    optional: true,
+  },
 ]
 
 const externalBlockers = [
   {
     id: 'durable_plan_runtime_engineering',
     owner: 'Application and data engineering',
-    action: 'Wire the dormant Supabase plan adapter into request selection only after the six-migration disposable-database suite passes race, rollback, ownership, and export tests.',
+    action: 'Wire the dormant Supabase plan adapter into request selection only after the seven-migration disposable-database suite passes race, rollback, ownership, and export tests.',
   },
   {
     id: 'realtime_route_engineering',
@@ -172,9 +201,9 @@ const externalBlockers = [
     action: 'Implement the authenticated owner-session bootstrap sequence and require an atomic admission reservation before any paid OpenAI Realtime call.',
   },
   {
-    id: 'realtime_admission_adapter_engineering',
+    id: 'realtime_admission_proof_and_rollout',
     owner: 'Platform and data engineering',
-    action: 'Build a durable atomic admission application adapter with multi-connection concurrency, expiry, reconciliation, secret rotation, and a bounded ledger retention/purge policy.',
+    action: 'Run the disposable database admission suite, add uniform external RPC deadlines, and prove HMAC key rotation plus centrally pinned policy-version rollout before opening any admission latch.',
   },
   {
     id: 'retention_adapter_engineering',
@@ -189,7 +218,7 @@ const externalBlockers = [
   {
     id: 'database_migrations_and_rls_proof',
     owner: 'Platform engineering',
-    action: 'Apply all six migrations in a disposable project and pass RLS, RPC permission, concurrency, cascade, replay, rollback, export, bounded retention, and deletion tests.',
+    action: 'Apply all seven migrations with the fail-closed local harness and pass RLS, RPC permission, concurrency, cascade, replay, rollback, export, bounded retention, lifecycle archive, and deletion tests.',
   },
   {
     id: 'trusted_server_credentials',

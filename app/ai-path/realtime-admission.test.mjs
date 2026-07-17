@@ -279,7 +279,7 @@ test('UTC day rollover resets spend budgets but not active concurrency', async (
   }), { status: 'denied', reason: 'user_concurrency_exceeded' })
 })
 
-test('expired reservations release admission and can still record late actual spend', async () => {
+test('expired reservations release admission and accept spend only inside the reconciliation window', async () => {
   const { service, setTime } = harness()
   const alice = binding(users.alice, sessions.a1)
   const first = await service.reserve({
@@ -298,6 +298,22 @@ test('expired reservations release admission and can still record late actual sp
   const late = await service.finalize({ reservationId: first.reservation.id, binding: alice, actualCents: 70 })
   assert.equal(late.status, 'finalized')
   if (late.status === 'finalized') assert.equal(late.budgetExceeded, true)
+
+  const outside = harness()
+  const outsideBinding = binding(users.bob, sessions.b1)
+  const outsideReservation = await outside.service.reserve({
+    binding: outsideBinding,
+    idempotencyKey: 'expiry-window-closed',
+    estimatedCents: 20,
+  })
+  assert.equal(outsideReservation.status, 'admitted')
+  if (outsideReservation.status !== 'admitted') return
+  outside.setTime('2026-07-23T12:01:00.001Z')
+  assert.equal((await outside.service.finalize({
+    reservationId: outsideReservation.reservation.id,
+    binding: outsideBinding,
+    actualCents: 20,
+  })).status, 'state_conflict')
 })
 
 test('repository failures fail closed', async () => {

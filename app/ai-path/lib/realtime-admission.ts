@@ -4,6 +4,7 @@ import type { AssessmentPrincipal } from './session-persistence.ts'
 import type { SessionStatus } from './foundation.ts'
 
 export const AI_PATH_REALTIME_ADMISSION_VERSION = '2026-07-16.v1' as const
+export const AI_PATH_REALTIME_ADMISSION_LATE_FINALIZE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 
 // Environment variables may attest deployment state, but they cannot open this
 // production boundary. Enabling it requires a reviewed code change after the

@@ -1,0 +1,100 @@
+# AI Path disposable database proof
+
+This runbook behaviorally validates every AI Path migration against an empty,
+disposable, loopback-local PostgreSQL database. It requires the established
+migrations as a baseline and automatically includes later `*_ai_path_*.sql`
+migrations in filename/version order. It is an engineering proof, not a
+production migration procedure.
+
+The harness never installs or starts PostgreSQL, creates or drops a database,
+connects to a remote host, activates an application latch, or calls a paid
+service. It deliberately leaves the proof database intact for inspection.
+
+## Prerequisites
+
+- PostgreSQL 15 or newer and `psql` are already available locally.
+- The server belongs to a dedicated disposable development cluster.
+- The cluster already has Supabase-compatible `anon`, `authenticated`, and
+  `service_role` roles. The harness will not create cluster-global roles.
+- The `pgcrypto` extension is available to the connecting superuser.
+- An empty database named `ai_path_proof_<suffix>` exists on that cluster.
+  Do not point the harness at the normal local development database.
+- The URL uses `postgresql://` and a literal `localhost`, `127.0.0.1`, or `::1`
+  host. Socket URLs, remote URLs, and URI query parameters that could override
+  connection coordinates are intentionally rejected.
+- The URL must not contain a password, and `PGPASSWORD` must be unset. Use a
+  protected `PGPASSFILE` (mode `0600`) or a passwordless dedicated local proof
+  role so cluster credentials never appear in process arguments.
+
+If a prerequisite is absent, provision it separately using the team's approved
+local database workflow. The harness will report the missing prerequisite and
+exit without installing, starting, creating, or dropping anything.
+
+## Run
+
+From the repository root:
+
+```bash
+AI_PATH_DB_PROOF_DISPOSABLE=I_UNDERSTAND_THIS_DATABASE_WILL_BE_MUTATED \
+PGPASSFILE='/protected/path/to/proof.pgpass' \
+AI_PATH_DB_PROOF_URL='postgresql://LOCAL_USER@127.0.0.1:5432/ai_path_proof_20260717' \
+scripts/ai-path-db-proof.sh
+```
+
+The explicit confirmation is required on every run. The harness then performs
+a read-only preflight and refuses the target unless all of these are true:
+
+1. The parsed URL and connected server are loopback-local.
+2. The connected database name is exactly the reserved `ai_path_proof_*` name.
+3. The database has no user relations, functions, custom schemas, non-default
+   extensions, or public enum/domain/composite types.
+4. PostgreSQL is version 15 or newer.
+5. The connection is a superuser on the dedicated disposable cluster.
+6. All three Supabase roles already exist.
+
+After preflight it creates only database-local auth compatibility objects,
+applies every discovered AI Path migration one at a time, and runs the proof
+suite.
+
+## Proof coverage
+
+- Every migration applies successfully in the expected order.
+- Final tables, RLS flags, forced RLS on the paid-admission ledger, RPC
+  signatures, and role grants exist.
+- Anonymous, authenticated, and service-role direct accesses that should be
+  unavailable fail in separate connections.
+- Each authenticated owner sees only its own assessment and cannot export or
+  delete another owner's assessment.
+- Goal binding is immutable.
+- Session and plan retention reject an invalid zero limit and delete no more
+  than the requested batch size.
+- Realtime admission replays the same idempotency key and denies a changed
+  request that reuses it.
+- Realtime late finalization succeeds inside the fixed seven-day reconciliation
+  window and fails outside it.
+- Admission maintenance transitions expired leases and purges terminal detail
+  in caller-bounded batches, never purges the current UTC day, and atomically
+  preserves content-free accounting totals in the forced-RLS daily archive.
+- Two simultaneous connections contend for one global Realtime slot; exactly
+  one reserves it and the other receives `global_concurrency_exceeded`.
+
+Success ends with:
+
+```text
+PASS: <count> migrations and all disposable database contracts succeeded
+```
+
+## Evidence and cleanup
+
+Keep the complete terminal output as the migration proof artifact. Record the
+PostgreSQL version and migration commit SHA alongside it.
+
+Inspect the disposable database if a check fails. When evidence collection is
+finished, remove the database using the team's trusted local database tooling
+and an independently verified exact database name. Cleanup is intentionally
+outside this harness so a test script never receives drop authority.
+
+Passing this suite proves behavior on the tested local PostgreSQL version. It
+does not activate the dormant durable adapters, retention job, or paid Realtime
+path, and it does not replace staging migration review, backup/restore proof, or
+production change control.

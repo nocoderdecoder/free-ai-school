@@ -358,6 +358,52 @@ export type Database = {
         Args: { p_limit: number }
         Returns: number
       }
+      reserve_ai_path_realtime_admission: {
+        Args: {
+          p_user_key: string
+          p_session_key: string
+          p_idempotency_key: string
+          p_utc_day: string
+          p_now: string
+          p_expires_at: string
+          p_estimated_cents: number
+          p_max_global_concurrent: number
+          p_max_user_concurrent: number
+          p_max_user_daily_cents: number
+          p_max_global_daily_cents: number
+          p_max_reservation_cents: number
+          p_reservation_ttl_ms: number
+        }
+        Returns: Json
+      }
+      finalize_ai_path_realtime_admission: {
+        Args: {
+          p_reservation_id: string
+          p_user_key: string
+          p_session_key: string
+          p_actual_cents: number
+          p_now: string
+          p_max_user_daily_cents: number
+          p_max_global_daily_cents: number
+        }
+        Returns: Json
+      }
+      cancel_ai_path_realtime_admission: {
+        Args: {
+          p_reservation_id: string
+          p_user_key: string
+          p_session_key: string
+          p_now: string
+        }
+        Returns: Json
+      }
+      maintain_ai_path_realtime_admission: {
+        Args: {
+          p_expire_limit: number
+          p_purge_limit: number
+        }
+        Returns: Json
+      }
     }
     Enums: {
       ai_path_session_status: AiPathSessionStatus
