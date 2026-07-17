@@ -55,12 +55,14 @@ three compatibility roles and reserved `ai_path_proof_ci` database only inside
 that disposable service, and uploads the proof log for 14 days. The service is
 destroyed with the job.
 
-The CI bootstrap is intentionally separate from the behavioral harness. It
-refuses a non-loopback server, a non-`postgres` maintenance database, an
-unexpected user, an existing proof database, or pre-existing compatibility
-roles. It also requires a CI-specific disposable-cluster confirmation distinct
-from the harness confirmation. It contains no drop operation and cannot
-activate application latches.
+The CI bootstrap is intentionally separate from the behavioral harness. The
+workflow connects through runner loopback, while PostgreSQL can report its
+server-side Docker bridge address. The bootstrap therefore accepts only
+loopback or RFC1918 private service networks and refuses a non-`postgres`
+maintenance database, an unexpected user, an existing proof database, or
+pre-existing compatibility roles. It also requires a CI-specific
+disposable-cluster confirmation distinct from the harness confirmation. It
+contains no drop operation and cannot activate application latches.
 
 ## Run
 

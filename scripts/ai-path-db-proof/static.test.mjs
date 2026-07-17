@@ -107,6 +107,10 @@ test("CI proof is isolated to a fresh loopback PostgreSQL service", () => {
 
   assert.match(bootstrap, /current_database\(\) <> 'postgres'/);
   assert.match(bootstrap, /inet_server_addr\(\)/);
+  for (const network of ["127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]) {
+    assert.ok(bootstrap.includes(network), `bootstrap is missing isolated network guard ${network}`);
+  }
+  assert.match(bootstrap, /isolated loopback or private service network/);
   assert.match(bootstrap, /ai_path_proof_ci/);
   assert.match(bootstrap, /ci_disposable_confirmation/);
   for (const role of ["anon", "authenticated", "service_role"]) {
