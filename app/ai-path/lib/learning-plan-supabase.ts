@@ -13,8 +13,9 @@ import {
   type LearningPlanTaskStatus,
   type LearningPlanTimeBudgetChange,
 } from './learning-plan.ts'
-import { AI_PATH_GOAL_TYPES, type AiPathGoalType, type CreateOwnedLearningPlanInput, type CreateOwnedLearningPlanResult, type LearningPlanHttpService } from './learning-plan-service.ts'
+import { type CreateOwnedLearningPlanInput, type CreateOwnedLearningPlanResult, type LearningPlanHttpService } from './learning-plan-service.ts'
 import { getPlanBlueprint } from './plan.ts'
+import { isAiPathGoalType, type AiPathGoalType } from './goal-type.ts'
 import type { AssessmentPrincipal } from './session-persistence.ts'
 
 export type LearningPlanGatewayError = { code?: string; message: string }
@@ -23,6 +24,7 @@ export type LearningPlanGatewayResult<T> = { data: T | null; error: LearningPlan
 export type DurablePlanCreateInput = {
   ownerId: string
   assessmentSessionId: string
+  goalType: AiPathGoalType
   weeklyMinutes: number
   title: string
   proof: string
@@ -31,8 +33,15 @@ export type DurablePlanCreateInput = {
   tasks: LearningPlanTask[]
 }
 
+export type DurableAssessmentPlanBinding = {
+  goalType: AiPathGoalType
+  status: string
+  hasReport: boolean
+}
+
 export interface SupabaseLearningPlanGateway {
   create(input: DurablePlanCreateInput): Promise<LearningPlanGatewayResult<LearningPlanRecord>>
+  findOwnedAssessmentBinding(assessmentSessionId: string): Promise<LearningPlanGatewayResult<DurableAssessmentPlanBinding>>
   findOwnedBySourceAssessment(assessmentSessionId: string): Promise<LearningPlanGatewayResult<LearningPlanRecord>>
   findOwned(planId: string): Promise<LearningPlanGatewayResult<LearningPlanRecord>>
   transitionTask(planId: string, taskId: string, status: LearningPlanTaskStatus, expectedRevision: number): Promise<LearningPlanGatewayResult<LearningPlanRecord>>
@@ -100,15 +109,27 @@ export class SupabaseLearningPlanService implements LearningPlanHttpService {
   ): Promise<CreateOwnedLearningPlanResult> {
     requirePrincipal(principal)
     requireUuid(input.assessmentSessionId, 'assessmentSessionId')
-    if (!AI_PATH_GOAL_TYPES.includes(input.goalType as AiPathGoalType)) {
+    if (input.goalType !== undefined && !isAiPathGoalType(input.goalType)) {
       throw new SupabaseLearningPlanError('The learning-plan goal type is invalid.')
     }
-    const blueprint = getPlanBlueprint(input.goalType)
+    const binding = await this.#gateway.findOwnedAssessmentBinding(input.assessmentSessionId)
+    if (binding.error) {
+      throw new SupabaseLearningPlanError('Durable assessment binding lookup failed.', binding.error.code)
+    }
+    if (!binding.data) return { ok: false, reason: 'assessment_not_found' }
+    if (binding.data.status !== 'complete' || !binding.data.hasReport) {
+      return { ok: false, reason: 'assessment_not_complete' }
+    }
+    if (input.goalType && input.goalType !== binding.data.goalType) {
+      return { ok: false, reason: 'goal_type_mismatch' }
+    }
+    const goalType = binding.data.goalType
+    const blueprint = getPlanBlueprint(goalType)
     const resumed = await this.#gateway.findOwnedBySourceAssessment(input.assessmentSessionId)
     if (resumed.error) {
       throw new SupabaseLearningPlanError('Durable learning-plan resume lookup failed.', resumed.error.code)
     }
-    if (resumed.data) return this.#resumeExisting(resumed.data, blueprint.title, input.weeklyMinutes)
+    if (resumed.data) return this.#resumeExisting(resumed.data, goalType, input.weeklyMinutes)
     const tasks = blueprint.weeks.flatMap((week, weekIndex) => week.tasks.map((title, positionIndex) => ({
       id: this.#taskIdFactory(),
       ordinal: weekIndex * 3 + positionIndex + 1,
@@ -120,6 +141,7 @@ export class SupabaseLearningPlanService implements LearningPlanHttpService {
     const result = await this.#gateway.create({
       ownerId: principal.userId,
       assessmentSessionId: input.assessmentSessionId,
+      goalType,
       weeklyMinutes: input.weeklyMinutes,
       title: blueprint.title,
       proof: blueprint.proof,
@@ -131,7 +153,7 @@ export class SupabaseLearningPlanService implements LearningPlanHttpService {
     if (result.error?.code === '23505') {
       const raced = await this.#gateway.findOwnedBySourceAssessment(input.assessmentSessionId)
       if (raced.error || !raced.data) return { ok: false, reason: 'source_session_exists' }
-      return this.#resumeExisting(raced.data, blueprint.title, input.weeklyMinutes)
+      return this.#resumeExisting(raced.data, goalType, input.weeklyMinutes)
     }
     return { ok: true, plan: requireGatewayData('create', result) }
   }
@@ -225,12 +247,11 @@ export class SupabaseLearningPlanService implements LearningPlanHttpService {
 
   #resumeExisting(
     plan: LearningPlanRecord,
-    expectedInitialTitle: string,
+    expectedGoalType: AiPathGoalType,
     expectedInitialMinutes: number,
   ): CreateOwnedLearningPlanResult {
-    const initial = plan.snapshots.find((snapshot) => snapshot.version === 1 && snapshot.reason === 'initial')
     const initialMinutes = plan.timeBudgetHistory[0]?.fromMinutes ?? plan.weeklyMinutes
-    if (initial?.title !== expectedInitialTitle || initialMinutes !== expectedInitialMinutes) {
+    if (plan.goalType !== expectedGoalType || initialMinutes !== expectedInitialMinutes) {
       return { ok: false, reason: 'source_session_conflict' }
     }
     return { ok: true, plan }
@@ -387,6 +408,9 @@ export function parseSupabaseLearningPlanExport(value: unknown): LearningPlanRec
     id: stringValue(plan, 'id'),
     ownerId: stringValue(plan, 'owner_id'),
     sourceAssessmentSessionId: stringValue(plan, 'source_assessment_session_id'),
+    goalType: isAiPathGoalType(plan.goal_type)
+      ? plan.goal_type
+      : (() => { throw new SupabaseLearningPlanError('Stored learning-plan goal type is invalid.') })(),
     planVersion: AI_PATH_PLAN_VERSION,
     status: status as LearningPlanRecord['status'],
     revision: numberValue(plan, 'revision'),

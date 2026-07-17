@@ -4,6 +4,7 @@ import type {
   SkillLevel,
   TranscriptTurn,
 } from './foundation'
+import { isAiPathGoalType, type AiPathGoalType } from './goal-type.ts'
 
 const reviewedAssessmentSkillIds = [
   'foundations',
@@ -28,8 +29,6 @@ export type ParsedReviewedAssessment = {
 }
 
 const allowedInputIds = new Set(['goal', 'starting-point', 'constraint'])
-const allowedGoalTypes = new Set(['workflows', 'builder', 'career', 'leader', 'foundations', 'unsure'])
-
 const targetLevelsByGoal: Record<string, Partial<Record<SkillId, SkillLevel>>> = {
   workflows: { 'workflow-design': 3, 'evaluation-reliability': 2, 'prompt-context': 2 },
   builder: { 'coding-apis': 3, 'agents-tools': 2, 'evaluation-reliability': 2 },
@@ -97,13 +96,11 @@ function buildEvidence(inputs: readonly ReviewedInput[]): EvidenceRecord[] {
     }))
 }
 
-export function parseReviewedAssessment(body: Record<string, unknown>):
+export function parseReviewedAssessment(body: Record<string, unknown>, trustedGoalType?: AiPathGoalType):
   | { ok: true; value: ParsedReviewedAssessment }
   | { ok: false; errors: string[] } {
   const parsedInputs = parseInputs(body.reviewedInputs)
-  const goalType = typeof body.goalType === 'string' && allowedGoalTypes.has(body.goalType)
-    ? body.goalType
-    : 'unsure'
+  const goalType = trustedGoalType ?? (isAiPathGoalType(body.goalType) ? body.goalType : 'unsure')
   const weeklyHours = Number.isInteger(body.weeklyHours) ? Number(body.weeklyHours) : 0
   const errors = parsedInputs.ok ? [] : parsedInputs.errors
   if (weeklyHours < 1 || weeklyHours > 20) errors.push('weeklyHours must be an integer from 1-20')

@@ -9,28 +9,22 @@ import {
   type LearningPlanTaskStatus,
 } from './learning-plan.ts'
 import { getPlanBlueprint } from './plan.ts'
+import { AI_PATH_GOAL_TYPES, type AiPathGoalType } from './goal-type.ts'
 import type { AssessmentPrincipal, AssessmentSessionService } from './session-persistence.ts'
 
-export const AI_PATH_GOAL_TYPES = [
-  'workflows',
-  'builder',
-  'career',
-  'leader',
-  'foundations',
-  'unsure',
-] as const
-
-export type AiPathGoalType = (typeof AI_PATH_GOAL_TYPES)[number]
+export { AI_PATH_GOAL_TYPES }
+export type { AiPathGoalType }
 
 export type CreateOwnedLearningPlanInput = {
   assessmentSessionId: string
-  goalType: AiPathGoalType
+  /** Compatibility hint only; persisted session binding remains authoritative. */
+  goalType?: AiPathGoalType
   weeklyMinutes: number
 }
 
 export type CreateOwnedLearningPlanResult =
   | { ok: true; plan: LearningPlanRecord }
-  | { ok: false; reason: 'assessment_not_found' | 'assessment_not_complete' | 'source_session_exists' | 'source_session_conflict' }
+  | { ok: false; reason: 'assessment_not_found' | 'assessment_not_complete' | 'source_session_exists' | 'source_session_conflict' | 'goal_type_mismatch' }
 
 export interface LearningPlanHttpService {
   createOwnedPlan(
@@ -104,10 +98,14 @@ export class OwnedLearningPlanService implements LearningPlanHttpService {
       return { ok: false, reason: 'assessment_not_complete' }
     }
 
-    const blueprint = getPlanBlueprint(input.goalType)
+    if (input.goalType && input.goalType !== assessment.goalType) {
+      return { ok: false, reason: 'goal_type_mismatch' }
+    }
+    const goalType = assessment.goalType
+    const blueprint = getPlanBlueprint(goalType)
     const planPrincipal = asPlanPrincipal(principal)
     const existing = await this.#plans.getOwnedPlanBySourceAssessment(planPrincipal, assessment.id)
-    if (existing) return this.#resumeExisting(existing, blueprint.title, input.weeklyMinutes)
+    if (existing) return this.#resumeExisting(existing, goalType, input.weeklyMinutes)
     const tasks = blueprint.weeks.flatMap((week, weekIndex) =>
       week.tasks.map((title, positionIndex) => ({
         id: this.#taskIdFactory(),
@@ -120,6 +118,7 @@ export class OwnedLearningPlanService implements LearningPlanHttpService {
     )
     const created = await this.#plans.createOwnedPlan(planPrincipal, {
       sourceAssessmentSessionId: assessment.id,
+      goalType,
       title: blueprint.title,
       proof: blueprint.proof,
       focusNow: blueprint.focusNow,
@@ -130,7 +129,7 @@ export class OwnedLearningPlanService implements LearningPlanHttpService {
     if (!created.ok) {
       const raced = await this.#plans.getOwnedPlanBySourceAssessment(planPrincipal, assessment.id)
       return raced
-        ? this.#resumeExisting(raced, blueprint.title, input.weeklyMinutes)
+        ? this.#resumeExisting(raced, goalType, input.weeklyMinutes)
         : { ok: false, reason: created.reason }
     }
     return created
@@ -138,12 +137,11 @@ export class OwnedLearningPlanService implements LearningPlanHttpService {
 
   #resumeExisting(
     plan: LearningPlanRecord,
-    expectedInitialTitle: string,
+    expectedGoalType: AiPathGoalType,
     expectedInitialMinutes: number,
   ): CreateOwnedLearningPlanResult {
-    const initial = plan.snapshots.find((snapshot) => snapshot.version === 1 && snapshot.reason === 'initial')
     const initialMinutes = plan.timeBudgetHistory[0]?.fromMinutes ?? plan.weeklyMinutes
-    if (initial?.title !== expectedInitialTitle || initialMinutes !== expectedInitialMinutes) {
+    if (plan.goalType !== expectedGoalType || initialMinutes !== expectedInitialMinutes) {
       return { ok: false, reason: 'source_session_conflict' }
     }
     return { ok: true, plan }

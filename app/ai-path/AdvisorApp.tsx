@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { AIPathApiError, analyzeReviewedAssessment, createTextSession, deleteOwnedSession, exportOwnedSession } from './client/api'
 import { proposeCheckInAdaptation, taskSwapAlternative, type CheckInProposal } from './client/plan-actions'
 import type { AssessmentReport, SkillId, SkillLevel } from './lib/foundation'
+import type { AiPathGoalType } from './lib/goal-type'
 import { getPlanBlueprint } from './lib/plan'
 
 type Stage = 'landing' | 'profile' | 'setup' | 'interview' | 'understanding' | 'results' | 'plan' | 'history'
@@ -154,7 +155,7 @@ function FlowHeader({ stage, onNavigate, canViewHistory }: { stage: Stage; onNav
 
 export function AdvisorApp() {
   const [stage, setStage] = useState<Stage>('landing')
-  const [goal, setGoal] = useState('workflows')
+  const [goal, setGoal] = useState<AiPathGoalType>('workflows')
   const [role, setRole] = useState('Product marketing lead at a B2B software company')
   const [outcome, setOutcome] = useState('Turn a small set of sources into a useful weekly market brief without losing citations or spending half a day on it.')
   const [hours, setHours] = useState('3')
@@ -307,7 +308,7 @@ export function AdvisorApp() {
     setSessionState('starting')
     setSessionError('')
     try {
-      const result = await createTextSession({ goal: outcome.trim(), targetRole: role.trim() })
+      const result = await createTextSession({ goal: outcome.trim(), goalType: goal, targetRole: role.trim() })
       setSessionId(result.session.id)
       setSessionOwned(result.owned)
       setSessionPersistence(result.persistence)

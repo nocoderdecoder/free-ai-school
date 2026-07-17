@@ -63,6 +63,7 @@ function presentPlan(plan: LearningPlanRecord) {
   return {
     id: plan.id,
     sourceAssessmentSessionId: plan.sourceAssessmentSessionId,
+    goalType: plan.goalType,
     planVersion: plan.planVersion,
     status: plan.status,
     revision: plan.revision,
@@ -108,10 +109,12 @@ export async function handleLearningPlanCreate(
   const body = bodyResult.body
   const assessmentSessionId = boundedText(body.assessmentSessionId, 1, 128)
   const weeklyMinutes = boundedInteger(body.weeklyMinutes, 15, 1200)
-  const goalType = typeof body.goalType === 'string' && AI_PATH_GOAL_TYPES.includes(body.goalType as AiPathGoalType)
-    ? body.goalType as AiPathGoalType
-    : null
-  if (!assessmentSessionId || !validId(assessmentSessionId, runtime) || weeklyMinutes === null || !goalType) {
+  const goalType = body.goalType === undefined
+    ? undefined
+    : typeof body.goalType === 'string' && AI_PATH_GOAL_TYPES.includes(body.goalType as AiPathGoalType)
+      ? body.goalType as AiPathGoalType
+      : null
+  if (!assessmentSessionId || !validId(assessmentSessionId, runtime) || weeklyMinutes === null || goalType === null) {
     return json({ error: 'invalid_learning_plan' }, 400)
   }
   try {

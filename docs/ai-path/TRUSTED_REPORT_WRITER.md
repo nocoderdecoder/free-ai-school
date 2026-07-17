@@ -1,7 +1,9 @@
 # Trusted report writer
 
-Status: implemented and testable, but deliberately disabled. Migration
-`20260717020000_ai_path_trusted_report_writer.sql` has not been applied by this work.
+Status: implemented and testable, but deliberately disabled. The trusted writer
+is defined by migration `20260717020000_ai_path_trusted_report_writer.sql` and its
+runtime now requires the goal-bound schema through `20260717050000`; none of
+these migrations has been applied by this work.
 The application latch `AI_PATH_TRUSTED_REPORT_WRITER_LATCH` remains `false`.
 
 ## Trust boundary
@@ -50,7 +52,7 @@ creates the service-role credential; it accepts a preconfigured server-only clie
 
 Do not open the code latch until all of these are complete:
 
-- apply both AI Path migrations to a disposable Supabase project;
+- apply and attest all AI Path migrations through `20260717050000` in a disposable Supabase project;
 - add authenticated/anonymous/service-role RPC permission integration tests;
 - add concurrent exact-retry and conflicting-replay tests;
 - wire an explicit `analysis_pending` transition boundary;

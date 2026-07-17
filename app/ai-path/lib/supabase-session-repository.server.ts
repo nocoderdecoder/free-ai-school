@@ -19,7 +19,7 @@ export {
   SupabaseTrustedReportWriter,
 } from './supabase-session-repository'
 
-export const AI_PATH_TRUSTED_REPORT_WRITER_MIGRATION_VERSION = '20260717020000'
+export const AI_PATH_TRUSTED_REPORT_WRITER_MIGRATION_VERSION = '20260717050000'
 
 // Enabling this requires migration/RPC integration tests against a disposable
 // Supabase project plus an operational key-rotation and rollback review.
@@ -57,6 +57,7 @@ export function createSupabaseSessionGateway(
         p_mode: row.mode,
         p_locale: row.locale,
         p_goal: row.goal,
+        p_goal_type: row.goal_type,
         p_target_role: row.target_role ?? null,
         p_consent_version: row.consent_version,
         p_save_transcript: row.save_transcript ?? false,

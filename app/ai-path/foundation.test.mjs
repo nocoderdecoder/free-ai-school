@@ -50,19 +50,33 @@ test('session input accepts only the server-pinned consent version', () => {
     locale: 'en-US',
     mode: 'voice',
     goal: 'I want to build and evaluate a reliable AI research workflow.',
+    goalType: 'builder',
     saveTranscript: false,
   })
   assert.equal(valid.ok, true)
+  assert.equal(valid.value.goalType, 'builder')
 
   const arbitrary = parseSessionStartInput({
     consentVersion: 'client-invented-v99',
     locale: 'en-US',
     mode: 'voice',
     goal: 'I want to build and evaluate a reliable AI research workflow.',
+    goalType: 'builder',
     saveTranscript: false,
   })
   assert.equal(arbitrary.ok, false)
   assert.match(arbitrary.errors.join(' '), /consentVersion must be/)
+
+  const unboundedGoalType = parseSessionStartInput({
+    consentVersion: AI_PATH_CONSENT_VERSION,
+    locale: 'en-US',
+    mode: 'voice',
+    goal: 'I want to build and evaluate a reliable AI research workflow.',
+    goalType: 'browser-invented-track',
+    saveTranscript: false,
+  })
+  assert.equal(unboundedGoalType.ok, false)
+  assert.match(unboundedGoalType.errors.join(' '), /goalType is invalid/)
 })
 
 test('evidence requires an exact quote, user speaker, and known source', () => {

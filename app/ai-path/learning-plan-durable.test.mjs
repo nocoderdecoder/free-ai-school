@@ -35,6 +35,7 @@ function domainPlan(overrides = {}) {
     id: planId,
     ownerId,
     sourceAssessmentSessionId: sessionId,
+    goalType: 'workflows',
     planVersion: '2026-07-17.v1',
     status: 'active',
     revision: 1,
@@ -71,6 +72,7 @@ function domainPlan(overrides = {}) {
 function gateway(overrides = {}) {
   return {
     async create() { return { data: domainPlan(), error: null } },
+    async findOwnedAssessmentBinding() { return { data: { goalType: 'workflows', status: 'complete', hasReport: true }, error: null } },
     async findOwnedBySourceAssessment() { return { data: null, error: null } },
     async findOwned() { return { data: domainPlan(), error: null } },
     async transitionTask() { return { data: domainPlan({ revision: 2 }), error: null } },
@@ -142,6 +144,7 @@ test('durable create forwards verified ownership and a server-built 12-task blue
   assert.equal(result.ok, true)
   assert.equal(forwarded.ownerId, ownerId)
   assert.equal(forwarded.assessmentSessionId, sessionId)
+  assert.equal(forwarded.goalType, 'workflows')
   assert.equal(forwarded.tasks.length, 12)
   assert.equal(forwarded.tasks[0].ordinal, 1)
   assert.equal(forwarded.tasks[11].ordinal, 12)
@@ -166,7 +169,7 @@ test('durable create resumes identical requests and rejects conflicting goal or 
     { userId: ownerId, source: 'supabase' },
     { assessmentSessionId: sessionId, goalType: 'builder', weeklyMinutes: 180 },
   )
-  assert.deepEqual(conflictingGoal, { ok: false, reason: 'source_session_conflict' })
+  assert.deepEqual(conflictingGoal, { ok: false, reason: 'goal_type_mismatch' })
   const conflictingBudget = await service.createOwnedPlan(
     { userId: ownerId, source: 'supabase' },
     { assessmentSessionId: sessionId, goalType: 'workflows', weeklyMinutes: 240 },
@@ -212,6 +215,7 @@ test('nested Supabase exports are parsed and unsupported versions fail closed', 
     id: plan.id,
     owner_id: plan.ownerId,
     source_assessment_session_id: plan.sourceAssessmentSessionId,
+    goal_type: plan.goalType,
     plan_version: plan.planVersion,
     status: plan.status,
     revision: plan.revision,

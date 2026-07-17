@@ -74,6 +74,7 @@ test('current repository is safe for private alpha but not claimed production-re
         'durable_plan_gateway',
         'analytics_sink',
         'retention_job',
+        'durable_retention_gateway',
         'realtime_public_bootstrap',
         'realtime_admission',
         'realtime_route_network_isolation',
@@ -127,7 +128,7 @@ test('default exit is zero for incomplete source inventory when safety remains l
     assert.equal(report.safety.ok, true)
     assert.equal(report.safePrivateAlpha, false)
     assert.equal(report.productionReady, false)
-    assert.equal(report.safety.optionalNotPresent, 3)
+    assert.equal(report.safety.optionalNotPresent, 4)
     assert.equal(readinessExitCode(report), 0)
     assert.equal(readinessExitCode(report, { requireProduction: true }), 2)
   } finally {

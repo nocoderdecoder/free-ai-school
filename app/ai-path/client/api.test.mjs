@@ -44,19 +44,20 @@ test('session creation sends affirmative consent metadata and returns ownership 
   globalThis.fetch = async (url, options) => {
     request = { url, options }
     return Response.json({
-      session: { id: 'session-123', status: 'consented', createdAt: '2026-07-17T00:00:00.000Z', mode: 'text', locale: 'en-GB', goal: 'Ship a workflow', targetRole: 'Operator', consentVersion: '2026-07-17.private-alpha.v1', saveTranscript: false },
+      session: { id: 'session-123', status: 'consented', createdAt: '2026-07-17T00:00:00.000Z', mode: 'text', locale: 'en-GB', goal: 'Ship a workflow', goalType: 'workflows', targetRole: 'Operator', consentVersion: '2026-07-17.private-alpha.v1', saveTranscript: false },
       owned: false,
       persistence: 'ephemeral-memory',
       productionReady: false,
     })
   }
   try {
-    const result = await createTextSession({ goal: 'Ship a workflow', targetRole: 'Operator' })
+    const result = await createTextSession({ goal: 'Ship a workflow', goalType: 'workflows', targetRole: 'Operator' })
     const body = JSON.parse(request.options.body)
     assert.equal(request.url, '/api/ai-path/session')
     assert.equal(request.options.method, 'POST')
     assert.equal(body.locale, 'en-GB')
     assert.equal(body.mode, 'text')
+    assert.equal(body.goalType, 'workflows')
     assert.equal(body.saveTranscript, false)
     assert.equal(result.owned, false)
     assert.equal(result.persistence, 'ephemeral-memory')
@@ -92,7 +93,7 @@ test('API errors expose a safe recovery message without leaking server configura
   globalThis.fetch = async () => Response.json({ error: 'authenticated_alpha_unavailable', internalReason: 'secret configuration details' }, { status: 503 })
   try {
     await assert.rejects(
-      createTextSession({ goal: 'Ship a workflow', targetRole: 'Operator' }),
+      createTextSession({ goal: 'Ship a workflow', goalType: 'workflows', targetRole: 'Operator' }),
       error => error instanceof AIPathApiError && error.status === 503 && !error.message.includes('secret')
     )
   } finally {

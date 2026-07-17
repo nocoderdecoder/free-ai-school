@@ -26,6 +26,7 @@ const sessionInput = {
   locale: 'en-US',
   mode: 'text',
   goal: 'Build a safe and measurable AI workflow for weekly research.',
+  goalType: 'workflows',
   targetRole: 'Product manager',
   saveTranscript: false,
 }
@@ -140,6 +141,7 @@ test('plan creation requires a completed report owned by the verified principal'
   assert.equal(createdPlan.snapshots[0].tasks.length, 12)
   assert.equal(createdPlan.weeklyMinutes, 180)
   assert.equal(createdPlan.sourceAssessmentSessionId, 'assessment-owned')
+  assert.equal(createdPlan.goalType, 'workflows')
 })
 
 test('a lost create response is resumable while conflicting create inputs return 409', async () => {
@@ -172,7 +174,7 @@ test('a lost create response is resumable while conflicting create inputs return
     weeklyMinutes: 240,
   }), runtime(h.service))
   assert.equal(conflicting.status, 409)
-  assert.equal((await conflicting.json()).error, 'source_session_conflict')
+  assert.equal((await conflicting.json()).error, 'goal_type_mismatch')
 })
 
 test('task progress is owner-scoped and stale revisions return a conflict', async () => {

@@ -1,3 +1,5 @@
+import type { AiPathGoalType } from './goal-type.ts'
+
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export type AiPathSessionStatus =
@@ -27,6 +29,7 @@ export type Database = {
           mode: 'voice' | 'text'
           locale: string
           goal: string
+          goal_type: AiPathGoalType
           target_role: string | null
           consent_version: string
           save_transcript: boolean
@@ -49,6 +52,7 @@ export type Database = {
           mode: 'voice' | 'text'
           locale: string
           goal: string
+          goal_type: AiPathGoalType
           target_role?: string | null
           consent_version: string
           save_transcript?: boolean
@@ -71,6 +75,7 @@ export type Database = {
           mode?: 'voice' | 'text'
           locale?: string
           goal?: string
+          goal_type?: AiPathGoalType
           target_role?: string | null
           consent_version?: string
           save_transcript?: boolean
@@ -93,6 +98,7 @@ export type Database = {
           id: string
           owner_id: string
           source_assessment_session_id: string
+          goal_type: AiPathGoalType
           plan_version: string
           status: AiPathLearningPlanStatus
           revision: number
@@ -106,6 +112,7 @@ export type Database = {
           id?: string
           owner_id: string
           source_assessment_session_id: string
+          goal_type: AiPathGoalType
           plan_version?: string
           status?: AiPathLearningPlanStatus
           revision?: number
@@ -119,6 +126,7 @@ export type Database = {
           id?: string
           owner_id?: string
           source_assessment_session_id?: string
+          goal_type?: AiPathGoalType
           plan_version?: string
           status?: AiPathLearningPlanStatus
           revision?: number
@@ -276,6 +284,7 @@ export type Database = {
           p_mode: string
           p_locale: string
           p_goal: string
+          p_goal_type: AiPathGoalType
           p_target_role: string | null
           p_consent_version: string
           p_save_transcript: boolean
@@ -291,7 +300,7 @@ export type Database = {
         Returns: boolean
       }
       purge_expired_ai_path_sessions: {
-        Args: Record<string, never>
+        Args: { p_limit: number }
         Returns: number
       }
       complete_ai_path_session_trusted: {
@@ -311,6 +320,7 @@ export type Database = {
         Args: {
           p_owner_id: string
           p_source_assessment_session_id: string
+          p_goal_type: AiPathGoalType
           p_weekly_minutes: number
           p_title: string
           p_proof: string
@@ -345,7 +355,7 @@ export type Database = {
         Returns: boolean
       }
       purge_expired_ai_path_learning_plans: {
-        Args: Record<string, never>
+        Args: { p_limit: number }
         Returns: number
       }
     }

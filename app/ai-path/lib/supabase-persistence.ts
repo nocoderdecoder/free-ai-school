@@ -1,6 +1,6 @@
 import type { AssessmentPrincipal } from './session-persistence'
 
-export const AI_PATH_SUPABASE_MIGRATION_VERSION = '20260717000000'
+export const AI_PATH_SUPABASE_MIGRATION_VERSION = '20260717050000'
 
 // This code-level latch intentionally cannot be changed by deployment config.
 // Enabling durable persistence requires a reviewed code change after migrations,

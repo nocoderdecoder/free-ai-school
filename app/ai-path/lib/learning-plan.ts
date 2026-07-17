@@ -1,3 +1,5 @@
+import type { AiPathGoalType } from './goal-type.ts'
+
 export const AI_PATH_PLAN_VERSION = '2026-07-17.v1' as const
 export const AI_PATH_PLAN_TASK_COUNT = 12 as const
 export const AI_PATH_PLAN_RETENTION_DAYS = 90 as const
@@ -70,6 +72,7 @@ export type LearningPlanRecord = {
   id: string
   ownerId: string
   sourceAssessmentSessionId: string
+  goalType: AiPathGoalType
   planVersion: typeof AI_PATH_PLAN_VERSION
   status: LearningPlanStatus
   revision: number
@@ -91,6 +94,7 @@ export type LearningPlanSnapshotInput = Omit<
 >
 
 export type CreateLearningPlanInput = LearningPlanSnapshotInput & {
+  goalType: AiPathGoalType
   weeklyMinutes: number
 }
 
@@ -279,6 +283,7 @@ export class LearningPlanService {
       id: this.#idFactory(),
       ownerId: principal.userId,
       sourceAssessmentSessionId: snapshot.sourceAssessmentSessionId,
+      goalType: input.goalType,
       planVersion: AI_PATH_PLAN_VERSION,
       status: 'active',
       revision: 1,

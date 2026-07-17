@@ -22,6 +22,7 @@ const sessionBody = {
   locale: 'en-US',
   mode: 'text',
   goal: 'Build a reliable weekly AI research and evaluation workflow.',
+  goalType: 'workflows',
   targetRole: 'Product manager',
   saveTranscript: false,
 }

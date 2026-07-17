@@ -5,6 +5,7 @@ import {
   AI_PATH_TAXONOMY_VERSION,
   type AssessmentReport,
 } from './foundation.ts'
+import { isAiPathGoalType } from './goal-type.ts'
 import type {
   AiPathSessionInsert,
   AiPathSessionRow,
@@ -87,6 +88,9 @@ function mapRow(row: AiPathSessionRow): AssessmentSessionRecord {
   ) {
     throw new SupabaseSessionRepositoryError('Stored assessment session uses unsupported versions.')
   }
+  if (!isAiPathGoalType(row.goal_type)) {
+    throw new SupabaseSessionRepositoryError('Stored assessment session goal type is invalid.')
+  }
   return {
     id: row.id,
     ownerId: row.owner_id,
@@ -94,6 +98,7 @@ function mapRow(row: AiPathSessionRow): AssessmentSessionRecord {
     mode: row.mode,
     locale: row.locale,
     goal: row.goal,
+    goalType: row.goal_type,
     targetRole: row.target_role ?? undefined,
     consentVersion: row.consent_version,
     saveTranscript: row.save_transcript,
@@ -229,6 +234,7 @@ export class SupabaseAssessmentSessionRepository implements AssessmentSessionRep
       mode: session.mode,
       locale: session.locale,
       goal: session.goal,
+      goal_type: session.goalType,
       target_role: session.targetRole ?? null,
       consent_version: session.consentVersion,
       save_transcript: session.saveTranscript,

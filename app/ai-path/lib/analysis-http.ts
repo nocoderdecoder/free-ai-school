@@ -47,7 +47,7 @@ export async function handleAnalysisPost(request: Request, runtime: AssessmentRe
   if (runtime.principal && !ownedSession) return json({ error: 'session_not_found' }, 404)
 
   const goal = ownedSession?.goal ?? (typeof body.goal === 'string' ? body.goal.trim() : '')
-  const reviewedAssessment = parseReviewedAssessment(body)
+  const reviewedAssessment = parseReviewedAssessment(body, ownedSession?.goalType)
   const formats = Array.isArray(body.formats)
     ? body.formats.filter((format): format is ResourceFormat => typeof format === 'string' && resourceFormats.has(format as ResourceFormat))
     : undefined

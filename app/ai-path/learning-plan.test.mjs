@@ -26,6 +26,7 @@ function tasks(prefix = 'task') {
 function planInput(sessionId = 'session-123', taskPrefix = 'task') {
   return {
     sourceAssessmentSessionId: sessionId,
+    goalType: 'workflows',
     title: 'A bounded four-week learning plan',
     proof: 'An artifact and evidence package that another person can inspect.',
     focusNow: 'One skill gap tied to a practical outcome.',

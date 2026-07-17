@@ -14,6 +14,7 @@ const sessionInput = {
   locale: 'en-US',
   mode: 'text',
   goal: 'Build a reliable weekly AI research and evaluation workflow.',
+  goalType: 'workflows',
   targetRole: 'Product manager',
   saveTranscript: false,
 }
@@ -129,6 +130,7 @@ test('repository contract returns defensive copies', async () => {
   created.session.goal = 'mutated return value'
   const reread = await repository.findOwnedById('session-copy', 'copy_owner')
   assert.equal(reread?.goal, sessionInput.goal)
+  assert.equal(reread?.goalType, sessionInput.goalType)
 })
 
 test('repository contract scopes export and hard deletion to the owner', async () => {

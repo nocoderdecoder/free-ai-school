@@ -2,6 +2,7 @@ import {
   AI_PATH_CONSENT_VERSION,
   type AssessmentReport,
 } from '../lib/foundation.ts'
+import type { AiPathGoalType } from '../lib/goal-type.ts'
 
 import { buildAnalysisPayload, type ReviewedAssessmentInput } from './analysis-payload.ts'
 
@@ -15,6 +16,7 @@ export type TextSession = {
   mode: 'text'
   locale: string
   goal: string
+  goalType: AiPathGoalType
   targetRole: string | null
   consentVersion: string
   saveTranscript: boolean
@@ -71,6 +73,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
 
 export async function createTextSession(input: {
   goal: string
+  goalType: AiPathGoalType
   targetRole: string
   saveTranscript?: boolean
 }): Promise<TextSessionResult> {
@@ -83,6 +86,7 @@ export async function createTextSession(input: {
       locale: navigator.language || 'en-US',
       mode: 'text',
       goal: input.goal,
+      goalType: input.goalType,
       targetRole: input.targetRole,
       saveTranscript: input.saveTranscript === true,
     }),

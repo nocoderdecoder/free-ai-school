@@ -1,6 +1,6 @@
 import type { LearningPlanRuntimeCapability } from './learning-plan-runtime.ts'
 
-export const AI_PATH_LEARNING_PLAN_MIGRATION_VERSION = '20260717010000' as const
+export const AI_PATH_LEARNING_PLAN_MIGRATION_VERSION = '20260717050000' as const
 export const AI_PATH_DURABLE_LEARNING_PLAN_LATCH = false as const
 
 export type LearningPlanEnvironment = {

@@ -11,8 +11,9 @@ import {
   type SupabaseLearningPlanGateway,
 } from './learning-plan-supabase.ts'
 import type { LearningPlanRecord, LearningPlanTaskStatus } from './learning-plan.ts'
+import { isAiPathGoalType } from './goal-type.ts'
 
-export const AI_PATH_SUPABASE_PLAN_SCHEMA_VERSION = '20260717010000' as const
+export const AI_PATH_SUPABASE_PLAN_SCHEMA_VERSION = '20260717050000' as const
 
 // This reviewed literal is intentionally independent of deployment flags.
 export const AI_PATH_SUPABASE_PLAN_GATEWAY_LATCH = false as const
@@ -59,6 +60,7 @@ function createSupabaseLearningPlanGateway(
       const { data: planId, error } = await serviceRoleClient.rpc('create_ai_path_learning_plan', {
         p_owner_id: input.ownerId,
         p_source_assessment_session_id: input.assessmentSessionId,
+        p_goal_type: input.goalType,
         p_weekly_minutes: input.weeklyMinutes,
         p_title: input.title,
         p_proof: input.proof,
@@ -69,6 +71,26 @@ function createSupabaseLearningPlanGateway(
       if (error) return { data: null, error: normalizedError(error) }
       if (typeof planId !== 'string') return { data: null, error: { message: 'Plan creation returned no identifier.' } }
       return exportPlan(planId)
+    },
+    async findOwnedAssessmentBinding(assessmentSessionId) {
+      const { data, error } = await authenticatedClient
+        .from('ai_path_assessment_sessions')
+        .select('goal_type,status,report_saved_at')
+        .eq('id', assessmentSessionId)
+        .maybeSingle()
+      if (error) return { data: null, error: normalizedError(error) }
+      if (!data) return { data: null, error: null }
+      if (!isAiPathGoalType(data.goal_type)) {
+        return { data: null, error: { message: 'Stored assessment goal type is invalid.' } }
+      }
+      return {
+        data: {
+          goalType: data.goal_type,
+          status: data.status,
+          hasReport: data.report_saved_at !== null,
+        },
+        error: null,
+      }
     },
     async findOwnedBySourceAssessment(assessmentSessionId) {
       const { data, error } = await authenticatedClient

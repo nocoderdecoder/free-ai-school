@@ -245,6 +245,7 @@ function completedRow(overrides = {}) {
     mode: 'text',
     locale: 'en-US',
     goal,
+    goal_type: 'workflows',
     target_role: null,
     consent_version: '2026-07-16.v1',
     save_transcript: false,

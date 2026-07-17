@@ -28,7 +28,7 @@ The build is split into independently reviewable workstreams with explicit gates
 - Unit/contract fixtures, production build, and responsive screenshot QA.
 - Architecture, product, and delivery decisions documented.
 
-Verified in the repository on 2026-07-17: 84 deterministic tests, TypeScript, scoped ESLint, production build, and responsive browser QA at 375×812, 768×1024, and 1440×900. The browser path remains text-only and makes no paid model call.
+Verified in the repository on 2026-07-17: 161 deterministic tests, TypeScript, scoped ESLint, production build, and responsive browser QA at 375×812, 768×1024, and 1440×900. The source-readiness gate reports 14/14 private-alpha files, 66/66 production-foundation files, ten locked safety gates, and zero broken gates. The browser path remains text-only and makes no paid model call.
 
 ### M1 — Research prototype
 
@@ -36,8 +36,8 @@ Verified in the repository on 2026-07-17: 84 deterministic tests, TypeScript, sc
 - Have two independent reviewers score transcript fixtures and compare agreement.
 - Collapse or rename skills that users cannot distinguish.
 - Measure correction rate at the understanding checkpoint.
-- Replace canned report content with the deterministic API result.
-- Add basic authenticated persistence, export, and deletion.
+- Deterministic API report rendering is implemented for the private-alpha path.
+- Owner-scoped persistence, export, deletion, and trusted report-writing contracts are implemented behind closed production latches; disposable-database proof and hosted auth remain open.
 
 ### M2 — Voice alpha
 
@@ -56,7 +56,7 @@ Verified in the repository on 2026-07-17: 84 deterministic tests, TypeScript, sc
 - Show report deltas and why each level changed.
 - Add catalog review dates, availability checks, and recommendation outcome feedback.
 
-The owner-scoped plan aggregate, SQL/RLS contract, task progress, check-ins, time changes, explicit adaptation decisions, reassessment snapshots, export/delete, and retention purge are implemented behind dormant persistence boundaries. The private-alpha UI currently keeps plan changes in the browser and labels them as a preview; enabling durable plan APIs requires the external database proof and a separate retention disclosure.
+The owner-scoped plan aggregate, HTTP routes, dormant Supabase adapter, immutable server-bound learner goal preference, SQL/RLS contract, task progress, check-ins, time changes, explicit adaptation decisions, reassessment snapshots, export/delete, and retention purge are implemented behind dormant persistence boundaries. The private-alpha UI currently keeps plan changes in the browser and labels them as a preview. Durable activation still requires request-runtime wiring, disposable-database proof, and versioned retention disclosure.
 
 ### M4 — Beta decision
 
@@ -67,13 +67,14 @@ The owner-scoped plan aggregate, SQL/RLS contract, task progress, check-ins, tim
 
 ## Current critical path
 
-1. Apply the dormant migrations to a disposable Supabase project and behaviorally prove RLS, ownership, RPC concurrency, cascade deletion, retention, and trusted report writes with two users plus service role.
-2. Add the monitored retention scheduler and distributed abuse controls; prove multi-instance limits and deletion alerts.
-3. Connect owner-scoped plan APIs only after durable session/report persistence passes those tests and the plan-retention disclosure is versioned.
-4. Run five moderated text-alpha sessions and two independent assessment reviewers; measure corrections, report usefulness, and first-task completion.
-5. Complete an accessibility audit and adversarial fixtures for prompt injection, sparse/contradictory evidence, and long/non-native-English answers.
-6. Obtain explicit paid-usage approval and a bounded budget before enabling or testing live OpenAI Realtime traffic.
-7. Stage voice behind auth, ownership, distributed limits, concurrency/spend caps, kill switch, and transcript-free operational telemetry.
+1. Wire the dormant durable plan adapter into request selection only after the new goal-binding migration passes the disposable-database suite; keep both code latches closed until then.
+2. Implement the durable Realtime admission application adapter, then prove the atomic admission SQL and bounded retention adapter against a disposable database under races, rollback, expiry, cascades, backlog, and deletion.
+3. Apply all dormant migrations to a disposable Supabase project and behaviorally prove RLS and RPC behavior with two users plus the service role. This needs a running disposable database or hosted project.
+4. Configure monitored retention, distributed abuse controls, deletion alerts, and secret rotation after infrastructure and privacy decisions are supplied.
+5. Run five moderated text-alpha sessions and two independent assessment reviewers; this needs recruited participants and reviewer availability.
+6. Complete accessibility, adversarial, and long-content audits, then resolve every release-blocking result.
+7. Obtain explicit paid-usage approval and a bounded budget before enabling or testing live OpenAI Realtime traffic.
+8. Stage voice behind authenticated ownership, atomic admission, distributed limits, concurrency/spend caps, a kill switch, and transcript-free operational telemetry.
 
 ## Decision log
 
@@ -83,3 +84,6 @@ The owner-scoped plan aggregate, SQL/RLS contract, task progress, check-ins, tim
 - **2026-07-16:** Use stages, evidence, and confidence rather than a 0–100 score.
 - **2026-07-16:** Disable paid/live traffic by default; explicit spend approval remains a release dependency.
 - **2026-07-16:** Require authenticated persisted-session ownership before enabling Realtime, even when deployment flags are set.
+- **2026-07-17:** Treat every production integration as a literal code-latched capability; environment flags alone cannot enable durable writes, analytics sinks, retention mutation, or paid voice.
+- **2026-07-17:** Align derived-plan retention with the 90-day source-assessment lifecycle and preserve immediate account/session deletion cascades.
+- **2026-07-17:** Require atomic reservation, owner binding, per-user/global concurrency, and daily spend ceilings before a Realtime call can become reachable.

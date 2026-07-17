@@ -1,4 +1,5 @@
 import { selectPublishedCatalogResources } from '../catalog/production.mjs'
+import { isAiPathGoalType, type AiPathGoalType } from './goal-type.ts'
 
 export const AI_PATH_TAXONOMY_VERSION = '2026-07-16.v1' as const
 export const AI_PATH_SCORING_VERSION = '2026-07-16.v1' as const
@@ -621,6 +622,7 @@ export type SessionStartInput = {
   locale: string
   mode: SessionMode
   goal: string
+  goalType: AiPathGoalType
   targetRole?: string
   saveTranscript: boolean
 }
@@ -632,6 +634,7 @@ export function parseSessionStartInput(value: unknown): ValidationResult<Session
   const locale = boundedString(value.locale, 2, 20)
   const mode = value.mode === 'voice' || value.mode === 'text' ? value.mode : null
   const goal = boundedString(value.goal, 20, 1200)
+  const goalType = isAiPathGoalType(value.goalType) ? value.goalType : null
   const targetRole = value.targetRole === undefined ? undefined : boundedString(value.targetRole, 1, 160)
   const saveTranscript = value.saveTranscript === true
 
@@ -640,11 +643,12 @@ export function parseSessionStartInput(value: unknown): ValidationResult<Session
   if (!locale) errors.push('locale is invalid')
   if (!mode) errors.push('mode must be voice or text')
   if (!goal) errors.push('goal must contain 20-1200 characters')
+  if (!goalType) errors.push('goalType is invalid')
   if (value.targetRole !== undefined && !targetRole) errors.push('targetRole is invalid')
   if (typeof value.saveTranscript !== 'boolean') errors.push('saveTranscript must be boolean')
 
-  if (errors.length || !consentVersion || !locale || !mode || !goal) return { ok: false, errors }
-  return { ok: true, value: { consentVersion, locale, mode, goal, targetRole: targetRole ?? undefined, saveTranscript } }
+  if (errors.length || !consentVersion || !locale || !mode || !goal || !goalType) return { ok: false, errors }
+  return { ok: true, value: { consentVersion, locale, mode, goal, goalType, targetRole: targetRole ?? undefined, saveTranscript } }
 }
 
 export type TranscriptTurn = {

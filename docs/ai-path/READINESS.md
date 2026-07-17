@@ -41,13 +41,14 @@ The source-only inventory covers the private-alpha UI, routes, their high-risk r
 - durable learning-plan Supabase gateway, when present;
 - production analytics sink;
 - durable retention mutation job;
+- durable Supabase retention gateway, when present;
 - public paid Realtime bootstrap;
 - Realtime production admission store, when present;
 - direct `fetch`, OpenAI URL, or live-call invocation in the public Realtime session route.
 
-Optional plan, plan-gateway, and admission modules are reported as `not_present` when absent. If present, their latch must be one exact literal-false export. Commented declarations, environment-derived expressions, `true`, or duplicate declarations fail closed.
+Optional plan, plan-gateway, retention-gateway, and admission modules are reported as `not_present` when absent. If present, their latch must be one exact literal-false export. Commented declarations, environment-derived expressions, `true`, or duplicate declarations fail closed.
 
-The actionable production blockers separate unfinished application/platform engineering from operator configuration and approval. Engineering blockers include the durable plan runtime binding, authenticated Realtime route, durable atomic admission adapter, and durable retention adapters. Operator and governance blockers cover production Supabase and authentication, migration and RLS proof, trusted server credentials, retention operations, abuse and spend controls, analytics governance, explicit paid OpenAI Realtime approval, and deployment acceptance.
+The actionable production blockers separate unfinished application/platform engineering from operator configuration and approval. Engineering blockers include durable plan request-runtime selection, the authenticated Realtime route, the durable admission application adapter, and bounded-retention runner wiring/capacity proof. Operator and governance blockers cover production Supabase and authentication, migration and RLS proof, trusted server credentials, retention operations, abuse and spend controls, analytics governance, explicit paid OpenAI Realtime approval, and deployment acceptance.
 
 ## Secret, spend, and mutation safety
 
