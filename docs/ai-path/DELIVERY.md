@@ -17,7 +17,7 @@ The build is split into independently reviewable workstreams with explicit gates
 
 ## Milestones
 
-### M0 — Private-alpha foundation (current)
+### M0 — Private-alpha foundation (complete locally)
 
 - New `/ai-path` vertical slice isolated from existing tools.
 - Text-complete multistep prototype with honest demo labeling.
@@ -27,6 +27,8 @@ The build is split into independently reviewable workstreams with explicit gates
 - Realtime boundary that performs no network call by default and fails closed without auth/persistence.
 - Unit/contract fixtures, production build, and responsive screenshot QA.
 - Architecture, product, and delivery decisions documented.
+
+Verified in the repository on 2026-07-17: 84 deterministic tests, TypeScript, scoped ESLint, production build, and responsive browser QA at 375×812, 768×1024, and 1440×900. The browser path remains text-only and makes no paid model call.
 
 ### M1 — Research prototype
 
@@ -54,6 +56,8 @@ The build is split into independently reviewable workstreams with explicit gates
 - Show report deltas and why each level changed.
 - Add catalog review dates, availability checks, and recommendation outcome feedback.
 
+The owner-scoped plan aggregate, SQL/RLS contract, task progress, check-ins, time changes, explicit adaptation decisions, reassessment snapshots, export/delete, and retention purge are implemented behind dormant persistence boundaries. The private-alpha UI currently keeps plan changes in the browser and labels them as a preview; enabling durable plan APIs requires the external database proof and a separate retention disclosure.
+
 ### M4 — Beta decision
 
 - Compare completion, correction, usefulness, return, and artifact-production metrics with thresholds.
@@ -63,13 +67,13 @@ The build is split into independently reviewable workstreams with explicit gates
 
 ## Current critical path
 
-1. Remove any UI behavior that pretends canned or random data is live.
-2. Stop microphone tracks on every navigation path and make typed mode complete.
-3. Connect the UI to the mock session and deterministic analysis contracts.
-4. Add exact transcript-turn evidence fixtures and scoring/recommendation tests.
-5. Reject all live Realtime calls until authentication and session ownership exist.
-6. Verify lint, TypeScript/production build, API behavior, keyboard flow, and responsive layouts.
-7. Run five moderated alpha sessions before expanding taxonomy or catalog depth.
+1. Apply the dormant migrations to a disposable Supabase project and behaviorally prove RLS, ownership, RPC concurrency, cascade deletion, retention, and trusted report writes with two users plus service role.
+2. Add the monitored retention scheduler and distributed abuse controls; prove multi-instance limits and deletion alerts.
+3. Connect owner-scoped plan APIs only after durable session/report persistence passes those tests and the plan-retention disclosure is versioned.
+4. Run five moderated text-alpha sessions and two independent assessment reviewers; measure corrections, report usefulness, and first-task completion.
+5. Complete an accessibility audit and adversarial fixtures for prompt injection, sparse/contradictory evidence, and long/non-native-English answers.
+6. Obtain explicit paid-usage approval and a bounded budget before enabling or testing live OpenAI Realtime traffic.
+7. Stage voice behind auth, ownership, distributed limits, concurrency/spend caps, kill switch, and transcript-free operational telemetry.
 
 ## Decision log
 

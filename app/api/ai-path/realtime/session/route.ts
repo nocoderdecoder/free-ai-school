@@ -40,8 +40,8 @@ export async function POST(request: Request) {
       fallbackMode: 'text',
       assessmentSessionId,
       model: capability.model,
-      reason: capability.reason,
-      message: 'Realtime is safely disabled. Enable it only after approving paid API usage and configuring all server-only environment flags.',
+      error: 'realtime_unavailable',
+      message: 'Voice is not available in this environment. Continue with the complete text assessment.',
     }, { headers: { 'Cache-Control': 'no-store' } })
   }
 

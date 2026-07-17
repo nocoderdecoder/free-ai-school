@@ -36,7 +36,6 @@ function requireOwnedRuntime(runtime: AssessmentRequestRuntime): Response | null
     return json({
       error: 'owned_session_persistence_unavailable',
       productionReady: false,
-      reason: runtime.capability.reason,
     }, 503)
   }
   if (!runtime.principal) return json({ error: 'authentication_required' }, 401)

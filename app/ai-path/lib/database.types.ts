@@ -31,6 +31,8 @@ export type Database = {
           catalog_version: string
           report: Json | null
           report_saved_at: string | null
+          report_write_id: string | null
+          report_digest: string | null
           retention_expires_at: string
           created_at: string
           updated_at: string
@@ -51,6 +53,8 @@ export type Database = {
           catalog_version?: string
           report?: Json | null
           report_saved_at?: string | null
+          report_write_id?: string | null
+          report_digest?: string | null
           retention_expires_at?: string
           created_at?: string
           updated_at?: string
@@ -71,6 +75,8 @@ export type Database = {
           catalog_version?: string
           report?: Json | null
           report_saved_at?: string | null
+          report_write_id?: string | null
+          report_digest?: string | null
           retention_expires_at?: string
           created_at?: string
           updated_at?: string
@@ -102,6 +108,19 @@ export type Database = {
       purge_expired_ai_path_sessions: {
         Args: Record<string, never>
         Returns: number
+      }
+      complete_ai_path_session_trusted: {
+        Args: {
+          p_session_id: string
+          p_owner_id: string
+          p_report: Json
+          p_report_write_id: string
+          p_taxonomy_version: string
+          p_scoring_version: string
+          p_report_version: string
+          p_catalog_version: string
+        }
+        Returns: Json
       }
     }
     Enums: {

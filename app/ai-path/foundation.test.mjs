@@ -185,9 +185,21 @@ test('Realtime remains inert until every server-side live and paid gate is expli
     enableLiveRealtime: 'true',
     allowPaidApiCalls: 'true',
     authReady: 'true',
+    distributedRateLimitReady: 'true',
+    spendControlsReady: 'true',
+    approvedDailyBudgetUsd: '25',
   })
   assert.equal(fullyConfiguredCapability.liveEnabled, true)
   assert.equal(canBootstrapPublicRealtime(fullyConfiguredCapability), false)
+  assert.equal(resolveRealtimeCapability({
+    ...base,
+    enableLiveRealtime: 'true',
+    allowPaidApiCalls: 'true',
+    authReady: 'true',
+    distributedRateLimitReady: 'true',
+    spendControlsReady: 'true',
+    approvedDailyBudgetUsd: '0',
+  }).liveEnabled, false)
 })
 
 test('report output pins all versions and only uses published eligible catalog resources', () => {

@@ -1,12 +1,12 @@
 import {
   AI_PATH_CONSENT_VERSION,
   type AssessmentReport,
-} from '../lib/foundation'
+} from '../lib/foundation.ts'
 
-import { buildAnalysisPayload, type ReviewedAssessmentInput } from './analysis-payload'
+import { buildAnalysisPayload, type ReviewedAssessmentInput } from './analysis-payload.ts'
 
 export { buildAnalysisPayload }
-export type { ReviewedAssessmentInput, ReviewedInput } from './analysis-payload'
+export type { ReviewedAssessmentInput, ReviewedInput } from './analysis-payload.ts'
 
 export type TextSession = {
   id: string
@@ -18,6 +18,13 @@ export type TextSession = {
   targetRole: string | null
   consentVersion: string
   saveTranscript: boolean
+}
+
+export type TextSessionResult = {
+  session: TextSession
+  owned: boolean
+  persistence: 'none' | 'ephemeral-memory' | 'supabase-postgres'
+  productionReady: boolean
 }
 
 export class AIPathApiError extends Error {
@@ -38,6 +45,11 @@ const recoveryMessages: Record<string, string> = {
   session_not_found: 'This assessment session is no longer available. Start a new assessment.',
   invalid_assessment_session_id: 'The assessment session is invalid. Return to your profile and start again.',
   owned_session_persistence_unavailable: 'Saved sessions are not enabled in this environment.',
+  authenticated_alpha_unavailable: 'Saved private-alpha sessions are not available in this environment.',
+  durable_report_writer_unavailable: 'This saved session cannot store a report yet. Your reviewed responses are still available.',
+  request_too_large: 'That response is too large to process. Shorten it, then retry.',
+  origin_required: 'This request could not be verified. Reload the page, then retry.',
+  cross_origin_request_rejected: 'This request came from an untrusted page. Reload this app directly, then retry.',
   rate_limit_exceeded: 'Too many requests were made. Wait a moment, then retry.',
 }
 
@@ -61,7 +73,7 @@ export async function createTextSession(input: {
   goal: string
   targetRole: string
   saveTranscript?: boolean
-}): Promise<TextSession> {
+}): Promise<TextSessionResult> {
   const response = await fetch('/api/ai-path/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -75,8 +87,7 @@ export async function createTextSession(input: {
       saveTranscript: input.saveTranscript === true,
     }),
   })
-  const result = await parseResponse<{ session: TextSession }>(response)
-  return result.session
+  return parseResponse<TextSessionResult>(response)
 }
 
 export async function analyzeReviewedAssessment(input: ReviewedAssessmentInput): Promise<AssessmentReport> {
@@ -88,4 +99,26 @@ export async function analyzeReviewedAssessment(input: ReviewedAssessmentInput):
   })
   const result = await parseResponse<{ report: AssessmentReport }>(response)
   return result.report
+}
+
+export type ExportedAssessmentSession = {
+  exportedAt: string
+  persistence: 'ephemeral-memory' | 'supabase-postgres'
+  session: TextSession & { updatedAt: string; hasReport: boolean; report: AssessmentReport | null }
+}
+
+export async function exportOwnedSession(sessionId: string): Promise<ExportedAssessmentSession> {
+  const response = await fetch(`/api/ai-path/session/${encodeURIComponent(sessionId)}`, {
+    method: 'GET',
+    cache: 'no-store',
+  })
+  return parseResponse<ExportedAssessmentSession>(response)
+}
+
+export async function deleteOwnedSession(sessionId: string): Promise<void> {
+  const response = await fetch(`/api/ai-path/session/${encodeURIComponent(sessionId)}`, {
+    method: 'DELETE',
+    cache: 'no-store',
+  })
+  await parseResponse<{ deleted: true; sessionId: string }>(response)
 }

@@ -19,7 +19,7 @@ flowchart LR
   C --> E
 ```
 
-The current private-alpha slice implements the page shell, a local interaction prototype, input contracts, evidence validation, deterministic scoring and recommendation functions, mock-safe route handlers, and a fail-closed OpenAI Realtime boundary.
+The current private-alpha slice implements the page shell, a complete text interaction, reviewed-input contracts, conservative server-owned evidence extraction, deterministic scoring and governed catalog recommendations, mock-safe route handlers, dormant owner-scoped persistence, and a fail-closed OpenAI Realtime boundary.
 
 ## Runtime components
 
@@ -43,9 +43,9 @@ The current private-alpha slice implements the page shell, a local interaction p
 - “Not assessed” is a first-class result, distinct from a beginner level.
 - Recommendation order is deterministic, constrained by prerequisites, time, format, price preference, and an application-owned catalog.
 
-### Future persistence
+### Dormant durable persistence foundation
 
-Recommended entities:
+Implemented migration contracts, not yet applied to a live database:
 
 - `users`: authenticated account and deletion state;
 - `assessment_sessions`: owner, mode, consent version, status, timestamps, retention policy;
@@ -55,6 +55,8 @@ Recommended entities:
 - `plans`: selected project, weekly actions, time budget, status;
 - `check_ins`: completed actions, new artifacts, learner reflection;
 - `catalog_resources`: reviewed metadata, canonical URL, availability check, skill mappings.
+
+The current migrations cover assessment sessions/reports and the plan loop. Direct table writes are revoked; owner mutations use bounded RPCs, while report generation, plan generation, adaptation proposals, reassessment snapshots, and purge operations remain service-only. Production latches remain closed until a disposable Supabase environment proves RLS and RPC behavior with separate users, concurrency, deletion cascades, and scheduled retention.
 
 Raw audio is not an entity in the default architecture.
 

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { AIPathApiError, analyzeReviewedAssessment, createTextSession } from './client/api'
+import { AIPathApiError, analyzeReviewedAssessment, createTextSession, deleteOwnedSession, exportOwnedSession } from './client/api'
+import { proposeCheckInAdaptation, taskSwapAlternative, type CheckInProposal } from './client/plan-actions'
 import type { AssessmentReport, SkillId, SkillLevel } from './lib/foundation'
 import { getPlanBlueprint } from './lib/plan'
 
@@ -77,6 +78,10 @@ function learnerStage(level: SkillLevel | null): string {
   if (level === 2) return 'Integrator'
   if (level === 3) return 'System Builder'
   return 'Production Builder'
+}
+
+function hourLabel(value: string): string {
+  return `${value} ${value === '1' ? 'hour' : 'hours'}`
 }
 
 const flowSteps: Array<{ id: Stage; short: string }> = [
@@ -170,24 +175,38 @@ export function AdvisorApp() {
   const [setupError, setSetupError] = useState('')
   const [sessionState, setSessionState] = useState<'idle' | 'starting' | 'ready' | 'error'>('idle')
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [sessionOwned, setSessionOwned] = useState(false)
+  const [sessionPersistence, setSessionPersistence] = useState<'none' | 'ephemeral-memory' | 'supabase-postgres'>('none')
   const [sessionError, setSessionError] = useState('')
   const [analysisState, setAnalysisState] = useState<'idle' | 'running' | 'ready' | 'error'>('idle')
   const [analysisError, setAnalysisError] = useState('')
   const [assessmentReport, setAssessmentReport] = useState<AssessmentReport | null>(null)
+  const [planHours, setPlanHours] = useState(hours)
+  const [pendingPlanHours, setPendingPlanHours] = useState(hours)
+  const [taskOverrides, setTaskOverrides] = useState<Record<string, string>>({})
+  const [checkIn, setCheckIn] = useState('')
+  const [checkInProposal, setCheckInProposal] = useState<CheckInProposal | null>(null)
+  const [adaptationStatus, setAdaptationStatus] = useState('')
+  const [dataActionState, setDataActionState] = useState<'idle' | 'working' | 'done' | 'error'>('idle')
+  const [dataActionMessage, setDataActionMessage] = useState('')
   const headingRef = useRef<HTMLHeadingElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
   const selectedGoal = goalOptions.find(option => option.id === goal) ?? goalOptions[0]
   const plan = useMemo(() => getPlanBlueprint(goal), [goal])
   const weeks = plan.weeks
+  const scheduledWeeks = useMemo(() => weeks.map(week => ({
+    ...week,
+    tasks: planHours === '1' ? week.tasks.slice(0, 1) : week.tasks,
+  })), [planHours, weeks])
   const profileReady = role.trim().length >= 4 && outcome.trim().length >= 20 && blocker.trim().length >= 10 && privacyAccepted
-  const totalTasks = weeks.reduce((total, week) => total + week.tasks.length, 0)
+  const totalTasks = scheduledWeeks.reduce((total, week) => total + week.tasks.length, 0)
   const completedCount = Object.values(completedTasks).filter(Boolean).length
   const progress = Math.round((completedCount / totalTasks) * 100)
   const currentQuestion = useMemo(() => {
     const base = interviewQuestions[questionIndex]
     if (questionIndex === 1) return { ...base, question: experienceQuestionByGoal[goal] ?? experienceQuestionByGoal.unsure }
-    if (questionIndex === 2) return { ...base, question: `You have ${hours} ${hours === '1' ? 'hour' : 'hours'} a week. What usually prevents a learning plan from surviving contact with your calendar?` }
+    if (questionIndex === 2) return { ...base, question: `You have ${hourLabel(hours)} a week. What usually prevents a learning plan from surviving contact with your calendar?` }
     return base
   }, [goal, hours, questionIndex])
   const skillObservations = useMemo(() => (assessmentReport?.results ?? []).map(result => ({
@@ -236,7 +255,7 @@ export function AdvisorApp() {
           {
             id: 'constraint',
             label: 'Constraint the plan must respect',
-            value: learnerAnswers[2] ? `${hours} hours per week. ${learnerAnswers[2]}` : `${hours} hours per week. ${blocker.trim()}`,
+            value: learnerAnswers[2] ? `${hourLabel(hours)} per week. ${learnerAnswers[2]}` : `${hourLabel(hours)} per week. ${blocker.trim()}`,
             evidence: learnerAnswers[2] ? `From your third response: “${learnerAnswers[2]}”` : `From the time budget and blocker you entered: “${blocker.trim()}”`,
             confidence: 'Clear',
           },
@@ -288,8 +307,10 @@ export function AdvisorApp() {
     setSessionState('starting')
     setSessionError('')
     try {
-      const session = await createTextSession({ goal: outcome.trim(), targetRole: role.trim() })
-      setSessionId(session.id)
+      const result = await createTextSession({ goal: outcome.trim(), targetRole: role.trim() })
+      setSessionId(result.session.id)
+      setSessionOwned(result.owned)
+      setSessionPersistence(result.persistence)
       setSessionState('ready')
       setMicState('idle')
       setStage('interview')
@@ -336,6 +357,8 @@ export function AdvisorApp() {
         reviewedInputs: understanding.map(item => ({ id: item.id, value: item.value })),
       })
       setAssessmentReport(report)
+      setPlanHours(hours)
+      setPendingPlanHours(hours)
       setAnalysisState('ready')
       setStage('results')
     } catch (error) {
@@ -352,6 +375,8 @@ export function AdvisorApp() {
     setAssessmentReport(null)
     setAnalysisState('idle')
     setSessionId(null)
+    setSessionOwned(false)
+    setSessionPersistence('none')
     setQuestionIndex(0)
     setConversation([])
     setUnderstanding([])
@@ -360,13 +385,15 @@ export function AdvisorApp() {
     setStage('profile')
   }
 
-  const deletePreview = () => {
+  const clearPreview = () => {
     stopMicrophone()
     setConversation([])
     setUnderstanding([])
     setCompletedTasks({})
     setPlanSaved(false)
     setSessionId(null)
+    setSessionOwned(false)
+    setSessionPersistence('none')
     setSessionState('idle')
     setSessionError('')
     setAssessmentReport(null)
@@ -374,10 +401,92 @@ export function AdvisorApp() {
     setAnalysisError('')
     setPrivacyAccepted(false)
     setPrivacyOpen(false)
+    setTaskOverrides({})
+    setCheckIn('')
+    setCheckInProposal(null)
+    setAdaptationStatus('')
+    setDataActionState('idle')
+    setDataActionMessage('')
     setAnswer('')
     setQuestionIndex(0)
     setInterviewStatus('agent')
     setStage('landing')
+  }
+
+  const deletePreview = async () => {
+    if (sessionOwned && sessionId) {
+      setDataActionState('working')
+      setDataActionMessage('Deleting the owned server session…')
+      try {
+        await deleteOwnedSession(sessionId)
+      } catch (error) {
+        setDataActionState('error')
+        setDataActionMessage(error instanceof AIPathApiError ? error.message : 'The server session could not be deleted. Browser data was not cleared.')
+        return
+      }
+    }
+    clearPreview()
+  }
+
+  const downloadJson = (value: unknown, filename: string) => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }))
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = filename
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportPlan = async () => {
+    setDataActionState('working')
+    setDataActionMessage('Preparing your export…')
+    try {
+      const serverExport = sessionOwned && sessionId ? await exportOwnedSession(sessionId) : null
+      downloadJson({
+        exportedAt: new Date().toISOString(),
+        source: serverExport ? sessionPersistence : 'browser-preview',
+        session: serverExport?.session ?? { id: sessionId, goal: outcome, targetRole: role },
+        report: serverExport?.session.report ?? assessmentReport,
+        plan: { goalType: goal, weeklyHours: Number(planHours), schedule: scheduledWeeks, completedTasks, taskOverrides, checkInProposal, adaptationStatus },
+      }, 'ai-path-plan.json')
+      setDataActionState('done')
+      setDataActionMessage('Export prepared. It includes the report and current browser plan state.')
+    } catch (error) {
+      setDataActionState('error')
+      setDataActionMessage(error instanceof AIPathApiError ? error.message : 'The export could not be prepared.')
+    }
+  }
+
+  const confirmTimeBudget = () => {
+    setPlanHours(pendingPlanHours)
+    setCompletedTasks({})
+    setAdaptationStatus(`Time budget changed to ${pendingPlanHours} ${pendingPlanHours === '1' ? 'hour' : 'hours'} per week. Browser-only task completion was reset for the recalculated schedule.`)
+  }
+
+  const submitCheckIn = () => {
+    if (checkIn.trim().length < 10) return
+    setCheckInProposal(proposeCheckInAdaptation(checkIn))
+    setAdaptationStatus('Review the proposed adaptation. Nothing changes until you accept it.')
+  }
+
+  const decideAdaptation = (accepted: boolean) => {
+    if (!checkInProposal) return
+    if (accepted && checkInProposal.action !== 'protect-pace') {
+      const nextTask = scheduledWeeks.flatMap((week, weekIndex) => week.tasks.map((task, taskIndex) => ({ task, weekIndex, taskIndex })))
+        .find(({ weekIndex, taskIndex }) => !completedTasks[`${weekIndex}-${taskIndex}`])
+      if (nextTask) {
+        const key = `${nextTask.weekIndex}-${nextTask.taskIndex}`
+        const replacement = checkInProposal.action === 'reduce-scope'
+          ? taskSwapAlternative(goal, nextTask.weekIndex, nextTask.task)
+          : checkInProposal.action === 'unblock'
+            ? `Run a 30-minute diagnostic: reproduce one failure in “${nextTask.task}”, record the expected result, and change one variable.`
+            : `${nextTask.task} Then test one harder example without adding a new tool.`
+        setTaskOverrides(overrides => ({ ...overrides, [key]: replacement }))
+      }
+    }
+    setAdaptationStatus(accepted ? `Accepted: ${checkInProposal.title}. The next incomplete task now reflects this decision.` : 'Proposal rejected. The current plan remains unchanged.')
+    setCheckInProposal(null)
+    setCheckIn('')
   }
 
   return (
@@ -490,7 +599,7 @@ export function AdvisorApp() {
               </label>
 
               <div className="ap-formFooter">
-                <p><span>{selectedGoal.title}</span> · {hours} hours a week · {codingComfort}</p>
+                <p><span>{selectedGoal.title}</span> · {hourLabel(hours)} a week · {codingComfort}</p>
                 <div className="ap-heroActions">
                   <button type="button" className="ap-quietButton" onClick={() => setStage('setup')} disabled={!profileReady}>Preview future voice setup</button>
                   <PrimaryButton onClick={continueWithText} disabled={!profileReady || sessionState === 'starting'}>{sessionState === 'starting' ? 'Starting session…' : 'Start guided questions'}</PrimaryButton>
@@ -665,7 +774,7 @@ export function AdvisorApp() {
                 <span>30-day proof</span>
                 <h2>{plan.proof}</h2>
                 <dl>
-                  <div><dt>Time</dt><dd>{hours} hours / week</dd></div>
+                  <div><dt>Time</dt><dd>{hourLabel(hours)} / week</dd></div>
                   <div><dt>Approach</dt><dd>No-code first</dd></div>
                   <div><dt>Status</dt><dd>Self-report signals</dd></div>
                 </dl>
@@ -734,14 +843,20 @@ export function AdvisorApp() {
             <BackButton onClick={() => setStage('results')}>Back to direction</BackButton>
             <div className="ap-privatePill"><span /> Illustrative 30-day plan · browser preview</div>
             <div className="ap-planTitle">
-              <div><p className="ap-eyebrow">Your 30-day plan</p><h1 ref={headingRef} tabIndex={-1}>{plan.title}</h1><p>Four weeks · {hours} hours per week · Twelve concrete actions</p></div>
+              <div><p className="ap-eyebrow">Your 30-day plan</p><h1 ref={headingRef} tabIndex={-1}>{plan.title}</h1><p>Four weeks · {hourLabel(planHours)} per week · {totalTasks} concrete actions</p></div>
               <div className="ap-progressRing" style={{ '--ap-progress': `${progress * 3.6}deg` } as React.CSSProperties}><span><strong>{progress}%</strong><small>complete</small></span></div>
             </div>
             <div className="ap-planActions">
-              <button type="button" className="ap-secondary" onClick={() => setPlanSaved(value => !value)}>{planSaved ? 'Saved for this preview' : 'Save in this preview'}</button>
-              <button type="button" className="ap-quietButton" disabled title="Plan editing is the next milestone">Adjust time budget · coming next</button>
+              <button type="button" className="ap-secondary" onClick={() => setPlanSaved(value => !value)}>{planSaved ? 'Pinned in this browser tab' : 'Pin in this browser tab'}</button>
+              <button type="button" className="ap-quietButton" onClick={exportPlan} disabled={dataActionState === 'working'}>Export report & plan</button>
               <button type="button" className="ap-quietButton" onClick={() => setStage('history')}>View preview history</button>
             </div>
+            <div className="ap-planSettings">
+              <label><span>Weekly time budget</span><select value={pendingPlanHours} onChange={event => setPendingPlanHours(event.target.value)}><option value="1">1 hour</option><option value="3">2–3 hours</option><option value="5">4–6 hours</option><option value="7">7+ hours</option></select></label>
+              <button type="button" className="ap-secondary" onClick={confirmTimeBudget} disabled={pendingPlanHours === planHours}>Confirm schedule change</button>
+              <small>Changing the schedule resets browser-only task completion. It does not change your assessment.</small>
+            </div>
+            {(dataActionMessage || adaptationStatus) && <p className={`ap-liveStatus is-${dataActionState}`} role="status" aria-live="polite">{dataActionMessage || adaptationStatus}</p>}
           </div>
 
           <div className="ap-planBody">
@@ -751,7 +866,7 @@ export function AdvisorApp() {
             </div>
 
             <div className="ap-weekList">
-              {weeks.map((week, weekIndex) => {
+              {scheduledWeeks.map((week, weekIndex) => {
                 const weekComplete = week.tasks.every((_, taskIndex) => completedTasks[`${weekIndex}-${taskIndex}`])
                 return (
                   <article key={week.week} className={weekComplete ? 'is-complete' : ''}>
@@ -762,10 +877,11 @@ export function AdvisorApp() {
                     <ul>
                       {week.tasks.map((task, taskIndex) => {
                         const key = `${weekIndex}-${taskIndex}`
-                        return <li key={task}><label><input type="checkbox" checked={Boolean(completedTasks[key])} onChange={() => toggleTask(key)} /><span><CheckIcon /></span><strong>{task}</strong><small>{taskIndex === 0 ? '45 min' : '30–45 min'}</small></label></li>
+                        const displayedTask = taskOverrides[key] ?? task
+                        return <li key={task}><label><input type="checkbox" checked={Boolean(completedTasks[key])} onChange={() => toggleTask(key)} /><span><CheckIcon /></span><strong>{displayedTask}</strong><small>{taskIndex === 0 ? '45 min' : '30–45 min'}</small></label></li>
                       })}
                     </ul>
-                    <div className="ap-weekFooter"><button type="button" disabled>Plan adaptation coming next</button><button type="button" disabled>Task swaps coming next</button></div>
+                    <div className="ap-weekFooter"><button type="button" onClick={() => setTaskOverrides(overrides => { const next = { ...overrides }; week.tasks.forEach((task, taskIndex) => { const key = `${weekIndex}-${taskIndex}`; next[key] = taskSwapAlternative(goal, weekIndex, task) }); return next })}>Use smaller alternatives this week</button><button type="button" onClick={() => setTaskOverrides(overrides => { const next = { ...overrides }; week.tasks.forEach((_, taskIndex) => delete next[`${weekIndex}-${taskIndex}`]); return next })}>Restore original tasks</button></div>
                   </article>
                 )
               })}
@@ -773,8 +889,8 @@ export function AdvisorApp() {
 
             <div className="ap-checkinCard">
               <div className="ap-checkinIcon"><MicIcon /></div>
-              <div><p className="ap-kicker">Weekly check-in</p><h2>Tell us what survived contact with your calendar.</h2><p>A 60-second voice or text check-in can make next week easier, harder, or different. Your plan never changes without your approval.</p></div>
-              <button type="button" className="ap-secondary" disabled>Check-ins coming next</button>
+              <div><p className="ap-kicker">Weekly check-in</p><h2>Tell us what survived contact with your calendar.</h2><p>A short text check-in can propose a smaller, harder, or unchanged next week. Your plan never changes without your approval.</p><label className="ap-checkinField"><span>What worked, and what got in the way?</span><textarea value={checkIn} onChange={event => setCheckIn(event.target.value)} maxLength={1000} rows={4} placeholder="For example: I finished the first task, but the second was too large for one evening." /></label>{checkInProposal && <div className="ap-adaptationProposal"><strong>{checkInProposal.title}</strong><p>{checkInProposal.explanation}</p><div><button type="button" className="ap-primary" onClick={() => decideAdaptation(true)}>Accept proposal</button><button type="button" className="ap-secondary" onClick={() => decideAdaptation(false)}>Keep current plan</button></div></div>}</div>
+              <button type="button" className="ap-secondary" onClick={submitCheckIn} disabled={checkIn.trim().length < 10 || Boolean(checkInProposal)}>Propose an adaptation</button>
             </div>
           </div>
         </section>
@@ -791,9 +907,9 @@ export function AdvisorApp() {
             <div className="ap-historyList">
               <article className="is-current">
                 <div><span>Current session preview · Not persisted</span><time>Today</time></div>
-                <h2>AI workflow builder</h2>
-                <p>Build a cited weekly market brief that a colleague can run without you.</p>
-                <dl><div><dt>Progress</dt><dd>{progress}%</dd></div><div><dt>Time budget</dt><dd>{hours} hrs / week</dd></div><div><dt>New evidence</dt><dd>{completedCount} tasks</dd></div></dl>
+                <h2>{plan.title}</h2>
+                <p>{outcome}</p>
+                <dl><div><dt>Progress</dt><dd>{progress}%</dd></div><div><dt>Time budget</dt><dd>{planHours} hrs / week</dd></div><div><dt>New evidence</dt><dd>{completedCount} tasks</dd></div></dl>
                 <div><button type="button" onClick={() => setStage('plan')}>Open plan</button><button type="button" onClick={restartForReassessment}>Reassess</button></div>
               </article>
               <article aria-label="Illustrative earlier snapshot">

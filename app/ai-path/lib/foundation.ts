@@ -712,6 +712,9 @@ export type RealtimeEnvironment = {
   enableLiveRealtime?: string
   allowPaidApiCalls?: string
   authReady?: string
+  distributedRateLimitReady?: string
+  spendControlsReady?: string
+  approvedDailyBudgetUsd?: string
   apiKey?: string
   safetyIdentifierSalt?: string
   model?: string
@@ -740,6 +743,16 @@ export function resolveRealtimeCapability(environment: RealtimeEnvironment): {
   }
   if (environment.authReady !== 'true') {
     return { mode: 'mock', liveEnabled: false, reason: 'authenticated persisted session ownership is not ready', model }
+  }
+  if (environment.distributedRateLimitReady !== 'true') {
+    return { mode: 'mock', liveEnabled: false, reason: 'distributed rate limiting is not ready', model }
+  }
+  if (environment.spendControlsReady !== 'true') {
+    return { mode: 'mock', liveEnabled: false, reason: 'per-user concurrency and spend controls are not ready', model }
+  }
+  const dailyBudgetUsd = Number(environment.approvedDailyBudgetUsd)
+  if (!Number.isFinite(dailyBudgetUsd) || dailyBudgetUsd <= 0 || dailyBudgetUsd > 10_000) {
+    return { mode: 'mock', liveEnabled: false, reason: 'an approved bounded daily budget is not configured', model }
   }
   if (!environment.apiKey) {
     return { mode: 'mock', liveEnabled: false, reason: 'OpenAI API key is not configured', model }

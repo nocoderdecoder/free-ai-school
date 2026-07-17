@@ -10,9 +10,17 @@ import {
   supabaseAuthCookieOptions,
   verifySupabasePrincipal,
 } from './lib/supabase-persistence.ts'
+import {
+  SupabaseSessionRepositoryError,
+  SupabaseTrustedReportWriter,
+} from './lib/supabase-session-repository.ts'
 
 const migrationUrl = new URL('../../supabase/migrations/20260717000000_ai_path_assessment_sessions.sql', import.meta.url)
 const sql = await readFile(migrationUrl, 'utf8')
+const trustedWriterMigrationUrl = new URL('../../supabase/migrations/20260717020000_ai_path_trusted_report_writer.sql', import.meta.url)
+const trustedWriterSql = await readFile(trustedWriterMigrationUrl, 'utf8')
+const trustedWriterServerUrl = new URL('./lib/supabase-session-repository.server.ts', import.meta.url)
+const trustedWriterServerSource = await readFile(trustedWriterServerUrl, 'utf8')
 
 test('production capability remains closed even with every deployment flag present', () => {
   const capability = resolveSupabasePersistenceCapability({
@@ -157,4 +165,169 @@ test('migration supports retention, owner export, hard deletion, and privileged 
   assert.match(sql, /security invoker/g)
   assert.match(sql, /revoke all on function public\.purge_expired_ai_path_sessions\(\) from public, anon, authenticated/i)
   assert.match(sql, /grant execute on function public\.purge_expired_ai_path_sessions\(\) to service_role/i)
+})
+
+test('trusted report RPC is service-role-only and rechecks the verified JWT role', () => {
+  assert.match(trustedWriterSql, /security definer/i)
+  assert.match(trustedWriterSql, /caller_role text := coalesce\(auth\.jwt\(\) ->> 'role'/i)
+  assert.match(trustedWriterSql, /if caller_role <> 'service_role'/i)
+  assert.match(
+    trustedWriterSql,
+    /revoke all on function public\.complete_ai_path_session_trusted\([\s\S]*?\) from public, anon, authenticated/i,
+  )
+  assert.match(
+    trustedWriterSql,
+    /grant execute on function public\.complete_ai_path_session_trusted\([\s\S]*?\) to service_role/i,
+  )
+  assert.doesNotMatch(
+    trustedWriterSql,
+    /grant execute on function public\.complete_ai_path_session_trusted\([\s\S]*?\) to (anon|authenticated)/i,
+  )
+})
+
+test('trusted report writer activation remains behind a non-configurable code latch', () => {
+  assert.match(trustedWriterServerSource, /AI_PATH_TRUSTED_REPORT_WRITER_LATCH = false as const/)
+  assert.match(
+    trustedWriterServerSource,
+    /!AI_PATH_TRUSTED_REPORT_WRITER_LATCH[\s\S]*?activation\.schemaVersion !== AI_PATH_TRUSTED_REPORT_WRITER_MIGRATION_VERSION/,
+  )
+  assert.doesNotMatch(trustedWriterServerSource, /createClient\([\s\S]*?service[_-]?role/i)
+})
+
+test('trusted report RPC atomically binds owner, lifecycle, goal, and pinned versions', () => {
+  assert.match(trustedWriterSql, /where id = p_session_id and owner_id = p_owner_id\s+for update/i)
+  assert.match(trustedWriterSql, /target_session\.status <> 'analysis_pending'/i)
+  assert.match(trustedWriterSql, /set status = 'complete'/i)
+  assert.match(trustedWriterSql, /p_report ->> 'goal' is distinct from target_session\.goal/i)
+  for (const version of ['taxonomy', 'scoring', 'report', 'catalog']) {
+    assert.match(trustedWriterSql, new RegExp(`p_${version}_version <> '2026-07-16\\.v1'`, 'i'))
+    assert.match(trustedWriterSql, new RegExp(`p_report ->> '${version}Version' <> p_${version}_version`, 'i'))
+  }
+  assert.match(trustedWriterSql, /octet_length\(p_report::text\) > 1048576/i)
+})
+
+test('trusted report completion is immutable and only exact retries are idempotent', () => {
+  assert.match(trustedWriterSql, /extensions\.digest\(convert_to\(p_report::text, 'UTF8'\), 'sha256'\)/i)
+  assert.match(trustedWriterSql, /target_session\.report_write_id = p_report_write_id/i)
+  assert.match(trustedWriterSql, /target_session\.report_digest = computed_digest/i)
+  assert.match(trustedWriterSql, /target_session\.report = p_report/i)
+  assert.match(trustedWriterSql, /'replayed', true/i)
+  assert.match(trustedWriterSql, /errcode = '23505'/i)
+  assert.match(trustedWriterSql, /if old\.status = 'complete'[\s\S]*?completed AI Path session is immutable/i)
+  assert.match(trustedWriterSql, /current_setting\('ai_path\.trusted_report_write', true\)/i)
+})
+
+const ownerId = '018f47a2-4e8d-7a32-9d10-f4b68a4ee6de'
+const sessionId = '018f47a2-4e8d-7a32-9d10-f4b68a4ee6df'
+const reportWriteId = '018f47a2-4e8d-7a32-9d10-f4b68a4ee6e0'
+const reportDigest = 'a'.repeat(64)
+const goal = 'Ship a safe AI workflow for customer support.'
+const report = {
+  reportVersion: '2026-07-16.v1',
+  taxonomyVersion: '2026-07-16.v1',
+  scoringVersion: '2026-07-16.v1',
+  catalogVersion: '2026-07-16.v1',
+  generatedAt: '2026-07-17T02:00:00.000Z',
+  goal,
+  results: [],
+  strengths: [],
+  growthAreas: [],
+  recommendationStatus: 'no_eligible_resources',
+  recommendations: [],
+  disclaimer: 'Assessment guidance only.',
+}
+
+function completedRow(overrides = {}) {
+  return {
+    id: sessionId,
+    owner_id: ownerId,
+    status: 'complete',
+    mode: 'text',
+    locale: 'en-US',
+    goal,
+    target_role: null,
+    consent_version: '2026-07-16.v1',
+    save_transcript: false,
+    taxonomy_version: '2026-07-16.v1',
+    scoring_version: '2026-07-16.v1',
+    report_version: '2026-07-16.v1',
+    catalog_version: '2026-07-16.v1',
+    report,
+    report_saved_at: '2026-07-17T02:00:01.000Z',
+    report_write_id: reportWriteId,
+    report_digest: reportDigest,
+    retention_expires_at: '2026-10-15T02:00:00.000Z',
+    created_at: '2026-07-17T01:59:00.000Z',
+    updated_at: '2026-07-17T02:00:01.000Z',
+    ...overrides,
+  }
+}
+
+test('trusted writer forwards only verified owner binding and pinned server versions', async () => {
+  let forwarded
+  const writer = new SupabaseTrustedReportWriter({
+    async complete(input) {
+      forwarded = input
+      return {
+        data: { session: completedRow(), replayed: false, reportDigest },
+        error: null,
+      }
+    },
+  })
+
+  const result = await writer.completeServerRecomputedReport({
+    sessionId,
+    principal: { userId: ownerId, source: 'supabase' },
+    report,
+    reportWriteId,
+  })
+
+  assert.equal(forwarded.ownerId, ownerId)
+  assert.equal(forwarded.sessionId, sessionId)
+  assert.equal(forwarded.reportWriteId, reportWriteId)
+  assert.equal(forwarded.taxonomyVersion, '2026-07-16.v1')
+  assert.equal(forwarded.scoringVersion, '2026-07-16.v1')
+  assert.equal(forwarded.reportVersion, '2026-07-16.v1')
+  assert.equal(forwarded.catalogVersion, '2026-07-16.v1')
+  assert.equal(result.session.ownerId, ownerId)
+  assert.equal(result.replayed, false)
+})
+
+test('trusted writer fails closed for unverified principals and forged response bindings', async () => {
+  let calls = 0
+  const writer = new SupabaseTrustedReportWriter({
+    async complete() {
+      calls += 1
+      return {
+        data: {
+          session: completedRow({ owner_id: '118f47a2-4e8d-7a32-9d10-f4b68a4ee6de' }),
+          replayed: false,
+          reportDigest,
+        },
+        error: null,
+      }
+    },
+  })
+
+  await assert.rejects(
+    writer.completeServerRecomputedReport({
+      sessionId,
+      principal: { userId: 'local-test-user', source: 'test-header' },
+      report,
+      reportWriteId,
+    }),
+    SupabaseSessionRepositoryError,
+  )
+  assert.equal(calls, 0)
+
+  await assert.rejects(
+    writer.completeServerRecomputedReport({
+      sessionId,
+      principal: { userId: ownerId, source: 'supabase' },
+      report,
+      reportWriteId,
+    }),
+    /invalid binding/i,
+  )
+  assert.equal(calls, 1)
 })
