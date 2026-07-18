@@ -1,6 +1,6 @@
 globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   const baseURL = await page.title()
-  const artifactDir = '.'
+  const artifactDir = '../ai-path'
   if (!baseURL) throw new Error('The bootstrap page title must contain the local AI Path URL')
 
   const appOrigin = baseURL.split('/').slice(0, 3).join('/')
@@ -9,21 +9,14 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   }
 
   const checkpoints = []
-  const blockedRequests = []
-  const paidPathRequests = []
+  const externalRequests = []
+  const apiRequests = []
   const consoleErrors = []
-  const sessionRequests = []
-  const analysisRequests = []
-  const analyticsRequests = []
 
   const assert = (condition, message) => {
     if (!condition) throw new Error(message)
   }
   const checkpoint = (name) => checkpoints.push(name)
-  const waitForHeading = async (name) => {
-    await page.getByRole('heading', { name }).waitFor({ state: 'visible', timeout: 15_000 })
-  }
-  const isVisible = async (locator) => locator.isVisible().catch(() => false)
   const assertNoHorizontalOverflow = async (label) => {
     const metrics = await page.evaluate(() => ({
       viewport: window.innerWidth,
@@ -54,7 +47,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
         const visible = style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'
         if (!visible || element.hasAttribute('disabled')) return []
         const labels = 'labels' in element && element.labels
-          ? Array.from(element.labels).map((item) => item.textContent || '').join(' ')
+          ? Array.from(element.labels).map(item => item.textContent || '').join(' ')
           : ''
         const name = (
           element.getAttribute('aria-label')
@@ -69,88 +62,29 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     ))
     assert(unnamed.length === 0, `${label} has unnamed interactive controls: ${unnamed.join(', ')}`)
   }
-  const assertHeadingFocused = async (name, label = String(name)) => {
-    const heading = page.getByRole('heading', { name }).first()
-    await heading.waitFor({ state: 'visible', timeout: 15_000 })
-    const headingHandle = await heading.elementHandle()
-    assert(headingHandle, `${label} heading could not be inspected for programmatic focus`)
-    await page.waitForFunction(element => document.activeElement === element, headingHandle, { timeout: 5_000 }).catch(() => {
-      throw new Error(`${label} heading did not receive programmatic focus`)
-    })
+  const assertSixSections = async (pathName) => {
+    const formSections = page.locator('.ap-ds-sections .ap-ds-section')
+    assert(await formSections.count() === 6, `${pathName} must expose exactly six diagnostic sections`)
+    const indexItems = page.getByRole('complementary', { name: 'Diagnostic sections' }).locator('ol > li')
+    assert(await indexItems.count() === 6, `${pathName} index must expose exactly six sections`)
+  }
+  const choose = async (groupName, optionName) => {
+    const group = page.getByRole('group', { name: groupName })
+    const optionPattern = new RegExp(String(optionName).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+    const radio = group.getByRole('radio', { name: optionPattern })
+    if (await radio.count()) {
+      await radio.first().check()
+      return
+    }
+    const checkbox = group.getByRole('checkbox', { name: optionPattern })
+    assert(await checkbox.count() > 0, `could not find ${optionName} in ${groupName}`)
+    await checkbox.first().check()
   }
 
-  const qaGoal = 'Build a citation-preserving weekly market intelligence workflow that colleagues can inspect, rerun, and improve.'
-  const correctedGoal = `${qaGoal} It must also explain what happens when a source disappears.`
-  const privateCanary = 'QA_PRIVATE_SIMPLICITY_CANARY_DO_NOT_COPY_TO_ANALYTICS'
-  const skillIds = [
-    'foundations',
-    'prompt-context',
-    'workflow-design',
-    'data-retrieval',
-    'coding-apis',
-    'agents-tools',
-    'evaluation-reliability',
-    'deployment-operations',
-    'safety-governance',
-  ]
-  const recommendations = Array.from({ length: 4 }, (_, index) => ({
-    id: `qa-resource-${index + 1}`,
-    title: [
-      'Build a citation-preserving research workflow',
-      'Evaluate AI outputs with a lightweight rubric',
-      'Design reliable prompts and context',
-      'This fourth resource must be hidden by the simple path',
-    ][index],
-    provider: 'Deterministic QA Learning Library',
-    canonicalUrl: null,
-    format: index === 0 ? 'project' : 'course',
-    free: true,
-    costDisclosure: 'Free. No purchase, paid API, account, subscription, or trial is required.',
-    estimatedHours: index + 1,
-    quality: 0.95 - (index * 0.01),
-    skills: [{ skillId: index === 1 ? 'evaluation-reliability' : 'workflow-design', entryLevel: 1, exitLevel: 2 }],
-    prerequisites: [],
-    codingRequirement: 'none',
-    accountRequirement: 'none',
-    paidServiceRequirement: 'none',
-    deferredForGoalTypes: [],
-    reason: 'This resource directly supports the learner’s reviewed goal and produces inspectable evidence within the available time.',
-    rank: index + 1,
-    score: 240 - index,
-    matchedSkillIds: [index === 1 ? 'evaluation-reliability' : 'workflow-design'],
-  }))
-  const report = {
-    reportVersion: '2026-07-16.v1',
-    taxonomyVersion: '2026-07-16.v1',
-    scoringVersion: '2026-07-16.v1',
-    catalogVersion: '2026-07-17.v2',
-    generatedAt: '2026-07-17T02:30:00.000Z',
-    goal: correctedGoal,
-    results: skillIds.map((skillId) => {
-      const assessed = ['workflow-design', 'evaluation-reliability'].includes(skillId)
-      return {
-        skillId,
-        status: assessed ? 'assessed' : 'not_assessed',
-        level: assessed ? 1 : null,
-        confidence: assessed ? 'medium' : 'low',
-        evidenceIds: assessed ? [`evidence-${skillId}`] : [],
-        contradictionIds: [],
-        rationale: assessed
-          ? 'Level 1 is supported by exact learner-reviewed evidence.'
-          : 'No evidence was collected; this is not a zero score.',
-      }
-    }),
-    strengths: [],
-    growthAreas: ['workflow-design', 'evaluation-reliability'],
-    recommendationStatus: 'available',
-    recommendations,
-    disclaimer: 'This learning assessment reflects reviewed evidence and is guidance, not a credential or employment decision.',
-  }
-
-  page.on('console', (message) => {
+  page.on('console', message => {
     if (message.type() === 'error') consoleErrors.push(message.text())
   })
-  page.on('pageerror', (error) => consoleErrors.push(error.message))
+  page.on('pageerror', error => consoleErrors.push(error.message))
 
   await page.route('**/*', async (route) => {
     const requestURL = route.request().url()
@@ -164,64 +98,13 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
       await route.continue()
       return
     }
-    blockedRequests.push(requestURL)
+    externalRequests.push(requestURL)
     await route.abort('blockedbyclient')
   })
 
-  await page.route('**/api/ai-path/realtime/**', async (route) => {
-    paidPathRequests.push(route.request().url())
+  await page.route('**/api/**', async route => {
+    apiRequests.push(`${route.request().method()} ${route.request().url()}`)
     await route.abort('blockedbyclient')
-  })
-
-  await page.route('**/api/ai-path/session', async (route) => {
-    const request = route.request()
-    assert(request.method() === 'POST', `unexpected session method ${request.method()}`)
-    const body = request.postDataJSON()
-    sessionRequests.push(body)
-    await route.fulfill({
-      status: 201,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        session: {
-          id: 'qa-session-simple-0001',
-          status: 'consented',
-          createdAt: '2026-07-17T02:29:00.000Z',
-          mode: 'text',
-          locale: 'en-US',
-          goal: body.goal,
-          goalType: 'workflows',
-          targetRole: body.targetRole || '',
-          consentVersion: '2026-07-16.v1',
-          saveTranscript: false,
-        },
-        owned: false,
-        persistence: 'none',
-        productionReady: false,
-      }),
-    })
-  })
-
-  await page.route('**/api/ai-path/events', async (route) => {
-    const request = route.request()
-    assert(request.method() === 'POST', `unexpected analytics method ${request.method()}`)
-    const body = request.postDataJSON()
-    analyticsRequests.push(body)
-    await route.fulfill({
-      status: 503,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: 'analytics_unavailable' }),
-    })
-  })
-
-  await page.route('**/api/ai-path/analysis', async (route) => {
-    const request = route.request()
-    assert(request.method() === 'POST', `unexpected analysis method ${request.method()}`)
-    analysisRequests.push(request.postDataJSON())
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ report }),
-    })
   })
 
   await page.addInitScript(() => {
@@ -231,7 +114,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     if (mediaDevices) {
       Object.defineProperty(mediaDevices, 'enumerateDevices', {
         configurable: true,
-        value: async () => [{ kind: 'audioinput', deviceId: 'qa-default-mic', label: 'QA local microphone', groupId: 'qa' }],
+        value: async () => [{ kind: 'audioinput', deviceId: 'qa-local-mic', label: 'QA local microphone', groupId: 'qa' }],
       })
       Object.defineProperty(mediaDevices, 'getUserMedia', {
         configurable: true,
@@ -243,209 +126,183 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     }
     const GuardedPeerConnection = function GuardedPeerConnection() {
       window.__AI_PATH_QA_PEER_CALLS__ += 1
-      throw new Error('Provider-unavailable QA forbids RTCPeerConnection construction.')
+      throw new Error('Diagnostic Studio QA forbids peer connection construction.')
     }
     Object.defineProperty(window, 'RTCPeerConnection', { configurable: true, value: GuardedPeerConnection })
   })
 
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' })
-  const welcomeHeading = page.locator('main h1').first()
-  await welcomeHeading.waitFor({ state: 'visible', timeout: 15_000 })
-  const welcomeHeadingText = (await welcomeHeading.textContent())?.trim() || ''
-  assert(welcomeHeadingText.length > 0, 'welcome is missing a clear heading')
-  await assertHeadingFocused(welcomeHeadingText, 'welcome')
+  await page.getByRole('heading', { name: 'Bring a use case—or discover your next capability.' }).waitFor({ state: 'visible', timeout: 15_000 })
 
-  await waitForHeading('Voice discussion')
-  await waitForHeading('Type instead')
-  assert(await page.getByLabel('What would you like AI to help you improve?').isVisible(), 'typed entry is not available on the preparation page')
-  assert(await page.getByText('Live voice is not enabled yet.', { exact: false }).isVisible(), 'provider-unavailable state is not honest on the preparation page')
-  assert(await page.evaluate(() => window.__AI_PATH_QA_MIC_CALLS__) === 0, 'preparation page requested microphone access before an explicit action')
-  assert(await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__) === 0, 'preparation page constructed a provider peer connection')
-  await captureRequiredViewports('prepare')
-  await assertInteractiveNames('prepare')
+  const pathSelector = page.locator('.ap-ds-pathSelector')
+  const pathButtons = pathSelector.getByRole('button')
+  assert(await pathButtons.count() === 2, `expected exactly two diagnostic choices, found ${await pathButtons.count()}`)
+  const useCaseChoice = page.getByRole('button', { name: /I have an AI use case/ })
+  const capabilityChoice = page.getByRole('button', { name: /I want to grow my AI skills/ })
+  assert(await useCaseChoice.isVisible() && await capabilityChoice.isVisible(), 'the two exact diagnostic paths are not visible')
+  assert(await useCaseChoice.getAttribute('aria-pressed') === 'false', 'use-case path should not be preselected')
+  assert(await capabilityChoice.getAttribute('aria-pressed') === 'false', 'capability path should not be preselected')
+  assert(await page.evaluate(() => window.__AI_PATH_QA_MIC_CALLS__) === 0, 'initial render requested microphone access')
+  assert(await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__) === 0, 'initial render constructed a peer connection')
+  await assertInteractiveNames('diagnostic chooser')
+  await captureRequiredViewports('diagnostic-chooser')
+  checkpoint('two exact diagnostic paths render without automatic microphone or network activity')
 
-  const microphoneButton = page.getByRole('button', { name: 'Enable microphone' })
-  await microphoneButton.waitFor({ state: 'visible' })
-  await microphoneButton.focus()
-  const focusStyle = await microphoneButton.evaluate((element) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await useCaseChoice.focus()
+  const focusStyle = await useCaseChoice.evaluate(element => {
     const style = window.getComputedStyle(element)
     return { outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth }
   })
-  assert(focusStyle.outlineStyle !== 'none' && focusStyle.outlineWidth !== '0px', `keyboard focus is not visible: ${JSON.stringify(focusStyle)}`)
+  assert(focusStyle.outlineStyle !== 'none' && focusStyle.outlineWidth !== '0px', `path choice lacks visible keyboard focus: ${JSON.stringify(focusStyle)}`)
   await page.keyboard.press('Enter')
+  assert(await useCaseChoice.getAttribute('aria-pressed') === 'true', 'keyboard activation did not select the use-case path')
+  await assertSixSections('use-case')
+
+  const outcomeLabel = 'What do you want AI to help someone accomplish?'
+  const outcomeField = page.getByLabel(outcomeLabel, { exact: true })
+  assert(await outcomeField.count() === 1, 'voice and typing must share one use-case outcome field')
+  assert(await page.evaluate(() => window.__AI_PATH_QA_MIC_CALLS__) === 0, 'choosing a path automatically requested microphone access')
+  await page.getByRole('button', { name: `Answer ${outcomeLabel} by voice` }).click()
   await page.getByText('Microphone access was not allowed. You can continue by typing.', { exact: true }).waitFor({ state: 'visible' })
-  assert(await page.evaluate(() => window.__AI_PATH_QA_MIC_CALLS__) === 1, 'explicit microphone test did not stay on the deterministic local boundary')
-  assert(await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__) === 0, 'local microphone test constructed a provider peer connection')
-  assert(paidPathRequests.length === 0, 'local microphone test attempted a Realtime request')
+  assert(await page.evaluate(() => window.__AI_PATH_QA_MIC_CALLS__) === 1, 'explicit Voice action did not reach the deterministic microphone boundary once')
+  assert(await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__) === 0, 'Voice action constructed a peer connection')
+  assert(await outcomeField.isVisible(), 'typing disappeared after voice permission denial')
 
-  await page.getByLabel('What would you like AI to help you improve?').fill(qaGoal)
-  await page.getByRole('button', { name: 'Start typed discussion' }).click()
-  await page.getByLabel('Your answer').waitFor({ state: 'visible', timeout: 15_000 })
-  assert(sessionRequests.length === 0, 'the local typed conversation should not create a server session before path generation')
-  checkpoint('one compact preparation page exposed local microphone testing and typed entry together')
+  await outcomeField.fill('Help salespeople answer RFP questions from approved company documents with citations and human review.')
+  await page.getByLabel('How is this handled today, and where does it become unreliable?', { exact: true }).fill('Salespeople search old proposals, copy prior answers, and ask legal and product teams to verify every claim; outdated language is the main failure point.')
+  await page.getByLabel('What information goes in?', { exact: true }).fill('Approved product documents, security policies, legal language, and historical proposals')
+  await page.getByLabel('What should come out?', { exact: true }).fill('A draft RFP response with a source citation and confidence indicator')
+  await page.getByLabel('How will you know it works?', { exact: true }).fill('Reduce first-draft time by 50 percent and require every answer to cite approved material.')
 
-  await captureRequiredViewports('conversation')
-  await assertInteractiveNames('conversation')
-  assert(!(await page.getByText('Conversation outline', { exact: true }).isVisible().catch(() => false)), 'old conversation sidebar is still visible')
-  assert(!(await page.getByText('What I am testing', { exact: true }).isVisible().catch(() => false)), 'internal assessment methodology is still visible')
+  assert(!(await page.getByLabel('What did you personally make or test, and what happened?', { exact: true }).isVisible().catch(() => false)), 'experience evidence appeared before a supported conditional choice')
+  await choose('How far have you taken this idea?', 'Modified for my problem')
+  const useCaseEvidence = page.getByLabel('What did you personally make or test, and what happened?', { exact: true })
+  await useCaseEvidence.waitFor({ state: 'visible' })
+  await useCaseEvidence.fill('I tested prompt variations on ten historical RFP questions, recorded unsupported statements, and retained the strongest cited version for review.')
+  checkpoint('use-case conditional evidence appears only after an evidence-bearing experience claim')
 
-  const answers = [
-    'Last week I collected six public reports and produced a two-page cited market brief for a colleague.',
-    'I compared claims against the original sources, retained claim-level citations, and included a source ledger.',
-    'I personally chose the sources, wrote the brief, and designed the reviewer checkpoint; a colleague reviewed the final draft.',
-    `${privateCanary}: the inspectable artifact is a cited brief and ledger that a colleague can rerun.`,
-    'Citation links drifted, so I tested every claim, removed two unsupported claims, and documented the failure.',
-    'I have about three hours each week, use public data, require human review, and prefer a no-code or light-code workflow.',
-    'A successful result is a brief another colleague can rerun, inspect, and correct without asking me for hidden context.',
-  ]
-  let adaptiveAnswerCount = 1
-  while (!(await isVisible(page.getByRole('heading', { name: 'Did I understand you correctly?' })))) {
-    const reviewButton = page.getByRole('button', { name: 'Review what I heard' })
-    if (await isVisible(reviewButton)) {
-      assert(adaptiveAnswerCount >= 5, `adaptive conversation ended too early after ${adaptiveAnswerCount} answers`)
-      await reviewButton.click()
-      break
-    }
-    assert(adaptiveAnswerCount < 8, 'guided conversation exceeded its eight-turn bound including goal discovery')
+  await choose('Data sensitivity', 'Confidential')
+  await choose('If the result is wrong', 'Serious')
+  await choose('Human approval before action', 'Required')
+  await page.getByLabel('Systems or data sources Optional').fill('Approved company Drive and CRM')
+  await page.getByText('Guardrail required.', { exact: false }).waitFor({ state: 'visible' })
+  await page.getByLabel('Your role in this work', { exact: true }).fill('Sales operations manager')
+  await page.getByLabel('Hours available each week', { exact: true }).fill('5')
+  await choose('Coding comfort', 'Modify examples')
+  await choose('Preferred approach', 'Open to either')
+  await choose('Working mode', 'With a team')
+  await choose('Tool budget', 'Organisation decides')
+  await page.getByText('All six signals captured', { exact: true }).waitFor({ state: 'visible' })
+  await assertInteractiveNames('completed use-case diagnostic')
+  await captureRequiredViewports('use-case-diagnostic')
 
-    const answerField = page.getByLabel('Your answer')
-    await answerField.waitFor({ state: 'visible', timeout: 10_000 })
-    await answerField.fill(answers[adaptiveAnswerCount - 1])
-    const continueButton = page.getByRole('button', { name: 'Continue' })
-    await continueButton.click()
-    adaptiveAnswerCount += 1
-
-    await page.waitForFunction(() => {
-      const field = Array.from(document.querySelectorAll('textarea, input')).find((element) => (
-        element.labels && Array.from(element.labels).some(label => label.textContent?.trim() === 'Your answer')
-      ))
-      const review = Array.from(document.querySelectorAll('button')).some(button => button.textContent?.trim() === 'Review what I heard')
-      const confirmation = Array.from(document.querySelectorAll('h1, h2')).some(heading => heading.textContent?.trim() === 'Did I understand you correctly?')
-      return review || confirmation || (field && field.value === '')
-    }, null, { timeout: 10_000 })
+  await page.getByRole('button', { name: 'Create my recommendation' }).click()
+  const useCaseResult = page.locator('main[data-result-kind="use-case-blueprint"]')
+  await useCaseResult.waitFor({ state: 'visible', timeout: 15_000 })
+  assert(await useCaseResult.getByText('Use-case blueprint', { exact: true }).isVisible(), 'use-case path omitted its result kind')
+  for (const label of ['Smallest useful prototype', 'Recommended system', 'Definition of done', 'Risk level', 'What to learn for this build']) {
+    assert(await useCaseResult.getByText(label, { exact: true }).isVisible(), `use-case blueprint is missing ${label}`)
   }
-  await waitForHeading('Did I understand you correctly?')
-  assert(adaptiveAnswerCount >= 6 && adaptiveAnswerCount <= 8, `expected 6–8 turns including goal discovery, completed ${adaptiveAnswerCount}`)
-  checkpoint(`unified conversation completed in ${adaptiveAnswerCount} questions without intake-form or methodology chrome`)
+  const useCaseTitle = (await useCaseResult.getByRole('heading', { level: 1 }).textContent())?.trim() || ''
+  assert(useCaseTitle.startsWith('Build a reviewable'), `unexpected use-case blueprint title: ${useCaseTitle}`)
+  await captureRequiredViewports('use-case-blueprint')
+  await assertInteractiveNames('use-case blueprint')
+  checkpoint('use-case path produces a distinct local blueprint with prototype, architecture, evaluation, and risk')
 
-  const confirmationParts = page.getByTestId('confirmation-part')
-  assert(await confirmationParts.count() === 3, `confirmation must contain three compact parts, found ${await confirmationParts.count()}`)
-  await page.getByRole('button', { name: 'Edit What you want to improve' }).click()
-  assert(await page.getByLabel('Your goal', { exact: true }).isVisible(), 'confirmation is missing Your goal')
-  await page.getByLabel('Your goal', { exact: true }).fill(correctedGoal)
-  await page.getByRole('button', { name: 'Done What you want to improve' }).click()
-  await page.getByRole('button', { name: 'Edit What the plan needs to respect' }).click()
-  for (const [id, label] of [
-    ['ap-role', 'Role or area of work'],
-    ['ap-weekly-hours', 'Time available each week'],
-    ['ap-coding-comfort', 'Coding comfort'],
-    ['ap-constraint', 'Main constraint'],
-  ]) {
-    assert(await page.locator(`#${id}`).isVisible(), `confirmation is missing ${label}`)
-    assert(await page.locator(`label[for="${id}"]`).count() === 1, `${label} is not explicitly labeled`)
+  await useCaseResult.getByRole('button', { name: 'Mark as my next action' }).click()
+  assert(await useCaseResult.getByRole('button', { name: 'Next action saved' }).isVisible(), 'next-action toggle did not preserve its state')
+  await useCaseResult.getByRole('button', { name: 'Edit diagnostic' }).click()
+  await outcomeField.waitFor({ state: 'visible' })
+  assert(await outcomeField.inputValue() === 'Help salespeople answer RFP questions from approved company documents with citations and human review.', 'Edit diagnostic discarded use-case answers')
+  assert(await useCaseEvidence.isVisible(), 'Edit diagnostic discarded the conditional evidence section')
+  await outcomeField.fill('Help salespeople answer security questionnaires from approved documents with citations and human review.')
+  await page.getByRole('button', { name: 'Create my recommendation' }).click()
+  await useCaseResult.waitFor({ state: 'visible' })
+  assert((await useCaseResult.getByRole('heading', { level: 1 }).textContent())?.includes('draft RFP response'), 'edited inputs did not regenerate the local blueprint')
+  await useCaseResult.getByRole('button', { name: 'Start a new diagnostic' }).click()
+  await page.getByRole('heading', { name: 'Bring a use case—or discover your next capability.' }).waitFor({ state: 'visible' })
+  assert(await page.locator('.ap-ds-workbench').count() === 0, 'restart did not clear the selected diagnostic')
+  assert(await useCaseChoice.getAttribute('aria-pressed') === 'false' && await capabilityChoice.getAttribute('aria-pressed') === 'false', 'restart did not reset both path choices')
+  checkpoint('use-case result supports edit, local regeneration, and full restart')
+
+  await capabilityChoice.click()
+  await assertSixSections('capability-growth')
+  await page.getByLabel('Your role or working context', { exact: true }).fill('Operations analyst responsible for support quality and routing')
+  await choose(/Where would you most like AI to expand what you can do?/, 'Automate workflows')
+  await choose(/Where would you most like AI to expand what you can do?/, 'Work with data and knowledge')
+
+  await page.locator('#ap-level-ai-assisted-work').selectOption('adapted')
+  await page.locator('#ap-level-automation').selectOption('guided')
+  await page.locator('#ap-level-applications').selectOption('guided')
+  await page.locator('#ap-level-data-retrieval').selectOption('exposure')
+  await page.locator('#ap-level-evaluation-safety').selectOption('none')
+  const evidenceField = page.getByLabel('Tell us about the strongest one or two things you have actually done with AI.', { exact: true })
+  await evidenceField.fill('I made and revised a support-ticket summarization prompt for my own process, compared results manually, and documented recurring failures.')
+  const supportedEvidence = page.getByRole('group', { name: 'Which claims does this evidence support?' })
+  await supportedEvidence.getByLabel('ai-assisted-work', { exact: true }).check()
+  assert(await supportedEvidence.isVisible(), 'capability evidence linkage did not appear for an adapted claim')
+  checkpoint('capability path requires explicit evidence linkage for higher experience claims')
+
+  await page.getByLabel('What would you do, and why?', { exact: true }).fill('I would create expected examples, measure incorrect outputs, require a person to review uncertain cases, and test failure behavior before sending anything automatically.')
+  await choose('Coding', 'Modify examples')
+  await choose('Data', 'Spreadsheets')
+  await page.getByRole('group', { name: /AI tools used/ }).getByLabel('ChatGPT', { exact: true }).check()
+  await page.getByLabel('Hours available each week', { exact: true }).fill('4')
+  await choose('Learning preference', 'Balanced')
+  await choose('Desired pace', '30-day sprint')
+  await choose('Resources', 'Free only')
+  await choose('Public project allowed', 'Yes')
+  await page.getByText('All six signals captured', { exact: true }).waitFor({ state: 'visible' })
+  await assertInteractiveNames('completed capability diagnostic')
+  await captureRequiredViewports('capability-diagnostic')
+
+  await page.getByRole('button', { name: 'Create my recommendation' }).click()
+  const capabilityResult = page.locator('main[data-result-kind="capability-prescription"]')
+  await capabilityResult.waitFor({ state: 'visible', timeout: 15_000 })
+  assert(await capabilityResult.getByText('Capability prescription', { exact: true }).isVisible(), 'capability path omitted its result kind')
+  for (const label of ['Recommended project', 'Recommended next capability', 'Evidence-based profile', 'Untested, not “beginner”']) {
+    assert(await capabilityResult.getByText(label, { exact: true }).isVisible(), `capability prescription is missing ${label}`)
   }
-  const conversationDetails = page.getByText('Review conversation details', { exact: true })
-  assert(await conversationDetails.isVisible(), 'conversation evidence is not available by progressive disclosure')
-  const conversationDisclosure = conversationDetails.locator('xpath=ancestor::details')
-  assert(await conversationDisclosure.count() === 1, 'Review conversation details must use a native disclosure')
-  assert(!(await conversationDisclosure.evaluate(element => element.open)), 'conversation details must be collapsed by default')
-  await captureViewport('confirmation', 375, 812)
-  await captureViewport('confirmation', 768, 1024)
-  await captureViewport('confirmation', 1440, 900)
-  await assertInteractiveNames('confirmation')
-  await page.getByRole('button', { name: 'Create my path' }).click()
+  const capabilityTitle = (await capabilityResult.getByRole('heading', { level: 1 }).textContent())?.trim() || ''
+  assert(capabilityTitle.startsWith('Your next capability:'), `unexpected capability prescription title: ${capabilityTitle}`)
+  assert(capabilityTitle !== useCaseTitle, 'the two diagnostic paths collapsed into the same result title')
+  assert(!(await capabilityResult.getByText('Recommended system', { exact: true }).isVisible().catch(() => false)), 'capability prescription leaked use-case architecture')
+  await captureRequiredViewports('capability-prescription')
+  await assertInteractiveNames('capability prescription')
+  checkpoint('capability path produces a distinct evidence-calibrated prescription')
 
-  await waitForHeading('Your 30-day build')
-  await assertHeadingFocused('Your 30-day build', 'path')
-  assert(sessionRequests.length === 1, `expected one text session request while building the path, saw ${sessionRequests.length}`)
-  assert(analysisRequests.length === 1, `expected one analysis request, saw ${analysisRequests.length}`)
-  assert(analysisRequests[0].goal === correctedGoal, 'confirmed goal did not reach analysis')
-  assert(Array.isArray(analysisRequests[0].reviewedInputs), 'analysis omitted reviewed conversation inputs')
-  assert(analysisRequests[0].reviewedInputs.some(input => input.value.includes(privateCanary)), 'conversation evidence was lost before analysis')
-  assert(!('evidence' in analysisRequests[0]), 'browser assigned competency evidence')
-  checkpoint('three-part confirmation remained editable and reached analysis')
+  await capabilityResult.getByRole('button', { name: 'Edit diagnostic' }).click()
+  assert(await page.getByLabel('Your role or working context', { exact: true }).inputValue() === 'Operations analyst responsible for support quality and routing', 'Edit diagnostic discarded capability answers')
+  await page.getByRole('button', { name: 'Create my recommendation' }).click()
+  await capabilityResult.waitFor({ state: 'visible' })
+  await capabilityResult.getByRole('button', { name: 'Start a new diagnostic' }).click()
+  assert(await page.locator('.ap-ds-workbench').count() === 0, 'capability restart did not clear the diagnostic')
+  checkpoint('capability result supports edit and restart')
 
-  for (const label of ['Your next skill', 'Your 30-day project', 'Your first 30 minutes']) {
-    assert(await page.getByText(label, { exact: true }).isVisible(), `path is missing ${label}`)
-  }
-  const projectComesFirst = await page.locator('main').evaluate((main) => {
-    const elements = Array.from(main.querySelectorAll('*'))
-    const project = elements.find(element => element.textContent?.trim() === 'Your 30-day project')
-    const skill = elements.find(element => element.textContent?.trim() === 'Your next skill')
-    return Boolean(project && skill && elements.indexOf(project) < elements.indexOf(skill))
-  })
-  assert(projectComesFirst, 'result must present the prescribed project before skill diagnostics')
-  const resourceItems = page.getByTestId('learning-resource')
-  const resourceCount = await resourceItems.count()
-  assert(resourceCount > 0 && resourceCount <= 3, `path must show 1–3 resources, found ${resourceCount}`)
-  assert(!(await page.getByText('This fourth resource must be hidden by the simple path', { exact: true }).isVisible().catch(() => false)), 'path exposed more than three resources')
-
-  const planSummary = page.getByText('See the full four-week plan', { exact: true })
-  const whySummary = page.getByText('Why this fits you', { exact: true })
-  const privacySummary = page.getByText('Privacy and data', { exact: true })
-  for (const [label, summary] of [['plan', planSummary], ['rationale', whySummary], ['privacy', privacySummary]]) {
-    assert(await summary.isVisible(), `${label} disclosure is missing`)
-    const details = summary.locator('xpath=ancestor::details')
-    assert(await details.count() === 1, `${label} disclosure must use native details`)
-    assert(!(await details.evaluate(element => element.open)), `${label} disclosure must be collapsed by default`)
-  }
-  await planSummary.click()
-  assert(await planSummary.locator('xpath=ancestor::details').evaluate(element => element.open), 'four-week plan did not expand')
-  await privacySummary.click()
-  const privacyDetails = privacySummary.locator('xpath=ancestor::details')
-  assert(await privacyDetails.evaluate(element => element.open), 'privacy disclosure did not expand')
-  assert(await privacyDetails.getByText(/delete|deletion/i).isVisible(), 'privacy disclosure omits deletion')
-  checkpoint('single path page shows the decision first and details progressively')
-
-  const firstTaskButton = page.getByRole('button', { name: 'Show me how to start' })
-  await firstTaskButton.focus()
-  await page.keyboard.press('Enter')
-  await page.getByRole('button', { name: 'Hide starting steps' }).waitFor({
-    state: 'visible',
-    timeout: 5_000,
-  })
-  checkpoint('first action starts from the path page')
-
-  await captureRequiredViewports('path')
-  await assertInteractiveNames('path')
-  checkpoint('path responsive and named-control audit')
-
-  assert(sessionRequests[0].mode === 'text', 'typed fallback did not create a text session')
-  assert(sessionRequests[0].saveTranscript === false, 'session unexpectedly requested transcript persistence')
-  assert(await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__) === 0, 'provider-unavailable journey constructed a peer connection')
-  assert(paidPathRequests.length === 0, `app attempted a paid Realtime path: ${paidPathRequests.join(', ')}`)
-  assert(blockedRequests.length === 0, `app attempted external requests: ${blockedRequests.join(', ')}`)
-
-  const serializedAnalytics = JSON.stringify(analyticsRequests)
-  for (const privateText of [qaGoal, correctedGoal, privateCanary, ...answers]) {
-    assert(!serializedAnalytics.includes(privateText), `learner-authored text leaked into analytics: ${privateText.slice(0, 40)}`)
-  }
-  assert(analyticsRequests.every(event => JSON.stringify(event).length < 8 * 1024), 'analytics payload exceeded the intake body budget')
-  checkpoint('zero external or paid requests and no learner-text analytics leakage')
-
-  const expectedUnavailableResourceError = 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)'
-  const actionableConsoleErrors = consoleErrors.filter((message) => (
-    !message.includes('favicon') && message !== expectedUnavailableResourceError
-  ))
+  assert(await page.evaluate(() => window.__AI_PATH_QA_MIC_CALLS__) === 1, 'the full run made an unexpected microphone request')
+  assert(await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__) === 0, 'the full run constructed a peer connection')
+  assert(apiRequests.length === 0, `the local diagnostic made API requests: ${apiRequests.join(', ')}`)
+  assert(externalRequests.length === 0, `the local diagnostic made external requests: ${externalRequests.join(', ')}`)
+  const actionableConsoleErrors = consoleErrors.filter(message => !message.includes('favicon'))
   assert(actionableConsoleErrors.length === 0, `browser console errors: ${actionableConsoleErrors.join(' | ')}`)
+  checkpoint('both paths remain local-only with zero external, paid, session, or analysis calls')
 
   return {
     ok: true,
     checkpoints,
-    journey: ['prepare', 'conversation', 'understanding', 'project'],
-    questionsAnswered: adaptiveAnswerCount,
-    resourcesShown: resourceCount,
+    paths: ['use-case', 'capability-growth'],
+    resultKinds: ['use-case-blueprint', 'capability-prescription'],
+    sectionsPerPath: 6,
     viewports: ['375x812', '768x1024', '1440x900'],
     network: {
-      externalRequestsAttempted: blockedRequests.length,
+      externalRequestsAttempted: externalRequests.length,
+      apiRequestsAttempted: apiRequests.length,
       paidRequestsAllowed: false,
-      paidPathRequestsAttempted: paidPathRequests.length,
-      sessionRequests: sessionRequests.length,
-      analysisRequests: analysisRequests.length,
-      analyticsRequests: analyticsRequests.length,
-      analyticsSinkAccepted: false,
+      microphoneRequests: await page.evaluate(() => window.__AI_PATH_QA_MIC_CALLS__),
+      peerConnections: await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__),
     },
-    artifacts: artifactDir,
+    artifacts: 'output/playwright/ai-path',
   }
 }

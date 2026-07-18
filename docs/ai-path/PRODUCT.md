@@ -1,129 +1,103 @@
-# AI Path Advisor
+# AI Path Diagnostic Studio
 
 ## Product thesis
 
-AI learning fails less from a lack of content than from poor sequencing. People do not know which skill matters for their goal, what they already know, or what credible proof of progress looks like. AI Path Advisor turns a short, evidence-seeking conversation into an editable assessment and a realistic 30-day build plan.
+AI learners arrive with two different jobs. Some have a real use case and need to
+decide what to build, how to build it, what can go wrong, and what to learn along
+the way. Others have no immediate use case and need an honest view of what their
+current work demonstrates, followed by one capability-building project. AI Path
+serves both without turning the experience into a generic AI chat or a course
+marketplace.
 
-The product is not a quiz, a personality test, or a course marketplace. It is a learning decision system. Voice makes reflection easier; application-owned evidence and recommendation rules keep the result inspectable.
+The input experience is one continuous diagnostic screen. Voice and typing are
+two ways to complete the same fields. The only scene change is from diagnostic
+to recommendation.
 
-## Initial user
+## The two paths
 
-The private alpha is intentionally narrow: working professionals who already use general-purpose AI tools and want to build one reliable work workflow. They may prefer no-code or light code. Later tracks can cover applied-AI engineers, leaders, creators, and career switchers after the assessment model is validated.
+### Path A — I have an AI use case
 
-The first screen is a compact preparation workspace with voice and typing visible
-together. It offers a local microphone check and an immediately usable typed
-goal entry; only when the reviewed provider capability is open can the voice
-discussion begin. Role,
-experience, time, coding comfort, and constraints are collected naturally inside
-the conversation. The private alpha does not claim broader persona coverage that
-the assessment is not yet designed to support.
+The learner brings a specific task or opportunity. Six sections establish:
 
-## Core promise
+1. the person, task, and desired outcome;
+2. the current workflow and failure point;
+3. inputs, expected output, and an observable success criterion;
+4. what has already been tried and the evidence for it;
+5. data sensitivity, error consequences, and human approval boundaries;
+6. role, time, coding comfort, preferred approach, team mode, and budget.
 
-Talk with an AI learning advisor for about five minutes. Leave with one
-practical 30-day project, one immediate action, and no more than three learning
-resources that fit the learner's time and experience.
+The result is a **use-case blueprint**: a feasibility verdict, smallest useful
+prototype, recommended system shape, evaluation checks, safeguards, skills to
+learn, a 30-day workpath, and one first action.
 
-The first-use experience is successful only when the learner can understand the
-next action without learning how the assessment system works.
+### Path B — I want to grow my AI skills
 
-## End-to-end journey
+The learner does not need a use case. Six sections establish:
 
-1. **Prepare.** Present voice discussion and typed entry side by side. After an
-   explicit action, test the selected microphone and show a live local input
-   signal. Keep typed goal entry usable throughout. No audio leaves the device
-   and no provider connection starts during this check.
-2. **Talk.** Ask one adaptive question at a time. The first typed entry discovers
-   the goal. Role, prior experience,
-   constraints, available time, and coding preference are discovered inside the
-   conversation rather than through a separate application form.
-3. **Understand.** Show three short, editable summaries: goal, current experience,
-   and practical constraints. Detailed evidence provenance is optional.
-4. **Get a path.** Lead with one practical project, then one recommended skill
-   direction, one 30-minute first action, and no more than three resources. The full
-   four-week plan and assessment rationale are collapsed by default.
+1. role and the areas where they want to expand their capability;
+2. behaviorally anchored experience across five practical domains;
+3. their strongest evidence and which claims it supports;
+4. applied judgment in a short scenario;
+5. coding, data, and tool foundations;
+6. time, learning preference, pace, resource boundary, and project constraints.
 
-History, progress tracking, check-ins, export, detailed assessment findings,
-and adaptation remain post-adoption capabilities. They must not add work to the
-first-use journey.
+The result is a **capability prescription**: an evidence-based profile, explicit
+untested areas, one next capability, one evidence-producing project, a measurable
+definition of done, a 30-day workpath, and one first action.
 
-## Learner-facing simplicity contract
+## First-use contract
 
-- The complete guided conversation begins in one action when live voice is
-  unavailable. When live voice is available, the sound check adds one explicit
-  microphone-permission action.
-- Every screen has one dominant action.
-- The primary journey has no scoring, catalog, provider, versioning, evidence-
-  gap, persistence, or infrastructure terminology.
-- The conversation uses one focal prompt; transcripts and rationale are
-  progressively disclosed.
-- Voice is never presented as connected when the provider path is closed. A
-  local microphone preview is labeled as a preview and cannot create a peer or
-  provider session.
-- Privacy, deletion, and export remain accessible without being repeated across
-  every step.
-- Missing evidence remains unassessed internally, but the default result view
-  emphasizes what to do next rather than an exhaustive skill table.
+- Exactly two entry paths.
+- Exactly six top-level sections per path, all available on one scrollable screen.
+- Path switching preserves each draft.
+- Structured choices are used where a recommendation needs a bounded decision;
+  prose is reserved for outcomes, workflows, evidence, and reasoning.
+- A learner may say evidence does not exist. Missing evidence is unassessed, never
+  translated into a low skill score.
+- Higher experience claims require a description of what was built and tested.
+- Voice is an affordance on the field, not a second questionnaire.
+- No microphone permission is requested before an explicit Voice action.
+- The preview performs only a local microphone check. It does not upload audio or
+  imply live transcription is connected.
+- Submission produces a structurally different result for each path.
+- Every result leads with a project or prototype, contains a measurable definition
+  of done, and shows no more than three supporting resources.
 
-## Assessment model
+## Resource strategy
 
-The long-term model uses six outcome-oriented dimensions:
+AI Path does not need to own a course library. The project prescription is the
+product; courses and documentation are supporting material. The curated catalog
+may combine free courses from multiple providers, official documentation,
+vendor-neutral safety references, and original evidence-sprint projects.
 
-1. problem and use-case judgment;
-2. model, prompt, and context design;
-3. data and retrieval;
-4. evaluation and iteration;
-5. reliability, deployment, and observability;
-6. technical communication and portfolio evidence.
+The catalog—not a model—owns canonical titles, URLs, cost flags, prerequisites,
+duration, and review state. A recommendation may explain why a selected resource
+fits but must not invent a URL or silently substitute a course.
 
-The alpha implementation uses a more granular, versioned nine-skill taxonomy so recommendations can target specific gaps. Before public beta, these granular skills should roll up into the six learner-facing dimensions above.
-
-Learner-facing stages are **Explorer**, **Integrator**, **System Builder**, and **Production Builder**. Internally, evidence is scored on a 0–4 rubric, but the UI must never imply false precision with a single 0–100 number.
-
-Every assessed finding must provide:
-
-- learner-owned evidence, linked to exact user transcript turns;
-- a confidence level;
-- the scoring and taxonomy versions;
-- contradictions or uncertainty when present;
-- an edit or deletion path.
-
-The system must not infer or score accent, emotion, personality, protected traits, employability, or clinical attributes.
-
-## Course and resource strategy
-
-We do not need to own a course library to create value. The initial catalog combines:
-
-- high-quality free courses from multiple providers;
-- official technical documentation;
-- vendor-neutral safety and engineering references;
-- original “evidence sprint” projects that produce a work artifact;
-- recurring practices such as output reviews and evaluation logs.
-
-The catalog—not the model—owns titles, canonical URLs, price flags, duration, prerequisites, skill coverage, and quality review. A model may explain why an already-selected resource fits; it may not invent or silently substitute resources.
-
-The strategic wedge is the project prescription. Courses are supporting material. A good plan may recommend one lesson, one build project, and one recurring practice rather than a playlist of five courses.
-
-## Trust contract
+## Trust and spending boundaries
 
 - No raw audio is stored by default.
-- Microphone access is requested only after an explicit action and is stopped on every exit from voice mode.
-- Transcript retention is opt-in and versioned consent is recorded server-side.
-- The learner can inspect, edit, export, or delete retained assessment data.
-- Canned examples are clearly labeled and are never attributed to the learner.
-- Demo data, simulated state, and live state are visibly distinct.
-- Live paid API traffic is disabled by default and requires both deployment configuration and explicit spend approval.
-- Realtime sessions require authenticated ownership and a persisted assessment session before live mode can be enabled.
+- Typed diagnostic state stays client-side in this preview.
+- Canned examples are labeled and are never attributed to the learner.
+- No paid API, course enrollment, subscription, or purchase is activated.
+- Live Realtime voice remains closed until authentication, ownership, persistence,
+  deletion, abuse controls, privacy testing, and an approved spend ceiling exist.
+- The system must not infer accent, emotion, personality, protected traits,
+  employability, or clinical attributes.
 
 ## Alpha success criteria
 
-The private alpha is successful when at least 70% of test users can finish without facilitator help, at least 60% say the recommended project fits their goal and constraints, fewer than 10% of reviewed findings are marked materially wrong, and at least 30% return to mark a plan action complete within seven days. These are learning thresholds, not launch forecasts.
+The private alpha is successful when at least 70% of test users can complete one
+path without facilitator help, at least 60% say the prescribed project fits their
+goal and constraints, fewer than 10% of reviewed statements are materially wrong,
+and at least 30% return to mark a plan action complete within seven days.
 
-## Explicit non-goals for the private alpha
+## Explicit non-goals
 
-- owning a large video-course library;
-- certificates, grades, hiring decisions, or psychometric claims;
-- unrestricted model-generated URLs or curricula;
+- a generic assistant chat;
+- a personality or psychometric test;
+- a large owned video-course library;
+- certificates, grades, or hiring decisions;
+- unrestricted model-generated curricula or links;
 - automatic purchases or paid-course enrollment;
-- production voice traffic before auth, persistence, deletion, abuse controls, and a spend ceiling exist;
-- broad personalization for every AI learner persona.
+- production voice traffic before the trust and spend gates are open.

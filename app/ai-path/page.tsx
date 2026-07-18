@@ -1,13 +1,12 @@
 import type { Metadata } from 'next'
 import { AdvisorApp } from './AdvisorApp'
 import './ai-path.css'
-import './components/voice-experience/voice-experience.css'
 
 export const metadata: Metadata = {
   title: {
-    absolute: 'AI Learning Advisor',
+    absolute: 'AI Path Diagnostic Studio',
   },
-  description: 'A short conversation that turns your goal, experience, and available time into a practical AI learning path.',
+  description: 'A two-path AI diagnostic that turns a use case or evidence of experience into a focused project, learning sequence, and first move.',
   robots: {
     index: false,
     follow: false,
