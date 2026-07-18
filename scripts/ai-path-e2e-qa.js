@@ -11,6 +11,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   const checkpoints = []
   const externalRequests = []
   const apiRequests = []
+  const adaptiveApiRequests = []
   const consoleErrors = []
   const assert = (condition, message) => { if (!condition) throw new Error(message) }
   const checkpoint = name => checkpoints.push(name)
@@ -62,6 +63,25 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
       })
     ))
     assert(unnamed.length === 0, `${label} has unnamed interactive controls: ${unnamed.join(', ')}`)
+  }
+
+  const assertFocusClearance = async label => {
+    const issues = await page.locator('.ap-ds-section.is-active .ap-ds-field, .ap-ds-section.is-active .ap-ds-simpleField').evaluateAll(fields => fields.flatMap(field => {
+      const labelNode = field.querySelector('.ap-ds-fieldLabel > label, :scope > span')
+      const control = field.querySelector('textarea, input, select')
+      if (!labelNode || !control) return []
+      control.focus()
+      const labelRect = labelNode.getBoundingClientRect()
+      const controlRect = control.getBoundingClientRect()
+      const style = getComputedStyle(control)
+      const outlineWidth = Number.parseFloat(style.outlineWidth || '0') || 0
+      const outlineOffset = Number.parseFloat(style.outlineOffset || '0') || 0
+      const gap = controlRect.top - labelRect.bottom
+      return gap >= Math.max(8, outlineWidth + outlineOffset + 2)
+        ? []
+        : [{ id: control.id, gap, outlineWidth, outlineOffset }]
+    }))
+    assert(issues.length === 0, `${label} has a label/focus-ring collision: ${JSON.stringify(issues)}`)
   }
 
   const pathRoot = pathName => page.locator(`[data-path="${pathName}"]`)
@@ -117,7 +137,13 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   })
 
   await page.route('**/api/**', async route => {
-    apiRequests.push(`${route.request().method()} ${route.request().url()}`)
+    const requestLabel = `${route.request().method()} ${route.request().url()}`
+    apiRequests.push(requestLabel)
+    if (route.request().url().startsWith(`${appOrigin}/api/ai-path/question-adaptation`)) {
+      adaptiveApiRequests.push(requestLabel)
+      await route.continue()
+      return
+    }
     await route.abort('blockedbyclient')
   })
 
@@ -173,6 +199,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
 
   await page.getByRole('button', { name: 'Continue', exact: true }).click()
   await page.locator('.ap-ds-errorSummary[role="alert"]').waitFor({ state: 'visible' })
+  assert(adaptiveApiRequests.length === 0, 'an invalid answer triggered question adaptation')
   await assertProgressiveForm('use-case', 'outcome')
   const outcomeField = page.getByLabel('What do you want AI to help someone accomplish?', { exact: true })
   await outcomeField.fill('Help salespeople answer RFP questions from approved company documents with citations and human review.')
@@ -193,7 +220,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   assert(await outcomeField.isVisible(), 'typed answer disappeared after microphone denial')
 
   await continueTo('use-case', 'workflow')
-  await page.getByLabel('What happens today, and where does it become unreliable?', { exact: true }).fill('Salespeople search old proposals, copy prior answers, and ask legal and product teams to verify every claim; outdated language is the main failure point.')
+  await page.locator('#ap-workflow').fill('Salespeople search old proposals, copy prior answers, and ask legal and product teams to verify every claim; outdated language is the main failure point.')
   await continueTo('use-case', 'specification')
   await page.getByLabel('What will it receive?', { exact: true }).fill('Approved product documents, security policies, legal language, and historical proposals')
   await page.getByLabel('What should it produce?', { exact: true }).fill('A draft RFP response with a source citation and confidence indicator')
@@ -202,7 +229,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
 
   const useCaseEvidence = page.getByLabel('What did you make or test?', { exact: true })
   assert(!(await useCaseEvidence.isVisible().catch(() => false)), 'experience evidence appeared before an evidence-bearing selection')
-  await choose(/How far have you taken this idea?/, 'Changed an example for my task')
+  await choose(/How far have you taken this idea|Which statement best describes what you have personally/, 'Changed an example for my task')
   await useCaseEvidence.waitFor({ state: 'visible' })
   await useCaseEvidence.fill('I tested prompt variations on ten historical RFP questions, recorded unsupported statements, and retained the strongest cited version for review.')
   await continueTo('use-case', 'risk')
@@ -271,12 +298,12 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await continueTo('capability-growth', 'experience')
 
-  await choose('Which statement sounds most like you today?', 'I have created repeatable AI workflows')
+  await choose(/Which statement/, 'I have created repeatable AI workflows')
   await captureRequiredViewports('capability-experience')
   await page.setViewportSize({ width: 1440, height: 900 })
   await continueTo('capability-growth', 'evidence')
 
-  const evidenceField = page.getByLabel('What is the strongest thing you have made or improved with AI?', { exact: true })
+  const evidenceField = page.locator('#ap-capability-evidence')
   await evidenceField.fill('I made and revised a support-ticket summarization prompt for my own process, compared results manually, and documented recurring failures.')
   const supportedEvidence = page.getByRole('group', { name: 'Which parts of this example did you personally work on?' })
   assert(await supportedEvidence.isVisible(), 'capability evidence linkage did not appear for an adapted claim')
@@ -285,7 +312,15 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   await continueTo('capability-growth', 'reasoning')
   checkpoint('capability path requires explicit evidence linkage for higher experience claims')
 
-  await page.getByLabel('What would you do, and why?', { exact: true }).fill('I would create expected examples, measure incorrect outputs, require a person to review uncertain cases, and test failure behavior before sending anything automatically.')
+  const reasoningField = page.locator('#ap-reasoning')
+  for (const [width, height] of [[375, 812], [768, 1024], [1440, 900]]) {
+    await page.setViewportSize({ width, height })
+    await reasoningField.focus()
+    await assertFocusClearance(`capability reasoning ${width}x${height}`)
+    await page.screenshot({ path: `${artifactDir}/capability-reasoning-focused-${width}x${height}.png`, fullPage: true })
+  }
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await reasoningField.fill('I would create expected examples, measure incorrect outputs, require a person to review uncertain cases, and test failure behavior before sending anything automatically.')
   await continueTo('capability-growth', 'foundations')
   await choose('Coding', 'Modify examples')
   await choose('Data', 'Spreadsheets')
@@ -322,11 +357,12 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
 
   assert(await page.evaluate(() => window.__AI_PATH_QA_MIC_CALLS__) === 1, 'the full run made an unexpected microphone request')
   assert(await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__) === 0, 'the full run constructed a peer connection')
-  assert(apiRequests.length === 0, `the local diagnostic made API requests: ${apiRequests.join(', ')}`)
+  assert(adaptiveApiRequests.length === 10, `expected ten fixed-route adaptation requests, received ${adaptiveApiRequests.length}: ${adaptiveApiRequests.join(', ')}`)
+  assert(apiRequests.length === adaptiveApiRequests.length, `unexpected API requests: ${apiRequests.filter(request => !adaptiveApiRequests.includes(request)).join(', ')}`)
   assert(externalRequests.length === 0, `the local diagnostic made external requests: ${externalRequests.join(', ')}`)
   const actionableConsoleErrors = consoleErrors.filter(message => !message.includes('favicon'))
   assert(actionableConsoleErrors.length === 0, `browser console errors: ${actionableConsoleErrors.join(' | ')}`)
-  checkpoint('both paths remain local-only with zero external, paid, session, or analysis calls')
+  checkpoint('both paths use only the constrained same-origin question selector with zero external, paid, session, realtime, or analysis calls')
 
   return {
     ok: true,
@@ -339,6 +375,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     network: {
       externalRequestsAttempted: externalRequests.length,
       apiRequestsAttempted: apiRequests.length,
+      constrainedAdaptationRequests: adaptiveApiRequests.length,
       paidRequestsAllowed: false,
       microphoneRequests: await page.evaluate(() => window.__AI_PATH_QA_MIC_CALLS__),
       peerConnections: await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__),

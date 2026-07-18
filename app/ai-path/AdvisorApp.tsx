@@ -1,11 +1,18 @@
 'use client'
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 
 import {
   createBrowserMicrophonePreflightController,
   INITIAL_MICROPHONE_PREFLIGHT_SNAPSHOT,
 } from './client/microphone-preflight'
+import { requestAdaptiveQuestion } from './client/question-adaptation'
+import {
+  canonicalQuestionPresentation,
+  selectDeterministicQuestionPresentation,
+  type AdaptiveQuestionPresentation,
+  type DiagnosticSectionId,
+} from './lib/constrained-question-routing'
 import {
   CAPABILITY_SECTION_IDS,
   INITIAL_CAPABILITY_INTAKE,
@@ -25,6 +32,7 @@ import {
 } from './lib/diagnostic'
 
 type DiagnosticResult = UseCaseBlueprint | CapabilityPrescription
+type PresentationMap = Readonly<Partial<Record<DiagnosticSectionId, AdaptiveQuestionPresentation>>>
 
 const useCaseSections = [
   ['outcome', 'What are you trying to improve?', 'Who it is for and what should be better'],
@@ -358,7 +366,7 @@ function Section({
       <legend className="sr-only">{number}. {title}</legend>
       <div className="ap-ds-sectionHeading">
         <span aria-hidden="true">{String(number).padStart(2, '0')}</span>
-        <div><h2>{title}</h2><p>{reason}</p></div>
+        <div><h2 id={`ap-section-title-${id}`} tabIndex={-1}>{title}</h2><p>{reason}</p></div>
         <small><i aria-hidden="true" />{statusLabel === 'Captured' ? 'Done' : statusLabel === 'Needs evidence' ? 'Needs an example' : 'Not finished'}</small>
       </div>
       <div className="ap-ds-sectionBody">{children}</div>
@@ -407,6 +415,7 @@ function QuestionProgress({
 function UseCaseForm({
   value,
   readiness,
+  presentations,
   activeSection,
   voiceTarget,
   onActivate,
@@ -415,6 +424,7 @@ function UseCaseForm({
 }: {
   value: UseCaseIntake
   readiness: ReturnType<typeof validateUseCaseIntake>
+  presentations: PresentationMap
   activeSection: string
   voiceTarget: string | null
   onActivate(id: string): void
@@ -422,11 +432,12 @@ function UseCaseForm({
   onChange(value: UseCaseIntake): void
 }) {
   const status = new Map(readiness.sections.map(section => [section.id, section]))
+  const adaptive = (id: (typeof USE_CASE_SECTION_IDS)[number]) => presentations[id] ?? canonicalQuestionPresentation('use-case', id)
   const common = (id: (typeof USE_CASE_SECTION_IDS)[number], index: number) => ({
     id,
     number: index + 1,
-    title: useCaseSections[index][1],
-    reason: useCaseSections[index][2],
+    title: adaptive(id).title,
+    reason: adaptive(id).reason,
     status: status.get(id)?.status ?? 'missing' as ReadinessStatus,
     issues: status.get(id)?.issues ?? [],
     active: activeSection === id,
@@ -435,14 +446,15 @@ function UseCaseForm({
   return (
     <div className="ap-ds-sections" data-path="use-case">
       <Section {...common('outcome', 0)}>
-        <TextAreaField id="ap-outcome" label="What do you want AI to help someone accomplish?" help="Describe who it is for, the task, and what should be better when it works." value={value.outcome.desiredOutcome} voiceTarget={voiceTarget} onVoice={onVoice} onChange={desiredOutcome => onChange({ ...value, outcome: { desiredOutcome } })} placeholder="Type your answer…" />
+        <TextAreaField id="ap-outcome" label={adaptive('outcome').prompt} help="Describe who it is for, the task, and what should be better when it works." value={value.outcome.desiredOutcome} voiceTarget={voiceTarget} onVoice={onVoice} onChange={desiredOutcome => onChange({ ...value, outcome: { desiredOutcome } })} placeholder="Type your answer…" />
       </Section>
 
       <Section {...common('workflow', 1)}>
-        <TextAreaField id="ap-workflow" label="What happens today, and where does it become unreliable?" help="Walk through the current steps. Name the slowest, least reliable, or hardest-to-review part." value={value.workflow.currentProcess} voiceTarget={voiceTarget} onVoice={onVoice} onChange={currentProcess => onChange({ ...value, workflow: { currentProcess } })} placeholder="Type your answer…" />
+        <TextAreaField id="ap-workflow" label={adaptive('workflow').prompt} help="Walk through the current steps. Name the slowest, least reliable, or hardest-to-review part." value={value.workflow.currentProcess} voiceTarget={voiceTarget} onVoice={onVoice} onChange={currentProcess => onChange({ ...value, workflow: { currentProcess } })} placeholder="Type your answer…" />
       </Section>
 
       <Section {...common('specification', 2)}>
+        <p className="ap-ds-sectionPrompt">{adaptive('specification').prompt}</p>
         <div className="ap-ds-specGrid">
           <TextAreaField id="ap-inputs" label="What will it receive?" help="For example: documents, messages, spreadsheet rows, images or form responses." value={value.specification.inputs} voiceTarget={voiceTarget} onVoice={onVoice} onChange={inputs => onChange({ ...value, specification: { ...value.specification, inputs } })} rows={3} placeholder="Type your answer…" />
           <TextAreaField id="ap-output" label="What should it produce?" help="For example: a cited draft, recommendation, summary or structured record." value={value.specification.output} voiceTarget={voiceTarget} onVoice={onVoice} onChange={output => onChange({ ...value, specification: { ...value.specification, output } })} rows={3} placeholder="Type your answer…" />
@@ -451,28 +463,30 @@ function UseCaseForm({
       </Section>
 
       <Section {...common('experience', 3)}>
-        <ChoiceGroup label="How far have you taken this idea? Choose the highest option you can back up." value={value.experience.level} options={experienceOptions} onChange={level => onChange({ ...value, experience: { ...value.experience, level } })} />
+        <ChoiceGroup label={adaptive('experience').prompt} value={value.experience.level} options={experienceOptions} onChange={level => onChange({ ...value, experience: { ...value.experience, level } })} />
         {value.experience.level !== 'none' ? (
           <div className="ap-ds-conditional">
             <TextAreaField id="ap-use-case-evidence" label="What did you make or test?" help="Say what you did yourself, what happened, and how you checked it." value={value.experience.evidence} voiceTarget={voiceTarget} onVoice={onVoice} onChange={evidence => onChange({ ...value, experience: { ...value.experience, evidence } })} rows={3} placeholder="Type your answer…" />
-            <label className="ap-ds-simpleField" htmlFor="ap-use-case-artifact"><span>Artifact link <small>Optional</small></span><input id="ap-use-case-artifact" type="url" value={value.experience.artifactUrl} onChange={event => onChange({ ...value, experience: { ...value.experience, artifactUrl: event.target.value } })} placeholder="https://…" /></label>
+            <label className="ap-ds-simpleField" htmlFor="ap-use-case-artifact"><span>Artifact link <small>Optional</small></span><input id="ap-use-case-artifact" type="url" maxLength={500} value={value.experience.artifactUrl} onChange={event => onChange({ ...value, experience: { ...value.experience, artifactUrl: event.target.value } })} placeholder="https://…" /></label>
           </div>
         ) : null}
       </Section>
 
       <Section {...common('risk', 4)}>
+        <p className="ap-ds-sectionPrompt">{adaptive('risk').prompt}</p>
         <div className="ap-ds-controlGrid">
           <ChoiceGroup compact label="How sensitive is the information?" value={value.risk.dataSensitivity} options={[["public", "Public"], ["internal", "Internal"], ["confidential", "Confidential"], ["regulated", "Regulated"], ["unsure", "Unsure"]]} onChange={dataSensitivity => onChange({ ...value, risk: { ...value.risk, dataSensitivity } })} />
           <ChoiceGroup compact label="What happens if the answer is wrong?" value={value.risk.consequence} options={[["low", "Low impact"], ["moderate", "Moderate"], ["serious", "Serious"], ["critical", "Critical"]]} onChange={consequence => onChange({ ...value, risk: { ...value.risk, consequence } })} />
           <ChoiceGroup compact label="Should a person approve it before use?" value={value.risk.humanApproval} options={[["yes", "Yes"], ["no", "No"], ["unsure", "Unsure"]]} onChange={humanApproval => onChange({ ...value, risk: { ...value.risk, humanApproval } })} />
         </div>
-        <label className="ap-ds-simpleField" htmlFor="ap-systems"><span>Systems or data sources <small>Optional</small></span><input id="ap-systems" value={value.risk.existingSystems} onChange={event => onChange({ ...value, risk: { ...value.risk, existingSystems: event.target.value } })} placeholder="Drive, CRM, warehouse, approved documents…" /></label>
+        <label className="ap-ds-simpleField" htmlFor="ap-systems"><span>Systems or data sources <small>Optional</small></span><input id="ap-systems" maxLength={500} value={value.risk.existingSystems} onChange={event => onChange({ ...value, risk: { ...value.risk, existingSystems: event.target.value } })} placeholder="Drive, CRM, warehouse, approved documents…" /></label>
         {['confidential', 'regulated'].includes(value.risk.dataSensitivity) || ['serious', 'critical'].includes(value.risk.consequence) ? <p className="ap-ds-warning"><strong>Guardrail required.</strong> The result will keep human approval, access control and failure testing in the core design.</p> : null}
       </Section>
 
       <Section {...common('constraints', 5)}>
+        <p className="ap-ds-sectionPrompt">{adaptive('constraints').prompt}</p>
         <div className="ap-ds-controlGrid">
-          <label className="ap-ds-simpleField" htmlFor="ap-role"><span>Your role in this work</span><input id="ap-role" value={value.constraints.role} onChange={event => onChange({ ...value, constraints: { ...value.constraints, role: event.target.value } })} /></label>
+          <label className="ap-ds-simpleField" htmlFor="ap-role"><span>Your role in this work</span><input id="ap-role" maxLength={200} value={value.constraints.role} onChange={event => onChange({ ...value, constraints: { ...value.constraints, role: event.target.value } })} /></label>
           <label className="ap-ds-simpleField" htmlFor="ap-hours"><span>Hours available each week</span><input id="ap-hours" type="number" min="1" max="40" value={value.constraints.weeklyHours ?? ''} onChange={event => onChange({ ...value, constraints: { ...value.constraints, weeklyHours: event.target.value ? Number(event.target.value) : null } })} /></label>
         </div>
         <ChoiceGroup compact label="Coding comfort" value={value.constraints.codingComfort} options={[["none", "No coding"], ["modify-examples", "Modify examples"], ["small-programs", "Build small programs"], ["experienced", "Experienced"]]} onChange={codingComfort => onChange({ ...value, constraints: { ...value.constraints, codingComfort } })} />
@@ -489,6 +503,7 @@ function UseCaseForm({
 function CapabilityForm({
   value,
   readiness,
+  presentations,
   activeSection,
   voiceTarget,
   onActivate,
@@ -497,6 +512,7 @@ function CapabilityForm({
 }: {
   value: CapabilityIntake
   readiness: ReturnType<typeof validateCapabilityIntake>
+  presentations: PresentationMap
   activeSection: string
   voiceTarget: string | null
   onActivate(id: string): void
@@ -504,34 +520,28 @@ function CapabilityForm({
   onChange(value: CapabilityIntake): void
 }) {
   const status = new Map(readiness.sections.map(section => [section.id, section]))
+  const adaptive = (id: (typeof CAPABILITY_SECTION_IDS)[number]) => presentations[id] ?? canonicalQuestionPresentation('capability-growth', id)
   const common = (id: (typeof CAPABILITY_SECTION_IDS)[number], index: number) => ({
     id,
     number: index + 1,
-    title: capabilitySections[index][1],
-    reason: capabilitySections[index][2],
+    title: adaptive(id).title,
+    reason: adaptive(id).reason,
     status: status.get(id)?.status ?? 'missing' as ReadinessStatus,
     issues: status.get(id)?.issues ?? [],
     active: activeSection === id,
     onActivate: () => onActivate(id),
   })
   const claimedDomains = (Object.keys(value.experience.levels) as CapabilityDomain[]).filter(domain => !['none', 'exposure', 'guided'].includes(value.experience.levels[domain]))
-  const primaryInterest = value.direction.interests.join(' ').toLowerCase()
-  const reliabilityInterest = /reliab|evaluat|accurate/.test(primaryInterest)
-  const scenario = /automat|workflow/.test(primaryInterest)
-    ? 'A model handles most requests correctly but occasionally produces confident, incorrect results. What would you test or change before allowing the workflow to send anything automatically?'
-    : /app|build/.test(primaryInterest)
-      ? 'You have 50 example questions and trusted answers. How would you use them to decide whether an AI assistant is ready for users?'
-      : reliabilityInterest
-        ? 'An AI tool looks impressive in a demo, but nobody has measured how often it is useful, wrong, or uncertain. How would you evaluate and improve it?'
-      : 'How would you decide which parts of a recurring task should be handled by AI and which should remain with a person?'
+  const reasoningPresentation = adaptive('reasoning')
+  const scenario = reasoningPresentation.context ?? canonicalQuestionPresentation('capability-growth', 'reasoning').context
 
   return (
     <div className="ap-ds-sections" data-path="capability-growth">
       <Section {...common('direction', 0)}>
-        <label className="ap-ds-simpleField" htmlFor="ap-context"><span>Your role or working context</span><input id="ap-context" value={value.direction.roleContext} onChange={event => onChange({ ...value, direction: { ...value.direction, roleContext: event.target.value } })} placeholder="Operations analyst, founder, student…" /></label>
+        <label className="ap-ds-simpleField" htmlFor="ap-context"><span>Your role or working context</span><input id="ap-context" maxLength={200} value={value.direction.roleContext} onChange={event => onChange({ ...value, direction: { ...value.direction, roleContext: event.target.value } })} placeholder="Operations analyst, founder, student…" /></label>
         <div className="ap-ds-directionChoices">
           <DetailedMultiChoice
-            label="Which outcomes matter to you right now?"
+            label={adaptive('direction').prompt}
             hint="Choose all that apply"
             values={value.direction.interests}
             options={interestOptions}
@@ -544,7 +554,7 @@ function CapabilityForm({
       <Section {...common('experience', 1)}>
         <ChoiceGroup
           stacked
-          label="Which statement sounds most like you today?"
+          label={adaptive('experience').prompt}
           value={capabilityExperienceStage(value.experience.levels)}
           options={capabilityExperienceOptions}
           onChange={stage => {
@@ -561,23 +571,25 @@ function CapabilityForm({
       </Section>
 
       <Section {...common('evidence', 2)}>
-        <TextAreaField id="ap-capability-evidence" label="What is the strongest thing you have made or improved with AI?" help="What did you do yourself? What was difficult? How did you check the result? “I haven’t built anything yet” is a valid answer." value={value.evidence.description} voiceTarget={voiceTarget} onVoice={onVoice} onChange={description => onChange({ ...value, evidence: { ...value.evidence, description } })} rows={5} placeholder="Type your answer…" />
+        <TextAreaField id="ap-capability-evidence" label={adaptive('evidence').prompt} help="What did you do yourself? What was difficult? How did you check the result? “I haven’t built anything yet” is a valid answer." value={value.evidence.description} voiceTarget={voiceTarget} onVoice={onVoice} onChange={description => onChange({ ...value, evidence: { ...value.evidence, description } })} rows={5} placeholder="Type your answer…" />
         {claimedDomains.length ? <MultiChoice label="Which parts of this example did you personally work on?" values={value.evidence.supportedDomains.map(domain => capabilityLabels[domain])} options={claimedDomains.map(domain => capabilityLabels[domain])} onChange={selectedLabels => onChange({ ...value, evidence: { ...value.evidence, supportedDomains: claimedDomains.filter(domain => selectedLabels.includes(capabilityLabels[domain])) } })} /> : null}
-        <label className="ap-ds-simpleField" htmlFor="ap-capability-artifact"><span>Artifact link <small>Optional</small></span><input id="ap-capability-artifact" type="url" value={value.evidence.artifactUrl} onChange={event => onChange({ ...value, evidence: { ...value.evidence, artifactUrl: event.target.value } })} placeholder="https://…" /></label>
+        <label className="ap-ds-simpleField" htmlFor="ap-capability-artifact"><span>Artifact link <small>Optional</small></span><input id="ap-capability-artifact" type="url" maxLength={500} value={value.evidence.artifactUrl} onChange={event => onChange({ ...value, evidence: { ...value.evidence, artifactUrl: event.target.value } })} placeholder="https://…" /></label>
       </Section>
 
       <Section {...common('reasoning', 3)}>
         <div className="ap-ds-scenario"><span>Imagine this situation</span><p>{scenario}</p></div>
-        <TextAreaField id="ap-reasoning" label="What would you do, and why?" value={value.reasoning.response} voiceTarget={voiceTarget} onVoice={onVoice} onChange={response => onChange({ ...value, reasoning: { scenarioId: /automat|workflow/.test(primaryInterest) ? 'automation-reliability' : /app|build/.test(primaryInterest) || reliabilityInterest ? 'application-evaluation' : 'human-ai-boundary', response } })} rows={5} />
+        <TextAreaField id="ap-reasoning" label={reasoningPresentation.prompt} value={value.reasoning.response} voiceTarget={voiceTarget} onVoice={onVoice} onChange={response => onChange({ ...value, reasoning: { scenarioId: reasoningPresentation.variantId, response } })} rows={5} />
       </Section>
 
       <Section {...common('foundations', 4)}>
+        <p className="ap-ds-sectionPrompt">{adaptive('foundations').prompt}</p>
         <ChoiceGroup compact label="Coding" value={value.foundations.codingComfort} options={[["none", "I have not coded"], ["modify-examples", "Modify examples"], ["small-programs", "Build small programs"], ["experienced", "Build software regularly"]]} onChange={codingComfort => onChange({ ...value, foundations: { ...value.foundations, codingComfort } })} />
         <ChoiceGroup compact label="Data" value={value.foundations.dataComfort} options={[["documents", "Mainly documents"], ["spreadsheets", "Spreadsheets"], ["queries", "Query or transform data"], ["pipelines", "Build pipelines or models"]]} onChange={dataComfort => onChange({ ...value, foundations: { ...value.foundations, dataComfort } })} />
         <MultiChoice label="AI tools you’ve used" values={value.foundations.tools} options={toolOptions} onChange={tools => onChange({ ...value, foundations: { ...value.foundations, tools } })} />
       </Section>
 
       <Section {...common('constraints', 5)}>
+        <p className="ap-ds-sectionPrompt">{adaptive('constraints').prompt}</p>
         <div className="ap-ds-controlGrid">
           <label className="ap-ds-simpleField" htmlFor="ap-learning-hours"><span>Hours available each week</span><input id="ap-learning-hours" type="number" min="1" max="40" value={value.constraints.weeklyHours ?? ''} onChange={event => onChange({ ...value, constraints: { ...value.constraints, weeklyHours: event.target.value ? Number(event.target.value) : null } })} /></label>
           <ChoiceGroup compact label="Learning preference" value={value.constraints.learningPreference} options={[["guided", "Guided lessons"], ["projects", "Hands-on projects"], ["balanced", "Balanced"]]} onChange={learningPreference => onChange({ ...value, constraints: { ...value.constraints, learningPreference } })} />
@@ -662,13 +674,23 @@ export function AdvisorApp() {
   const [voiceTarget, setVoiceTarget] = useState<string | null>(null)
   const [showErrors, setShowErrors] = useState(false)
   const [result, setResult] = useState<DiagnosticResult | null>(null)
+  const [adaptivePresentations, setAdaptivePresentations] = useState<Record<DiagnosticPath, PresentationMap>>({
+    'use-case': {},
+    'capability-growth': {},
+  })
+  const [isAdapting, setIsAdapting] = useState(false)
+  const adaptationRevision = useRef(0)
+  const adaptationAbort = useRef<AbortController | null>(null)
 
   const microphone = useMemo(() => createBrowserMicrophonePreflightController(), [])
   const mic = useSyncExternalStore(microphone.subscribe, microphone.getSnapshot, () => INITIAL_MICROPHONE_PREFLIGHT_SNAPSHOT)
 
   useEffect(() => {
     void microphone.refreshDevices()
-    return () => microphone.destroy()
+    return () => {
+      adaptationAbort.current?.abort()
+      microphone.destroy()
+    }
   }, [microphone])
 
   useEffect(() => {
@@ -681,7 +703,12 @@ export function AdvisorApp() {
   const useCaseReadiness = useMemo(() => validateUseCaseIntake(useCase), [useCase])
   const capabilityReadiness = useMemo(() => validateCapabilityIntake(capability), [capability])
   const readiness = path === 'use-case' ? useCaseReadiness : capabilityReadiness
-  const sections = path === 'use-case' ? useCaseSections : capabilitySections
+  const baseSections = path === 'use-case' ? useCaseSections : capabilitySections
+  const presentations = path ? adaptivePresentations[path] : {}
+  const sections = baseSections.map(([id, title, detail]) => {
+    const adapted = presentations[id as DiagnosticSectionId]
+    return [id, adapted?.title ?? title, adapted?.reason ?? detail] as const
+  })
   const statuses = new Map(readiness.sections.map(section => [section.id, section.status]))
   const sectionIds = path === 'use-case' ? USE_CASE_SECTION_IDS : CAPABILITY_SECTION_IDS
   const currentIndex = Math.max(0, sectionIds.findIndex(id => id === activeSection))
@@ -689,6 +716,9 @@ export function AdvisorApp() {
   const isLastQuestion = currentIndex === sectionIds.length - 1
 
   const choosePath = (nextPath: DiagnosticPath) => {
+    adaptationAbort.current?.abort()
+    adaptationRevision.current += 1
+    setIsAdapting(false)
     setPath(nextPath)
     setActiveSection(nextPath === 'use-case' ? USE_CASE_SECTION_IDS[0] : CAPABILITY_SECTION_IDS[0])
     setShowErrors(false)
@@ -697,7 +727,31 @@ export function AdvisorApp() {
 
   const selectSection = (id: string) => {
     setActiveSection(id)
-    document.getElementById(`ap-section-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    requestAnimationFrame(() => {
+      const section = document.getElementById(`ap-section-${id}`)
+      section?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      document.getElementById(`ap-section-title-${id}`)?.focus({ preventScroll: true })
+    })
+  }
+
+  const invalidateFollowingPresentations = (changedPath: DiagnosticPath, sectionId: string) => {
+    adaptationAbort.current?.abort()
+    adaptationRevision.current += 1
+    setIsAdapting(false)
+    const ids = changedPath === 'use-case' ? USE_CASE_SECTION_IDS : CAPABILITY_SECTION_IDS
+    const changedIndex = ids.findIndex(id => id === sectionId)
+    if (changedIndex < 0) return
+    setAdaptivePresentations(current => {
+      const nextPathPresentations = { ...current[changedPath] }
+      let changed = false
+      for (const id of ids.slice(changedIndex + 1)) {
+        if (nextPathPresentations[id]) {
+          delete nextPathPresentations[id]
+          changed = true
+        }
+      }
+      return changed ? { ...current, [changedPath]: nextPathPresentations } : current
+    })
   }
 
   const startVoiceFor = (id: string) => {
@@ -705,17 +759,50 @@ export function AdvisorApp() {
     if (mic.phase !== 'ready' && mic.phase !== 'requesting') void microphone.start(mic.selectedDeviceId)
   }
 
-  const continueQuestion = () => {
+  const continueQuestion = async () => {
+    if (isAdapting) return
     if (currentSection?.status !== 'complete') {
       setShowErrors(true)
       return
     }
     setShowErrors(false)
     const nextId = sectionIds[currentIndex + 1]
-    if (nextId) selectSection(nextId)
+    if (!nextId || !path) return
+
+    const answers = (path === 'use-case' ? useCase : capability) as unknown as Readonly<Record<string, unknown>>
+    const fallback = selectDeterministicQuestionPresentation(path, nextId, answers)
+    const requestRevision = adaptationRevision.current + 1
+    adaptationRevision.current = requestRevision
+    adaptationAbort.current?.abort()
+    const controller = new AbortController()
+    adaptationAbort.current = controller
+    setIsAdapting(true)
+    let nextPresentation = fallback
+    try {
+      nextPresentation = await requestAdaptiveQuestion({
+        path,
+        completedSectionId: activeSection as DiagnosticSectionId,
+        expectedSectionId: nextId,
+        answers,
+        signal: controller.signal,
+      })
+    } catch {
+      // The fixed local route and approved deterministic copy remain available.
+    }
+    if (adaptationRevision.current !== requestRevision || controller.signal.aborted) return
+    setAdaptivePresentations(current => ({
+      ...current,
+      [path]: { ...current[path], [nextId]: nextPresentation },
+    }))
+    setIsAdapting(false)
+    adaptationAbort.current = null
+    selectSection(nextId)
   }
 
   const previousQuestion = () => {
+    adaptationAbort.current?.abort()
+    adaptationRevision.current += 1
+    setIsAdapting(false)
     setShowErrors(false)
     const previousId = sectionIds[currentIndex - 1]
     if (previousId) selectSection(previousId)
@@ -731,6 +818,8 @@ export function AdvisorApp() {
     }
     const nextResult = path === 'use-case' ? composeDiagnosticResult(useCase) : composeDiagnosticResult(capability)
     if (!nextResult) return
+    adaptationAbort.current?.abort()
+    adaptationRevision.current += 1
     microphone.stop()
     setVoiceTarget(null)
     setResult(nextResult)
@@ -738,6 +827,8 @@ export function AdvisorApp() {
   }
 
   const restart = () => {
+    adaptationAbort.current?.abort()
+    adaptationRevision.current += 1
     microphone.stop()
     setScene('diagnostic')
     setPath(null)
@@ -747,6 +838,8 @@ export function AdvisorApp() {
     setVoiceTarget(null)
     setShowErrors(false)
     setResult(null)
+    setAdaptivePresentations({ 'use-case': {}, 'capability-growth': {} })
+    setIsAdapting(false)
     window.scrollTo({ top: 0, behavior: 'auto' })
   }
 
@@ -784,9 +877,9 @@ export function AdvisorApp() {
                 </div>
 
                 {path === 'use-case' ? (
-                  <UseCaseForm value={useCase} readiness={useCaseReadiness} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { setUseCase(value); setShowErrors(false) }} />
+                  <UseCaseForm value={useCase} readiness={useCaseReadiness} presentations={presentations} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { setUseCase(value); invalidateFollowingPresentations('use-case', activeSection); setShowErrors(false) }} />
                 ) : (
-                  <CapabilityForm value={capability} readiness={capabilityReadiness} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { setCapability(value); setShowErrors(false) }} />
+                  <CapabilityForm value={capability} readiness={capabilityReadiness} presentations={presentations} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { setCapability(value); invalidateFollowingPresentations('capability-growth', activeSection); setShowErrors(false) }} />
                 )}
 
                 <div className="ap-ds-questionNav">
@@ -794,9 +887,10 @@ export function AdvisorApp() {
                   {isLastQuestion ? (
                     <button type="submit" className="ap-ds-continueButton">{path === 'use-case' ? 'Create my project plan' : 'Create my learning plan'} <ArrowIcon /></button>
                   ) : (
-                    <button type="button" className="ap-ds-continueButton" onClick={continueQuestion}>Continue <ArrowIcon /></button>
+                    <button type="button" className="ap-ds-continueButton" onClick={() => void continueQuestion()} disabled={isAdapting}>{isAdapting ? 'Tailoring next question…' : 'Continue'} {!isAdapting ? <ArrowIcon /> : null}</button>
                   )}
                 </div>
+                <p className="sr-only" aria-live="polite">{isAdapting ? 'Choosing the next approved question based on your answers.' : ''}</p>
                 {showErrors && currentSection?.status !== 'complete' ? <p className="ap-ds-errorSummary" role="alert">Please finish this question to continue.</p> : null}
               </div>
             </form>

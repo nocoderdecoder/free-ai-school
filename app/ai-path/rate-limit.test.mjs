@@ -26,7 +26,8 @@ function headers(values) {
 }
 
 test('all route policies are fixed, bounded, and immutable', () => {
-  assert.equal(Object.keys(AI_PATH_RATE_LIMIT_POLICIES).length, 14)
+  assert.equal(Object.keys(AI_PATH_RATE_LIMIT_POLICIES).length, 15)
+  assert.deepEqual(AI_PATH_RATE_LIMIT_POLICIES['ai-path-question-adaptation'], { limit: 60, windowMs: 3_600_000 })
   for (const [id, policy] of Object.entries(AI_PATH_RATE_LIMIT_POLICIES)) {
     assert.match(id, /^ai-path-[a-z-]+$/)
     assert.equal(Number.isInteger(policy.limit) && policy.limit >= 1 && policy.limit <= 120, true)

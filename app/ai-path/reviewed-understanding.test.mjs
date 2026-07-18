@@ -17,7 +17,7 @@ const inputs = [
 
 const advisorSource = readFileSync(new URL('./AdvisorApp.tsx', import.meta.url), 'utf8')
 
-test('AI Path exposes exactly two local paths and explicit microphone consent', () => {
+test('AI Path exposes exactly two constrained adaptive paths and explicit microphone consent', () => {
   assert.match(advisorSource, /type DiagnosticResult = UseCaseBlueprint \| CapabilityPrescription/)
   assert.match(advisorSource, /I have a task or idea/)
   assert.match(advisorSource, /I want to improve my AI skills/)
@@ -26,7 +26,9 @@ test('AI Path exposes exactly two local paths and explicit microphone consent', 
   assert.match(advisorSource, /createBrowserMicrophonePreflightController/)
   assert.match(advisorSource, /'Test microphone'/)
   assert.match(advisorSource, /<textarea id=\{id\} value=\{value\}/)
-  assert.doesNotMatch(advisorSource, /createTextSession|analyzeReviewedAssessment|\bfetch\s*\(/)
+  assert.match(advisorSource, /requestAdaptiveQuestion/)
+  assert.match(advisorSource, /selectDeterministicQuestionPresentation/)
+  assert.doesNotMatch(advisorSource, /createTextSession|analyzeReviewedAssessment|ai-learning-compass|\bfetch\s*\(/)
 })
 
 test('the progressive form retains six semantic sections and explicit navigation', () => {
@@ -37,7 +39,7 @@ test('the progressive form retains six semantic sections and explicit navigation
   assert.match(advisorSource, /data-section-id=\{id\}/)
   assert.match(advisorSource, /className="ap-ds-progress"/)
   assert.match(advisorSource, />Back</)
-  assert.match(advisorSource, />Continue/)
+  assert.match(advisorSource, /'Continue'/)
   assert.match(advisorSource, /Create my project plan/)
   assert.match(advisorSource, /Create my learning plan/)
   assert.match(advisorSource, /I use AI for everyday tasks/)

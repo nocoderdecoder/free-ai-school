@@ -2,8 +2,10 @@
 
 The QA harness protects the calm, two-path experience. It exercises both
 six-section domain paths as progressive questions and verifies their different,
-project-first result scenes without a live model, paid API, real microphone
-permission, or external network resource.
+project-first result scenes. Each successful Continue uses the constrained
+same-origin question selector; the selector stays provider-free unless its
+literal paid-model latch is reviewed and opened. QA never uses a live model,
+paid API, real microphone permission, or external network resource.
 
 The earlier ledger-style contract—with six expanded sections, a sticky evidence
 sidebar, chamfered controls, repeated signal status, and field-level Voice
@@ -58,7 +60,7 @@ The target is rejected unless its host is `127.0.0.1` or `localhost`.
 | Editing | Back and result editing retain answers; Start over clears both drafts |
 | Responsive | No horizontal overflow at 375×812, 768×1024, and 1440×900 |
 | Accessibility | Semantic choices and fields, named controls, visible focus, focused question/result headings, reduced-motion safety |
-| Network/spend | Zero external, Realtime, peer, session, analysis, analytics, or paid-service requests |
+| Network/spend | Only the constrained same-origin question selector; zero external, Realtime, peer, session, analysis, analytics, or paid-service requests |
 
 ## Visual assertions
 
@@ -77,13 +79,15 @@ At every required viewport:
 
 - The page is served by the supplied local server.
 - A browser shim records microphone attempts and returns `NotAllowedError`.
-- Any peer connection, API mutation, or non-local request fails the run.
-- The deterministic recommendation engine runs in the browser with no provider.
+- Any peer connection, unexpected API mutation, or non-local request fails the run.
+- The question endpoint returns only an approved variant ID and uses its
+  deterministic selector with no provider during QA.
 - Screenshots and logs are written under `output/playwright/ai-path/`.
 
 ## Remaining risks
 
-- Deterministic composition does not validate a future model-assisted layer.
+- Fixture-free deterministic selection does not validate the still-closed live
+  model transport; strict-schema fake-provider unit tests cover that boundary.
 - Microphone denial validates the explicit permission boundary and fallback, not
   live transcription quality, latency, interruption handling, echo, or device
   switching.

@@ -65,8 +65,8 @@
 }
 
 .ap-ds-shell :focus-visible {
-  outline: 3px solid var(--path-focus);
-  outline-offset: 3px;
+  outline: 2px solid var(--path-focus);
+  outline-offset: 2px;
 }
 
 .ap-ds-shell [tabindex="-1"]:focus {
@@ -639,6 +639,12 @@
   justify-content: space-between;
 }
 
+.ap-ds-field {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
 .ap-ds-fieldLabel > label,
 .ap-ds-simpleField > span,
 .ap-ds-choiceGroup legend,
@@ -658,6 +664,10 @@
   margin: 7px 0 10px;
 }
 
+.ap-ds-field > p {
+  margin: 0;
+}
+
 .ap-ds-fieldMic {
   display: none;
 }
@@ -670,8 +680,11 @@
   border-radius: 10px;
   color: var(--path-ink);
   line-height: 1.5;
+  max-width: 100%;
+  min-height: 46px;
   min-width: 0;
   padding: 12px 14px;
+  display: block;
   width: 100%;
 }
 
@@ -691,14 +704,21 @@
   border-color: #899a92;
 }
 
+.ap-ds-field textarea:focus-visible,
+.ap-ds-simpleField input:focus-visible,
+.ap-ds-evidenceMatrix select:focus-visible {
+  border-color: var(--path-focus);
+}
+
 .ap-ds-simpleField {
-  display: block;
+  display: grid;
+  gap: 10px;
   min-width: 0;
 }
 
 .ap-ds-simpleField > span {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 .ap-ds-simpleField small,
@@ -744,6 +764,12 @@
   border-color: #aab9b1;
 }
 
+.ap-ds-choiceGroup label:focus-within,
+.ap-ds-multiChoice label:focus-within {
+  outline: 2px solid var(--path-focus);
+  outline-offset: 2px;
+}
+
 .ap-ds-choiceGroup label.is-selected,
 .ap-ds-multiChoice label.is-selected {
   background: var(--path-selected);
@@ -757,6 +783,11 @@
   height: 17px;
   margin: 2px 0 0;
   width: 17px;
+}
+
+.ap-ds-choiceGroup input:focus-visible,
+.ap-ds-multiChoice input:focus-visible {
+  outline: none;
 }
 
 .ap-ds-choiceGroup label span,

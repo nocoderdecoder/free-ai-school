@@ -14,6 +14,7 @@ export const AI_PATH_RATE_LIMIT_POLICIES = Object.freeze({
   'ai-path-plan-read': Object.freeze({ limit: 60, windowMs: 3_600_000 }),
   'ai-path-plan-task': Object.freeze({ limit: 120, windowMs: 3_600_000 }),
   'ai-path-plan-time-budget': Object.freeze({ limit: 30, windowMs: 3_600_000 }),
+  'ai-path-question-adaptation': Object.freeze({ limit: 60, windowMs: 3_600_000 }),
   'ai-path-realtime-session': Object.freeze({ limit: 10, windowMs: 3_600_000 }),
   'ai-path-session': Object.freeze({ limit: 30, windowMs: 3_600_000 }),
   'ai-path-session-delete': Object.freeze({ limit: 10, windowMs: 3_600_000 }),
