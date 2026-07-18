@@ -46,6 +46,8 @@ test('the progressive form retains six semantic sections and explicit navigation
   assert.match(advisorSource, /Use AI better in my everyday work/)
   assert.match(advisorSource, /Save time by automating repeated work/)
   assert.match(advisorSource, /Help me discover what would suit me/)
+  assert.match(advisorSource, /Choose all that apply/)
+  assert.match(advisorSource, /exclusiveValue="discover-fit"/)
   assert.doesNotMatch(advisorSource, /Understand models more deeply/)
   assert.doesNotMatch(advisorSource, /Choose up to 2/)
   assert.doesNotMatch(advisorSource, /ap-level-/)

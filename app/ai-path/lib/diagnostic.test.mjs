@@ -88,8 +88,14 @@ test('readiness distinguishes missing fields, unsupported evidence, and complete
     ...capabilityFixture,
     direction: { ...capabilityFixture.direction, interests: ['automate-repeated-work', 'build-ai-tool'] },
   })
-  assert.equal(competingDirections.sections.find(section => section.id === 'direction').status, 'missing')
-  assert.match(competingDirections.sections.find(section => section.id === 'direction').issues.join(' '), /only one primary outcome/i)
+  assert.equal(competingDirections.sections.find(section => section.id === 'direction').status, 'complete')
+
+  const conflictingDiscovery = validateCapabilityIntake({
+    ...capabilityFixture,
+    direction: { ...capabilityFixture.direction, interests: ['discover-fit', 'build-ai-tool'] },
+  })
+  assert.equal(conflictingDiscovery.sections.find(section => section.id === 'direction').status, 'missing')
+  assert.match(conflictingDiscovery.sections.find(section => section.id === 'direction').issues.join(' '), /discovery by itself/i)
 })
 
 test('normalization excludes hidden, irrelevant evidence values', () => {
@@ -105,7 +111,7 @@ test('normalization excludes hidden, irrelevant evidence values', () => {
     evidence: { description: 'I have not built anything yet.', supportedDomains: [], artifactUrl: 'https://invalid.example/stale' },
   })
   assert.equal('artifactUrl' in capability.evidence, false)
-  assert.deepEqual(capability.direction.interests, ['automate-repeated-work'])
+  assert.deepEqual(capability.direction.interests, ['automate-repeated-work', 'build-ai-tool'])
 })
 
 test('Path A composes a deterministic, bounded use-case blueprint', () => {

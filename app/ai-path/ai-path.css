@@ -702,7 +702,8 @@
 }
 
 .ap-ds-simpleField small,
-.ap-ds-multiChoice legend small {
+.ap-ds-multiChoice legend small,
+.ap-ds-choiceGroup legend small {
   color: var(--path-muted);
   font-size: 12px;
   font-weight: 450;

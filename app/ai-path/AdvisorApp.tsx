@@ -209,6 +209,48 @@ function ChoiceGroup<T extends string>({
   )
 }
 
+function DetailedMultiChoice<T extends string>({
+  label,
+  hint,
+  values,
+  options,
+  exclusiveValue,
+  onChange,
+}: {
+  label: string
+  hint?: string
+  values: readonly T[]
+  options: readonly (readonly [T, string, string?])[]
+  exclusiveValue?: T
+  onChange(values: T[]): void
+}) {
+  const toggle = (option: T) => {
+    if (values.includes(option)) {
+      onChange(values.filter(value => value !== option))
+      return
+    }
+    if (option === exclusiveValue) {
+      onChange([option])
+      return
+    }
+    onChange([...values.filter(value => value !== exclusiveValue), option])
+  }
+
+  return (
+    <fieldset className="ap-ds-choiceGroup is-stacked is-multiple">
+      <legend>{label}{hint ? <small>{hint}</small> : null}</legend>
+      <div>
+        {options.map(([option, title, detail]) => (
+          <label className={values.includes(option) ? 'is-selected' : ''} key={option}>
+            <input type="checkbox" value={option} checked={values.includes(option)} onChange={() => toggle(option)} />
+            <span><strong>{title}</strong>{detail ? <small>{detail}</small> : null}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  )
+}
+
 function MultiChoice({
   label,
   values,
@@ -488,12 +530,13 @@ function CapabilityForm({
       <Section {...common('direction', 0)}>
         <label className="ap-ds-simpleField" htmlFor="ap-context"><span>Your role or working context</span><input id="ap-context" value={value.direction.roleContext} onChange={event => onChange({ ...value, direction: { ...value.direction, roleContext: event.target.value } })} placeholder="Operations analyst, founder, student…" /></label>
         <div className="ap-ds-directionChoices">
-          <ChoiceGroup
-            stacked
-            label="Which outcome matters most to you right now?"
-            value={value.direction.interests[0] ?? ''}
+          <DetailedMultiChoice
+            label="Which outcomes matter to you right now?"
+            hint="Choose all that apply"
+            values={value.direction.interests}
             options={interestOptions}
-            onChange={interest => onChange({ ...value, direction: { ...value.direction, interests: [interest] } })}
+            exclusiveValue="discover-fit"
+            onChange={interests => onChange({ ...value, direction: { ...value.direction, interests } })}
           />
         </div>
       </Section>

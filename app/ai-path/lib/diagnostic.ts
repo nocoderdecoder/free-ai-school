@@ -201,8 +201,8 @@ export function validateCapabilityIntake(input: CapabilityIntake): DiagnosticRea
   return overallReadiness([
     section('direction', [
       ...(!present(input.direction.roleContext, 2) ? ['Describe your role or working context.'] : []),
-      ...(!input.direction.interests.length ? ['Choose one primary outcome.'] : []),
-      ...(input.direction.interests.length > 1 ? ['Choose only one primary outcome.'] : []),
+      ...(!input.direction.interests.length ? ['Choose at least one outcome.'] : []),
+      ...(input.direction.interests.includes('discover-fit') && input.direction.interests.length > 1 ? ['Choose discovery by itself, or select the outcomes you already know.'] : []),
     ]),
     section('experience', [
       ...(Object.values(input.experience.levels).every(level => level === 'none') ? ['Choose the statement that best describes your experience.'] : []),
@@ -249,7 +249,7 @@ export function normalizeCapabilityIntake(input: CapabilityIntake): NormalizedCa
   const hasArtifactContext = present(input.evidence.description) && input.evidence.supportedDomains.length > 0
   return deepFreeze({
     ...structuredClone(input),
-    direction: { ...input.direction, interests: input.direction.interests.slice(0, 1) },
+    direction: { ...input.direction, interests: [...new Set(input.direction.interests)].slice(0, 4) },
     evidence: {
       description: input.evidence.description.trim(),
       supportedDomains: [...input.evidence.supportedDomains],
