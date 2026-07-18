@@ -35,7 +35,7 @@ const useCaseFixture = {
 const capabilityFixture = {
   version: AI_PATH_DIAGNOSTIC_VERSION,
   path: 'capability-growth',
-  direction: { roleContext: 'Operations analyst', interests: ['workflow automation', 'working with data'] },
+  direction: { roleContext: 'Operations analyst', interests: ['automate-repeated-work'] },
   experience: { levels: {
     'ai-assisted-work': 'adapted', automation: 'guided', applications: 'guided', 'data-retrieval': 'exposure', 'evaluation-safety': 'none',
   } },
@@ -66,6 +66,10 @@ test('readiness distinguishes missing fields, unsupported evidence, and complete
   assert.equal(emptyUseCase.canSubmit, false)
   assert.equal(emptyUseCase.sections.length, 6)
 
+  const emptyCapability = validateCapabilityIntake(INITIAL_CAPABILITY_INTAKE)
+  assert.equal(emptyCapability.sections.find(section => section.id === 'experience').status, 'missing')
+  assert.match(emptyCapability.sections.find(section => section.id === 'experience').issues.join(' '), /best describes your experience/i)
+
   const unsupportedUseCase = validateUseCaseIntake({ ...useCaseFixture, experience: { level: 'independent', evidence: '', artifactUrl: '' } })
   assert.equal(unsupportedUseCase.status, 'needs_evidence')
   assert.equal(unsupportedUseCase.sections.find(section => section.id === 'experience').status, 'needs_evidence')
@@ -79,6 +83,13 @@ test('readiness distinguishes missing fields, unsupported evidence, and complete
 
   assert.equal(validateUseCaseIntake(useCaseFixture).status, 'complete')
   assert.equal(validateCapabilityIntake(capabilityFixture).status, 'complete')
+
+  const competingDirections = validateCapabilityIntake({
+    ...capabilityFixture,
+    direction: { ...capabilityFixture.direction, interests: ['automate-repeated-work', 'build-ai-tool'] },
+  })
+  assert.equal(competingDirections.sections.find(section => section.id === 'direction').status, 'missing')
+  assert.match(competingDirections.sections.find(section => section.id === 'direction').issues.join(' '), /only one primary outcome/i)
 })
 
 test('normalization excludes hidden, irrelevant evidence values', () => {
@@ -90,9 +101,11 @@ test('normalization excludes hidden, irrelevant evidence values', () => {
 
   const capability = normalizeCapabilityIntake({
     ...capabilityFixture,
+    direction: { ...capabilityFixture.direction, interests: ['automate-repeated-work', 'build-ai-tool'] },
     evidence: { description: 'I have not built anything yet.', supportedDomains: [], artifactUrl: 'https://invalid.example/stale' },
   })
   assert.equal('artifactUrl' in capability.evidence, false)
+  assert.deepEqual(capability.direction.interests, ['automate-repeated-work'])
 })
 
 test('Path A composes a deterministic, bounded use-case blueprint', () => {
@@ -121,6 +134,25 @@ test('Path B composes an evidence-calibrated capability prescription', () => {
   assert.ok(result.definitionOfDone.some(item => /failures/i.test(item)))
   assert.equal(result.weeks.length, 4)
   assert.ok(result.resources.length <= 3)
+})
+
+test('each plain-language direction produces a relevant project recommendation', () => {
+  const expectations = [
+    ['everyday-work', /Evidence-based AI-assisted work/i, /recurring work task/i],
+    ['automate-repeated-work', /workflow automation/i, /triage workflow/i],
+    ['build-ai-tool', /testable AI applications/i, /small AI application/i],
+    ['improve-reliability', /evaluating and improving AI systems/i, /quality test/i],
+    ['discover-fit', /finding valuable AI opportunities/i, /three small AI opportunities/i],
+  ]
+
+  for (const [interest, capabilityPattern, projectPattern] of expectations) {
+    const result = composeCapabilityPrescription({
+      ...capabilityFixture,
+      direction: { ...capabilityFixture.direction, interests: [interest] },
+    })
+    assert.match(result.nextCapability, capabilityPattern)
+    assert.match(result.project.title, projectPattern)
+  }
 })
 
 test('the two paths cannot collapse into a generic shared output', () => {

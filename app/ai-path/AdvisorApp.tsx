@@ -75,7 +75,7 @@ const capabilityStageLevels: Record<
   Readonly<Record<CapabilityDomain, ExperienceLevel>>
 > = {
   new: {
-    'ai-assisted-work': 'none',
+    'ai-assisted-work': 'exposure',
     automation: 'none',
     applications: 'none',
     'data-retrieval': 'none',
@@ -106,7 +106,9 @@ const capabilityStageLevels: Record<
 
 function capabilityExperienceStage(
   levels: Readonly<Record<CapabilityDomain, ExperienceLevel>>,
-): CapabilityExperienceStage {
+): CapabilityExperienceStage | '' {
+  if (Object.values(levels).every(level => level === 'none')) return ''
+
   if (
     ['adapted', 'independent', 'demonstrated', 'operational'].includes(levels.applications) ||
     ['adapted', 'independent', 'demonstrated', 'operational'].includes(levels['data-retrieval']) ||
@@ -126,14 +128,11 @@ function capabilityExperienceStage(
 }
 
 const interestOptions = [
-  'Use AI effectively in my current work',
-  'Automate workflows',
-  'Build AI applications',
-  'Work with data and knowledge',
-  'Evaluate and improve AI outputs',
-  'Understand models more deeply',
-  'Lead AI projects or teams',
-  'Explore before choosing',
+  ['everyday-work', 'Use AI better in my everyday work', 'Writing, research, analysis, presentations, email, and similar tasks.'],
+  ['automate-repeated-work', 'Save time by automating repeated work', 'Connect tools, move information, create drafts, and reduce manual steps.'],
+  ['build-ai-tool', 'Build something with AI', 'Create an assistant, application, workflow, or internal tool.'],
+  ['improve-reliability', 'Make AI results more accurate and reliable', 'Test outputs, reduce mistakes, add human review, and improve quality.'],
+  ['discover-fit', 'Help me discover what would suit me', 'I’m not sure yet—show me possibilities based on my work and experience.'],
 ] as const
 
 const toolOptions = ['ChatGPT', 'Claude', 'Gemini', 'Microsoft Copilot', 'n8n', 'Zapier', 'Model APIs'] as const
@@ -475,17 +474,28 @@ function CapabilityForm({
   })
   const claimedDomains = (Object.keys(value.experience.levels) as CapabilityDomain[]).filter(domain => !['none', 'exposure', 'guided'].includes(value.experience.levels[domain]))
   const primaryInterest = value.direction.interests.join(' ').toLowerCase()
+  const reliabilityInterest = /reliab|evaluat|accurate/.test(primaryInterest)
   const scenario = /automat|workflow/.test(primaryInterest)
     ? 'A model handles most requests correctly but occasionally produces confident, incorrect results. What would you test or change before allowing the workflow to send anything automatically?'
     : /app|build/.test(primaryInterest)
       ? 'You have 50 example questions and trusted answers. How would you use them to decide whether an AI assistant is ready for users?'
+      : reliabilityInterest
+        ? 'An AI tool looks impressive in a demo, but nobody has measured how often it is useful, wrong, or uncertain. How would you evaluate and improve it?'
       : 'How would you decide which parts of a recurring task should be handled by AI and which should remain with a person?'
 
   return (
     <div className="ap-ds-sections" data-path="capability-growth">
       <Section {...common('direction', 0)}>
         <label className="ap-ds-simpleField" htmlFor="ap-context"><span>Your role or working context</span><input id="ap-context" value={value.direction.roleContext} onChange={event => onChange({ ...value, direction: { ...value.direction, roleContext: event.target.value } })} placeholder="Operations analyst, founder, student…" /></label>
-        <MultiChoice label="Where would you most like AI to expand what you can do?" values={value.direction.interests} options={interestOptions} limit={2} onChange={interests => onChange({ ...value, direction: { ...value.direction, interests } })} />
+        <div className="ap-ds-directionChoices">
+          <ChoiceGroup
+            stacked
+            label="Which outcome matters most to you right now?"
+            value={value.direction.interests[0] ?? ''}
+            options={interestOptions}
+            onChange={interest => onChange({ ...value, direction: { ...value.direction, interests: [interest] } })}
+          />
+        </div>
       </Section>
 
       <Section {...common('experience', 1)}>
@@ -515,7 +525,7 @@ function CapabilityForm({
 
       <Section {...common('reasoning', 3)}>
         <div className="ap-ds-scenario"><span>Imagine this situation</span><p>{scenario}</p></div>
-        <TextAreaField id="ap-reasoning" label="What would you do, and why?" value={value.reasoning.response} voiceTarget={voiceTarget} onVoice={onVoice} onChange={response => onChange({ ...value, reasoning: { scenarioId: /automat|workflow/.test(primaryInterest) ? 'automation-reliability' : /app|build/.test(primaryInterest) ? 'application-evaluation' : 'human-ai-boundary', response } })} rows={5} />
+        <TextAreaField id="ap-reasoning" label="What would you do, and why?" value={value.reasoning.response} voiceTarget={voiceTarget} onVoice={onVoice} onChange={response => onChange({ ...value, reasoning: { scenarioId: /automat|workflow/.test(primaryInterest) ? 'automation-reliability' : /app|build/.test(primaryInterest) || reliabilityInterest ? 'application-evaluation' : 'human-ai-boundary', response } })} rows={5} />
       </Section>
 
       <Section {...common('foundations', 4)}>

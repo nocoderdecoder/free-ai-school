@@ -256,8 +256,9 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   await assertProgressiveForm('capability-growth', 'direction')
   const capabilityRole = page.getByLabel('Your role or working context', { exact: true })
   await capabilityRole.fill('Operations analyst responsible for support quality and routing')
-  await choose(/Where would you most like AI to expand/, 'Automate workflows')
-  await choose(/Where would you most like AI to expand/, 'Work with data and knowledge')
+  await choose('Which outcome matters most to you right now?', 'Save time by automating repeated work')
+  await captureRequiredViewports('capability-direction')
+  await page.setViewportSize({ width: 1440, height: 900 })
   await continueTo('capability-growth', 'experience')
 
   await choose('Which statement sounds most like you today?', 'I have created repeatable AI workflows')

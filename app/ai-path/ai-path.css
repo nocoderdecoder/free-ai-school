@@ -804,6 +804,16 @@
   line-height: 1.45;
 }
 
+.ap-ds-directionChoices .ap-ds-choiceGroup label:last-child {
+  background: #f7f8f4;
+  border-style: dashed;
+}
+
+.ap-ds-directionChoices .ap-ds-choiceGroup label:last-child.is-selected {
+  background: var(--path-selected);
+  border-style: solid;
+}
+
 .ap-ds-specGrid,
 .ap-ds-controlGrid {
   display: grid;

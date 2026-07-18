@@ -201,10 +201,13 @@ export function validateCapabilityIntake(input: CapabilityIntake): DiagnosticRea
   return overallReadiness([
     section('direction', [
       ...(!present(input.direction.roleContext, 2) ? ['Describe your role or working context.'] : []),
-      ...(!input.direction.interests.length ? ['Choose at least one interest.'] : []),
-      ...(input.direction.interests.length > 2 ? ['Choose no more than two interests.'] : []),
+      ...(!input.direction.interests.length ? ['Choose one primary outcome.'] : []),
+      ...(input.direction.interests.length > 1 ? ['Choose only one primary outcome.'] : []),
     ]),
-    section('experience', Object.values(input.experience.levels).every(level => level in experienceRank) ? [] : ['Complete every experience row.']),
+    section('experience', [
+      ...(Object.values(input.experience.levels).every(level => level === 'none') ? ['Choose the statement that best describes your experience.'] : []),
+      ...(!Object.values(input.experience.levels).every(level => level in experienceRank) ? ['Choose a valid experience statement.'] : []),
+    ]),
     section('evidence', present(input.evidence.description, 12) ? [] : ['Describe your strongest work, or state that you have not built anything yet.'], evidenceIssues),
     section('reasoning', [
       ...(!present(input.reasoning.scenarioId) ? ['Select an applied reasoning scenario.'] : []),
@@ -246,7 +249,7 @@ export function normalizeCapabilityIntake(input: CapabilityIntake): NormalizedCa
   const hasArtifactContext = present(input.evidence.description) && input.evidence.supportedDomains.length > 0
   return deepFreeze({
     ...structuredClone(input),
-    direction: { ...input.direction, interests: input.direction.interests.slice(0, 2) },
+    direction: { ...input.direction, interests: input.direction.interests.slice(0, 1) },
     evidence: {
       description: input.evidence.description.trim(),
       supportedDomains: [...input.evidence.supportedDomains],
@@ -393,19 +396,26 @@ function capabilityDirection(input: CapabilityIntake) {
     deliverables: ['A repeatable workflow', 'A 50-example evaluation set', 'A human-review threshold'],
     resources: ['Workflow automation patterns', 'Structured outputs', 'AI evaluation basics'],
   }
-  if (/data|retriev|knowledge/.test(interests)) return {
-    capability: 'Source-grounded AI with data',
-    project: 'Build a cited answer assistant over a small trusted collection',
-    outcome: 'Answer representative questions with supporting source passages and an insufficient-evidence response.',
-    deliverables: ['A bounded source collection', 'A cited answer prototype', 'A benchmark of answerable and unanswerable questions'],
-    resources: ['Retrieval foundations', 'Source-grounded generation', 'Retrieval evaluation'],
-  }
   if (/app|build/.test(interests)) return {
     capability: 'Building testable AI applications',
     project: 'Build a small AI application with validated input and output',
     outcome: 'Deliver one useful workflow with explicit failure behavior and repeatable tests.',
     deliverables: ['A working application', 'A representative regression set', 'A short architecture and limitations note'],
     resources: ['AI application architecture', 'Structured outputs', 'Application evaluation'],
+  }
+  if (/reliab|evaluat|accurate/.test(interests)) return {
+    capability: 'Evaluating and improving AI systems',
+    project: 'Build a practical quality test for one recurring AI task',
+    outcome: 'Measure useful answers, mistakes, and uncertain cases before changing the workflow.',
+    deliverables: ['A representative test set', 'A clear quality rubric', 'A documented human-review rule'],
+    resources: ['AI evaluation basics', 'Failure analysis', 'Human review patterns'],
+  }
+  if (/discover|explore|fit/.test(interests)) return {
+    capability: 'Finding valuable AI opportunities',
+    project: 'Test three small AI opportunities from your real work',
+    outcome: 'Compare three bounded experiments and choose one based on usefulness, effort, and risk.',
+    deliverables: ['Three opportunity statements', 'Three small experiments', 'A scored decision and next step'],
+    resources: ['AI opportunity discovery', 'Rapid workflow experiments', 'Practical evaluation'],
   }
   return {
     capability: 'Evidence-based AI-assisted work',
