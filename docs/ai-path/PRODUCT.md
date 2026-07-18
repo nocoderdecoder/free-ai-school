@@ -10,11 +10,12 @@ The product is not a quiz, a personality test, or a course marketplace. It is a 
 
 The private alpha is intentionally narrow: working professionals who already use general-purpose AI tools and want to build one reliable work workflow. They may prefer no-code or light code. Later tracks can cover applied-AI engineers, leaders, creators, and career switchers after the assessment model is validated.
 
-The first screen asks only what the learner wants AI to help them do better.
-Role, experience, time, coding comfort, and constraints are collected naturally
-inside the conversation. Any example copy is explicitly marked as an example
-and is never treated as learner input. The private alpha does not claim broader
-persona coverage that the assessment is not yet designed to support.
+The first screen asks for no form work. It offers a guided conversation and,
+only when the reviewed provider capability is open, makes live voice the primary
+entry. The learner's goal is discovered in the first conversational turn. Role,
+experience, time, coding comfort, and constraints are collected naturally inside
+the conversation. The private alpha does not claim broader persona coverage that
+the assessment is not yet designed to support.
 
 ## Core promise
 
@@ -27,16 +28,21 @@ next action without learning how the assessment system works.
 
 ## End-to-end journey
 
-1. **Start.** Ask one plain-language question about what the learner wants AI
-   to help them do better. Offer voice as the primary mode only when it is
-   genuinely available; otherwise present the complete typed conversation.
-2. **Talk.** Ask one adaptive question at a time. Role, prior experience,
+1. **Welcome.** State the outcome and begin without a goal form. Offer live
+   voice as the primary action only when it is genuinely available; otherwise
+   present the complete guided typed conversation and a clearly labeled local
+   microphone-setup preview.
+2. **Sound check.** After an explicit action, test the selected microphone and
+   show a live local input signal. Keep typing available. No audio leaves the
+   device and no provider connection starts during this check.
+3. **Talk.** Ask one adaptive question at a time. The first turn discovers the
+   goal. Role, prior experience,
    constraints, available time, and coding preference are discovered inside the
    conversation rather than through a separate application form.
-3. **Confirm.** Show three short, editable summaries: goal, current experience,
+4. **Understand.** Show three short, editable summaries: goal, current experience,
    and practical constraints. Detailed evidence provenance is optional.
-4. **Get a path.** Show one recommended skill direction, one practical project,
-   one 30–45 minute first action, and no more than three resources. The full
+5. **Get a path.** Lead with one practical project, then one recommended skill
+   direction, one 30-minute first action, and no more than three resources. The full
    four-week plan and assessment rationale are collapsed by default.
 
 History, progress tracking, check-ins, export, detailed assessment findings,
@@ -45,13 +51,17 @@ first-use journey.
 
 ## Learner-facing simplicity contract
 
-- The conversation begins in no more than two actions.
+- The complete guided conversation begins in one action when live voice is
+  unavailable. When live voice is available, the sound check adds one explicit
+  microphone-permission action.
 - Every screen has one dominant action.
 - The primary journey has no scoring, catalog, provider, versioning, evidence-
   gap, persistence, or infrastructure terminology.
 - The conversation uses one focal prompt; transcripts and rationale are
   progressively disclosed.
-- Voice is never presented as available when the provider path is closed.
+- Voice is never presented as connected when the provider path is closed. A
+  local microphone preview is labeled as a preview and cannot create a peer or
+  provider session.
 - Privacy, deletion, and export remain accessible without being repeated across
   every step.
 - Missing evidence remains unassessed internally, but the default result view

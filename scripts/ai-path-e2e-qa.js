@@ -224,60 +224,93 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     })
   })
 
+  await page.addInitScript(() => {
+    Object.defineProperty(window, '__AI_PATH_QA_MIC_CALLS__', { configurable: true, writable: true, value: 0 })
+    Object.defineProperty(window, '__AI_PATH_QA_PEER_CALLS__', { configurable: true, writable: true, value: 0 })
+    const mediaDevices = navigator.mediaDevices
+    if (mediaDevices) {
+      Object.defineProperty(mediaDevices, 'enumerateDevices', {
+        configurable: true,
+        value: async () => [{ kind: 'audioinput', deviceId: 'qa-default-mic', label: 'QA local microphone', groupId: 'qa' }],
+      })
+      Object.defineProperty(mediaDevices, 'getUserMedia', {
+        configurable: true,
+        value: async () => {
+          window.__AI_PATH_QA_MIC_CALLS__ += 1
+          throw new DOMException('Deterministic QA denied microphone permission.', 'NotAllowedError')
+        },
+      })
+    }
+    const GuardedPeerConnection = function GuardedPeerConnection() {
+      window.__AI_PATH_QA_PEER_CALLS__ += 1
+      throw new Error('Provider-unavailable QA forbids RTCPeerConnection construction.')
+    }
+    Object.defineProperty(window, 'RTCPeerConnection', { configurable: true, value: GuardedPeerConnection })
+  })
+
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' })
-  await waitForHeading('What would you like AI to help you do better?')
-  await assertHeadingFocused('What would you like AI to help you do better?', 'start')
+  const welcomeHeading = page.locator('main h1').first()
+  await welcomeHeading.waitFor({ state: 'visible', timeout: 15_000 })
+  const welcomeHeadingText = (await welcomeHeading.textContent())?.trim() || ''
+  assert(welcomeHeadingText.length > 0, 'welcome is missing a clear heading')
+  await assertHeadingFocused(welcomeHeadingText, 'welcome')
 
-  const startInputs = page.locator('textarea:visible, input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):visible, select:visible')
-  assert(await startInputs.count() === 1, `start must expose one goal field, found ${await startInputs.count()}`)
-  const goalField = page.getByLabel('Your goal')
-  assert(await goalField.isVisible(), 'the single start field is not labeled Your goal')
-  const voiceButton = page.getByRole('button', { name: 'Voice conversation coming soon' })
-  assert(await voiceButton.isVisible(), 'the honest voice status is missing')
-  assert(await voiceButton.isDisabled() || await voiceButton.getAttribute('aria-disabled') === 'true', 'unavailable voice control must not start a paid or fake session')
-  await assertInteractiveNames('start')
-  await captureViewport('start', 1440, 900)
-
-  let startActions = 0
-  await goalField.fill(qaGoal)
-  const typedStart = page.getByRole('button', { name: 'Start typed conversation' })
-  await typedStart.focus()
-  const focusStyle = await typedStart.evaluate((element) => {
+  const welcomeInputs = page.locator('main textarea:visible, main input:not([type="hidden"]):visible, main select:visible')
+  assert(await welcomeInputs.count() === 0, `welcome must begin without form work, found ${await welcomeInputs.count()} field(s)`)
+  await captureRequiredViewports('welcome')
+  const talkButton = page.getByRole('button', { name: 'Preview microphone setup' })
+  await talkButton.waitFor({ state: 'visible' })
+  await talkButton.focus()
+  const focusStyle = await talkButton.evaluate((element) => {
     const style = window.getComputedStyle(element)
     return { outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth }
   })
   assert(focusStyle.outlineStyle !== 'none' && focusStyle.outlineWidth !== '0px', `keyboard focus is not visible: ${JSON.stringify(focusStyle)}`)
   await page.keyboard.press('Enter')
-  startActions += 1
-  assert(startActions <= 2, `conversation required ${startActions} start actions`)
+  await waitForHeading('Let’s make sure I can hear you.')
+  await assertHeadingFocused('Let’s make sure I can hear you.', 'sound check')
+  assert(await page.getByText('Audio stays on this device during this check.', { exact: false }).isVisible(), 'sound check does not clearly state that audio remains local')
+  assert(await page.getByText('Live voice is not enabled yet.', { exact: false }).isVisible(), 'provider-unavailable state is not honest')
+  assert(await page.evaluate(() => window.__AI_PATH_QA_MIC_CALLS__) === 0, 'sound check requested microphone access before an explicit action')
+  assert(await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__) === 0, 'sound check constructed a provider peer connection')
+  await captureRequiredViewports('sound-check')
+  await assertInteractiveNames('sound check')
+
+  await page.getByRole('button', { name: 'Turn on microphone' }).click()
+  await page.getByText('Microphone access was not allowed. You can continue by typing.', { exact: true }).waitFor({ state: 'visible' })
+  assert(await page.evaluate(() => window.__AI_PATH_QA_MIC_CALLS__) === 1, 'explicit microphone test did not stay on the deterministic local boundary')
+  assert(await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__) === 0, 'local microphone test constructed a provider peer connection')
+  assert(paidPathRequests.length === 0, 'local microphone test attempted a Realtime request')
+  await page.getByRole('button', { name: 'Continue by typing' }).click()
   await page.getByLabel('Your answer').waitFor({ state: 'visible', timeout: 15_000 })
   assert(sessionRequests.length === 0, 'the local typed conversation should not create a server session before path generation')
-  checkpoint('one-field start reached the typed conversation in one action')
+  checkpoint('welcome reached an honest local-only sound check with typed fallback')
 
-  await captureViewport('conversation', 375, 812)
+  await captureRequiredViewports('conversation')
   await assertInteractiveNames('conversation')
   assert(!(await page.getByText('Conversation outline', { exact: true }).isVisible().catch(() => false)), 'old conversation sidebar is still visible')
   assert(!(await page.getByText('What I am testing', { exact: true }).isVisible().catch(() => false)), 'internal assessment methodology is still visible')
 
   const answers = [
+    qaGoal,
     'Last week I collected six public reports and produced a two-page cited market brief for a colleague.',
     'I compared claims against the original sources, retained claim-level citations, and included a source ledger.',
     'I personally chose the sources, wrote the brief, and designed the reviewer checkpoint; a colleague reviewed the final draft.',
     `${privateCanary}: the inspectable artifact is a cited brief and ledger that a colleague can rerun.`,
     'Citation links drifted, so I tested every claim, removed two unsupported claims, and documented the failure.',
-    'I use public data, label uncertainty, and require human review before external sharing.',
-    'I have about three hours each week and prefer a no-code or light-code workflow with explicit stopping points.',
+    'I have about three hours each week, use public data, require human review, and prefer a no-code or light-code workflow.',
+    'A successful result is a brief another colleague can rerun, inspect, and correct without asking me for hidden context.',
   ]
   let adaptiveAnswerCount = 0
-  while (!(await isVisible(page.getByRole('heading', { name: 'Here’s what I heard' })))) {
+  while (!(await isVisible(page.getByRole('heading', { name: 'Did I understand you correctly?' })))) {
     const reviewButton = page.getByRole('button', { name: 'Review what I heard' })
     if (await isVisible(reviewButton)) {
       assert(adaptiveAnswerCount >= 5, `adaptive conversation ended too early after ${adaptiveAnswerCount} answers`)
       await reviewButton.click()
       break
     }
-    assert(adaptiveAnswerCount < 7, 'adaptive conversation exceeded its seven-question bound')
+    assert(adaptiveAnswerCount < 8, 'guided conversation exceeded its eight-turn bound including goal discovery')
 
     const answerField = page.getByLabel('Your answer')
     await answerField.waitFor({ state: 'visible', timeout: 10_000 })
@@ -291,17 +324,21 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
         element.labels && Array.from(element.labels).some(label => label.textContent?.trim() === 'Your answer')
       ))
       const review = Array.from(document.querySelectorAll('button')).some(button => button.textContent?.trim() === 'Review what I heard')
-      const confirmation = Array.from(document.querySelectorAll('h1, h2')).some(heading => heading.textContent?.trim() === 'Here’s what I heard')
+      const confirmation = Array.from(document.querySelectorAll('h1, h2')).some(heading => heading.textContent?.trim() === 'Did I understand you correctly?')
       return review || confirmation || (field && field.value === '')
     }, null, { timeout: 10_000 })
   }
-  await waitForHeading('Here’s what I heard')
-  assert(adaptiveAnswerCount >= 5 && adaptiveAnswerCount <= 7, `expected 5–7 questions, completed ${adaptiveAnswerCount}`)
-  checkpoint(`adaptive conversation completed in ${adaptiveAnswerCount} questions without methodology chrome`)
+  await waitForHeading('Did I understand you correctly?')
+  assert(adaptiveAnswerCount >= 6 && adaptiveAnswerCount <= 8, `expected 6–8 turns including goal discovery, completed ${adaptiveAnswerCount}`)
+  checkpoint(`unified conversation completed in ${adaptiveAnswerCount} questions without intake-form or methodology chrome`)
 
   const confirmationParts = page.getByTestId('confirmation-part')
   assert(await confirmationParts.count() === 3, `confirmation must contain three compact parts, found ${await confirmationParts.count()}`)
+  await page.getByRole('button', { name: 'Edit What you want to improve' }).click()
   assert(await page.getByLabel('Your goal', { exact: true }).isVisible(), 'confirmation is missing Your goal')
+  await page.getByLabel('Your goal', { exact: true }).fill(correctedGoal)
+  await page.getByRole('button', { name: 'Done What you want to improve' }).click()
+  await page.getByRole('button', { name: 'Edit What the plan needs to respect' }).click()
   for (const [id, label] of [
     ['ap-role', 'Role or area of work'],
     ['ap-weekly-hours', 'Time available each week'],
@@ -316,14 +353,14 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   const conversationDisclosure = conversationDetails.locator('xpath=ancestor::details')
   assert(await conversationDisclosure.count() === 1, 'Review conversation details must use a native disclosure')
   assert(!(await conversationDisclosure.evaluate(element => element.open)), 'conversation details must be collapsed by default')
-  await page.getByLabel('Your goal', { exact: true }).fill(correctedGoal)
   await captureViewport('confirmation', 375, 812)
   await captureViewport('confirmation', 768, 1024)
+  await captureViewport('confirmation', 1440, 900)
   await assertInteractiveNames('confirmation')
-  await page.getByRole('button', { name: 'Build my path' }).click()
+  await page.getByRole('button', { name: 'Create my path' }).click()
 
-  await waitForHeading('Your AI learning path')
-  await assertHeadingFocused('Your AI learning path', 'path')
+  await waitForHeading('Your 30-day build')
+  await assertHeadingFocused('Your 30-day build', 'path')
   assert(sessionRequests.length === 1, `expected one text session request while building the path, saw ${sessionRequests.length}`)
   assert(analysisRequests.length === 1, `expected one analysis request, saw ${analysisRequests.length}`)
   assert(analysisRequests[0].goal === correctedGoal, 'confirmed goal did not reach analysis')
@@ -332,9 +369,16 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   assert(!('evidence' in analysisRequests[0]), 'browser assigned competency evidence')
   checkpoint('three-part confirmation remained editable and reached analysis')
 
-  for (const label of ['Your next skill', 'Your 30-day project', 'Start here']) {
+  for (const label of ['Your next skill', 'Your 30-day project', 'Your first 30 minutes']) {
     assert(await page.getByText(label, { exact: true }).isVisible(), `path is missing ${label}`)
   }
+  const projectComesFirst = await page.locator('main').evaluate((main) => {
+    const elements = Array.from(main.querySelectorAll('*'))
+    const project = elements.find(element => element.textContent?.trim() === 'Your 30-day project')
+    const skill = elements.find(element => element.textContent?.trim() === 'Your next skill')
+    return Boolean(project && skill && elements.indexOf(project) < elements.indexOf(skill))
+  })
+  assert(projectComesFirst, 'result must present the prescribed project before skill diagnostics')
   const resourceItems = page.getByTestId('learning-resource')
   const resourceCount = await resourceItems.count()
   assert(resourceCount > 0 && resourceCount <= 3, `path must show 1–3 resources, found ${resourceCount}`)
@@ -357,10 +401,10 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   assert(await privacyDetails.getByText(/delete|deletion/i).isVisible(), 'privacy disclosure omits deletion')
   checkpoint('single path page shows the decision first and details progressively')
 
-  const firstTaskButton = page.getByRole('button', { name: 'Start my first task' })
+  const firstTaskButton = page.getByRole('button', { name: 'Show me how to start' })
   await firstTaskButton.focus()
   await page.keyboard.press('Enter')
-  await page.getByRole('button', { name: 'Mark task complete' }).waitFor({
+  await page.getByRole('button', { name: 'Hide starting steps' }).waitFor({
     state: 'visible',
     timeout: 5_000,
   })
@@ -372,6 +416,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
 
   assert(sessionRequests[0].mode === 'text', 'typed fallback did not create a text session')
   assert(sessionRequests[0].saveTranscript === false, 'session unexpectedly requested transcript persistence')
+  assert(await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__) === 0, 'provider-unavailable journey constructed a peer connection')
   assert(paidPathRequests.length === 0, `app attempted a paid Realtime path: ${paidPathRequests.join(', ')}`)
   assert(blockedRequests.length === 0, `app attempted external requests: ${blockedRequests.join(', ')}`)
 
@@ -391,9 +436,8 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   return {
     ok: true,
     checkpoints,
-    journey: ['start', 'conversation', 'confirmation', 'path'],
+    journey: ['welcome', 'sound-check', 'conversation', 'understanding', 'project'],
     questionsAnswered: adaptiveAnswerCount,
-    startActions,
     resourcesShown: resourceCount,
     viewports: ['375x812', '768x1024', '1440x900'],
     network: {

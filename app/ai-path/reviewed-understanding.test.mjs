@@ -17,24 +17,29 @@ const inputs = [
 
 const advisorSource = readFileSync(new URL('./AdvisorApp.tsx', import.meta.url), 'utf8')
 
-test('first-use intake starts blank and keeps the learner journey to four plain-language stages', () => {
+test('first use starts blank and enters a voice-first five-surface journey without form work', () => {
   assert.match(advisorSource, /const GOAL_TYPE: AiPathGoalType = 'workflows'/)
-  assert.match(advisorSource, /type Stage = 'start' \| 'conversation' \| 'confirm' \| 'path'/)
-  assert.match(advisorSource, /What would you like AI to help you do better\?/)
-  assert.match(advisorSource, /Start typed conversation/)
+  assert.match(advisorSource, /type VisibleStage = 'welcome' \| 'sound-check' \| 'conversation' \| 'understanding' \| 'path'/)
+  assert.match(advisorSource, /GOAL_DISCOVERY_PROMPT = 'What is one part of your work/)
+  assert.match(advisorSource, /<WelcomeScreen/)
+  assert.match(advisorSource, /<SoundCheckScreen/)
+  assert.match(advisorSource, /onType=\{beginTypedConversation\}/)
   assert.match(advisorSource, /const \[goal, setGoal\] = useState\(''\)/)
   assert.match(advisorSource, /const \[role, setRole\] = useState\(''\)/)
   assert.match(advisorSource, /const \[experience, setExperience\] = useState\(''\)/)
   assert.match(advisorSource, /const \[constraint, setConstraint\] = useState\(''\)/)
-  assert.equal((advisorSource.match(/placeholder="For example:/g) ?? []).length, 1)
-  assert.doesNotMatch(advisorSource, /Workflow-builder private alpha|goalOptions/)
+  assert.doesNotMatch(advisorSource, /Start typed conversation|placeholder="For example:|Workflow-builder private alpha|goalOptions/)
 })
 
-test('confirmation keeps three editable summaries and makes detailed evidence optional', () => {
-  assert.equal((advisorSource.match(/data-testid="confirmation-part"/g) ?? []).length, 3)
-  assert.match(advisorSource, /Here’s what I heard/)
-  assert.match(advisorSource, /aria-label="Your goal"/)
-  assert.match(advisorSource, /aria-label="What you have tried"/)
+test('understanding review keeps three editable summaries and makes detailed evidence optional', () => {
+  assert.equal((advisorSource.match(/<SummaryRow/g) ?? []).length, 3)
+  assert.match(advisorSource, /data-testid="confirmation-part"/)
+  assert.match(advisorSource, /Did I understand you correctly\?/)
+  assert.match(advisorSource, /What you want to improve/)
+  assert.match(advisorSource, /Where things stand today/)
+  assert.match(advisorSource, /What the plan needs to respect/)
+  assert.match(advisorSource, /id="ap-review-goal"/)
+  assert.match(advisorSource, /id="ap-review-experience"/)
   assert.match(advisorSource, /Review conversation details/)
   assert.match(advisorSource, /const reviewedInputs = \[/)
   assert.match(advisorSource, /\.\.\.Object\.entries\(reviewAnswers\)/)

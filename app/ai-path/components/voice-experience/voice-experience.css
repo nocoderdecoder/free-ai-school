@@ -1,0 +1,502 @@
+:root {
+  --vx-paper: #f4f1e9;
+  --vx-surface: #fffefa;
+  --vx-ink: #122c29;
+  --vx-muted: #60706c;
+  --vx-teal: #123f3a;
+  --vx-teal-hover: #0c332f;
+  --vx-lime: #c9e56d;
+  --vx-blue: #dce8f8;
+  --vx-line: #d7ddd7;
+  --vx-error: #a23e36;
+  --vx-focus: #2563eb;
+}
+
+.vx-welcome,
+.vx-soundCheck,
+.vx-welcome *,
+.vx-soundCheck * {
+  box-sizing: border-box;
+}
+
+.vx-welcome button,
+.vx-welcome select,
+.vx-soundCheck button,
+.vx-soundCheck select {
+  font: inherit;
+}
+
+.vx-welcome button,
+.vx-soundCheck button,
+.vx-soundCheck select {
+  cursor: pointer;
+}
+
+.vx-welcome button:disabled,
+.vx-soundCheck button:disabled {
+  cursor: not-allowed;
+}
+
+.vx-welcome :focus-visible,
+.vx-soundCheck :focus-visible {
+  outline: 3px solid var(--vx-focus);
+  outline-offset: 3px;
+}
+
+.vx-kicker {
+  color: #2f6a61;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: .06em;
+  margin: 0 0 14px;
+  text-transform: uppercase;
+}
+
+.vx-primaryAction,
+.vx-quietAction,
+.vx-backAction {
+  align-items: center;
+  border-radius: 12px;
+  display: inline-flex;
+  font-weight: 750;
+  gap: 10px;
+  justify-content: center;
+  min-height: 50px;
+  padding: 12px 18px;
+}
+
+.vx-primaryAction {
+  background: var(--vx-teal);
+  border: 1px solid var(--vx-teal);
+  color: #fff;
+}
+
+.vx-primaryAction:hover:not(:disabled) {
+  background: var(--vx-teal-hover);
+}
+
+.vx-primaryAction:disabled {
+  background: #aeb8b4;
+  border-color: #aeb8b4;
+  color: #eef1ef;
+}
+
+.vx-primaryAction svg,
+.vx-quietAction svg {
+  fill: none;
+  height: 19px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 19px;
+}
+
+.vx-quietAction,
+.vx-backAction {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--vx-teal);
+}
+
+.vx-quietAction:hover,
+.vx-backAction:hover {
+  background: rgba(18, 63, 58, .06);
+}
+
+/* Welcome */
+.vx-welcome {
+  align-items: center;
+  background:
+    radial-gradient(circle at 84% 20%, rgba(201, 229, 109, .24), transparent 23rem),
+    var(--vx-paper);
+  color: var(--vx-ink);
+  display: grid;
+  grid-template-columns: minmax(0, 680px) minmax(180px, 1fr);
+  min-height: calc(100vh - 64px);
+  overflow: hidden;
+  padding: clamp(56px, 8vw, 110px) max(24px, calc((100vw - 1120px) / 2));
+}
+
+.vx-welcomeCopy {
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.vx-welcome h1,
+.vx-soundCheck h1 {
+  color: var(--vx-ink);
+  font-size: clamp(42px, 6vw, 68px);
+  letter-spacing: -.045em;
+  line-height: 1.02;
+  margin: 0;
+  max-width: 720px;
+  overflow-wrap: anywhere;
+}
+
+.vx-intro {
+  color: var(--vx-muted);
+  font-size: clamp(18px, 2.1vw, 21px);
+  line-height: 1.55;
+  margin: 24px 0 0;
+  max-width: 640px;
+}
+
+.vx-welcomeActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 34px;
+}
+
+.vx-welcomeActions .vx-primaryAction {
+  min-width: 190px;
+}
+
+.vx-trustNote {
+  color: var(--vx-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 18px 0 0;
+  max-width: 600px;
+}
+
+.vx-welcomeSignal {
+  align-items: center;
+  color: #48665f;
+  display: flex;
+  font-size: 11px;
+  font-weight: 750;
+  gap: 12px;
+  letter-spacing: .05em;
+  min-width: 360px;
+  position: relative;
+  right: -16%;
+  text-transform: uppercase;
+  transform: rotate(-7deg);
+}
+
+.vx-welcomeSignal .vx-signalRibbon {
+  flex: 1;
+}
+
+/* Original signal-path motif */
+.vx-signalRibbon {
+  align-items: center;
+  color: var(--vx-teal);
+  display: flex;
+  height: 58px;
+  min-width: 0;
+  position: relative;
+  width: 100%;
+}
+
+.vx-signalRibbonLine {
+  background: currentColor;
+  height: 2px;
+  inset: auto 0;
+  opacity: .32;
+  position: absolute;
+}
+
+.vx-signalRibbonBars {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  height: 100%;
+  justify-content: center;
+  margin: 0 auto;
+  padding: 0 20px;
+  position: relative;
+}
+
+.vx-signalRibbonBars i {
+  background: currentColor;
+  border-radius: 999px;
+  display: block;
+  height: var(--vx-bar-height);
+  opacity: .9;
+  transition: height 80ms linear;
+  width: 3px;
+}
+
+.vx-signalRibbonDot {
+  background: var(--vx-lime);
+  border: 4px solid var(--vx-teal);
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px var(--vx-surface);
+  height: 14px;
+  position: absolute;
+  right: 0;
+  width: 14px;
+}
+
+.vx-signalRibbon.is-error {
+  color: var(--vx-error);
+}
+
+.vx-signalRibbon.is-ready .vx-signalRibbonDot,
+.vx-signalRibbon.is-listening .vx-signalRibbonDot {
+  box-shadow: 0 0 0 5px var(--vx-surface), 0 0 0 7px rgba(201, 229, 109, .5);
+}
+
+.vx-signalRibbon.is-requesting .vx-signalRibbonBars i,
+.vx-signalRibbon.is-thinking .vx-signalRibbonBars i,
+.vx-signalRibbon.is-speaking .vx-signalRibbonBars i {
+  animation: vx-signal-pulse 760ms ease-in-out infinite alternate;
+  animation-delay: var(--vx-bar-delay);
+}
+
+.vx-signalRibbon.is-compact {
+  height: 38px;
+}
+
+@keyframes vx-signal-pulse {
+  from { transform: scaleY(.55); }
+  to { transform: scaleY(1); }
+}
+
+/* Sound check */
+.vx-soundCheck {
+  background: var(--vx-paper);
+  color: var(--vx-ink);
+  min-height: calc(100vh - 64px);
+  padding: 32px 24px 72px;
+}
+
+.vx-backAction {
+  margin: 0 0 30px max(0px, calc((100vw - 920px) / 2));
+  padding-left: 8px;
+}
+
+.vx-soundCheckHeader {
+  margin: 0 auto 30px;
+  max-width: 760px;
+  text-align: center;
+}
+
+.vx-soundCheck h1 {
+  font-size: clamp(36px, 5vw, 54px);
+  margin: 0 auto;
+}
+
+.vx-soundCheckHeader > p:last-child {
+  color: var(--vx-muted);
+  font-size: 17px;
+  line-height: 1.55;
+  margin: 16px auto 0;
+  max-width: 610px;
+}
+
+.vx-soundConsole {
+  background: var(--vx-surface);
+  border: 1px solid var(--vx-line);
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(18, 44, 41, .08);
+  margin: 0 auto;
+  max-width: 720px;
+  padding: 24px clamp(20px, 5vw, 46px) 32px;
+}
+
+.vx-soundConsoleTopline {
+  align-items: center;
+  color: var(--vx-muted);
+  display: flex;
+  font-size: 12px;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.vx-localBadge {
+  background: var(--vx-blue);
+  border-radius: 999px;
+  color: #294965;
+  font-weight: 750;
+  padding: 6px 9px;
+}
+
+.vx-microphoneMark {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  margin: 32px 0 10px;
+}
+
+.vx-microphoneMark > span {
+  align-items: center;
+  background: var(--vx-teal);
+  border: 8px solid #e6ece7;
+  border-radius: 50%;
+  color: var(--vx-lime);
+  display: flex;
+  height: 84px;
+  justify-content: center;
+  position: relative;
+  width: 84px;
+}
+
+.vx-soundConsole.is-listening .vx-microphoneMark > span {
+  box-shadow: 0 0 0 9px rgba(201, 229, 109, .28);
+}
+
+.vx-soundConsole.is-error .vx-microphoneMark > span {
+  background: var(--vx-error);
+  color: #fff;
+}
+
+.vx-microphoneMark svg {
+  fill: none;
+  height: 32px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  width: 32px;
+}
+
+.vx-microphoneStatus {
+  color: var(--vx-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 2px auto 24px;
+  min-height: 21px;
+  text-align: center;
+}
+
+.vx-soundConsole.is-listening .vx-microphoneStatus {
+  color: var(--vx-teal);
+  font-weight: 700;
+}
+
+.vx-soundConsole.is-error .vx-microphoneStatus {
+  color: var(--vx-error);
+}
+
+.vx-devicePicker {
+  display: grid;
+  gap: 8px;
+  margin: 0 auto;
+  max-width: 520px;
+}
+
+.vx-devicePicker > span {
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.vx-devicePicker select {
+  appearance: none;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--vx-teal) 50%) calc(100% - 18px) calc(50% - 2px) / 5px 5px no-repeat,
+    linear-gradient(135deg, var(--vx-teal) 50%, transparent 50%) calc(100% - 13px) calc(50% - 2px) / 5px 5px no-repeat,
+    #fff;
+  border: 1px solid #9eaca6;
+  border-radius: 12px;
+  color: var(--vx-ink);
+  min-height: 48px;
+  min-width: 0;
+  padding: 10px 40px 10px 13px;
+  width: 100%;
+}
+
+.vx-soundCheckActions {
+  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 22px auto 0;
+  max-width: 520px;
+}
+
+.vx-providerNotice {
+  background: #f3f5f2;
+  border-left: 3px solid #82918b;
+  color: var(--vx-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 18px auto 0;
+  max-width: 520px;
+  padding: 10px 12px;
+}
+
+@media (max-width: 760px) {
+  .vx-welcome {
+    align-items: start;
+    grid-template-columns: 1fr;
+    min-height: calc(100vh - 58px);
+    padding: 52px 16px 42px;
+  }
+
+  .vx-welcome h1 {
+    font-size: clamp(38px, 12vw, 50px);
+  }
+
+  .vx-welcomeActions {
+    align-items: stretch;
+    flex-direction: column;
+    margin-top: 28px;
+  }
+
+  .vx-welcomeActions .vx-primaryAction,
+  .vx-welcomeActions .vx-quietAction {
+    width: 100%;
+  }
+
+  .vx-welcomeSignal {
+    margin-top: 44px;
+    min-width: 0;
+    right: auto;
+    transform: none;
+    width: 100%;
+  }
+
+  .vx-soundCheck {
+    min-height: calc(100vh - 58px);
+    padding: 18px 16px 48px;
+  }
+
+  .vx-backAction {
+    margin: 0 0 22px -8px;
+  }
+
+  .vx-soundCheckHeader {
+    margin-bottom: 24px;
+  }
+
+  .vx-soundCheck h1 {
+    font-size: 36px;
+  }
+
+  .vx-soundCheckHeader > p:last-child {
+    font-size: 16px;
+  }
+
+  .vx-soundConsole {
+    border-radius: 18px;
+    padding: 18px 16px 24px;
+  }
+
+  .vx-soundConsoleTopline {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .vx-microphoneMark {
+    margin-top: 24px;
+  }
+
+  .vx-signalRibbonBars {
+    gap: 3px;
+    padding: 0 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vx-signalRibbonBars i {
+    animation: none !important;
+    transition: none;
+  }
+}

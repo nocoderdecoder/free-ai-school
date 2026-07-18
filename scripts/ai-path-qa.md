@@ -1,10 +1,11 @@
 # AI Path simple-journey end-to-end QA
 
-This harness protects the intentionally small learner experience. It exercises
-the four visible states—start, conversation, confirmation, and path—without a
-live model, paid API, durable account store, microphone request, or external
-network resource. It requires an already running local AI Path server and never
-starts, stops, rebuilds, or deploys it.
+This harness protects the intentionally small, voice-first learner experience.
+It exercises welcome, local sound check, unified conversation, understanding
+review, and the project-first result without a live model, paid API, durable
+account store, real microphone permission, or external network resource. It
+requires an already running local AI Path server and never starts, stops,
+rebuilds, or deploys it.
 
 ## Run
 
@@ -29,18 +30,23 @@ The target is rejected unless its host is `127.0.0.1` or `localhost`.
 
 The harness fails if the learner-facing flow grows beyond this contract:
 
-1. **Start:** one goal field and a working typed-conversation CTA reach the
-   first question in no more than two actions. The future voice control is
-   honest and disabled; it cannot create a Realtime or microphone session.
-2. **Conversation:** five to seven adaptive questions use one answer field and
-   one Continue action. The old question sidebar, assessment methodology, and
-   scoring explanations stay out of the learner's way.
-3. **Confirmation:** exactly three compact confirmation groups keep goal,
+1. **Welcome:** no goal form or setup questionnaire. When the provider is
+   unavailable, **Start guided conversation** is primary and **Preview
+   microphone setup** is explicitly secondary. The live-capable rendering uses
+   **Talk it through** only after reviewed capability opens.
+2. **Sound check:** microphone permission is requested only after **Turn on
+   microphone**. The level check is local-only, the provider-unavailable state
+   is explicit, and **Continue by typing** remains available after denial.
+3. **Conversation:** goal discovery plus five to seven adaptive turns use one
+   answer field and one Continue action. The old question sidebar, assessment
+   methodology, and scoring explanations stay out of the learner's way.
+4. **Understanding:** exactly three compact confirmation rows keep goal,
    starting point, and constraints editable. Detailed conversation evidence is
    available in a collapsed disclosure instead of a mandatory audit screen.
-4. **Path:** one page puts the next skill, 30-day project, and first action
-   first. It shows no more than three learning resources. The four-week plan,
-   rationale, and privacy/data information are collapsed by default.
+5. **Project:** one result page presents the prescribed 30-day project before
+   skill diagnostics, then one first action and no more than three learning
+   resources. The four-week plan, rationale, and privacy/data information are
+   collapsed by default.
 
 The learner-facing contract relies on stable semantic copy plus two structural
 test hooks:
@@ -63,8 +69,10 @@ These hooks express product invariants, not layout or CSS implementation.
 - A catch-all route aborts every non-local request, and the run fails if the app
   attempts one.
 - Any local Realtime bootstrap request is separately blocked and fails the run.
-- The harness never opens recommendation links, requests microphone access, or
-  grants permission.
+- A deterministic browser shim records the explicit local microphone attempt
+  and returns `NotAllowedError`; no real device permission is requested or
+  granted. It also fails if a peer connection is constructed.
+- The harness never opens recommendation links.
 - The session fixture declares `owned: false`, `persistence: none`, and
   `productionReady: false`.
 - Learner-authored text, including a private canary, must never appear in the
@@ -74,24 +82,25 @@ These hooks express product invariants, not layout or CSS implementation.
 
 | Area | Assertions |
 | --- | --- |
-| Start | Focused heading, exactly one goal field, visible keyboard focus, one-action typed entry, honest disabled voice status |
-| Conversation | Typed fallback, five-to-seven-question bound, no outline or methodology panel, named controls |
-| Confirmation | Exactly three compact parts, editable goal/role/constraint/time/coding fields, collapsed conversation-details disclosure |
-| Path | One result surface, next skill, project, first action, one-to-three resources, fourth fixture resource hidden |
+| Welcome | Focused heading, zero form fields, visible keyboard focus, honest provider-aware primary action, secondary microphone preview |
+| Sound check | Local-only disclosure, no automatic permission request, deterministic denial recovery, honest provider-unavailable state, typed fallback |
+| Conversation | Typed fallback, goal discovery plus five-to-seven adaptive turns, one answer surface, no outline or methodology panel, named controls |
+| Understanding | Exactly three compact rows, editable goal/experience/role/constraint/time/coding fields, collapsed conversation-details disclosure |
+| Project | Project appears before skill diagnostics, one first action, one-to-three resources, fourth fixture resource hidden |
 | Progressive disclosure | Four-week plan, rationale, and privacy collapsed initially; plan and privacy expand correctly |
 | First action | Keyboard activation changes the first task to a started state |
 | Responsive | No horizontal overflow and full-page screenshots at 375×812, 768×1024, and 1440×900 |
 | Accessibility | Named visible controls, labeled fields, visible focus ring, transition heading focus, native disclosure controls |
 | Trust boundary | Confirmed goal and transcript-derived inputs reach analysis; the browser does not assign competency evidence |
-| Network and spend | Zero external requests, zero Realtime requests, no paid path, analytics sink remains closed |
+| Network and spend | Zero external requests, zero Realtime requests, zero peer connections, no paid path, analytics sink remains closed |
 | Analytics privacy | No learner-authored goal, answers, corrections, or private canary in analytics; each payload stays below 8 KiB |
 
 ## Artifacts and pass criteria
 
 Each run creates `output/playwright/ai-path-e2e-<UTC timestamp>/` containing:
 
-- start, conversation, confirmation, and path screenshots;
-- path screenshots at 375×812, 768×1024, and 1440×900;
+- welcome, sound-check, conversation, understanding, and project screenshots;
+- project screenshots at 375×812, 768×1024, and 1440×900;
 - Playwright snapshot, console, and network logs;
 - `results.txt` with the checkpoint result.
 
@@ -103,8 +112,9 @@ versions. The shell driver therefore treats either `### Error` or a missing
 
 - Deterministic API interception does not replace route-handler, authenticated
   storage, database policy, or migration tests.
-- This verifies the honest typed fallback, not live voice quality, latency,
-  interruption handling, microphone permissions, echo, or device switching.
+- This verifies the local permission boundary and honest typed fallback, not
+  live voice quality, latency, interruption handling, successful microphone
+  capture, audio levels, echo, or device switching.
 - High-signal accessibility invariants do not replace a full WCAG audit.
 - Screenshot inspection and overflow checks do not provide maintained visual
   regression baselines.

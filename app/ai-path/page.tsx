@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { AdvisorApp } from './AdvisorApp'
 import './ai-path.css'
+import './components/voice-experience/voice-experience.css'
 
 export const metadata: Metadata = {
   title: {
@@ -15,8 +16,8 @@ export const metadata: Metadata = {
 
 export default function AIPathPage() {
   return (
-    <main className="aiPath">
+    <div className="aiPath">
       <AdvisorApp />
-    </main>
+    </div>
   )
 }
