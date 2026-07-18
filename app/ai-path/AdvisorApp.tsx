@@ -6,10 +6,9 @@ import {
   createBrowserMicrophonePreflightController,
   INITIAL_MICROPHONE_PREFLIGHT_SNAPSHOT,
 } from './client/microphone-preflight'
-import { requestAdaptiveQuestion } from './client/question-adaptation'
+import { localAdaptiveQuestionDecision, requestAdaptiveQuestion } from './client/question-adaptation'
 import {
   canonicalQuestionPresentation,
-  selectDeterministicQuestionPresentation,
   type AdaptiveQuestionPresentation,
   type DiagnosticSectionId,
 } from './lib/constrained-question-routing'
@@ -24,6 +23,7 @@ import {
   type CapabilityDomain,
   type CapabilityIntake,
   type CapabilityPrescription,
+  type DiagnosticReadiness,
   type DiagnosticPath,
   type ExperienceLevel,
   type ReadinessStatus,
@@ -33,6 +33,36 @@ import {
 
 type DiagnosticResult = UseCaseBlueprint | CapabilityPrescription
 type PresentationMap = Readonly<Partial<Record<DiagnosticSectionId, AdaptiveQuestionPresentation>>>
+type ClarifierAnswerBaselines = Readonly<Partial<Record<DiagnosticSectionId, string>>>
+
+function sectionAnswerFingerprint(
+  answers: Readonly<Record<string, unknown>>,
+  sectionId: DiagnosticSectionId,
+): string {
+  return JSON.stringify(answers[sectionId] ?? null)
+}
+
+function applyClarifierReadiness<Id extends DiagnosticSectionId>(
+  readiness: DiagnosticReadiness<Id>,
+  answers: Readonly<Record<string, unknown>>,
+  baselines: ClarifierAnswerBaselines,
+): DiagnosticReadiness<Id> {
+  const pending = new Set(
+    (Object.keys(baselines) as DiagnosticSectionId[]).filter(sectionId => (
+      baselines[sectionId] === sectionAnswerFingerprint(answers, sectionId)
+    )),
+  )
+  if (!pending.size) return readiness
+
+  const sections = readiness.sections.map(section => pending.has(section.id)
+    ? { ...section, status: 'missing' as const, issues: ['Add the detail requested in this follow-up.'] }
+    : section)
+  return {
+    status: sections.every(section => section.status === 'complete') ? 'complete' : 'missing',
+    canSubmit: false,
+    sections,
+  }
+}
 
 const useCaseSections = [
   ['outcome', 'What are you trying to improve?', 'Who it is for and what should be better'],
@@ -571,13 +601,13 @@ function CapabilityForm({
       </Section>
 
       <Section {...common('evidence', 2)}>
-        <TextAreaField id="ap-capability-evidence" label={adaptive('evidence').prompt} help="What did you do yourself? What was difficult? How did you check the result? “I haven’t built anything yet” is a valid answer." value={value.evidence.description} voiceTarget={voiceTarget} onVoice={onVoice} onChange={description => onChange({ ...value, evidence: { ...value.evidence, description } })} rows={5} placeholder="Type your answer…" />
+        <TextAreaField id="ap-capability-evidence" label={adaptive('evidence').prompt} help={adaptive('evidence').context ?? 'What did you do yourself? What was difficult? How did you check the result? “I haven’t built anything yet” is a valid answer.'} value={value.evidence.description} voiceTarget={voiceTarget} onVoice={onVoice} onChange={description => onChange({ ...value, evidence: { ...value.evidence, description } })} rows={5} placeholder="Type your answer…" />
         {claimedDomains.length ? <MultiChoice label="Which parts of this example did you personally work on?" values={value.evidence.supportedDomains.map(domain => capabilityLabels[domain])} options={claimedDomains.map(domain => capabilityLabels[domain])} onChange={selectedLabels => onChange({ ...value, evidence: { ...value.evidence, supportedDomains: claimedDomains.filter(domain => selectedLabels.includes(capabilityLabels[domain])) } })} /> : null}
         <label className="ap-ds-simpleField" htmlFor="ap-capability-artifact"><span>Artifact link <small>Optional</small></span><input id="ap-capability-artifact" type="url" maxLength={500} value={value.evidence.artifactUrl} onChange={event => onChange({ ...value, evidence: { ...value.evidence, artifactUrl: event.target.value } })} placeholder="https://…" /></label>
       </Section>
 
       <Section {...common('reasoning', 3)}>
-        <div className="ap-ds-scenario"><span>Imagine this situation</span><p>{scenario}</p></div>
+        <div className="ap-ds-scenario"><span>{reasoningPresentation.variantId.includes('clarifier') ? 'What to include' : 'Imagine this situation'}</span><p>{scenario}</p></div>
         <TextAreaField id="ap-reasoning" label={reasoningPresentation.prompt} value={value.reasoning.response} voiceTarget={voiceTarget} onVoice={onVoice} onChange={response => onChange({ ...value, reasoning: { scenarioId: reasoningPresentation.variantId, response } })} rows={5} />
       </Section>
 
@@ -785,6 +815,8 @@ export function AdvisorApp() {
     'capability-growth': {},
   })
   const [isAdapting, setIsAdapting] = useState(false)
+  const [usedClarifierSectionIds, setUsedClarifierSectionIds] = useState<DiagnosticSectionId[]>([])
+  const [clarifierAnswerBaselines, setClarifierAnswerBaselines] = useState<ClarifierAnswerBaselines>({})
   const adaptationRevision = useRef(0)
   const adaptationAbort = useRef<AbortController | null>(null)
 
@@ -808,7 +840,17 @@ export function AdvisorApp() {
 
   const useCaseReadiness = useMemo(() => validateUseCaseIntake(useCase), [useCase])
   const capabilityReadiness = useMemo(() => validateCapabilityIntake(capability), [capability])
-  const readiness = path === 'use-case' ? useCaseReadiness : capabilityReadiness
+  const effectiveUseCaseReadiness = useMemo(() => applyClarifierReadiness(
+    useCaseReadiness,
+    useCase as unknown as Readonly<Record<string, unknown>>,
+    clarifierAnswerBaselines,
+  ), [clarifierAnswerBaselines, useCase, useCaseReadiness])
+  const effectiveCapabilityReadiness = useMemo(() => applyClarifierReadiness(
+    capabilityReadiness,
+    capability as unknown as Readonly<Record<string, unknown>>,
+    clarifierAnswerBaselines,
+  ), [capability, capabilityReadiness, clarifierAnswerBaselines])
+  const readiness = path === 'use-case' ? effectiveUseCaseReadiness : effectiveCapabilityReadiness
   const baseSections = path === 'use-case' ? useCaseSections : capabilitySections
   const presentations = path ? adaptivePresentations[path] : {}
   const sections = baseSections.map(([id, title, detail]) => {
@@ -829,6 +871,8 @@ export function AdvisorApp() {
     setActiveSection(nextPath === 'use-case' ? USE_CASE_SECTION_IDS[0] : CAPABILITY_SECTION_IDS[0])
     setShowErrors(false)
     setVoiceTarget(null)
+    setUsedClarifierSectionIds([])
+    setClarifierAnswerBaselines({})
   }
 
   const selectSection = (id: string) => {
@@ -847,6 +891,7 @@ export function AdvisorApp() {
     const ids = changedPath === 'use-case' ? USE_CASE_SECTION_IDS : CAPABILITY_SECTION_IDS
     const changedIndex = ids.findIndex(id => id === sectionId)
     if (changedIndex < 0) return
+    setUsedClarifierSectionIds(current => current.filter(id => ids.indexOf(id as never) <= changedIndex))
     setAdaptivePresentations(current => {
       const nextPathPresentations = { ...current[changedPath] }
       let changed = false
@@ -876,33 +921,50 @@ export function AdvisorApp() {
     if (!nextId || !path) return
 
     const answers = (path === 'use-case' ? useCase : capability) as unknown as Readonly<Record<string, unknown>>
-    const fallback = selectDeterministicQuestionPresentation(path, nextId, answers)
+    const fallback = localAdaptiveQuestionDecision({
+      path,
+      completedSectionId: activeSection as DiagnosticSectionId,
+      expectedSectionId: nextId,
+      answers,
+      usedClarifierSectionIds,
+    })
     const requestRevision = adaptationRevision.current + 1
     adaptationRevision.current = requestRevision
     adaptationAbort.current?.abort()
     const controller = new AbortController()
     adaptationAbort.current = controller
     setIsAdapting(true)
-    let nextPresentation = fallback
+    let adaptation = fallback
     try {
-      nextPresentation = await requestAdaptiveQuestion({
+      adaptation = await requestAdaptiveQuestion({
         path,
         completedSectionId: activeSection as DiagnosticSectionId,
         expectedSectionId: nextId,
         answers,
+        usedClarifierSectionIds,
         signal: controller.signal,
       })
     } catch {
       // The fixed local route and approved deterministic copy remain available.
     }
     if (adaptationRevision.current !== requestRevision || controller.signal.aborted) return
+    const destinationId = adaptation.action === 'clarify_current'
+      ? activeSection as DiagnosticSectionId
+      : nextId
     setAdaptivePresentations(current => ({
       ...current,
-      [path]: { ...current[path], [nextId]: nextPresentation },
+      [path]: { ...current[path], [destinationId]: adaptation.presentation },
     }))
+    if (adaptation.action === 'clarify_current') {
+      setUsedClarifierSectionIds(current => current.includes(destinationId) ? current : [...current, destinationId])
+      setClarifierAnswerBaselines(current => ({
+        ...current,
+        [destinationId]: sectionAnswerFingerprint(answers, destinationId),
+      }))
+    }
     setIsAdapting(false)
     adaptationAbort.current = null
-    selectSection(nextId)
+    selectSection(destinationId)
   }
 
   const previousQuestion = () => {
@@ -945,6 +1007,8 @@ export function AdvisorApp() {
     setShowErrors(false)
     setResult(null)
     setAdaptivePresentations({ 'use-case': {}, 'capability-growth': {} })
+    setUsedClarifierSectionIds([])
+    setClarifierAnswerBaselines({})
     setIsAdapting(false)
     window.scrollTo({ top: 0, behavior: 'auto' })
   }
@@ -983,9 +1047,9 @@ export function AdvisorApp() {
                 </div>
 
                 {path === 'use-case' ? (
-                  <UseCaseForm value={useCase} readiness={useCaseReadiness} presentations={presentations} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { setUseCase(value); invalidateFollowingPresentations('use-case', activeSection); setShowErrors(false) }} />
+                  <UseCaseForm value={useCase} readiness={effectiveUseCaseReadiness} presentations={presentations} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { setUseCase(value); invalidateFollowingPresentations('use-case', activeSection); setShowErrors(false) }} />
                 ) : (
-                  <CapabilityForm value={capability} readiness={capabilityReadiness} presentations={presentations} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { setCapability(value); invalidateFollowingPresentations('capability-growth', activeSection); setShowErrors(false) }} />
+                  <CapabilityForm value={capability} readiness={effectiveCapabilityReadiness} presentations={presentations} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { setCapability(value); invalidateFollowingPresentations('capability-growth', activeSection); setShowErrors(false) }} />
                 )}
 
                 <div className="ap-ds-questionNav">
@@ -996,7 +1060,7 @@ export function AdvisorApp() {
                     <button type="button" className="ap-ds-continueButton" onClick={() => void continueQuestion()} disabled={isAdapting}>{isAdapting ? 'Tailoring next question…' : 'Continue'} {!isAdapting ? <ArrowIcon /> : null}</button>
                   )}
                 </div>
-                <p className="sr-only" aria-live="polite">{isAdapting ? 'Choosing the next approved question based on your answers.' : ''}</p>
+                <p className="sr-only" aria-live="polite">{isAdapting ? 'Checking whether one short follow-up is needed before the next planned question.' : ''}</p>
                 {showErrors && currentSection?.status !== 'complete' ? <p className="ap-ds-errorSummary" role="alert">Please finish this question to continue.</p> : null}
               </div>
             </form>

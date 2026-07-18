@@ -76,6 +76,7 @@ test('malicious learner text remains bounded answer data and never becomes a que
     version: CONSTRAINED_QUESTION_VERSION,
     path: 'use-case',
     completedSectionId: 'outcome',
+    usedClarifierSectionIds: [],
     answers: { outcome: { desiredOutcome: attack } },
   })
   assert.equal(request?.answers.outcome.desiredOutcome, attack)
@@ -86,6 +87,7 @@ test('request parsing is strict and rejects forged route metadata or oversized c
     version: CONSTRAINED_QUESTION_VERSION,
     path: 'capability-growth',
     completedSectionId: 'direction',
+    usedClarifierSectionIds: [],
     answers: { direction: { roleContext: 'Founder', interests: ['build-ai-tool'] } },
   }
   assert.ok(parseAdaptiveQuestionRequest(valid))

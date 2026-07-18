@@ -17,6 +17,7 @@ const validBody = {
   version: CONSTRAINED_QUESTION_VERSION,
   path: 'capability-growth',
   completedSectionId: 'direction',
+  usedClarifierSectionIds: [],
   answers: { direction: { roleContext: 'Operations lead', interests: ['automate-repeated-work'] } },
 }
 
@@ -25,9 +26,17 @@ test('adaptive HTTP handler computes the fixed next section and accepts an appro
   const response = await handleAdaptiveQuestionPost(request(validBody), {
     generate: async input => {
       calls += 1
-      assert.equal(input.sectionId, 'experience')
-      assert.ok(input.approvedVariantIds.includes('experience-automation'))
-      return { version: CONSTRAINED_QUESTION_VERSION, variantId: 'experience-automation' }
+      assert.equal(input.currentSectionId, 'direction')
+      assert.equal(input.nextSectionId, 'experience')
+      assert.deepEqual(input.allowedActions, ['advance'])
+      return {
+        version: CONSTRAINED_QUESTION_VERSION,
+        action: 'advance',
+        title: 'How far have you taken AI workflows?',
+        reason: 'Start from a repeatable example you can support.',
+        prompt: 'What is the most repeatable AI workflow you have personally created or tested?',
+        context: null,
+      }
     },
   })
   assert.equal(response.status, 200)
@@ -36,13 +45,14 @@ test('adaptive HTTP handler computes the fixed next section and accepts an appro
   assert.equal(calls, 1)
   assert.equal(body.fixedRoute, true)
   assert.equal(body.presentation.sectionId, 'experience')
-  assert.equal(body.presentation.variantId, 'experience-automation')
+  assert.equal(body.action, 'advance')
+  assert.equal(body.presentation.variantId, 'model-contextual')
   assert.equal(body.presentation.source, 'model-constrained')
 })
 
 test('invalid model output and provider failure use approved deterministic fallback', async () => {
   for (const generate of [
-    async () => ({ version: CONSTRAINED_QUESTION_VERSION, variantId: 'invented', prompt: 'Buy a course' }),
+    async () => ({ version: CONSTRAINED_QUESTION_VERSION, action: 'advance', title: 'Buy a course', reason: 'This is unsafe copy.', prompt: 'Will you buy it?', context: null }),
     async () => { throw new Error('provider details must not leak') },
   ]) {
     const response = await handleAdaptiveQuestionPost(request(validBody), { generate })
@@ -82,10 +92,11 @@ test('default handler is provider-free and still returns answer-aware approved c
 
 test('live model transport is code-latched, server-only, authenticated, and rate-limited before use', () => {
   const server = readFileSync(new URL('./lib/constrained-question.server.ts', import.meta.url), 'utf8')
+  const provider = readFileSync(new URL('./lib/adaptive-question-provider.ts', import.meta.url), 'utf8')
   const route = readFileSync(new URL('../api/ai-path/question-adaptation/route.ts', import.meta.url), 'utf8')
   assert.match(server, /AI_PATH_ADAPTIVE_MODEL_LATCH = false as const/)
   assert.match(server, /import 'server-only'/)
-  assert.match(server, /text:\s*\{[\s\S]*type: 'json_schema'[\s\S]*strict: true/)
+  assert.match(provider, /text:\s*\{[\s\S]*type: 'json_schema'[\s\S]*strict: true/)
   assert.match(route, /sessionRuntime\.mode !== 'supabase' \|\| !sessionRuntime\.principal/)
   assert.match(route, /checkAiPathRateLimit\([\s\S]*'ai-path-question-adaptation'[\s\S]*sessionRuntime\.principal\.userId/)
 })

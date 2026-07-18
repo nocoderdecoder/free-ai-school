@@ -1,23 +1,30 @@
 import { readBoundedJson } from './request-body.ts'
+import { decideAdaptiveInterviewPolicy } from './adaptive-interview-policy.ts'
 import {
   CONSTRAINED_QUESTION_VERSION,
-  approvedVariantIds,
-  nextDiagnosticQuestionSection,
+  approvedClarifierPresentation,
   parseAdaptiveQuestionRequest,
-  resolveModelVariantSelection,
+  resolveModelQuestionAdaptation,
   selectDeterministicQuestionPresentation,
-  type ModelVariantSelection,
+  type AdaptiveQuestionAction,
+  type AdaptiveQuestionAdaptation,
+  type DiagnosticSectionId,
+  type ModelQuestionAdaptation,
 } from './constrained-question-routing.ts'
 
 const MAXIMUM_ADAPTIVE_REQUEST_BYTES = 24_000
+const PROVIDER_UNAVAILABLE = Symbol('provider-unavailable')
 
 export type AdaptiveVariantGenerator = (input: Readonly<{
   path: 'use-case' | 'capability-growth'
-  sectionId: string
-  approvedVariantIds: readonly string[]
+  currentSectionId: DiagnosticSectionId
+  nextSectionId: DiagnosticSectionId
+  allowedActions: readonly AdaptiveQuestionAction[]
+  fallbackAction: AdaptiveQuestionAction
+  approvedClarifier: Readonly<{ reason: string; prompt: string; answerGuidance: string }> | null
   answers: Readonly<Record<string, unknown>>
   signal: AbortSignal
-}>) => Promise<ModelVariantSelection | unknown>
+}>) => Promise<ModelQuestionAdaptation | unknown>
 
 function noStoreHeaders() {
   return {
@@ -66,29 +73,63 @@ export async function handleAdaptiveQuestionPost(
     })
   }
 
-  const nextSectionId = nextDiagnosticQuestionSection(input.path, input.completedSectionId)
-  if (!nextSectionId) {
+  const policy = decideAdaptiveInterviewPolicy({
+    path: input.path,
+    completedSectionId: input.completedSectionId,
+    answers: input.answers,
+    usedClarifierSectionIds: input.usedClarifierSectionIds,
+  })
+  if (policy.action === 'complete' || !policy.nextSectionId) {
     return Response.json({ error: 'diagnostic_route_complete' }, {
       status: 409,
       headers: noStoreHeaders(),
     })
   }
 
-  const fallback = selectDeterministicQuestionPresentation(input.path, nextSectionId, input.answers)
+  const nextSectionId = policy.nextSectionId
+  const fallback: AdaptiveQuestionAdaptation = policy.action === 'clarify_current' && policy.clarifier
+    ? {
+        action: 'clarify_current',
+        presentation: approvedClarifierPresentation(input.path, input.completedSectionId, policy.clarifier),
+      }
+    : {
+        action: 'advance',
+        presentation: selectDeterministicQuestionPresentation(input.path, nextSectionId, input.answers),
+      }
+  // The application owns whether this turn clarifies or advances. The model
+  // writes contextual learner-language copy but cannot override pedagogy.
+  const allowedActions: readonly AdaptiveQuestionAction[] = [policy.action]
   let resolved = fallback
 
   if (options.generate) {
     const timeout = AbortSignal.timeout(Math.max(100, Math.min(options.timeoutMs ?? 2_500, 5_000)))
+    const signal = AbortSignal.any([request.signal, timeout])
     try {
-      const candidate = await options.generate({
-        path: input.path,
-        sectionId: nextSectionId,
-        approvedVariantIds: approvedVariantIds(input.path, nextSectionId),
-        answers: input.answers,
-        signal: timeout,
-      })
-      if (!timeout.aborted) {
-        resolved = resolveModelVariantSelection(input.path, nextSectionId, candidate, fallback)
+      const candidate = await Promise.race([
+        options.generate({
+          path: input.path,
+          currentSectionId: input.completedSectionId,
+          nextSectionId,
+          allowedActions,
+          fallbackAction: fallback.action,
+          approvedClarifier: policy.clarifier,
+          answers: input.answers,
+          signal,
+        }).catch(() => PROVIDER_UNAVAILABLE),
+        new Promise<typeof PROVIDER_UNAVAILABLE>(resolve => {
+          if (signal.aborted) resolve(PROVIDER_UNAVAILABLE)
+          else signal.addEventListener('abort', () => resolve(PROVIDER_UNAVAILABLE), { once: true })
+        }),
+      ])
+      if (candidate !== PROVIDER_UNAVAILABLE && !signal.aborted) {
+        resolved = resolveModelQuestionAdaptation(
+          input.path,
+          input.completedSectionId,
+          nextSectionId,
+          allowedActions,
+          candidate,
+          fallback,
+        )
       }
     } catch {
       // Provider failures must never block the fixed diagnostic route.
@@ -98,6 +139,7 @@ export async function handleAdaptiveQuestionPost(
   return Response.json({
     version: CONSTRAINED_QUESTION_VERSION,
     fixedRoute: true,
-    presentation: resolved,
+    action: resolved.action,
+    presentation: resolved.presentation,
   }, { headers: noStoreHeaders() })
 }

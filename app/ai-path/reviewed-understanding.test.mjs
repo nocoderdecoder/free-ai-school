@@ -27,7 +27,7 @@ test('AI Path exposes exactly two constrained adaptive paths and explicit microp
   assert.match(advisorSource, /'Test microphone'/)
   assert.match(advisorSource, /<textarea id=\{id\} value=\{value\}/)
   assert.match(advisorSource, /requestAdaptiveQuestion/)
-  assert.match(advisorSource, /selectDeterministicQuestionPresentation/)
+  assert.match(advisorSource, /localAdaptiveQuestionDecision/)
   assert.doesNotMatch(advisorSource, /createTextSession|analyzeReviewedAssessment|ai-learning-compass|\bfetch\s*\(/)
 })
 

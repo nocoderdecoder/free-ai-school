@@ -22,11 +22,13 @@ test('client sends only the constrained route contract and rebuilds approved cop
     assert.equal(url, '/api/ai-path/question-adaptation')
     assert.equal(init.method, 'POST')
     const body = JSON.parse(init.body)
-    assert.deepEqual(Object.keys(body).sort(), ['answers', 'completedSectionId', 'path', 'version'])
+    assert.deepEqual(Object.keys(body).sort(), ['answers', 'completedSectionId', 'path', 'usedClarifierSectionIds', 'version'])
+    assert.deepEqual(body.usedClarifierSectionIds, [])
     assert.equal(body.completedSectionId, 'direction')
     return Response.json({
       version: CONSTRAINED_QUESTION_VERSION,
       fixedRoute: true,
+      action: 'advance',
       presentation: {
         path: 'capability-growth',
         sectionId: 'experience',
@@ -37,6 +39,7 @@ test('client sends only the constrained route contract and rebuilds approved cop
     })
   }, async () => {
     const result = await requestAdaptiveQuestion(input)
+    assert.equal(result.action, 'advance')
     assert.equal(result.variantId, 'experience-automation')
     assert.match(result.prompt, /repeatable AI workflow/i)
     assert.doesNotMatch(result.prompt, /buy a course/i)
