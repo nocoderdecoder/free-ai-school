@@ -1,0 +1,167 @@
+:root {
+  --account-bg: #f7f6f2;
+  --account-card: #fff;
+  --account-ink: #17211d;
+  --account-muted: #65706b;
+  --account-line: #d9ddd9;
+  --account-soft: #f0f3ef;
+  --account-primary: #176b54;
+  --account-focus: #2f6feb;
+  --account-danger: #8f3028;
+}
+
+.ap-account-shell,
+.ap-account-shell * {
+  box-sizing: border-box;
+}
+
+.ap-account-shell {
+  background: radial-gradient(circle at 50% 0%, #e7f2ec 0, var(--account-bg) 48%);
+  color: var(--account-ink);
+  font-family: var(--font-geist-sans), Arial, sans-serif;
+  min-height: 100vh;
+  padding: 48px 20px 80px;
+}
+
+.ap-account-card {
+  background: var(--account-card);
+  border: 1px solid var(--account-line);
+  border-radius: 20px;
+  box-shadow: 0 24px 70px rgba(23, 33, 29, .08);
+  margin: 0 auto;
+  max-width: 760px;
+  min-width: 0;
+  padding: 36px;
+}
+
+.ap-account-back {
+  color: var(--account-primary);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 650;
+  min-height: 44px;
+  padding: 10px 0;
+  text-decoration: none;
+}
+
+.ap-account-eyebrow {
+  color: var(--account-primary);
+  font-size: 13px;
+  font-weight: 700;
+  margin: 26px 0 8px;
+}
+
+.ap-account-card h1 {
+  font-size: clamp(32px, 6vw, 44px);
+  letter-spacing: 0;
+  line-height: 1.1;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ap-account-intro {
+  color: var(--account-muted);
+  font-size: 17px;
+  line-height: 1.55;
+  margin: 14px 0 0;
+  max-width: 620px;
+}
+
+.ap-account-preview {
+  background: #fff2e8;
+  border-radius: 12px;
+  color: #713a19;
+  line-height: 1.45;
+  margin-top: 24px;
+  overflow-wrap: anywhere;
+  padding: 14px 16px;
+}
+
+.ap-account-actions {
+  border-top: 1px solid var(--account-line);
+  margin-top: 32px;
+}
+
+.ap-account-row {
+  align-items: center;
+  border-bottom: 1px solid var(--account-line);
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 24px 0;
+}
+
+.ap-account-row > div {
+  min-width: 0;
+}
+
+.ap-account-row h2 {
+  font-size: 18px;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.ap-account-row p {
+  color: var(--account-muted);
+  line-height: 1.5;
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.ap-account-status {
+  font-size: 13px;
+}
+
+.ap-account-danger h2 {
+  color: var(--account-danger);
+}
+
+.ap-account-row form {
+  margin: 0;
+}
+
+.ap-account-row button {
+  background: var(--account-primary);
+  border: 1px solid var(--account-primary);
+  border-radius: 12px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  min-height: 44px;
+  min-width: 142px;
+  padding: 10px 16px;
+}
+
+.ap-account-row button:disabled {
+  background: var(--account-soft);
+  border-color: var(--account-line);
+  color: var(--account-muted);
+  cursor: not-allowed;
+}
+
+.ap-account-shell :focus-visible {
+  outline: 3px solid var(--account-focus);
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .ap-account-shell {
+    padding: 16px;
+  }
+
+  .ap-account-card {
+    border-radius: 16px;
+    padding: 24px 20px;
+  }
+
+  .ap-account-row {
+    align-items: stretch;
+    gap: 16px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ap-account-row button {
+    width: 100%;
+  }
+}

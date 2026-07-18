@@ -12,6 +12,7 @@ import {
   resolveDistributedRateLimitCapability,
   resolveTrustedClientAddress,
 } from './rate-limit.ts'
+import { getProductionRateLimitRuntime } from './rate-limit-runtime.server.ts'
 
 const processState = globalThis as typeof globalThis & {
   __aiPathRateLimits?: Map<string, { count: number; windowStart: number }>
@@ -95,16 +96,42 @@ export async function checkAiPathRateLimit(
   request: Request,
   policyId: AiPathRateLimitPolicyId,
   verifiedUserId?: string | null,
+  abuseSubject?: string | null,
 ): Promise<RateLimitResult> {
   const policy = policyFor(policyId)
   const now = Date.now()
   if (process.env.NODE_ENV === 'production') {
-    // Production never falls back to process-local memory. The future runtime
-    // must inject an atomic distributed store after the literal latch review.
-    return unavailableResult()
+    const runtime = getProductionRateLimitRuntime()
+    if (!runtime) return unavailableResult()
+    try {
+      const checker = createDistributedRateLimitChecker(
+        runtime.store,
+        runtime.activation,
+        runtime.identitySalt,
+      )
+      if (abuseSubject) {
+        const policy = policyFor(policyId)
+        const capability = resolveDistributedRateLimitCapability(runtime.activation)
+        const address = capability.trustedProxyHops
+          ? resolveTrustedClientAddress(request.headers, capability.trustedProxyHops)
+          : null
+        if (!capability.available || !address || abuseSubject.length > 254 || /[\u0000-\u001f\u007f]/.test(abuseSubject)) {
+          return unavailableResult()
+        }
+        const keys = [`anonymous:${address}`, `subject:${abuseSubject.trim().toLowerCase()}`]
+          .map(label => opaqueKey(label, runtime.identitySalt))
+        return runtime.store.consume({ policyId, keys, ...policy, nowMs: Date.now() })
+      }
+      return await checker(request, policyId, verifiedUserId)
+    } catch {
+      return unavailableResult()
+    }
   }
-  const keys = rateLimitIdentityLabels({ anonymousAddress: 'local', verifiedUserId })
-    .map(label => `${policyId}:${opaqueKey(label, 'ai-path-process-local-test-only')}`)
+  const labels = [...rateLimitIdentityLabels({ anonymousAddress: 'local', verifiedUserId })]
+  if (abuseSubject && abuseSubject.length <= 254 && !/[\u0000-\u001f\u007f]/.test(abuseSubject)) {
+    labels.push(`subject:${abuseSubject.trim().toLowerCase()}`)
+  }
+  const keys = labels.map(label => `${policyId}:${opaqueKey(label, 'ai-path-process-local-test-only')}`)
   return localStore.consume({ policyId, keys, ...policy, nowMs: now })
 }
 

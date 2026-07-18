@@ -26,12 +26,23 @@ function headers(values) {
 }
 
 test('all route policies are fixed, bounded, and immutable', () => {
-  assert.equal(Object.keys(AI_PATH_RATE_LIMIT_POLICIES).length, 15)
+  assert.deepEqual(Object.keys(AI_PATH_RATE_LIMIT_POLICIES).sort(), [
+    'ai-path-analysis', 'ai-path-auth-callback', 'ai-path-auth-email',
+    'ai-path-auth-sign-in', 'ai-path-diagnostic',
+    'ai-path-plan-adaptation', 'ai-path-plan-check-in', 'ai-path-plan-create',
+    'ai-path-plan-delete', 'ai-path-plan-export', 'ai-path-plan-read',
+    'ai-path-plan-task', 'ai-path-plan-time-budget',
+    'ai-path-question-adaptation', 'ai-path-realtime-session', 'ai-path-session',
+    'ai-path-session-delete', 'ai-path-session-export', 'ai-path-session-read',
+  ])
+  assert.deepEqual(AI_PATH_RATE_LIMIT_POLICIES['ai-path-auth-callback'], { limit: 10, windowMs: 15 * 60_000 })
+  assert.deepEqual(AI_PATH_RATE_LIMIT_POLICIES['ai-path-auth-email'], { limit: 3, windowMs: 3_600_000 })
+  assert.deepEqual(AI_PATH_RATE_LIMIT_POLICIES['ai-path-auth-sign-in'], { limit: 5, windowMs: 15 * 60_000 })
   assert.deepEqual(AI_PATH_RATE_LIMIT_POLICIES['ai-path-question-adaptation'], { limit: 60, windowMs: 3_600_000 })
   for (const [id, policy] of Object.entries(AI_PATH_RATE_LIMIT_POLICIES)) {
     assert.match(id, /^ai-path-[a-z-]+$/)
     assert.equal(Number.isInteger(policy.limit) && policy.limit >= 1 && policy.limit <= 120, true)
-    assert.equal(policy.windowMs, 3_600_000)
+    assert.equal(Number.isInteger(policy.windowMs) && policy.windowMs >= 15 * 60_000 && policy.windowMs <= 3_600_000, true)
     assert.equal(Object.isFrozen(policy), true)
   }
   assert.equal(Object.isFrozen(AI_PATH_RATE_LIMIT_POLICIES), true)

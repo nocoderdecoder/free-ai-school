@@ -1,4 +1,4 @@
-export const AI_PATH_RATE_LIMIT_SCHEMA_VERSION = '2026-07-17.v1' as const
+export const AI_PATH_RATE_LIMIT_SCHEMA_VERSION = '2026-07-18.v2' as const
 
 // Production distributed limiting requires a reviewed code change. Deployment
 // configuration and an injected store cannot open this latch.
@@ -6,6 +6,10 @@ export const AI_PATH_DISTRIBUTED_RATE_LIMIT_LATCH = false as const
 
 export const AI_PATH_RATE_LIMIT_POLICIES = Object.freeze({
   'ai-path-analysis': Object.freeze({ limit: 20, windowMs: 3_600_000 }),
+  'ai-path-auth-callback': Object.freeze({ limit: 10, windowMs: 15 * 60_000 }),
+  'ai-path-auth-email': Object.freeze({ limit: 3, windowMs: 3_600_000 }),
+  'ai-path-auth-sign-in': Object.freeze({ limit: 5, windowMs: 15 * 60_000 }),
+  'ai-path-diagnostic': Object.freeze({ limit: 20, windowMs: 3_600_000 }),
   'ai-path-plan-adaptation': Object.freeze({ limit: 30, windowMs: 3_600_000 }),
   'ai-path-plan-check-in': Object.freeze({ limit: 20, windowMs: 3_600_000 }),
   'ai-path-plan-create': Object.freeze({ limit: 20, windowMs: 3_600_000 }),

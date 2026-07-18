@@ -10,7 +10,7 @@ Use the ignored `.env.local` file at the repository root:
 
 ```dotenv
 OPENAI_API_KEY=your-key-from-the-OpenAI-platform
-AI_PATH_ADAPTIVE_MODEL=gpt-5-nano
+AI_PATH_ADAPTIVE_MODEL=gpt-5.6-luna
 AI_PATH_ADAPTIVE_MODEL_ENABLED=false
 ```
 
@@ -18,16 +18,18 @@ Never paste the key into chat, place it in a `NEXT_PUBLIC_` variable, include it
 in browser code, or commit it to Git. Restart the Next.js development server
 after changing `.env.local`.
 
-`AI_PATH_ADAPTIVE_MODEL_ENABLED=false` is intentional. A code-level latch also
-keeps provider traffic fail-closed. Both controls remain closed until paid API
-usage has explicit approval and the adaptive behavior suite passes.
+`AI_PATH_ADAPTIVE_MODEL_ENABLED=false` is intentional for local setup. The
+reviewed code latch is open, but the environment flag, server-only API key,
+verified-user requirement, exact model pin and rate limit must all pass before
+the provider can receive a request.
 
-`gpt-5-nano` is the cost-first choice for this narrow classification and
-rewriting step. Requests use minimal reasoning, the standard service tier, a
+`gpt-5.6-luna` is OpenAI's current efficient, high-volume GPT-5.6 option and is
+the reviewed low-cost choice for this narrow classification and rewriting step.
+Requests use no reasoning effort, the standard service tier, a
 100-token output ceiling, no tools, and no response storage. Upgrade the model
-only if evaluation data shows that Nano cannot reliably satisfy the schema and
-teacher-policy tests. The server also pins `gpt-5-nano` as the only accepted
-model for this feature, so an environment change cannot silently select a more
+only if evaluation data shows that Luna cannot reliably satisfy the schema and
+teacher-policy tests. The server pins `gpt-5.6-luna` as the only accepted model
+for this feature, so an environment change cannot silently select a more
 expensive model.
 
 ## Interview contract
@@ -48,10 +50,9 @@ expensive model.
 1. Put the key in `.env.local` or the production host's server-side secret
    manager.
 2. Run the adaptive behavior and HTTP tests.
-3. Confirm explicit approval for paid OpenAI API usage.
-4. Review and open the code-level adaptive-model latch.
-5. Set `AI_PATH_ADAPTIVE_MODEL_ENABLED=true`.
-6. Run one bounded live smoke test and inspect the returned decision without
+3. Confirm the deployment's spend ceiling and alerting.
+4. Set `AI_PATH_ADAPTIVE_MODEL_ENABLED=true`.
+5. Run one bounded live smoke test and inspect the returned decision without
    logging the key or raw private learner answers.
 
 Realtime voice is activated separately. It reuses this interview policy, but

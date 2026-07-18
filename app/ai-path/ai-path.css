@@ -146,6 +146,26 @@
   padding: 6px 10px;
 }
 
+.ap-ds-accountLink,
+.ap-ds-signOut {
+  background: transparent;
+  border: 1px solid var(--path-line);
+  border-radius: 999px;
+  color: var(--path-primary);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 650;
+  justify-content: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  text-decoration: none;
+}
+
+.ap-ds-accountLink:hover,
+.ap-ds-signOut:hover {
+  background: var(--path-soft);
+}
+
 /* Opening */
 .ap-ds-main {
   margin: 0 auto;
@@ -936,6 +956,52 @@
 
 .ap-ds-issues li + li {
   margin-top: 5px;
+}
+
+.ap-ds-storageConsent {
+  align-items: flex-start;
+  background: #eef7f2;
+  border: 1px solid #bed8cc;
+  border-radius: 12px;
+  color: var(--path-text);
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  min-width: 0;
+  padding: 14px 16px;
+}
+
+.ap-ds-storageConsent.is-unavailable {
+  background: var(--path-soft);
+  border-color: var(--path-line);
+  color: var(--path-muted);
+  cursor: default;
+}
+
+.ap-ds-storageConsent input {
+  accent-color: var(--path-primary);
+  flex: 0 0 auto;
+  height: 20px;
+  margin: 1px 0 0;
+  width: 20px;
+}
+
+.ap-ds-storageConsent > span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ap-ds-storageConsent strong {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.ap-ds-storageConsent small {
+  color: var(--path-muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .ap-ds-questionNav {

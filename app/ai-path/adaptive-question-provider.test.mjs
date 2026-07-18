@@ -45,7 +45,7 @@ test('Responses request fixes the route and uses a strict bounded action schema'
   assert.equal(body.model, 'configured-test-model')
   assert.equal(body.store, false)
   assert.equal(body.service_tier, 'default')
-  assert.deepEqual(body.reasoning, { effort: 'minimal' })
+  assert.deepEqual(body.reasoning, { effort: 'none' })
   assert.equal(body.max_output_tokens, 100)
   assert.equal(body.text.format.type, 'json_schema')
   assert.equal(body.text.format.strict, true)

@@ -148,6 +148,9 @@ readonly -a REQUIRED_BASELINE_MIGRATIONS=(
   "20260717060000_ai_path_bounded_retention.sql"
   "20260717070000_ai_path_realtime_admission_lifecycle.sql"
   "20260717090000_ai_path_analysis_transition.sql"
+  "20260718000000_ai_path_rate_limits.sql"
+  "20260718010000_ai_path_consumer_diagnostic_sessions.sql"
+  "20260718020000_ai_path_account_privacy.sql"
 )
 
 shopt -s nullglob
@@ -258,6 +261,18 @@ expect_denied \
 expect_denied \
   "authenticated retention RPC" \
   "set role authenticated; select public.purge_expired_ai_path_sessions(1)"
+expect_denied \
+  "authenticated rate-limit RPC" \
+  "set role authenticated; select public.consume_ai_path_rate_limit('ai-path-diagnostic', array[repeat('a', 64)], 2, 60000)"
+expect_denied \
+  "service-role direct rate-limit table read" \
+  "set role service_role; select count(*) from public.ai_path_rate_limit_buckets"
+
+log "running atomic content-free rate-limit contracts"
+psql "${DB_URL}" -X -q -v ON_ERROR_STOP=1 -f "${PROOF_DIR}/30-rate-limit-contracts.sql"
+
+log "running current consumer diagnostic ownership and persistence contracts"
+psql "${DB_URL}" -X -q -v ON_ERROR_STOP=1 -f "${PROOF_DIR}/40-consumer-diagnostic-contracts.sql"
 
 log "running two-connection DB-owned-continuity Realtime admission race"
 psql "${DB_URL}" -X -q -v ON_ERROR_STOP=1 \

@@ -4,6 +4,13 @@ import {
   type AssessmentReport,
 } from '../lib/foundation.ts'
 import type { AiPathGoalType } from '../lib/goal-type.ts'
+import type {
+  CapabilityIntake,
+  CapabilityPrescription,
+  UseCaseBlueprint,
+  UseCaseIntake,
+} from '../lib/diagnostic.ts'
+import { AI_PATH_DIAGNOSTIC_STORAGE_NOTICE_VERSION } from '../lib/diagnostic-storage-consent.ts'
 
 import { buildAnalysisPayload, type ReviewedAssessmentInput } from './analysis-payload.ts'
 import { isCurrentVoiceConsent, type VoiceConsent } from './realtime-consent.ts'
@@ -60,6 +67,10 @@ const recoveryMessages: Record<string, string> = {
   origin_required: 'This request could not be verified. Reload the page, then retry.',
   cross_origin_request_rejected: 'This request came from an untrusted page. Reload this app directly, then retry.',
   rate_limit_exceeded: 'Too many requests were made. Wait a moment, then retry.',
+  rate_limit_unavailable: 'This service is temporarily unavailable. Please try again shortly.',
+  diagnostic_incomplete: 'One or more answers need more detail before a plan can be created.',
+  invalid_diagnostic: 'One or more answers could not be validated. Review them and try again.',
+  diagnostic_persistence_unavailable: 'Secure saving is temporarily unavailable. Turn off “Save my plan” or try again later.',
 }
 
 async function parseResponse<T>(response: Response): Promise<T> {
@@ -141,6 +152,48 @@ export async function analyzeReviewedAssessment(input: ReviewedAssessmentInput):
   })
   const result = await parseResponse<{ report: AssessmentReport }>(response)
   return result.report
+}
+
+export type DiagnosticStoragePreference = Readonly<{
+  save: boolean
+  idempotencyKey: string | null
+}>
+
+export async function createDiagnosticResult(
+  input: UseCaseIntake,
+  storage?: DiagnosticStoragePreference,
+): Promise<UseCaseBlueprint>
+export async function createDiagnosticResult(
+  input: CapabilityIntake,
+  storage?: DiagnosticStoragePreference,
+): Promise<CapabilityPrescription>
+export async function createDiagnosticResult(
+  input: UseCaseIntake | CapabilityIntake,
+  storage: DiagnosticStoragePreference = { save: false, idempotencyKey: null },
+): Promise<UseCaseBlueprint | CapabilityPrescription> {
+  const response = await fetch('/api/ai-path/diagnostic', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+    credentials: 'same-origin',
+    body: JSON.stringify({
+      intake: input,
+      storageConsent: {
+        acknowledged: storage.save,
+        version: AI_PATH_DIAGNOSTIC_STORAGE_NOTICE_VERSION,
+      },
+      idempotencyKey: storage.save ? storage.idempotencyKey : null,
+    }),
+  })
+  const body = await parseResponse<{
+    result: UseCaseBlueprint | CapabilityPrescription
+    generatedBy: 'deterministic-server-policy'
+    persisted: boolean
+  }>(response)
+  if (storage.save && body.persisted !== true) {
+    throw new AIPathApiError(recoveryMessages.diagnostic_persistence_unavailable, 503)
+  }
+  return body.result
 }
 
 export type ExportedAssessmentSession = {

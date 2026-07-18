@@ -114,7 +114,7 @@ test("CI proof is isolated to a fresh loopback PostgreSQL service", () => {
     "scripts/ai-path-db-proof-evidence.mjs",
     "ci-run-candidate.json",
     "database-proof-evidence-manifest.json",
-    "node --test scripts/ai-path-db-proof/static.test.mjs scripts/ai-path-db-proof-evidence.test.mjs",
+    "node --test scripts/ai-path-db-proof/static.test.mjs scripts/ai-path-db-proof/consumer-diagnostic-static.test.mjs scripts/ai-path-db-proof-evidence.test.mjs",
   ]) assert.ok(workflow.includes(invariant), `workflow is missing ${invariant}`);
   assert.doesNotMatch(workflow, /secrets\.|supabase\.co|openai|AI_PATH_.*LATCH/iu);
   assert.match(evidence, /releaseEligible:\s*false/);

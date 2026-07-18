@@ -7,6 +7,7 @@ import {
   INITIAL_MICROPHONE_PREFLIGHT_SNAPSHOT,
 } from './client/microphone-preflight'
 import { localAdaptiveQuestionDecision, requestAdaptiveQuestion } from './client/question-adaptation'
+import { createDiagnosticResult } from './client/api'
 import {
   canonicalQuestionPresentation,
   type AdaptiveQuestionPresentation,
@@ -17,7 +18,6 @@ import {
   INITIAL_CAPABILITY_INTAKE,
   INITIAL_USE_CASE_INTAKE,
   USE_CASE_SECTION_IDS,
-  composeDiagnosticResult,
   validateCapabilityIntake,
   validateUseCaseIntake,
   type CapabilityDomain,
@@ -202,7 +202,15 @@ function CheckIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg>
 }
 
-function Header({ scene, onRestart }: { scene: 'diagnostic' | 'result'; onRestart(): void }) {
+function Header({
+  scene,
+  onRestart,
+  authenticatedExperienceEnabled,
+}: {
+  scene: 'diagnostic' | 'result'
+  onRestart(): void
+  authenticatedExperienceEnabled: boolean
+}) {
   return (
     <header className="ap-ds-header">
       <button type="button" className="ap-ds-brand" onClick={onRestart} aria-label="AI Path home">
@@ -211,7 +219,9 @@ function Header({ scene, onRestart }: { scene: 'diagnostic' | 'result'; onRestar
       </button>
       <div className="ap-ds-headerMeta">
         <span>{scene === 'diagnostic' ? 'Your questions' : 'Your plan'}</span>
-        <span className="ap-ds-preview">Preview</span>
+        {authenticatedExperienceEnabled ? (
+          <a className="ap-ds-accountLink" href="/ai-path/account">Account</a>
+        ) : <span className="ap-ds-preview">Preview</span>}
       </div>
     </header>
   )
@@ -663,7 +673,19 @@ function safeResourceUrl(value: string | null): string | null {
   }
 }
 
-function ResultScene({ result, onEdit, onRestart }: { result: DiagnosticResult; onEdit(): void; onRestart(): void }) {
+function ResultScene({
+  result,
+  onEdit,
+  onRestart,
+  authenticatedExperienceEnabled,
+  savedToAccount,
+}: {
+  result: DiagnosticResult
+  onEdit(): void
+  onRestart(): void
+  authenticatedExperienceEnabled: boolean
+  savedToAccount: boolean
+}) {
   const isUseCase = result.kind === 'use-case-blueprint'
   const signature = useMemo(() => resultSignature(result), [result])
   const [actionSaved, setActionSaved] = useState(false)
@@ -672,8 +694,14 @@ function ResultScene({ result, onEdit, onRestart }: { result: DiagnosticResult; 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
-        const saved = JSON.parse(localStorage.getItem(SAVED_PLAN_STORAGE_KEY) ?? 'null') as { signature?: string } | null
-        setActionSaved(saved?.signature === signature)
+        const saved = JSON.parse(localStorage.getItem(SAVED_PLAN_STORAGE_KEY) ?? 'null') as { signature?: string; savedAt?: string } | null
+        const savedAt = saved?.savedAt ? Date.parse(saved.savedAt) : Number.NaN
+        const current = saved?.signature === signature
+          && Number.isFinite(savedAt)
+          && Date.now() - savedAt <= 30 * 24 * 60 * 60_000
+        if (!current) localStorage.removeItem(SAVED_PLAN_STORAGE_KEY)
+        else localStorage.setItem(SAVED_PLAN_STORAGE_KEY, JSON.stringify({ schemaVersion: 2, signature, savedAt: saved!.savedAt }))
+        setActionSaved(current)
       } catch {
         setActionSaved(false)
       }
@@ -690,12 +718,9 @@ function ResultScene({ result, onEdit, onRestart }: { result: DiagnosticResult; 
         return
       }
       localStorage.setItem(SAVED_PLAN_STORAGE_KEY, JSON.stringify({
-        schemaVersion: 1,
+        schemaVersion: 2,
         signature,
         savedAt: new Date().toISOString(),
-        title: result.title,
-        firstAction: result.firstAction,
-        weeks: result.weeks,
       }))
       setActionSaved(true)
     } catch {
@@ -796,12 +821,22 @@ function ResultScene({ result, onEdit, onRestart }: { result: DiagnosticResult; 
         })}</div>
       </section>
 
-      <div className="ap-ds-resultFooter"><button type="button" onClick={onRestart}>Start over</button><p>No account, course, paid tool or outside service was activated.</p></div>
+      <div className="ap-ds-resultFooter"><button type="button" onClick={onRestart}>Start over</button><p>{savedToAccount
+        ? 'Your answers and plan were saved to your account for up to 90 days.'
+        : authenticatedExperienceEnabled
+        ? 'This plan was not saved. No course, paid learning tool, or paid AI service was activated.'
+        : 'No account, course, paid tool or outside service was activated.'}</p></div>
     </main>
   )
 }
 
-export function AdvisorApp() {
+export function AdvisorApp({
+  authenticatedExperienceEnabled = false,
+  storagePersistenceAvailable = false,
+}: {
+  authenticatedExperienceEnabled?: boolean
+  storagePersistenceAvailable?: boolean
+}) {
   const [scene, setScene] = useState<'diagnostic' | 'result'>('diagnostic')
   const [path, setPath] = useState<DiagnosticPath | null>(null)
   const [useCase, setUseCase] = useState<UseCaseIntake>(() => structuredClone(INITIAL_USE_CASE_INTAKE))
@@ -810,6 +845,10 @@ export function AdvisorApp() {
   const [voiceTarget, setVoiceTarget] = useState<string | null>(null)
   const [showErrors, setShowErrors] = useState(false)
   const [result, setResult] = useState<DiagnosticResult | null>(null)
+  const [submitError, setSubmitError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [storageConsent, setStorageConsent] = useState(false)
+  const [savedToAccount, setSavedToAccount] = useState(false)
   const [adaptivePresentations, setAdaptivePresentations] = useState<Record<DiagnosticPath, PresentationMap>>({
     'use-case': {},
     'capability-growth': {},
@@ -819,6 +858,7 @@ export function AdvisorApp() {
   const [clarifierAnswerBaselines, setClarifierAnswerBaselines] = useState<ClarifierAnswerBaselines>({})
   const adaptationRevision = useRef(0)
   const adaptationAbort = useRef<AbortController | null>(null)
+  const storageSubmission = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null)
 
   const microphone = useMemo(() => createBrowserMicrophonePreflightController(), [])
   const mic = useSyncExternalStore(microphone.subscribe, microphone.getSnapshot, () => INITIAL_MICROPHONE_PREFLIGHT_SNAPSHOT)
@@ -976,22 +1016,42 @@ export function AdvisorApp() {
     if (previousId) selectSection(previousId)
   }
 
-  const submit = (event: React.FormEvent) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!path || !readiness.canSubmit) {
+    if (isSubmitting || !path || !readiness.canSubmit) {
       setShowErrors(true)
       const first = readiness.sections.find(section => section.status !== 'complete')
       if (first) selectSection(first.id)
       return
     }
-    const nextResult = path === 'use-case' ? composeDiagnosticResult(useCase) : composeDiagnosticResult(capability)
-    if (!nextResult) return
-    adaptationAbort.current?.abort()
-    adaptationRevision.current += 1
-    microphone.stop()
-    setVoiceTarget(null)
-    setResult(nextResult)
-    setScene('result')
+    setSubmitError('')
+    setIsSubmitting(true)
+    try {
+      const intake = path === 'use-case' ? useCase : capability
+      const save = authenticatedExperienceEnabled && storagePersistenceAvailable && storageConsent
+      const fingerprint = JSON.stringify(intake)
+      let idempotencyKey: string | null = null
+      if (save) {
+        if (!storageSubmission.current || storageSubmission.current.fingerprint !== fingerprint) {
+          storageSubmission.current = { fingerprint, idempotencyKey: crypto.randomUUID() }
+        }
+        idempotencyKey = storageSubmission.current.idempotencyKey
+      }
+      const nextResult = path === 'use-case'
+        ? await createDiagnosticResult(useCase, { save, idempotencyKey })
+        : await createDiagnosticResult(capability, { save, idempotencyKey })
+      adaptationAbort.current?.abort()
+      adaptationRevision.current += 1
+      microphone.stop()
+      setVoiceTarget(null)
+      setResult(nextResult)
+      setSavedToAccount(save)
+      setScene('result')
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Your plan could not be created. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const restart = () => {
@@ -1006,6 +1066,11 @@ export function AdvisorApp() {
     setVoiceTarget(null)
     setShowErrors(false)
     setResult(null)
+    setSubmitError('')
+    setIsSubmitting(false)
+    setStorageConsent(false)
+    setSavedToAccount(false)
+    storageSubmission.current = null
     setAdaptivePresentations({ 'use-case': {}, 'capability-growth': {} })
     setUsedClarifierSectionIds([])
     setClarifierAnswerBaselines({})
@@ -1015,8 +1080,12 @@ export function AdvisorApp() {
 
   return (
     <div className="ap-ds-shell">
-      <Header scene={scene} onRestart={restart} />
-      {scene === 'result' && result ? <ResultScene result={result} onEdit={() => setScene('diagnostic')} onRestart={restart} /> : (
+      <Header
+        scene={scene}
+        onRestart={restart}
+        authenticatedExperienceEnabled={authenticatedExperienceEnabled}
+      />
+      {scene === 'result' && result ? <ResultScene result={result} onEdit={() => setScene('diagnostic')} onRestart={restart} authenticatedExperienceEnabled={authenticatedExperienceEnabled} savedToAccount={savedToAccount} /> : (
         <main className={`ap-ds-main${path ? ' has-path' : ''}`}>
           <section className="ap-ds-intro" aria-labelledby="ap-ds-title">
             <div><p className="ap-ds-kicker">A practical AI plan</p><h1 id="ap-ds-title">What would you like help with?</h1></div>
@@ -1052,16 +1121,34 @@ export function AdvisorApp() {
                   <CapabilityForm value={capability} readiness={effectiveCapabilityReadiness} presentations={presentations} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { setCapability(value); invalidateFollowingPresentations('capability-growth', activeSection); setShowErrors(false) }} />
                 )}
 
+                {isLastQuestion && authenticatedExperienceEnabled ? (
+                  <label className={`ap-ds-storageConsent${storagePersistenceAvailable ? '' : ' is-unavailable'}`}>
+                    <input
+                      type="checkbox"
+                      checked={storageConsent}
+                      disabled={!storagePersistenceAvailable || isSubmitting}
+                      onChange={event => setStorageConsent(event.target.checked)}
+                    />
+                    <span>
+                      <strong>Save my answers and plan</strong>
+                      <small>{storagePersistenceAvailable
+                        ? 'Store them securely in my account for up to 90 days. I can delete my account data later.'
+                        : 'Secure account storage is not enabled in this preview. Your plan will still be shown without being saved.'}</small>
+                    </span>
+                  </label>
+                ) : null}
+
                 <div className="ap-ds-questionNav">
                   <button type="button" className="ap-ds-backButton" onClick={previousQuestion} disabled={currentIndex === 0}>Back</button>
                   {isLastQuestion ? (
-                    <button type="submit" className="ap-ds-continueButton">{path === 'use-case' ? 'Create my project plan' : 'Create my learning plan'} <ArrowIcon /></button>
+                    <button type="submit" className="ap-ds-continueButton" disabled={isSubmitting}>{isSubmitting ? 'Creating your plan…' : path === 'use-case' ? 'Create my project plan' : 'Create my learning plan'} {!isSubmitting ? <ArrowIcon /> : null}</button>
                   ) : (
                     <button type="button" className="ap-ds-continueButton" onClick={() => void continueQuestion()} disabled={isAdapting}>{isAdapting ? 'Tailoring next question…' : 'Continue'} {!isAdapting ? <ArrowIcon /> : null}</button>
                   )}
                 </div>
                 <p className="sr-only" aria-live="polite">{isAdapting ? 'Checking whether one short follow-up is needed before the next planned question.' : ''}</p>
                 {showErrors && currentSection?.status !== 'complete' ? <p className="ap-ds-errorSummary" role="alert">Please finish this question to continue.</p> : null}
+                {submitError ? <p className="ap-ds-errorSummary" role="alert">{submitError}</p> : null}
               </div>
             </form>
           ) : (

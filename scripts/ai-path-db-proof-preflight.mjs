@@ -18,12 +18,17 @@ const requiredMigrations = [
   '20260717070000_ai_path_realtime_admission_lifecycle.sql',
   '20260717080000_ai_path_realtime_admission_continuity_policy.sql',
   '20260717090000_ai_path_analysis_transition.sql',
+  '20260718000000_ai_path_rate_limits.sql',
+  '20260718010000_ai_path_consumer_diagnostic_sessions.sql',
+  '20260718020000_ai_path_account_privacy.sql',
 ]
 const requiredProofFiles = [
   'scripts/ai-path-db-proof.sh',
   'scripts/ai-path-db-proof/00-local-supabase-compat.sql',
   'scripts/ai-path-db-proof/10-contracts.sql',
   'scripts/ai-path-db-proof/20-concurrency-reserve.sql',
+  'scripts/ai-path-db-proof/30-rate-limit-contracts.sql',
+  'scripts/ai-path-db-proof/40-consumer-diagnostic-contracts.sql',
   'scripts/ai-path-db-proof/ci-bootstrap.sql',
 ]
 
