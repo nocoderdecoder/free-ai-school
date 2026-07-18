@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
-import { Nav } from '../components/Nav'
 import { AdvisorApp } from './AdvisorApp'
 import './ai-path.css'
 
 export const metadata: Metadata = {
-  title: 'AI Path Advisor — Private Alpha',
-  description: 'A voice-first conversation that turns your goals, experience, and available time into a realistic 30-day AI learning plan.',
+  title: {
+    absolute: 'AI Learning Advisor',
+  },
+  description: 'A short conversation that turns your goal, experience, and available time into a practical AI learning path.',
   robots: {
     index: false,
     follow: false,
@@ -15,7 +16,6 @@ export const metadata: Metadata = {
 export default function AIPathPage() {
   return (
     <main className="aiPath">
-      <Nav variant="light" />
       <AdvisorApp />
     </main>
   )

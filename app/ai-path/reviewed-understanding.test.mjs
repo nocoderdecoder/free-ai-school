@@ -17,22 +17,28 @@ const inputs = [
 
 const advisorSource = readFileSync(new URL('./AdvisorApp.tsx', import.meta.url), 'utf8')
 
-test('workflow-builder intake starts blank and labels every canned example', () => {
-  assert.match(advisorSource, /id: 'workflows'/)
-  assert.match(advisorSource, /Workflow-builder private alpha/)
+test('first-use intake starts blank and keeps the learner journey to four plain-language stages', () => {
+  assert.match(advisorSource, /const GOAL_TYPE: AiPathGoalType = 'workflows'/)
+  assert.match(advisorSource, /type Stage = 'start' \| 'conversation' \| 'confirm' \| 'path'/)
+  assert.match(advisorSource, /What would you like AI to help you do better\?/)
+  assert.match(advisorSource, /Start typed conversation/)
+  assert.match(advisorSource, /const \[goal, setGoal\] = useState\(''\)/)
   assert.match(advisorSource, /const \[role, setRole\] = useState\(''\)/)
-  assert.match(advisorSource, /const \[outcome, setOutcome\] = useState\(''\)/)
-  assert.match(advisorSource, /const \[blocker, setBlocker\] = useState\(''\)/)
-  assert.equal((advisorSource.match(/placeholder="Example only:/g) ?? []).length, 3)
-  assert.doesNotMatch(advisorSource, /setGoal|goalOptions/)
+  assert.match(advisorSource, /const \[experience, setExperience\] = useState\(''\)/)
+  assert.match(advisorSource, /const \[constraint, setConstraint\] = useState\(''\)/)
+  assert.equal((advisorSource.match(/placeholder="For example:/g) ?? []).length, 1)
+  assert.doesNotMatch(advisorSource, /Workflow-builder private alpha|goalOptions/)
 })
 
-test('review cards expose content-free edit, remove, and restore controls', () => {
-  assert.match(advisorSource, /'Edit this'/)
-  assert.match(advisorSource, /'Remove from report'/)
-  assert.match(advisorSource, /'Restore interpretation'/)
-  assert.match(advisorSource, /reviewedInputs: activeUnderstanding\.map/)
-  assert.match(advisorSource, /reviewTelemetry\.correctionCount, reviewTelemetry\.removedObservationCount/)
+test('confirmation keeps three editable summaries and makes detailed evidence optional', () => {
+  assert.equal((advisorSource.match(/data-testid="confirmation-part"/g) ?? []).length, 3)
+  assert.match(advisorSource, /Here’s what I heard/)
+  assert.match(advisorSource, /aria-label="Your goal"/)
+  assert.match(advisorSource, /aria-label="What you have tried"/)
+  assert.match(advisorSource, /Review conversation details/)
+  assert.match(advisorSource, /const reviewedInputs = \[/)
+  assert.match(advisorSource, /\.\.\.Object\.entries\(reviewAnswers\)/)
+  assert.doesNotMatch(advisorSource, /Edit this|Remove from report|Restore interpretation/)
 })
 
 test('removed and blank interpretations never cross the reviewed-input boundary', () => {

@@ -1,8 +1,10 @@
-# AI Path deterministic end-to-end QA
+# AI Path simple-journey end-to-end QA
 
-This harness exercises the browser experience without using a live model, paid
-API, durable account store, or external network resource. It requires an already
-running local AI Path server and never starts, stops, rebuilds, or deploys it.
+This harness protects the intentionally small learner experience. It exercises
+the four visible states—start, conversation, confirmation, and path—without a
+live model, paid API, durable account store, microphone request, or external
+network resource. It requires an already running local AI Path server and never
+starts, stops, rebuilds, or deploys it.
 
 ## Run
 
@@ -11,9 +13,9 @@ AI_PATH_QA_BASE_URL=http://127.0.0.1:3022/ai-path \
   scripts/ai-path-e2e-qa.sh
 ```
 
-The driver prefers a global `playwright-cli`. Otherwise it uses the bundled Codex
-Playwright wrapper. In restricted environments, point directly at an installed
-executable:
+The driver prefers a global `playwright-cli`. Otherwise it uses the bundled
+Codex Playwright wrapper. In restricted environments, point directly at an
+installed executable:
 
 ```bash
 AI_PATH_QA_BASE_URL=http://127.0.0.1:3022/ai-path \
@@ -23,76 +25,90 @@ AI_PATH_PLAYWRIGHT_CLI=/absolute/path/to/playwright-cli \
 
 The target is rejected unless its host is `127.0.0.1` or `localhost`.
 
+## Product acceptance contract
+
+The harness fails if the learner-facing flow grows beyond this contract:
+
+1. **Start:** one goal field and a working typed-conversation CTA reach the
+   first question in no more than two actions. The future voice control is
+   honest and disabled; it cannot create a Realtime or microphone session.
+2. **Conversation:** five to seven adaptive questions use one answer field and
+   one Continue action. The old question sidebar, assessment methodology, and
+   scoring explanations stay out of the learner's way.
+3. **Confirmation:** exactly three compact confirmation groups keep goal,
+   starting point, and constraints editable. Detailed conversation evidence is
+   available in a collapsed disclosure instead of a mandatory audit screen.
+4. **Path:** one page puts the next skill, 30-day project, and first action
+   first. It shows no more than three learning resources. The four-week plan,
+   rationale, and privacy/data information are collapsed by default.
+
+The learner-facing contract relies on stable semantic copy plus two structural
+test hooks:
+
+- exactly three `data-testid="confirmation-part"` elements;
+- one to three `data-testid="learning-resource"` elements.
+
+These hooks express product invariants, not layout or CSS implementation.
+
 ## Determinism and network safety
 
 - The page itself is read from the supplied local server.
 - Session, analysis, and analytics requests are intercepted in the browser. The
   local server receives no assessment or analytics mutation.
-- The first report attempt receives a deterministic temporary failure, the
-  second receives an empty governed catalog result, and the third receives the
-  pinned populated report. This covers recovery without a live service.
+- The analysis fixture deliberately returns four eligible resources. The UI
+  must show at most three, proving the concise recommendation limit rather than
+  merely receiving a small fixture.
 - Every analytics request receives the production-accurate closed-sink `503`.
-  The run asserts that this never interrupts the learner flow or produces a
-  misleading stored-feedback message.
-- A catch-all route aborts any non-local request. The run fails if the app even
-  attempts an external request.
-- The harness never opens recommendation links.
+  The learner flow must still complete.
+- A catch-all route aborts every non-local request, and the run fails if the app
+  attempts one.
+- Any local Realtime bootstrap request is separately blocked and fails the run.
+- The harness never opens recommendation links, requests microphone access, or
+  grants permission.
 - The session fixture declares `owned: false`, `persistence: none`, and
   `productionReady: false`.
-- The analysis fixture pins report, taxonomy, scoring, and catalog versions.
-- The run also asserts that the browser submitted reviewed inputs, preserved the
-  no-code preference, excluded a removed interpretation, restored it only for
-  later attempts, did not assign competency evidence, and did not request
-  transcript persistence.
+- Learner-authored text, including a private canary, must never appear in the
+  analytics envelopes.
 
-## Covered workflow
+## Covered behavior
 
 | Area | Assertions |
 | --- | --- |
-| Entry | Landing content, programmatic heading focus, visible keyboard focus, keyboard activation |
-| Profile | Blank workflow-builder fields populated with long role/outcome/blocker content, time and no-code selections, explicit consent |
-| Assessment | One text session, all three guided responses, phase transitions |
-| Review | Adaptive review inputs, multiple corrections, remove/restore exclusion contract, corrected values reach every applicable analysis retry |
-| Adversarial content | Near-2,000-character reviewed response, layout resilience, retry preservation, no analytics leakage |
-| Report | Temporary failure and retry, empty recommendation state, version badge, assessed count, explicit unassessed state, long recommendation card |
-| Feedback | Keyboard-only numeric ratings, disabled-to-enabled submission, polite closed-sink status |
-| Plan | Task completion, progress, time-budget recalculation and completion reset |
-| Alternatives | Smaller week tasks and restoration of originals |
-| Check-in | Rejected adaptation leaves task unchanged; accepted diagnostic changes next incomplete task |
-| Export | Download event, filename, parseable JSON, report version, time budget, accepted adaptation |
-| Lifecycle | History, short reassessment reset, browser-preview deletion |
-| Responsive | Results and plan at 375×812, 768×1024, and 1440×900 |
-| Accessibility | Named visible interactive controls, labeled form controls, focus ring, keyboard radio/button operation, transition heading focus, polite status announcement |
-| Layout | Document/body horizontal-overflow check with long realistic content at every required viewport |
-| Analytics privacy | Exact governed event/property allowlists, opaque IDs, 8 KiB budget, numeric feedback, no learner-authored text |
+| Start | Focused heading, exactly one goal field, visible keyboard focus, one-action typed entry, honest disabled voice status |
+| Conversation | Typed fallback, five-to-seven-question bound, no outline or methodology panel, named controls |
+| Confirmation | Exactly three compact parts, editable goal/role/constraint/time/coding fields, collapsed conversation-details disclosure |
+| Path | One result surface, next skill, project, first action, one-to-three resources, fourth fixture resource hidden |
+| Progressive disclosure | Four-week plan, rationale, and privacy collapsed initially; plan and privacy expand correctly |
+| First action | Keyboard activation changes the first task to a started state |
+| Responsive | No horizontal overflow and full-page screenshots at 375×812, 768×1024, and 1440×900 |
+| Accessibility | Named visible controls, labeled fields, visible focus ring, transition heading focus, native disclosure controls |
+| Trust boundary | Confirmed goal and transcript-derived inputs reach analysis; the browser does not assign competency evidence |
+| Network and spend | Zero external requests, zero Realtime requests, no paid path, analytics sink remains closed |
+| Analytics privacy | No learner-authored goal, answers, corrections, or private canary in analytics; each payload stays below 8 KiB |
 
 ## Artifacts and pass criteria
 
 Each run creates `output/playwright/ai-path-e2e-<UTC timestamp>/` containing:
 
-- full-page results and plan screenshots for all three viewports;
-- a landing screenshot;
-- the downloaded `ai-path-plan.json`;
-- Playwright snapshot/console/network logs;
+- start, conversation, confirmation, and path screenshots;
+- path screenshots at 375×812, 768×1024, and 1440×900;
+- Playwright snapshot, console, and network logs;
 - `results.txt` with the checkpoint result.
 
-Playwright CLI currently prints code exceptions without a nonzero process exit in
-some versions. The shell driver therefore treats either `### Error` or a missing
-`"ok":true` result as failure. This prevents false-green runs.
+Playwright CLI can print code exceptions without a nonzero process exit in some
+versions. The shell driver therefore treats either `### Error` or a missing
+`"ok":true` result as failure.
 
 ## Remaining risks
 
-- The harness uses deterministic API interception. It does not replace separate
-  route-handler, database RLS/RPC, or authenticated durable-persistence tests.
-- It checks high-signal accessibility invariants, not a full WCAG audit. Add a
-  pinned accessibility engine only after dependency review.
-- It checks global horizontal overflow and captures screenshots, but visual
-  regression baselines still require explicit design approval and maintenance.
-- Download contents are validated in Chromium; Firefox/WebKit parity is not in
-  this no-dependency slice.
-- A separate evidence contract in `docs/ai-path/PRIVATE_ALPHA_ACCEPTANCE.md`
-  requires Chromium, Firefox, and WebKit before multi-browser acceptance can be
-  claimed. Validate a completed packet with
-  `node scripts/ai-path-private-alpha-acceptance.mjs <evidence.json>`.
-- Real Realtime audio, microphone permission, external learning links, and any
-  paid model path are intentionally excluded.
+- Deterministic API interception does not replace route-handler, authenticated
+  storage, database policy, or migration tests.
+- This verifies the honest typed fallback, not live voice quality, latency,
+  interruption handling, microphone permissions, echo, or device switching.
+- High-signal accessibility invariants do not replace a full WCAG audit.
+- Screenshot inspection and overflow checks do not provide maintained visual
+  regression baselines.
+- Chromium execution does not establish Firefox or WebKit parity. The separate
+  evidence contract in `docs/ai-path/PRIVATE_ALPHA_ACCEPTANCE.md` remains the
+  gate for multi-browser claims.
+- External learning links are intentionally not opened.

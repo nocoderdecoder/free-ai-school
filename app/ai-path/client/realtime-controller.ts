@@ -189,6 +189,9 @@ export function createRealtimeVoiceController(options: ControllerOptions): Realt
 
   async function performConnection(nextConsent: VoiceConsent): Promise<RealtimeVoiceState> {
     try {
+      // Every reconnect creates a fresh provider session and data channel. The
+      // new channel must receive its own initial response request exactly once.
+      initialResponseSent = false
       dispatch({ type: 'MICROPHONE_REQUESTED' })
       localStream = await options.dependencies.getUserMedia({ audio: true })
       for (const track of localStream.getAudioTracks()) track.addEventListener?.('ended', handleTrackEnded)

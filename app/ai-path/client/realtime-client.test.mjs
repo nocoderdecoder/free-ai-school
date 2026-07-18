@@ -185,6 +185,7 @@ test('device loss, network failure, reconnect cap, and typed fallback are recove
   assert.equal(controller.getState().phase, 'device-lost')
   assert.equal((await controller.reconnect()).phase, 'connecting')
   mock.peers[1].channel.open()
+  assert.deepEqual(mock.peers[1].channel.sent.map(JSON.parse), [{ type: 'response.create' }])
   mock.peers[1].connectionState = 'disconnected'
   mock.peers[1].emit('connectionstatechange')
   assert.equal(controller.getState().phase, 'failed')

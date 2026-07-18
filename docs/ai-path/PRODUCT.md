@@ -10,29 +10,52 @@ The product is not a quiz, a personality test, or a course marketplace. It is a 
 
 The private alpha is intentionally narrow: working professionals who already use general-purpose AI tools and want to build one reliable work workflow. They may prefer no-code or light code. Later tracks can cover applied-AI engineers, leaders, creators, and career switchers after the assessment model is validated.
 
-The intake labels this scope before collecting any learner response. Role, 30-day workflow outcome, and blocker start blank. Any example copy is explicitly marked as an example and is never treated as learner input. The private alpha does not present broader persona paths that it is not yet designed to assess.
+The first screen asks only what the learner wants AI to help them do better.
+Role, experience, time, coding comfort, and constraints are collected naturally
+inside the conversation. Any example copy is explicitly marked as an example
+and is never treated as learner input. The private alpha does not claim broader
+persona coverage that the assessment is not yet designed to support.
 
 ## Core promise
 
-In under ten minutes, a learner should leave with:
+Talk with an AI learning advisor for about five minutes. Leave with one
+practical 30-day project, one immediate action, and no more than three learning
+resources that fit the learner's time and experience.
 
-- a concrete 30-day outcome;
-- a reviewed summary of their starting point and constraints;
-- evidence-backed skill findings with confidence and unassessed areas;
-- one recommended build project and a small set of relevant learning resources;
-- a weekly plan sized to their available time;
-- a way to return, show evidence, and reassess.
+The first-use experience is successful only when the learner can understand the
+next action without learning how the assessment system works.
 
 ## End-to-end journey
 
-1. **Frame the outcome.** Capture role, desired outcome, time budget, coding comfort, and the usual blocker.
-2. **Choose a mode.** Voice is optional. The text path is functionally complete.
-3. **Interview adaptively.** Ask one question at a time and seek concrete projects, artifacts, independence, outcomes, failures, evaluation, deployment, and safety practices.
-4. **Review the understanding.** The learner edits interpretations or rejects and removes them before they affect the report. Removed interpretations remain visible and can be restored; at least two non-empty reviewed inputs are required to build a report.
-5. **Compute the report.** Versioned application rules turn validated evidence into skill stages and confidence. Missing evidence remains “not assessed,” never zero.
-6. **Select a path.** Deterministic ranking chooses from a curated catalog whose links, prerequisites, cost, time, and skill mappings are maintained by the application.
-7. **Build and prove.** A 30-day plan centers on one useful artifact, not course completion.
-8. **Return and reassess.** Check-ins capture completed work and new evidence; later reports show what changed and why.
+1. **Start.** Ask one plain-language question about what the learner wants AI
+   to help them do better. Offer voice as the primary mode only when it is
+   genuinely available; otherwise present the complete typed conversation.
+2. **Talk.** Ask one adaptive question at a time. Role, prior experience,
+   constraints, available time, and coding preference are discovered inside the
+   conversation rather than through a separate application form.
+3. **Confirm.** Show three short, editable summaries: goal, current experience,
+   and practical constraints. Detailed evidence provenance is optional.
+4. **Get a path.** Show one recommended skill direction, one practical project,
+   one 30–45 minute first action, and no more than three resources. The full
+   four-week plan and assessment rationale are collapsed by default.
+
+History, progress tracking, check-ins, export, detailed assessment findings,
+and adaptation remain post-adoption capabilities. They must not add work to the
+first-use journey.
+
+## Learner-facing simplicity contract
+
+- The conversation begins in no more than two actions.
+- Every screen has one dominant action.
+- The primary journey has no scoring, catalog, provider, versioning, evidence-
+  gap, persistence, or infrastructure terminology.
+- The conversation uses one focal prompt; transcripts and rationale are
+  progressively disclosed.
+- Voice is never presented as available when the provider path is closed.
+- Privacy, deletion, and export remain accessible without being repeated across
+  every step.
+- Missing evidence remains unassessed internally, but the default result view
+  emphasizes what to do next rather than an exhaustive skill table.
 
 ## Assessment model
 

@@ -1,111 +1,31 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { AIPathApiError, analyzeReviewedAssessment, createTextSession, deleteOwnedSession, exportOwnedSession } from './client/api'
-import { AiPathBrowserAnalytics, weeklyHoursBand } from './client/analytics'
-import { proposeCheckInAdaptation, taskSwapAlternative, type CheckInProposal } from './client/plan-actions'
-import {
-  AI_PATH_VOICE_CONSENT_VERSION,
-  createVoiceConsent,
-  type VoiceConsent,
-} from './client/realtime-consent'
+import { AIPathApiError, analyzeReviewedAssessment, createTextSession, deleteOwnedSession } from './client/api'
 import {
   AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS,
   startAdaptiveInterview,
   submitAdaptiveInterviewAnswer,
-  summarizeAdaptiveInterview,
-  type AdaptiveInterviewQuestion,
   type AdaptiveInterviewState,
 } from './lib/adaptive-interview'
-import type { AssessmentReport, SkillId, SkillLevel } from './lib/foundation'
+import type { AssessmentReport, SkillId } from './lib/foundation'
 import type { AiPathGoalType } from './lib/goal-type'
 import { getPlanBlueprint } from './lib/plan'
 import { composePersonalizedPlan } from './lib/plan-composer'
-import {
-  MINIMUM_REVIEWED_INPUTS,
-  activeReviewedInputs,
-  canRemoveReviewedInput,
-  reviewedUnderstandingTelemetry,
-  type ReviewSelection,
-} from './lib/reviewed-understanding'
 
-type Stage = 'landing' | 'profile' | 'setup' | 'interview' | 'understanding' | 'results' | 'plan' | 'history'
-type InterviewStatus = 'agent' | 'ready' | 'listening' | 'processing' | 'paused'
-type UnderstandingItem = {
-  id: string
-  label: string
-  value: string
-  evidence: string
-  confidence: 'Clear' | 'Tentative'
-}
+type Stage = 'start' | 'conversation' | 'confirm' | 'path'
 
-const PRIVATE_ALPHA_GOAL: { id: AiPathGoalType; title: string; detail: string } = {
-  id: 'workflows',
-  title: 'Build one reliable AI-assisted work workflow',
-  detail: 'For working professionals who already use a general-purpose AI tool and want a practical no-code or light-code workflow.',
-}
+const GOAL_TYPE: AiPathGoalType = 'workflows'
+const DEFAULT_ROLE = 'Working professional'
+const DEFAULT_HOURS = '3'
+const DEFAULT_CODING_COMFORT = 'Some, but I prefer no-code first'
 
-const interviewCheckpointLabels: Record<string, string> = {
-  'concrete_example': 'Concrete example',
-  'ownership_independence': 'Your ownership',
-  artifact: 'Inspectable artifact',
-  'measurable_outcome': 'Observable outcome',
-  'failure_limitation': 'Failure or limitation',
-  'evaluation_reliability': 'Quality checks',
-  'safety_privacy': 'Safety boundary',
-  'constraint_time': 'Real constraint',
-}
-
-function interviewPhase(question: Pick<AdaptiveInterviewQuestion, 'dimensions'> | null) {
-  const firstDimension = question?.dimensions[0]
-  return firstDimension ? interviewCheckpointLabels[firstDimension] : 'Review your evidence'
-}
-
-function buildUnderstandingFromInterview(
-  state: AdaptiveInterviewState,
-  outcome: string,
-  weeklyHours: string,
-  blocker: string,
-): UnderstandingItem[] {
-  const summary = summarizeAdaptiveInterview(state)
-  const evidenceTurns = state.turns.filter(turn => !turn.dimensionsProbed.includes('constraint_time'))
-  const constraintTurns = state.turns.filter(turn => turn.dimensionsProbed.includes('constraint_time'))
-  const missing = summary?.missingDimensions.map(dimension => interviewCheckpointLabels[dimension]).join(', ')
-  const evidenceItems: UnderstandingItem[] = evidenceTurns.map((turn, index) => ({
-    id: `evidence-${index + 1}`,
-    label: `${interviewPhase({ dimensions: turn.dimensionsProbed })} evidence`,
-    value: turn.answer,
-    evidence: `Your exact typed answer to: “${turn.question}”`,
-    confidence: summary?.contradictoryDimensions.some(dimension => turn.dimensionsProbed.includes(dimension)) ? 'Tentative' : 'Clear',
-  }))
-
-  return [
-    {
-      id: 'goal',
-      label: 'Your 30-day outcome',
-      value: outcome.trim(),
-      evidence: `From the outcome you entered: “${outcome.trim()}”`,
-      confidence: 'Clear',
-    },
-    ...evidenceItems,
-    ...constraintTurns.map(turn => ({
-      id: 'constraint-follow-up',
-      label: 'Constraint follow-up',
-      value: turn.answer,
-      evidence: `Your exact typed answer to: “${turn.question}”`,
-      confidence: 'Clear' as const,
-    })),
-    {
-      id: 'constraint',
-      label: 'Profile constraint the plan must respect',
-      value: blocker.trim(),
-      evidence: constraintTurns.length
-        ? `From your stated blocker; the exact constraint follow-up is preserved separately. Your structured time budget remains ${hourLabel(weeklyHours)} per week.${missing ? ` Evidence gaps remain: ${missing}.` : ''}`
-        : `From the blocker you entered. Your structured time budget remains ${hourLabel(weeklyHours)} per week.${missing ? ` Evidence gaps remain: ${missing}.` : ''}`,
-      confidence: 'Clear',
-    },
-  ]
+const stageLabels: Record<Stage, string> = {
+  start: 'Start',
+  conversation: 'Conversation',
+  confirm: 'Confirm',
+  path: 'Path',
 }
 
 const skillNames: Record<SkillId, string> = {
@@ -120,1088 +40,430 @@ const skillNames: Record<SkillId, string> = {
   'safety-governance': 'Safety and governance',
 }
 
-function learnerStage(level: SkillLevel | null): string {
-  if (level === null) return 'Not assessed'
-  if (level <= 1) return 'Explorer'
-  if (level === 2) return 'Integrator'
-  if (level === 3) return 'System Builder'
-  return 'Production Builder'
-}
-
-function hourLabel(value: string): string {
-  return `${value} ${value === '1' ? 'hour' : 'hours'}`
-}
-
-const flowSteps: Array<{ id: Stage; short: string }> = [
-  { id: 'profile', short: 'Goal' },
-  { id: 'setup', short: 'Setup' },
-  { id: 'interview', short: 'Conversation' },
-  { id: 'understanding', short: 'Review' },
-  { id: 'results', short: 'Direction' },
-  { id: 'plan', short: 'Plan' },
-]
-
 function ArrowIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
 }
 
-function MicIcon({ off = false }: { off?: boolean }) {
-  return <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8" />{off && <path d="M4 4l16 16" />}</svg>
-}
-
-function CaptionsIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M10 10H8.5a2 2 0 0 0 0 4H10m5-4h-1.5a2 2 0 0 0 0 4H15" /></svg>
-}
-
-function PauseIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></svg>
+function MicIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8" /></svg>
 }
 
 function CheckIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg>
 }
 
-function CompassIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z" /></svg>
+function SparkIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 2l1.6 5.4L19 9l-5.4 1.6L12 16l-1.6-5.4L5 9l5.4-1.6L12 2Zm6 13 .8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8L18 15Z" /></svg>
 }
 
-function BackButton({ onClick, children = 'Back' }: { onClick: () => void; children?: React.ReactNode }) {
-  return <button type="button" className="ap-linkButton" onClick={onClick}><span aria-hidden="true">←</span>{children}</button>
-}
-
-function PrimaryButton({ onClick, children, disabled = false }: { onClick: () => void; children: React.ReactNode; disabled?: boolean }) {
+function PrimaryButton({ children, onClick, disabled = false }: { children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
   return <button type="button" className="ap-primary" onClick={onClick} disabled={disabled}>{children}<ArrowIcon /></button>
 }
 
-function FlowHeader({ stage, onNavigate, canViewHistory }: { stage: Stage; onNavigate: (next: Stage) => void; canViewHistory: boolean }) {
-  const activeIndex = flowSteps.findIndex(step => step.id === stage)
-  if (activeIndex < 0) return null
+function AppHeader({ stage, onRestart }: { stage: Stage; onRestart: () => void }) {
+  const step = (['start', 'conversation', 'confirm', 'path'] as Stage[]).indexOf(stage) + 1
   return (
-    <div className="ap-flowHeader" aria-label="Assessment progress">
-      <div className="ap-flowHeaderInner">
-        <button type="button" className="ap-wordmark" onClick={() => onNavigate('landing')} aria-label="AI Path Advisor home">
-          <span className="ap-mark"><CompassIcon /></span>
-          <span>AI Path Advisor</span>
-          <span className="ap-alphaBadge">Private alpha</span>
-        </button>
-        <ol className="ap-stepper">
-          {flowSteps.map((step, index) => (
-            <li key={step.id} className={index < activeIndex ? 'is-complete' : index === activeIndex ? 'is-current' : ''}>
-              <button type="button" disabled={index > activeIndex} onClick={() => onNavigate(step.id)} aria-current={index === activeIndex ? 'step' : undefined}>
-                <span>{index < activeIndex ? <CheckIcon /> : index + 1}</span>
-                <small>{step.short}</small>
-              </button>
-            </li>
-          ))}
-        </ol>
-        {canViewHistory && <button type="button" className="ap-quietButton ap-historyButton" onClick={() => onNavigate('history')}>History</button>}
-      </div>
-    </div>
+    <header className="ap-header">
+      <button type="button" className="ap-brand" onClick={onRestart} aria-label="AI Path home">
+        <span><SparkIcon /></span>
+        <strong>AI Path</strong>
+      </button>
+      <p aria-label={`${stageLabels[stage]}, step ${step} of 4`}><span>{stageLabels[stage]}</span> {step} of 4</p>
+    </header>
   )
 }
 
 export function AdvisorApp() {
-  const [stage, setStage] = useState<Stage>('landing')
-  const goal = PRIVATE_ALPHA_GOAL.id
-  const [role, setRole] = useState('')
-  const [outcome, setOutcome] = useState('')
-  const [hours, setHours] = useState('3')
-  const [codingComfort, setCodingComfort] = useState('Some, but I prefer no-code first')
-  const [blocker, setBlocker] = useState('')
-  const [privacyAccepted, setPrivacyAccepted] = useState(false)
-  const [privacyOpen, setPrivacyOpen] = useState(false)
-  const [voiceAudioAccepted, setVoiceAudioAccepted] = useState(false)
-  const [voiceTranscriptAccepted, setVoiceTranscriptAccepted] = useState(false)
-  const [voiceConsent, setVoiceConsent] = useState<VoiceConsent | null>(null)
-  const [voiceSetupStatus, setVoiceSetupStatus] = useState('')
-  const [captions, setCaptions] = useState(true)
-  const [interviewStatus, setInterviewStatus] = useState<InterviewStatus>('agent')
-  const [adaptiveInterview, setAdaptiveInterview] = useState<AdaptiveInterviewState | null>(null)
+  const [stage, setStage] = useState<Stage>('start')
+  const [goal, setGoal] = useState('')
+  const [interview, setInterview] = useState<AdaptiveInterviewState | null>(null)
   const [answer, setAnswer] = useState('')
-  const [understanding, setUnderstanding] = useState<UnderstandingItem[]>([])
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [removedInputIds, setRemovedInputIds] = useState<ReviewSelection>({})
-  const [reviewStatus, setReviewStatus] = useState('')
-  const [completedTasks, setCompletedTasks] = useState<Record<string, boolean>>({})
-  const [planSaved, setPlanSaved] = useState(false)
-  const [sessionState, setSessionState] = useState<'idle' | 'starting' | 'ready' | 'error'>('idle')
+  const [role, setRole] = useState('')
+  const [experience, setExperience] = useState('')
+  const [constraint, setConstraint] = useState('')
+  const [weeklyHours, setWeeklyHours] = useState(DEFAULT_HOURS)
+  const [codingComfort, setCodingComfort] = useState(DEFAULT_CODING_COMFORT)
+  const [reviewAnswers, setReviewAnswers] = useState<Record<string, string>>({})
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessionOwned, setSessionOwned] = useState(false)
-  const [sessionPersistence, setSessionPersistence] = useState<'none' | 'ephemeral-memory' | 'supabase-postgres'>('none')
-  const [sessionError, setSessionError] = useState('')
-  const [analysisState, setAnalysisState] = useState<'idle' | 'running' | 'ready' | 'error'>('idle')
-  const [analysisError, setAnalysisError] = useState('')
-  const [assessmentReport, setAssessmentReport] = useState<AssessmentReport | null>(null)
-  const [planHours, setPlanHours] = useState(hours)
-  const [pendingPlanHours, setPendingPlanHours] = useState(hours)
-  const [taskOverrides, setTaskOverrides] = useState<Record<string, string>>({})
-  const [checkIn, setCheckIn] = useState('')
-  const [checkInProposal, setCheckInProposal] = useState<CheckInProposal | null>(null)
-  const [adaptationStatus, setAdaptationStatus] = useState('')
-  const [dataActionState, setDataActionState] = useState<'idle' | 'working' | 'done' | 'error'>('idle')
-  const [dataActionMessage, setDataActionMessage] = useState('')
-  const [correctedInputIds, setCorrectedInputIds] = useState<Record<string, true>>({})
-  const [firstTaskStarted, setFirstTaskStarted] = useState(false)
-  const [planFitRating, setPlanFitRating] = useState('')
-  const [reportUsefulnessRating, setReportUsefulnessRating] = useState('')
-  const [wrongFindingCount, setWrongFindingCount] = useState('0')
-  const [feedbackState, setFeedbackState] = useState<'idle' | 'sending' | 'done'>('idle')
-  const [feedbackMessage, setFeedbackMessage] = useState('')
+  const [analysisState, setAnalysisState] = useState<'idle' | 'running' | 'error' | 'ready'>('idle')
+  const [errorMessage, setErrorMessage] = useState('')
+  const [report, setReport] = useState<AssessmentReport | null>(null)
+  const [firstTaskState, setFirstTaskState] = useState<'not-started' | 'started' | 'complete'>('not-started')
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const analyticsRef = useRef<AiPathBrowserAnalytics | null>(null)
-  const assessmentStartedAtRef = useRef<number | null>(null)
-  const assessmentCompletionRecordedRef = useRef(false)
-  const landingViewedRef = useRef(false)
-  const firstTaskStartedAtRef = useRef<number | null>(null)
 
-  if (!analyticsRef.current) analyticsRef.current = new AiPathBrowserAnalytics()
+  const currentQuestion = interview?.currentQuestion ?? null
+  const questionNumber = Math.min((interview?.turns.length ?? 0) + 1, AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS)
+  const questionProgress = Math.round(((interview?.turns.length ?? 0) / AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS) * 100)
 
-  const activeUnderstanding = activeReviewedInputs(understanding, removedInputIds)
-  const reviewedGoal = activeUnderstanding.find(item => item.id === 'goal')?.value.trim() || outcome.trim()
-  const reviewedConstraint = activeUnderstanding
-    .filter(item => item.id === 'constraint' || item.id === 'constraint-follow-up')
-    .map(item => item.value.trim())
-    .filter(Boolean)
-    .join(' ')
-  const reviewTelemetry = reviewedUnderstandingTelemetry(understanding, correctedInputIds, removedInputIds)
-  const personalizedPlan = useMemo(() => assessmentReport ? composePersonalizedPlan({
-    goalType: goal,
-    weeklyHours: Number(planHours) || 1,
-    codingComfort,
-    role,
-    blocker: reviewedConstraint,
-    results: assessmentReport.results,
-    growthAreas: assessmentReport.growthAreas,
-    recommendations: assessmentReport.recommendations,
-  }) : null, [assessmentReport, codingComfort, goal, planHours, reviewedConstraint, role])
-  const plan = personalizedPlan ?? getPlanBlueprint(goal)
-  const weeks = plan.weeks
-  const scheduledWeeks = useMemo(() => weeks.map(week => ({
-    ...week,
-    tasks: planHours === '1' ? week.tasks.slice(0, 1) : week.tasks,
-  })), [planHours, weeks])
-  const profileReady = role.trim().length >= 4 && outcome.trim().length >= 20 && blocker.trim().length >= 10 && privacyAccepted
-  const totalTasks = scheduledWeeks.reduce((total, week) => total + week.tasks.length, 0)
-  const completedCount = Object.values(completedTasks).filter(Boolean).length
-  const progress = Math.round((completedCount / totalTasks) * 100)
-  const currentQuestion = adaptiveInterview?.currentQuestion ?? null
-  const questionOrdinal = currentQuestion?.ordinal ?? Math.max(1, adaptiveInterview?.turns.length ?? 1)
-  const skillObservations = useMemo(() => (assessmentReport?.results ?? []).map(result => ({
-    label: skillNames[result.skillId],
-    stage: learnerStage(result.level),
-    note: result.rationale,
-  })), [assessmentReport])
-  const recommendations = assessmentReport?.recommendations ?? []
-  const assessedCount = assessmentReport?.results.filter(result => result.status === 'assessed').length ?? 0
-  const totalFindingCount = Math.max(1, assessmentReport?.results.length ?? 1)
+  const plan = useMemo(() => {
+    if (!report) return getPlanBlueprint(GOAL_TYPE)
+    return composePersonalizedPlan({
+      goalType: GOAL_TYPE,
+      weeklyHours: Number(weeklyHours) || 1,
+      codingComfort,
+      role: role.trim() || DEFAULT_ROLE,
+      blocker: constraint.trim(),
+      results: report.results,
+      growthAreas: report.growthAreas,
+      recommendations: report.recommendations,
+    }) ?? getPlanBlueprint(GOAL_TYPE)
+  }, [codingComfort, constraint, report, role, weeklyHours])
 
-  useEffect(() => {
-    if (landingViewedRef.current) return
-    landingViewedRef.current = true
-    void analyticsRef.current?.landingViewed('unknown')
-  }, [])
+  const resources = (report?.recommendations ?? []).slice(0, 3)
+  const prioritySkills = report?.growthAreas.slice(0, 2).map(skillId => skillNames[skillId]) ?? []
+  const planReasons = 'reasons' in plan ? plan.reasons.slice(0, 4) : []
 
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true })
     window.scrollTo({ top: 0, behavior: 'auto' })
   }, [stage])
 
-  const recordAssessmentCompletion = useCallback(() => {
-    if (assessmentCompletionRecordedRef.current) return
-    assessmentCompletionRecordedRef.current = true
-    const durationSeconds = assessmentStartedAtRef.current
-      ? (Date.now() - assessmentStartedAtRef.current) / 1_000
-      : 1
-    void analyticsRef.current?.assessmentCompleted(durationSeconds)
-  }, [])
-
-  useEffect(() => {
-    if (interviewStatus !== 'processing') return
-    const timeout = window.setTimeout(() => {
-      if (adaptiveInterview?.status === 'complete') {
-        recordAssessmentCompletion()
-        setUnderstanding(buildUnderstandingFromInterview(adaptiveInterview, outcome, hours, blocker))
-        setRemovedInputIds({})
-        setReviewStatus('')
-        setStage('understanding')
-        setInterviewStatus('agent')
-        return
-      }
-      setInterviewStatus('agent')
-    }, 650)
-    return () => window.clearTimeout(timeout)
-  }, [adaptiveInterview, blocker, hours, interviewStatus, outcome, recordAssessmentCompletion])
-
-  const navigate = (next: Stage) => {
-    if ((next === 'results' || next === 'plan' || next === 'history') && !assessmentReport) return
-    if (next === 'interview' && stage !== 'interview') setInterviewStatus('agent')
-    setStage(next)
-  }
-
-  const confirmVoiceConsentPreview = () => {
-    const accepted = createVoiceConsent({
-      audioStreamingAccepted: voiceAudioAccepted,
-      transcriptReviewAccepted: voiceTranscriptAccepted,
+  const startConversation = () => {
+    const trimmedGoal = goal.trim()
+    if (trimmedGoal.length < 20) return
+    const started = startAdaptiveInterview({
+      goalType: GOAL_TYPE,
+      goal: trimmedGoal,
+      weeklyMinutes: Number(DEFAULT_HOURS) * 60,
     })
-    setVoiceConsent(accepted)
-    setVoiceSetupStatus(accepted
-      ? 'Voice consent choices saved for this browser tab. The live provider gate is still locked, so no microphone permission or network call was attempted.'
-      : 'Accept both voice-specific choices before a future live session can request microphone access.')
-  }
-
-  const continueWithText = async () => {
-    setSessionState('starting')
-    setSessionError('')
-    try {
-      const result = await createTextSession({ goal: outcome.trim(), goalType: goal, targetRole: role.trim() })
-      const interview = startAdaptiveInterview({
-        goalType: goal,
-        goal: outcome.trim(),
-        role: role.trim(),
-        weeklyMinutes: Math.max(15, Math.min(1_200, (Number(hours) || 1) * 60)),
-        blocker: blocker.trim(),
-      })
-      if (!interview.ok) throw new Error('The adaptive interview could not be initialized.')
-      setSessionId(result.session.id)
-      setSessionOwned(result.owned)
-      setSessionPersistence(result.persistence)
-      setSessionState('ready')
-      setAdaptiveInterview(interview.state)
-      setUnderstanding([])
-      setCorrectedInputIds({})
-      setRemovedInputIds({})
-      setReviewStatus('')
-      assessmentStartedAtRef.current = Date.now()
-      assessmentCompletionRecordedRef.current = false
-      void analyticsRef.current?.profileCompleted(goal, weeklyHoursBand(hours))
-      void analyticsRef.current?.assessmentStarted()
-      setStage('interview')
-    } catch (error) {
-      setSessionState('error')
-      setSessionError(error instanceof AIPathApiError ? error.message : 'The assessment session could not be started. Please try again.')
+    if (!started.ok) {
+      setErrorMessage('Please make your goal a little more specific, then try again.')
+      return
     }
+    setGoal(trimmedGoal)
+    setInterview(started.state)
+    setAnswer('')
+    setErrorMessage('')
+    setStage('conversation')
   }
 
-  const submitInterviewAnswer = () => {
+  const submitAnswer = () => {
     const trimmed = answer.trim()
-    if (!trimmed || !adaptiveInterview?.currentQuestion) return
-    const submitted = submitAdaptiveInterviewAnswer(adaptiveInterview, trimmed)
-    if (!submitted.ok) return
-    setAdaptiveInterview(submitted.state)
+    if (!interview?.currentQuestion || !trimmed) return
+    const submitted = submitAdaptiveInterviewAnswer(interview, trimmed)
+    if (!submitted.ok) {
+      setErrorMessage('That answer could not be added. Please shorten it and try again.')
+      return
+    }
+    setInterview(submitted.state)
     setAnswer('')
-    setInterviewStatus('processing')
+    setErrorMessage('')
   }
 
-  const restartAdaptiveQuestions = () => {
-    const restarted = startAdaptiveInterview({
-      goalType: goal,
-      goal: outcome.trim(),
-      role: role.trim(),
-      weeklyMinutes: Math.max(15, Math.min(1_200, (Number(hours) || 1) * 60)),
-      blocker: blocker.trim(),
-    })
-    if (!restarted.ok) return
-    setAdaptiveInterview(restarted.state)
-    setUnderstanding([])
-    setCorrectedInputIds({})
-    setRemovedInputIds({})
-    setReviewStatus('')
-    setAnswer('')
-    setInterviewStatus('agent')
-    setStage('interview')
+  const openConfirmation = () => {
+    if (!interview?.turns.length) return
+    const [firstTurn, ...otherTurns] = interview.turns
+    setExperience(firstTurn.answer)
+    setReviewAnswers(Object.fromEntries(otherTurns.map(turn => [turn.id, turn.answer])))
+    const statedConstraint = [...interview.turns]
+      .reverse()
+      .find(turn => turn.dimensionsProbed.includes('constraint_time'))?.answer
+    if (statedConstraint) setConstraint(statedConstraint)
+    setErrorMessage('')
+    setStage('confirm')
   }
 
-  const endInterviewAndReview = () => {
-    if (!adaptiveInterview || adaptiveInterview.turns.length === 0) return
-    recordAssessmentCompletion()
-    setUnderstanding(buildUnderstandingFromInterview(adaptiveInterview, outcome, hours, blocker))
-    setRemovedInputIds({})
-    setReviewStatus('')
-    setInterviewStatus('agent')
-    setStage('understanding')
-  }
+  const buildPath = async () => {
+    const reviewedInputs = [
+      { id: 'goal', value: goal.trim(), source: 'typed-response' as const },
+      { id: 'experience', value: experience.trim(), source: 'typed-response' as const },
+      ...(role.trim() ? [{ id: 'role', value: role.trim(), source: 'typed-response' as const }] : []),
+      ...(constraint.trim() ? [{ id: 'constraint', value: constraint.trim(), source: 'typed-response' as const }] : []),
+      ...Object.entries(reviewAnswers)
+        .filter(([, value]) => value.trim())
+        .map(([id, value]) => ({ id, value: value.trim(), source: 'typed-response' as const })),
+    ]
+    if (goal.trim().length < 20 || experience.trim().length === 0) {
+      setErrorMessage('Confirm your goal and what you have tried before building your path.')
+      return
+    }
 
-  const updateUnderstanding = (id: string, value: string) => {
-    setUnderstanding(items => items.map(item => item.id === id ? { ...item, value } : item))
-    setCorrectedInputIds(ids => ({ ...ids, [id]: true }))
-  }
-
-  const toggleUnderstandingRemoval = (item: UnderstandingItem) => {
-    if (removedInputIds[item.id]) {
-      setRemovedInputIds(ids => {
-        const next = { ...ids }
-        delete next[item.id]
-        return next
-      })
-      setReviewStatus(`${item.label} restored and included in the report.`)
-      return
-    }
-    if (!canRemoveReviewedInput(understanding, removedInputIds, item.id)) {
-      setReviewStatus(`Keep at least ${MINIMUM_REVIEWED_INPUTS} non-empty interpretations so the report has enough reviewed input.`)
-      return
-    }
-    setRemovedInputIds(ids => ({ ...ids, [item.id]: true }))
-    setEditingId(current => current === item.id ? null : current)
-    setReviewStatus(`${item.label} removed. It will not be sent as reviewed evidence unless you restore it.`)
-  }
-
-  const buildAssessment = async () => {
-    if (!sessionId) {
-      setAnalysisState('error')
-      setAnalysisError('This assessment session is missing. Return to your profile and start again.')
-      return
-    }
-    if (activeUnderstanding.length < MINIMUM_REVIEWED_INPUTS) {
-      setAnalysisState('error')
-      setAnalysisError(`Keep at least ${MINIMUM_REVIEWED_INPUTS} non-empty reviewed responses before building your report.`)
-      return
-    }
-    if (sessionOwned && reviewedGoal !== outcome.trim()) {
-      setAnalysisState('error')
-      setAnalysisError('A saved assessment cannot change its goal after the session starts. Return to your profile to start a new assessment with this corrected goal.')
-      return
-    }
     setAnalysisState('running')
-    setAnalysisError('')
-    void analyticsRef.current?.understandingReviewed(reviewTelemetry.correctionCount, reviewTelemetry.removedObservationCount)
+    setErrorMessage('')
     try {
-      const report = await analyzeReviewedAssessment({
-        assessmentSessionId: sessionId,
-        goal: reviewedGoal,
-        goalType: goal,
-        weeklyHours: Number(hours) || 1,
-        codingComfort,
-        reviewedInputs: activeUnderstanding.map(item => ({ id: item.id, value: item.value })),
+      const sessionResult = await createTextSession({
+        goal: goal.trim(),
+        goalType: GOAL_TYPE,
+        targetRole: role.trim() || DEFAULT_ROLE,
       })
-      setAssessmentReport(report)
-      setPlanHours(hours)
-      setPendingPlanHours(hours)
+      const assessment = await analyzeReviewedAssessment({
+        assessmentSessionId: sessionResult.session.id,
+        goal: goal.trim(),
+        goalType: GOAL_TYPE,
+        weeklyHours: Number(weeklyHours) || 1,
+        codingComfort,
+        reviewedInputs,
+      })
+      setSessionId(sessionResult.session.id)
+      setSessionOwned(sessionResult.owned)
+      setReport(assessment)
       setAnalysisState('ready')
-      void analyticsRef.current?.reportViewed()
-      setStage('results')
+      setStage('path')
     } catch (error) {
       setAnalysisState('error')
-      setAnalysisError(error instanceof AIPathApiError ? error.message : 'The report could not be generated. Your reviewed responses are still available.')
+      setErrorMessage(error instanceof AIPathApiError ? error.message : 'Your path could not be built. Your answers are still here—please try again.')
     }
   }
 
-  const toggleTask = (key: string) => {
-    const completing = !completedTasks[key]
-    setCompletedTasks(tasks => ({ ...tasks, [key]: completing }))
-    if (key === '0-0' && completing) {
-      let startedAt = firstTaskStartedAtRef.current
-      if (!startedAt) {
-        startedAt = Date.now()
-        firstTaskStartedAtRef.current = startedAt
-        setFirstTaskStarted(true)
-        void analyticsRef.current?.firstTaskStarted()
-      }
-      const elapsedMinutes = Math.max(1, Math.round((Date.now() - startedAt) / 60_000))
-      void analyticsRef.current?.firstTaskCompleted(elapsedMinutes)
-    }
-  }
-
-  const startOrCompleteFirstTask = () => {
-    if (completedTasks['0-0']) return
-    if (!firstTaskStarted) {
-      firstTaskStartedAtRef.current = Date.now()
-      setFirstTaskStarted(true)
-      void analyticsRef.current?.firstTaskStarted()
-      setAdaptationStatus('First task started. When the artifact is ready, mark it complete here or in Week 1.')
-      return
-    }
-    toggleTask('0-0')
-  }
-
-  const togglePlanSaved = () => {
-    const next = !planSaved
-    setPlanSaved(next)
-    if (next) void analyticsRef.current?.planSaved('private-alpha-v1')
-  }
-
-  const submitFeedback = async () => {
-    if (!planFitRating || !reportUsefulnessRating || feedbackState === 'sending') return
-    setFeedbackState('sending')
-    const deliveries = await Promise.all([
-      analyticsRef.current?.feedbackSubmitted(Number(planFitRating), Number(reportUsefulnessRating)),
-      analyticsRef.current?.findingFeedbackSubmitted(totalFindingCount, Number(wrongFindingCount)),
-    ])
-    const accepted = deliveries.every(delivery => delivery === 'accepted')
-    setFeedbackState('done')
-    setFeedbackMessage(accepted
-      ? 'Thank you. Only these numeric ratings were accepted; no written responses were included.'
-      : 'Thank you. Your ratings remain visible in this browser tab. The production analytics sink is still disabled, so nothing was stored externally.')
-  }
-
-  const restartForReassessment = () => {
-    setAssessmentReport(null)
-    setAnalysisState('idle')
-    setSessionId(null)
-    setSessionOwned(false)
-    setSessionPersistence('none')
-    setAdaptiveInterview(null)
-    setUnderstanding([])
-    setAnswer('')
-    setCompletedTasks({})
-    setTaskOverrides({})
-    setCheckIn('')
-    setCheckInProposal(null)
-    setAdaptationStatus('')
-    setPlanSaved(false)
-    setCorrectedInputIds({})
-    setFirstTaskStarted(false)
-    firstTaskStartedAtRef.current = null
-    assessmentStartedAtRef.current = null
-    assessmentCompletionRecordedRef.current = false
-    setPlanFitRating('')
-    setReportUsefulnessRating('')
-    setWrongFindingCount('0')
-    setFeedbackState('idle')
-    setFeedbackMessage('')
-    setDataActionState('idle')
-    setDataActionMessage('')
-    setInterviewStatus('agent')
-    setStage('profile')
-  }
-
-  const clearPreview = () => {
-    setUnderstanding([])
-    setCompletedTasks({})
-    setPlanSaved(false)
-    setCorrectedInputIds({})
-    setFirstTaskStarted(false)
-    firstTaskStartedAtRef.current = null
-    assessmentStartedAtRef.current = null
-    assessmentCompletionRecordedRef.current = false
-    setPlanFitRating('')
-    setReportUsefulnessRating('')
-    setWrongFindingCount('0')
-    setFeedbackState('idle')
-    setFeedbackMessage('')
-    setSessionId(null)
-    setSessionOwned(false)
-    setSessionPersistence('none')
-    setSessionState('idle')
-    setSessionError('')
-    setAssessmentReport(null)
-    setAnalysisState('idle')
-    setAnalysisError('')
-    setPrivacyAccepted(false)
-    setPrivacyOpen(false)
-    setVoiceAudioAccepted(false)
-    setVoiceTranscriptAccepted(false)
-    setVoiceConsent(null)
-    setVoiceSetupStatus('')
-    setTaskOverrides({})
-    setCheckIn('')
-    setCheckInProposal(null)
-    setAdaptationStatus('')
-    setDataActionState('idle')
-    setDataActionMessage('')
-    setAnswer('')
-    setAdaptiveInterview(null)
-    setInterviewStatus('agent')
-    setStage('landing')
-  }
-
-  const deletePreview = async () => {
+  const restart = async () => {
     if (sessionOwned && sessionId) {
-      setDataActionState('working')
-      setDataActionMessage('Deleting the owned server session…')
       try {
         await deleteOwnedSession(sessionId)
-      } catch (error) {
-        setDataActionState('error')
-        setDataActionMessage(error instanceof AIPathApiError ? error.message : 'The server session could not be deleted. Browser data was not cleared.')
-        return
+      } catch {
+        // Restarting the local experience should remain available if remote deletion is unavailable.
       }
     }
-    await analyticsRef.current?.dataDeleted()
-    clearPreview()
-  }
-
-  const downloadJson = (value: unknown, filename: string) => {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }))
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = filename
-    anchor.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const exportPlan = async () => {
-    setDataActionState('working')
-    setDataActionMessage('Preparing your export…')
-    try {
-      const serverExport = sessionOwned && sessionId ? await exportOwnedSession(sessionId) : null
-      downloadJson({
-        exportedAt: new Date().toISOString(),
-        source: serverExport ? sessionPersistence : 'browser-preview',
-        session: serverExport?.session ?? { id: sessionId, goal: outcome, targetRole: role },
-        report: serverExport?.session.report ?? assessmentReport,
-        plan: { goalType: goal, weeklyHours: Number(planHours), schedule: scheduledWeeks, completedTasks, taskOverrides, checkInProposal, adaptationStatus },
-      }, 'ai-path-plan.json')
-      setDataActionState('done')
-      setDataActionMessage('Export prepared. It includes the report and current browser plan state.')
-    } catch (error) {
-      setDataActionState('error')
-      setDataActionMessage(error instanceof AIPathApiError ? error.message : 'The export could not be prepared.')
-    }
-  }
-
-  const confirmTimeBudget = () => {
-    setPlanHours(pendingPlanHours)
-    setCompletedTasks({})
-    setTaskOverrides({})
-    setCheckIn('')
-    setCheckInProposal(null)
-    setAdaptationStatus(`Time budget changed to ${pendingPlanHours} ${pendingPlanHours === '1' ? 'hour' : 'hours'} per week. Browser-only task completion was reset for the recalculated schedule.`)
-  }
-
-  const submitCheckIn = () => {
-    if (checkIn.trim().length < 10) return
-    setCheckInProposal(proposeCheckInAdaptation(checkIn))
-    setAdaptationStatus('Review the proposed adaptation. Nothing changes until you accept it.')
-  }
-
-  const decideAdaptation = (accepted: boolean) => {
-    if (!checkInProposal) return
-    if (accepted && checkInProposal.action !== 'protect-pace') {
-      const nextTask = scheduledWeeks.flatMap((week, weekIndex) => week.tasks.map((task, taskIndex) => ({ task, weekIndex, taskIndex })))
-        .find(({ weekIndex, taskIndex }) => !completedTasks[`${weekIndex}-${taskIndex}`])
-      if (nextTask) {
-        const key = `${nextTask.weekIndex}-${nextTask.taskIndex}`
-        const replacement = checkInProposal.action === 'reduce-scope'
-          ? taskSwapAlternative(goal, nextTask.weekIndex, nextTask.task)
-          : checkInProposal.action === 'unblock'
-            ? `Run a 30-minute diagnostic: reproduce one failure in “${nextTask.task}”, record the expected result, and change one variable.`
-            : `${nextTask.task} Then test one harder example without adding a new tool.`
-        setTaskOverrides(overrides => ({ ...overrides, [key]: replacement }))
-      }
-    }
-    setAdaptationStatus(accepted ? `Accepted: ${checkInProposal.title}. The next incomplete task now reflects this decision.` : 'Proposal rejected. The current plan remains unchanged.')
-    setCheckInProposal(null)
-    setCheckIn('')
+    setStage('start')
+    setGoal('')
+    setInterview(null)
+    setAnswer('')
+    setRole('')
+    setExperience('')
+    setConstraint('')
+    setWeeklyHours(DEFAULT_HOURS)
+    setCodingComfort(DEFAULT_CODING_COMFORT)
+    setReviewAnswers({})
+    setSessionId(null)
+    setSessionOwned(false)
+    setAnalysisState('idle')
+    setErrorMessage('')
+    setReport(null)
+    setFirstTaskState('not-started')
   }
 
   return (
     <div className="ap-shell">
-      <FlowHeader stage={stage} onNavigate={navigate} canViewHistory={Boolean(assessmentReport)} />
+      <AppHeader stage={stage} onRestart={() => { void restart() }} />
 
-      {stage === 'landing' && (
-        <section className="ap-landing">
-          <div className="ap-ambient ap-ambientOne" />
-          <div className="ap-ambient ap-ambientTwo" />
-          <div className="ap-landingGrid">
-            <div className="ap-heroCopy">
-              <div className="ap-privatePill"><span /> Private alpha · Your feedback shapes the product</div>
-              <h1 ref={headingRef} tabIndex={-1}>Find your next <em>useful</em>{' '}AI move.</h1>
-              <p className="ap-heroLead">Answer five to seven evidence-seeking questions. Leave with a transparent preview of how a realistic 30-day plan could use your goal, experience, and available time.</p>
-              <div className="ap-heroActions">
-                <PrimaryButton onClick={() => setStage('profile')}>Build my plan</PrimaryButton>
-                <button type="button" className="ap-secondary" onClick={() => setStage('profile')}>See the guided flow</button>
-              </div>
-              <ul className="ap-trustList" aria-label="Assessment commitments">
-                <li><CheckIcon /> No test or grades</li>
-                <li><CheckIcon /> Review what we understood</li>
-                <li><CheckIcon /> Text-only in this build</li>
-              </ul>
+      <main className="ap-main">
+        {stage === 'start' && (
+          <section className="ap-start" aria-labelledby="ap-start-title">
+            <div className="ap-startIcon"><SparkIcon /></div>
+            <p className="ap-eyebrow">A short, practical conversation</p>
+            <h1 id="ap-start-title" ref={headingRef} tabIndex={-1}>What would you like AI to help you do better?</h1>
+            <p className="ap-lead">Tell us about one real task. We’ll ask a few useful questions, then suggest a skill, a project and a focused 30-day path.</p>
+
+            <div className="ap-startCard">
+              <label htmlFor="ap-goal">Your goal</label>
+              <textarea
+                id="ap-goal"
+                value={goal}
+                onChange={event => { setGoal(event.target.value); setErrorMessage('') }}
+                maxLength={1200}
+                rows={4}
+                placeholder="For example: I want to turn approved research into a reliable weekly brief."
+              />
+              <small>Use a real, non-sensitive example. A sentence or two is enough.</small>
+
+              <PrimaryButton onClick={startConversation} disabled={goal.trim().length < 20}>Start typed conversation</PrimaryButton>
+              <p className="ap-consentNote">By continuing, you agree that the answers you confirm can be sent to this app to build your path.</p>
+              <button type="button" className="ap-voiceUnavailable" disabled><MicIcon /> Voice conversation coming soon</button>
+              {errorMessage && <p className="ap-error" role="alert">{errorMessage}</p>}
             </div>
-            <div className="ap-previewWrap" aria-label="Example learning plan preview">
-              <div className="ap-previewCard">
-                <div className="ap-previewTop"><span>Example direction</span><span>5–7 adaptive questions</span></div>
-                <div className="ap-previewMark"><CompassIcon /></div>
-                <p className="ap-kicker">Your fastest route</p>
-                <h2>AI workflow builder</h2>
-                <p>Design one reliable research workflow before adding agent frameworks or custom code.</p>
-                <div className="ap-previewFocus">
-                  <span>Start here</span>
-                  <strong>Ship a cited weekly brief</strong>
-                  <small>3 hours per week · No code required</small>
-                </div>
-                <div className="ap-miniWeeks" aria-hidden="true">
-                  {['Understand', 'Practice', 'Build', 'Prove'].map((item, index) => <span key={item}><i>{index + 1}</i>{item}</span>)}
-                </div>
-              </div>
-              <p className="ap-previewCaption">A direction you can inspect, correct, and follow—not a generic course list.</p>
+
+            <details className="ap-quietDetails">
+              <summary>Privacy and data</summary>
+              <p>Your typed answers are sent to the app server only when needed to create the assessment. This version does not record audio or contact a live voice model. Avoid confidential information.</p>
+            </details>
+          </section>
+        )}
+
+        {stage === 'conversation' && (
+          <section className="ap-conversation" aria-labelledby="ap-question-title">
+            <div className="ap-conversationMeta">
+              <span>Question {questionNumber} of up to {AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS}</span>
+              <div className="ap-progress" aria-hidden="true"><span style={{ width: `${questionProgress}%` }} /></div>
             </div>
-          </div>
-        </section>
-      )}
 
-      {stage === 'profile' && (
-        <section className="ap-section ap-profileSection">
-          <div className="ap-sectionGrid">
-            <aside className="ap-contextRail">
-              <BackButton onClick={() => setStage('landing')} />
-              <p className="ap-eyebrow">Step 1 · Your destination</p>
-              <h1 ref={headingRef} tabIndex={-1}>Start with what should change.</h1>
-              <p>The guided questions use your outcome and constraints so the preview starts from your life instead of an imaginary average learner.</p>
-              <div className="ap-timeNote"><span>About 5 minutes</span><small>Then you will answer five to seven adaptive questions.</small></div>
-            </aside>
-            <div className="ap-formCard">
-              <div className="ap-alphaScope" aria-labelledby="ap-alpha-scope-title">
-                <span className="ap-alphaScopeMark" aria-hidden="true"><CheckIcon /></span>
-                <div>
-                  <p className="ap-kicker">Workflow-builder private alpha</p>
-                  <h2 id="ap-alpha-scope-title">{PRIVATE_ALPHA_GOAL.title}</h2>
-                  <p>{PRIVATE_ALPHA_GOAL.detail}</p>
-                  <small>Not the right fit yet? Broader paths for engineers, leaders, creators, career changers, and AI fundamentals come after this assessment is validated.</small>
-                </div>
-              </div>
+            <div className="ap-agentOrb" aria-hidden="true"><span /><i /><b /></div>
 
-              <div className="ap-fieldGrid">
-                <label className="ap-field ap-fieldWide">
-                  <span>Your role or area of work</span>
-                  <input value={role} onChange={event => setRole(event.target.value)} maxLength={160} placeholder="Example only: operations manager in healthcare" />
-                </label>
-                <label className="ap-field ap-fieldWide">
-                  <span>Which work workflow should improve in 30 days?</span>
-                  <textarea value={outcome} onChange={event => setOutcome(event.target.value)} maxLength={1200} rows={4} placeholder="Example only: turn approved sources into a weekly brief with citations in under two hours." />
-                  <small>Examples are prompts only and are never submitted as your answers. Specific beats impressive; you can refine your answer in the conversation.</small>
-                </label>
-                <label className="ap-field">
-                  <span>Time available each week</span>
-                  <select value={hours} onChange={event => setHours(event.target.value)}>
-                    <option value="1">About 1 hour</option>
-                    <option value="3">2–3 hours</option>
-                    <option value="5">4–6 hours</option>
-                    <option value="7">7+ hours</option>
-                  </select>
-                </label>
-                <label className="ap-field">
-                  <span>Coding comfort</span>
-                  <select value={codingComfort} onChange={event => setCodingComfort(event.target.value)}>
-                    <option>No coding yet</option>
-                    <option>Some, but I prefer no-code first</option>
-                    <option>Comfortable building with APIs</option>
-                    <option>Professional software engineer</option>
-                  </select>
-                </label>
-                <label className="ap-field ap-fieldWide">
-                  <span>What most often gets in the way?</span>
-                  <textarea value={blocker} onChange={event => setBlocker(event.target.value)} maxLength={600} rows={3} placeholder="Example only: I can test outputs, but I do not have a repeatable quality checklist." />
-                </label>
-              </div>
-
-              <label className="ap-consent">
-                <input type="checkbox" checked={privacyAccepted} onChange={event => setPrivacyAccepted(event.target.checked)} />
-                <span><strong>I agree to send my typed responses to this app&apos;s server to create the report.</strong><small>No audio or live AI model is used in this build. Avoid sensitive work information. This private alpha does not persist sessions unless an account store is explicitly enabled; when enabled, session/report data expires after at most 90 days and can be exported or deleted.</small></span>
-              </label>
-
-              <div className="ap-formFooter">
-                <p><span>Workflow-builder alpha</span> · {hourLabel(hours)} a week · {codingComfort}</p>
-                <div className="ap-heroActions">
-                  <button type="button" className="ap-quietButton" onClick={() => setStage('setup')} disabled={!profileReady}>Preview future voice setup</button>
-                  <PrimaryButton onClick={continueWithText} disabled={!profileReady || sessionState === 'starting'}>{sessionState === 'starting' ? 'Starting session…' : 'Start guided questions'}</PrimaryButton>
-                </div>
-              </div>
-              {sessionError && <div className="ap-error" role="alert"><div><strong>We could not start the session.</strong><p>{sessionError}</p></div><button type="button" onClick={continueWithText}>Try again</button></div>}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {stage === 'setup' && (
-        <section className="ap-section ap-setupSection">
-          <div className="ap-narrow">
-            <BackButton onClick={() => setStage('profile')} />
-            <p className="ap-eyebrow">Optional preview · Voice consent</p>
-            <h1 ref={headingRef} tabIndex={-1}>Review voice access before a live session.</h1>
-            <p className="ap-sectionLead">Voice-specific consent is separate from the text assessment agreement. The provider gate remains locked in this build, so this screen never requests microphone permission or opens a live connection.</p>
-            <div className="ap-setupGrid">
-              <div className="ap-micCard">
-                <div className={`ap-micOrb ${voiceConsent ? 'is-ready' : ''}`} aria-hidden="true"><MicIcon /></div>
-                <div className="ap-micStatus" role="status" aria-live="polite">
-                  <strong>{voiceConsent ? 'Consent choices saved · provider disabled' : 'Microphone and provider are off'}</strong>
-                  <span>Consent version {AI_PATH_VOICE_CONSENT_VERSION}. Nothing is recorded or transmitted from this screen.</span>
-                </div>
-                <div className="ap-voiceConsentChoices">
-                  <label>
-                    <input type="checkbox" checked={voiceAudioAccepted} onChange={event => { setVoiceAudioAccepted(event.target.checked); setVoiceConsent(null); setVoiceSetupStatus('') }} />
-                    <span><strong>Allow live audio streaming for this voice session</strong><small>When voice is later enabled, microphone audio may be sent to the configured AI provider only while the session is active.</small></span>
-                  </label>
-                  <label>
-                    <input type="checkbox" checked={voiceTranscriptAccepted} onChange={event => { setVoiceTranscriptAccepted(event.target.checked); setVoiceConsent(null); setVoiceSetupStatus('') }} />
-                    <span><strong>Allow transcript-derived interpretations for review</strong><small>You will inspect, correct, or remove transcript-derived evidence before it can affect your assessment or plan.</small></span>
-                  </label>
-                </div>
-                <button type="button" className="ap-primary ap-fullButton" onClick={confirmVoiceConsentPreview}>
-                  Save voice consent choices <CheckIcon />
-                </button>
-                <button type="button" className="ap-textChoice" onClick={continueWithText} disabled={sessionState === 'starting'}>Continue with the complete text experience</button>
-                {voiceSetupStatus && <p className="ap-voiceSetupStatus" role="status">{voiceSetupStatus}</p>}
-              </div>
-              <div className="ap-expectCard">
-                <p className="ap-kicker">Foundation now covered by mocks</p>
-                <ol>
-                  <li><span>01</span><div><strong>Low-latency browser media</strong><small>Injected WebRTC, microphone, remote audio, data-channel, and SDP boundaries are testable without a provider.</small></div></li>
-                  <li><span>02</span><div><strong>Conversation recovery</strong><small>Interruption, reconnect limits, device loss, provider errors, and typed fallback have explicit states.</small></div></li>
-                  <li><span>03</span><div><strong>Editable evidence</strong><small>User and advisor transcript events normalize into reviewable items; unknown events are ignored.</small></div></li>
-                </ol>
-                <div className="ap-privacyNote"><strong>Voice is not live in this build.</strong><span>Production exits before microphone, peer connection, remote audio, or SDP work while the client and server gates are closed. Continue by typing to test the complete assessment.</span></div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {stage === 'interview' && (
-        <section className="ap-interview">
-          <div className="ap-interviewTop">
-            <div>
-              <p className="ap-eyebrow">Question {questionOrdinal} of up to {AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS}</p>
-              <strong>{interviewPhase(currentQuestion)}</strong>
-            </div>
-            <div className="ap-phaseTrack" role="progressbar" aria-valuemin={1} aria-valuemax={AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS} aria-valuenow={questionOrdinal} aria-label={`Adaptive interview question ${questionOrdinal} of up to ${AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS}`}>
-              {Array.from({ length: AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS }, (_, index) => <i key={index} className={index < questionOrdinal ? 'is-active' : ''} />)}
-            </div>
-            <span className="ap-duration">Typed prototype · no live model</span>
-          </div>
-
-          <div className="ap-interviewGrid">
-            <aside className="ap-journeyPanel">
-              <p className="ap-kicker">Conversation outline</p>
-              <ol>
-                {Array.from({ length: AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS }, (_, index) => {
-                  const answeredTurn = adaptiveInterview?.turns[index]
-                  const isCurrent = index === (adaptiveInterview?.turns.length ?? 0) && Boolean(currentQuestion)
-                  const label = answeredTurn
-                    ? interviewPhase({ dimensions: answeredTurn.dimensionsProbed })
-                    : isCurrent ? interviewPhase(currentQuestion) : 'Evidence-driven follow-up'
-                  return (
-                  <li key={`${label}-${index}`} className={answeredTurn ? 'is-complete' : isCurrent ? 'is-current' : ''}>
-                    <span>{answeredTurn ? <CheckIcon /> : index + 1}</span>
-                    <div><strong>{label}</strong><small>{answeredTurn ? 'Answer captured' : isCurrent ? 'Selected from the evidence gaps' : 'Only asked if evidence is still missing'}</small></div>
-                  </li>
-                  )
-                })}
-              </ol>
-              <div className="ap-signalCard">
-                <span>What I am testing</span>
-                <p>{currentQuestion?.purpose ?? 'Whether the captured evidence is ready for your review.'}</p>
-              </div>
-            </aside>
-
-            <div className="ap-conversationPanel">
-              <div className="ap-advisorQuestion">
-                <div className={`ap-agentPulse is-${interviewStatus}`} aria-hidden="true"><span /><i /><b /></div>
-                <div>
-                  <p>{currentQuestion ? 'Ask for evidence, not confidence' : 'Preparing your review'}</p>
-                  <h1 ref={headingRef} tabIndex={-1} aria-live="polite" aria-atomic="true">{currentQuestion?.prompt ?? 'Your evidence-seeking conversation is complete.'}</h1>
-                  {captions && <span className="ap-captionLabel"><CaptionsIcon /> Transcript preview on</span>}
-                </div>
-              </div>
-
-              <div className="ap-answerArea">
-                {interviewStatus === 'paused' ? (
-                  <div className="ap-pausedState">
-                    <PauseIcon />
-                    <h2>Conversation paused</h2>
-                    <p>Your answers are safe. Resume when you are ready, or continue by typing.</p>
-                    <button type="button" className="ap-primary" onClick={() => setInterviewStatus('agent')}>Resume conversation <ArrowIcon /></button>
+            {currentQuestion ? (
+              <>
+                <h1 id="ap-question-title" ref={headingRef} tabIndex={-1}>{currentQuestion.prompt}</h1>
+                <p className="ap-conversationHint">A concrete example is more useful than a polished answer. “I haven’t tried this yet” is also valid.</p>
+                <div className="ap-answerCard">
+                  <label htmlFor="ap-answer">Your answer</label>
+                  <textarea
+                    id="ap-answer"
+                    value={answer}
+                    onChange={event => { setAnswer(event.target.value); setErrorMessage('') }}
+                    maxLength={2000}
+                    rows={5}
+                    placeholder="Type naturally…"
+                    onKeyDown={event => {
+                      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') submitAnswer()
+                    }}
+                  />
+                  <div className="ap-answerActions">
+                    {(interview?.turns.length ?? 0) > 0 && <button type="button" className="ap-textButton" onClick={openConfirmation}>Finish and review</button>}
+                    <PrimaryButton onClick={submitAnswer} disabled={!answer.trim()}>Continue</PrimaryButton>
                   </div>
-                ) : (
-                  <>
-                    <label htmlFor="ap-answer">Your response</label>
-                    <textarea id="ap-answer" value={answer} onChange={event => setAnswer(event.target.value)} maxLength={2000} rows={6} placeholder="Type your answer here…" />
-                    <p className="ap-helperText">{currentQuestion?.purpose ?? 'Your answers are being prepared for the editable review.'}</p>
-                    <p className="ap-helperText">It is valid to say that evidence does not exist yet; the report will leave that area unassessed.</p>
-                    <div className="ap-answerControls">
-                      <span className="ap-talkButton" aria-disabled="true"><MicIcon /> Voice coming after privacy testing</span>
-                      <button type="button" className="ap-secondary" onClick={submitInterviewAnswer} disabled={interviewStatus === 'processing' || !currentQuestion || answer.trim().length === 0}>{interviewStatus === 'processing' ? 'Preparing the next question…' : 'Send typed answer'}</button>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="ap-sessionControls">
-                <button type="button" aria-pressed={captions} onClick={() => setCaptions(value => !value)}><CaptionsIcon /> {captions ? 'Transcript preview on' : 'Transcript preview off'}</button>
-                <button type="button" onClick={() => setInterviewStatus('paused')}><PauseIcon /> Pause</button>
-                <button type="button" className="ap-endButton" onClick={endInterviewAndReview} disabled={!adaptiveInterview?.turns.length}>End & review</button>
-              </div>
-            </div>
-          </div>
-          <p className="ap-interviewPrivacy">This build is text-only and does not call a live model. You can review and edit the captured evidence summary before the assessment uses it.</p>
-        </section>
-      )}
-
-      {stage === 'understanding' && (
-        <section className="ap-section ap-understandingSection">
-          <div className="ap-wide">
-            <BackButton onClick={() => setStage('interview')}>Back to conversation</BackButton>
-            <div className="ap-titleRow">
-              <div>
-                <p className="ap-eyebrow">Step 4 · Accuracy checkpoint</p>
-                <h1 ref={headingRef} tabIndex={-1}>Here is what I understood.</h1>
-                <p>Correct the interpretation before it becomes a plan. Tentative findings stay tentative until you confirm them.</p>
-              </div>
-              <div className="ap-evidenceCount">
-                <strong>{activeUnderstanding.length}</strong>
-                <span>included · {reviewTelemetry.removedObservationCount} removed</span>
-              </div>
-            </div>
-
-            <div className="ap-understandingGrid">
-              {understanding.map(item => {
-                const isRemoved = Boolean(removedInputIds[item.id])
-                const canRemove = canRemoveReviewedInput(understanding, removedInputIds, item.id)
-                return (
-                <article key={item.id} className={`ap-understandingCard${isRemoved ? ' is-removed' : ''}`} aria-labelledby={`ap-review-label-${item.id}`}>
-                  <div className="ap-cardTop">
-                    <span id={`ap-review-label-${item.id}`}>{item.label}</span>
-                    <i className={!isRemoved && item.confidence === 'Clear' ? 'is-clear' : ''}>{isRemoved ? 'Removed' : item.confidence}</i>
-                  </div>
-                  {isRemoved ? (
-                    <p className="ap-removedNotice">Rejected interpretation · excluded from the report</p>
-                  ) : editingId === item.id ? (
-                    <textarea aria-label={`Edit ${item.label}`} value={item.value} onChange={event => updateUnderstanding(item.id, event.target.value)} maxLength={2000} rows={5} />
-                  ) : <p className="ap-reviewedValue">{item.value}</p>}
-                  <details>
-                    <summary>Why I think this</summary>
-                    <p>{item.evidence}</p>
-                  </details>
-                  <div className="ap-reviewActions">
-                    {!isRemoved && <button type="button" className="ap-editButton" onClick={() => setEditingId(editingId === item.id ? null : item.id)}>{editingId === item.id ? 'Save correction' : 'Edit this'}</button>}
-                    <button
-                      type="button"
-                      className="ap-removeButton"
-                      aria-disabled={!isRemoved && !canRemove}
-                      aria-describedby="ap-review-minimum"
-                      onClick={() => toggleUnderstandingRemoval(item)}
-                    >
-                      {isRemoved ? 'Restore interpretation' : 'Remove from report'}
-                    </button>
-                  </div>
-                </article>
-                )
-              })}
-            </div>
-
-            <div className="ap-reviewFooter">
-              <div>
-                <strong>Anything incorrect or unsupported?</strong>
-                <p id="ap-review-minimum">Edit it, or remove an interpretation you reject. Removed items stay here for restoration and are not sent as reviewed evidence. Keep at least {MINIMUM_REVIEWED_INPUTS} non-empty inputs.</p>
-                {reviewStatus && <p className="ap-reviewStatus" role="status" aria-live="polite">{reviewStatus}</p>}
-              </div>
-              <button type="button" className="ap-secondary" onClick={restartAdaptiveQuestions}>Restart adaptive questions</button>
-              <PrimaryButton onClick={buildAssessment} disabled={analysisState === 'running'}>{analysisState === 'running' ? 'Building the evidence-informed report…' : 'Use this to build my report'}</PrimaryButton>
-            </div>
-            {analysisError && <div className="ap-error" role="alert"><div><strong>We could not build the report.</strong><p>{analysisError}</p></div><button type="button" onClick={buildAssessment}>Try again</button></div>}
-          </div>
-        </section>
-      )}
-
-      {stage === 'results' && (
-        <section className="ap-results">
-          <div className="ap-resultsHero">
-            <BackButton onClick={() => setStage('understanding')}>Edit what we understood</BackButton>
-            <div className="ap-privatePill"><span /> Deterministic assessment · report {assessmentReport?.reportVersion ?? 'unavailable'}</div>
-            <div className="ap-resultsHeroGrid">
-              <div>
-                <p className="ap-eyebrow">Your priority now</p>
-                <h1 ref={headingRef} tabIndex={-1}>Working direction: <em>{PRIVATE_ALPHA_GOAL.title.toLowerCase()}.</em></h1>
-                <p>This report uses only the responses you reviewed. Application-owned rules score transcript-linked evidence and select from the curated catalog; no live model or hidden voice analysis is involved.</p>
-                <div className="ap-evidenceInline"><span><CheckIcon /></span><p><strong>{assessedCount} skills assessed</strong> from {activeUnderstanding.length} included inputs; {reviewTelemetry.removedObservationCount} removed {reviewTelemetry.removedObservationCount === 1 ? 'interpretation was' : 'interpretations were'} excluded.</p></div>
-              </div>
-              <aside className="ap-nextMove">
-                <span>30-day proof</span>
-                <h2>{plan.proof}</h2>
-                <dl>
-                  <div><dt>Time</dt><dd>{hourLabel(hours)} / week</dd></div>
-                  <div><dt>Approach</dt><dd>{personalizedPlan?.profile.codingMode === 'code-ready' ? 'Bounded code build' : personalizedPlan?.profile.codingMode === 'no-code' ? 'No-code first' : 'Visual first, light code'}</dd></div>
-                  <div><dt>Pace</dt><dd>{personalizedPlan?.profile.pace ?? 'Preview'}</dd></div>
-                  <div><dt>Status</dt><dd>Self-report signals</dd></div>
-                </dl>
-                <PrimaryButton onClick={() => setStage('plan')}>Open my 30-day plan</PrimaryButton>
-              </aside>
-            </div>
-          </div>
-
-          <div className="ap-resultsBody">
-            <section className="ap-resultSection ap-nowNotYet">
-              <div className="ap-sectionHeading"><p className="ap-kicker">Direction</p><h2>What to learn now—and what can wait.</h2></div>
-              <div className="ap-directionGrid">
-                <article><span className="ap-doDot" /><p className="ap-kicker">Focus now</p><h3>{plan.focusNow}</h3></article>
-                <article><span className="ap-waitDot" /><p className="ap-kicker">Not yet</p><h3>{plan.notYet}</h3></article>
-              </div>
-            </section>
-
-            <section className="ap-resultSection">
-              <div className="ap-sectionHeading"><p className="ap-kicker">Skill observations</p><h2>No evidence, no score.</h2><p>Every assessed stage is linked to reviewed learner input. Missing evidence stays “not assessed.”</p></div>
-              <div className="ap-skillsTable">
-                {skillObservations.map((skill, index) => (
-                  <div key={skill.label}>
-                    <span className="ap-skillNumber">0{index + 1}</span>
-                    <strong>{skill.label}</strong>
-                    <i>{skill.stage}</i>
-                    <p>{skill.note}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="ap-resultSection">
-              <div className="ap-sectionHeading"><p className="ap-kicker">Curated recommendation stack</p><h2>Only what fits the evidence and time budget.</h2><p>These resources were selected deterministically from the versioned catalog after prerequisite and time checks.</p></div>
-              <div className="ap-resourceGrid">
-                {recommendations.map((resource, index) => (
-                  <article key={resource.title}>
-                    <div className="ap-resourceIndex">0{index + 1}</div>
-                    <p className="ap-kicker">{resource.format}</p>
-                    <h3>{resource.title}</h3>
-                    <span>{resource.provider} · {resource.estimatedHours} hours · {resource.free ? 'Free' : 'Paid'}</span>
-                    <p>{resource.reason}</p>
-                    <small className="ap-costDisclosure">{resource.costDisclosure}</small>
-                    <div>{resource.canonicalUrl ? <a href={resource.canonicalUrl} target="_blank" rel="noreferrer">Open resource</a> : <span>Project brief included in the plan</span>}</div>
-                  </article>
-                ))}
-              </div>
-              {recommendations.length === 0 && (
-                <div className="ap-emptyState" role="status">
-                  <strong>No governed resource fits this report yet.</strong>
-                  <p>{assessmentReport?.recommendationStatus === 'catalog_unavailable' ? 'The catalog is unavailable or stale, so the advisor failed closed instead of showing an unchecked link.' : 'The current evidence, prerequisites, format, and time filters produced no eligible match. Your project plan is still available.'}</p>
+                  {errorMessage && <p className="ap-error" role="alert">{errorMessage}</p>}
                 </div>
-              )}
-            </section>
-
-            <section className="ap-feedbackCard" aria-labelledby="ap-feedback-title">
-              <div>
-                <p className="ap-kicker">Private-alpha feedback</p>
-                <h2 id="ap-feedback-title">Did this direction fit?</h2>
-                <p>Share numeric ratings only. Your typed assessment responses are never copied into analytics.</p>
+              </>
+            ) : (
+              <div className="ap-conversationComplete">
+                <p className="ap-eyebrow">That’s enough to make a useful recommendation</p>
+                <h1 id="ap-question-title" ref={headingRef} tabIndex={-1}>Ready to check what I heard?</h1>
+                <p>You can correct anything before it shapes your path.</p>
+                <PrimaryButton onClick={openConfirmation}>Review what I heard</PrimaryButton>
               </div>
-              <form onSubmit={event => { event.preventDefault(); void submitFeedback() }}>
-                <fieldset>
-                  <legend>How well does the plan fit your goal and constraints?</legend>
-                  <div className="ap-ratingOptions">
-                    {[1, 2, 3, 4, 5].map(rating => <label key={`fit-${rating}`}><input type="radio" name="plan-fit" value={rating} checked={planFitRating === String(rating)} onChange={event => setPlanFitRating(event.target.value)} /><span>{rating}</span></label>)}
-                  </div>
-                  <small>1 = poor fit · 5 = excellent fit</small>
-                </fieldset>
-                <fieldset>
-                  <legend>How useful is the report for deciding what to do next?</legend>
-                  <div className="ap-ratingOptions">
-                    {[1, 2, 3, 4, 5].map(rating => <label key={`useful-${rating}`}><input type="radio" name="report-usefulness" value={rating} checked={reportUsefulnessRating === String(rating)} onChange={event => setReportUsefulnessRating(event.target.value)} /><span>{rating}</span></label>)}
-                  </div>
-                  <small>1 = not useful · 5 = very useful</small>
-                </fieldset>
-                <label className="ap-feedbackSelect"><span>How many of the {totalFindingCount} skill findings are materially wrong?</span><select value={wrongFindingCount} onChange={event => setWrongFindingCount(event.target.value)}>{Array.from({ length: totalFindingCount + 1 }, (_, count) => <option value={count} key={count}>{count}</option>)}</select></label>
-                <button type="submit" className="ap-secondary" disabled={!planFitRating || !reportUsefulnessRating || feedbackState === 'sending'}>{feedbackState === 'sending' ? 'Sending numeric ratings…' : feedbackState === 'done' ? 'Update ratings' : 'Submit numeric feedback'}</button>
-                {feedbackMessage && <p className="ap-feedbackStatus" role="status" aria-live="polite">{feedbackMessage}</p>}
-              </form>
-            </section>
-
-            <div className="ap-resultsCta">
-              <div><p className="ap-kicker">Ready when you are</p><h2>Your first task takes about 45 minutes.</h2><p>{plan.firstTask}.</p></div>
-              <PrimaryButton onClick={() => setStage('plan')}>Open my 30-day plan</PrimaryButton>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {stage === 'plan' && (
-        <section className="ap-plan">
-          <div className="ap-planHeader">
-            <BackButton onClick={() => setStage('results')}>Back to direction</BackButton>
-            <div className="ap-privatePill"><span /> Illustrative 30-day plan · browser preview</div>
-            <div className="ap-planTitle">
-              <div><p className="ap-eyebrow">Your 30-day plan</p><h1 ref={headingRef} tabIndex={-1}>{plan.title}</h1><p>Four weeks · {hourLabel(planHours)} per week · {totalTasks} concrete actions</p></div>
-              <div className="ap-progressRing" style={{ '--ap-progress': `${progress * 3.6}deg` } as React.CSSProperties}><span><strong>{progress}%</strong><small>complete</small></span></div>
-            </div>
-            <div className="ap-planActions">
-              <button type="button" className="ap-secondary" onClick={togglePlanSaved}>{planSaved ? 'Pinned in this browser tab' : 'Pin in this browser tab'}</button>
-              <button type="button" className="ap-quietButton" onClick={exportPlan} disabled={dataActionState === 'working'}>Export report & plan</button>
-              <button type="button" className="ap-quietButton" onClick={() => setStage('history')}>View preview history</button>
-            </div>
-            <div className="ap-planSettings">
-              <label><span>Weekly time budget</span><select value={pendingPlanHours} onChange={event => setPendingPlanHours(event.target.value)}><option value="1">1 hour</option><option value="3">2–3 hours</option><option value="5">4–6 hours</option><option value="7">7+ hours</option></select></label>
-              <button type="button" className="ap-secondary" onClick={confirmTimeBudget} disabled={pendingPlanHours === planHours}>Confirm schedule change</button>
-              <small>Changing the schedule resets browser-only task completion. It does not change your assessment.</small>
-            </div>
-            {(dataActionMessage || adaptationStatus) && <p className={`ap-liveStatus is-${dataActionState}`} role="status" aria-live="polite">{dataActionMessage || adaptationStatus}</p>}
-          </div>
-
-          <div className="ap-planBody">
-            {personalizedPlan && (
-              <aside className="ap-planRationale" aria-labelledby="ap-plan-rationale-title">
-                <div><p className="ap-kicker">Why this plan changed</p><h2 id="ap-plan-rationale-title">Your evidence and constraints set the sequence.</h2></div>
-                <ul>
-                  {personalizedPlan.reasons.slice(0, 5).map(reason => <li key={reason.id}>{reason.detail}</li>)}
-                </ul>
-              </aside>
             )}
-            <div className="ap-nextAction">
-              <div><span>Next action</span><h2>{plan.firstTask}.</h2><p>About 45 minutes · Produces the first inspectable artifact in this plan.</p></div>
-              <button type="button" className="ap-primary" onClick={startOrCompleteFirstTask} disabled={Boolean(completedTasks['0-0'])}>{completedTasks['0-0'] ? 'First task complete' : firstTaskStarted ? 'Mark first task complete' : 'Start first task'}<ArrowIcon /></button>
-            </div>
 
-            <div className="ap-weekList">
-              {scheduledWeeks.map((week, weekIndex) => {
-                const weekComplete = week.tasks.every((_, taskIndex) => completedTasks[`${weekIndex}-${taskIndex}`])
-                return (
-                  <article key={week.week} className={weekComplete ? 'is-complete' : ''}>
-                    <div className="ap-weekHeading">
-                      <div><span>{week.week}</span><h2>{week.theme}</h2></div>
-                      <p><strong>Done looks like:</strong> {week.outcome}</p>
-                    </div>
-                    <ul>
-                      {week.tasks.map((task, taskIndex) => {
-                        const key = `${weekIndex}-${taskIndex}`
-                        const displayedTask = taskOverrides[key] ?? task
-                        return <li key={task}><label><input type="checkbox" checked={Boolean(completedTasks[key])} onChange={() => toggleTask(key)} /><span><CheckIcon /></span><strong>{displayedTask}</strong><small>{taskIndex === 0 ? '45 min' : '30–45 min'}</small></label></li>
-                      })}
-                    </ul>
-                    <div className="ap-weekFooter"><button type="button" onClick={() => setTaskOverrides(overrides => { const next = { ...overrides }; week.tasks.forEach((task, taskIndex) => { const key = `${weekIndex}-${taskIndex}`; next[key] = taskSwapAlternative(goal, weekIndex, task) }); return next })}>Use smaller alternatives this week</button><button type="button" onClick={() => setTaskOverrides(overrides => { const next = { ...overrides }; week.tasks.forEach((_, taskIndex) => delete next[`${weekIndex}-${taskIndex}`]); return next })}>Restore original tasks</button></div>
-                  </article>
-                )
-              })}
-            </div>
+            {(interview?.turns.length ?? 0) > 0 && (
+              <details className="ap-transcript">
+                <summary>Conversation so far</summary>
+                <ol>
+                  {interview?.turns.map(turn => <li key={turn.id}><span>{turn.question}</span><p>{turn.answer}</p></li>)}
+                </ol>
+              </details>
+            )}
+          </section>
+        )}
 
-            <div className="ap-checkinCard">
-              <div className="ap-checkinIcon"><MicIcon /></div>
-              <div><p className="ap-kicker">Weekly check-in</p><h2>Tell us what survived contact with your calendar.</h2><p>A short text check-in can propose a smaller, harder, or unchanged next week. Your plan never changes without your approval.</p><label className="ap-checkinField"><span>What worked, and what got in the way?</span><textarea value={checkIn} onChange={event => setCheckIn(event.target.value)} maxLength={1000} rows={4} placeholder="For example: I finished the first task, but the second was too large for one evening." /></label>{checkInProposal && <div className="ap-adaptationProposal"><strong>{checkInProposal.title}</strong><p>{checkInProposal.explanation}</p><div><button type="button" className="ap-primary" onClick={() => decideAdaptation(true)}>Accept proposal</button><button type="button" className="ap-secondary" onClick={() => decideAdaptation(false)}>Keep current plan</button></div></div>}</div>
-              <button type="button" className="ap-secondary" onClick={submitCheckIn} disabled={checkIn.trim().length < 10 || Boolean(checkInProposal)}>Propose an adaptation</button>
-            </div>
-          </div>
-        </section>
-      )}
+        {stage === 'confirm' && (
+          <section className="ap-confirm" aria-labelledby="ap-confirm-title">
+            <button type="button" className="ap-back" onClick={() => setStage('conversation')}>← Back to conversation</button>
+            <p className="ap-eyebrow">One quick check</p>
+            <h1 id="ap-confirm-title" ref={headingRef} tabIndex={-1}>Here’s what I heard</h1>
+            <p className="ap-lead">Correct the essentials. The rest stays tucked away unless you want to inspect it.</p>
 
-      {stage === 'history' && (
-        <section className="ap-section ap-historySection">
-          <div className="ap-wide">
-            <BackButton onClick={() => setStage(planSaved ? 'plan' : 'results')} />
-            <div className="ap-titleRow">
-              <div><p className="ap-eyebrow">Your history</p><h1 ref={headingRef} tabIndex={-1}>Plans are snapshots, not permanent labels.</h1><p>Reassess after you ship something, finish a plan, or change your goal.</p></div>
-              <button type="button" className="ap-primary" onClick={restartForReassessment}>Start a short reassessment <ArrowIcon /></button>
-            </div>
-            <div className="ap-historyList">
-              <article className="is-current">
-                <div><span>Current session preview · Not persisted</span><time>Today</time></div>
-                <h2>{plan.title}</h2>
-                <p>{outcome}</p>
-                <dl><div><dt>Progress</dt><dd>{progress}%</dd></div><div><dt>Time budget</dt><dd>{planHours} hrs / week</dd></div><div><dt>New evidence</dt><dd>{completedCount} tasks</dd></div></dl>
-                <div><button type="button" onClick={() => setStage('plan')}>Open plan</button><button type="button" onClick={restartForReassessment}>Reassess</button></div>
+            <div className="ap-confirmList">
+              <article data-testid="confirmation-part">
+                <div><span>1</span><strong>Your goal</strong></div>
+                <textarea aria-label="Your goal" value={goal} onChange={event => setGoal(event.target.value)} maxLength={1200} rows={3} />
               </article>
-              <article aria-label="Illustrative earlier snapshot">
-                <div><span>Illustrative earlier snapshot · Not your data</span><time>Example</time></div>
-                <h2>Applied AI explorer</h2>
-                <p>Move from ad hoc prompting to one role-specific workflow with a quality check.</p>
-                <dl><div><dt>Progress</dt><dd>75%</dd></div><div><dt>Time budget</dt><dd>2 hrs / week</dd></div><div><dt>New evidence</dt><dd>1 project</dd></div></dl>
-                <div><button type="button" disabled>Illustrative only</button></div>
+
+              <article data-testid="confirmation-part">
+                <div><span>2</span><strong>What you have tried</strong></div>
+                <textarea aria-label="What you have tried" value={experience} onChange={event => setExperience(event.target.value)} maxLength={2000} rows={4} />
+              </article>
+
+              <article data-testid="confirmation-part">
+                <div><span>3</span><strong>Your constraints</strong></div>
+                <div className="ap-compactFields">
+                  <label htmlFor="ap-role"><span>Role or area of work</span><input id="ap-role" value={role} onChange={event => setRole(event.target.value)} maxLength={160} placeholder="Optional" /></label>
+                  <label htmlFor="ap-weekly-hours"><span>Time available each week</span><select id="ap-weekly-hours" value={weeklyHours} onChange={event => setWeeklyHours(event.target.value)}><option value="1">About 1 hour</option><option value="3">2–3 hours</option><option value="5">4–6 hours</option><option value="7">7+ hours</option></select></label>
+                  <label htmlFor="ap-coding-comfort"><span>Coding comfort</span><select id="ap-coding-comfort" value={codingComfort} onChange={event => setCodingComfort(event.target.value)}><option>No coding yet</option><option>Some, but I prefer no-code first</option><option>Comfortable building with APIs</option><option>Professional software engineer</option></select></label>
+                  <label className="ap-fieldWide" htmlFor="ap-constraint"><span>Main constraint</span><textarea id="ap-constraint" value={constraint} onChange={event => setConstraint(event.target.value)} maxLength={600} rows={3} placeholder="Time, access, confidence or another practical limit" /></label>
+                </div>
               </article>
             </div>
-          </div>
-        </section>
-      )}
 
-      {stage !== 'interview' && (
-        <footer className="ap-footer">
-          <span>AI Path Advisor · Private alpha</span>
-          <p>Text-only private alpha. Reviewed responses are sent to the app server; never share sensitive work information.</p>
-          <div><button type="button" aria-expanded={privacyOpen} onClick={() => setPrivacyOpen(value => !value)}>Privacy summary</button><button type="button" onClick={deletePreview}>Delete browser preview</button></div>
-          {privacyOpen && <aside className="ap-privacySummary"><strong>Private-alpha data use</strong><p>Typed profile and reviewed answers are sent to this app&apos;s server to create a deterministic report. This build does not call a live AI model or upload microphone audio. Without an enabled account store, the server does not save the session. If durable storage is later enabled, owner-scoped session/report data expires within 90 days and supports export and deletion. Server security logs and aggregate, transcript-free metrics may follow separate operational retention.</p></aside>}
-        </footer>
-      )}
+            {interview && interview.turns.length > 1 && (
+              <details className="ap-reviewDetails">
+                <summary>Review conversation details</summary>
+                <div>
+                  {interview.turns.slice(1).map(turn => (
+                    <label key={turn.id}>
+                      <span>{turn.question}</span>
+                      <textarea value={reviewAnswers[turn.id] ?? turn.answer} onChange={event => setReviewAnswers(values => ({ ...values, [turn.id]: event.target.value }))} maxLength={2000} rows={3} />
+                    </label>
+                  ))}
+                </div>
+              </details>
+            )}
+
+            <div className="ap-confirmAction">
+              <PrimaryButton onClick={() => { void buildPath() }} disabled={analysisState === 'running' || goal.trim().length < 20 || experience.trim().length === 0}>
+                {analysisState === 'running' ? 'Building your path…' : 'Build my path'}
+              </PrimaryButton>
+              <p>We only use the answers you confirm here.</p>
+              {errorMessage && <p className="ap-error" role="alert">{errorMessage}</p>}
+            </div>
+          </section>
+        )}
+
+        {stage === 'path' && report && (
+          <section className="ap-path" aria-labelledby="ap-path-title">
+            <div className="ap-pathIntro">
+              <div className="ap-pathCheck"><CheckIcon /></div>
+              <p className="ap-eyebrow">Your recommendation is ready</p>
+              <h1 id="ap-path-title" ref={headingRef} tabIndex={-1}>Your AI learning path</h1>
+              <p>One skill to strengthen, one project to prove it and a realistic first step.</p>
+            </div>
+
+            <div className="ap-pathHero">
+              <div>
+                <span>Your next skill</span>
+                <h2>{prioritySkills[0] ?? 'Workflow design and evaluation'}</h2>
+                <p>{plan.focusNow}</p>
+              </div>
+              <div>
+                <span>Your 30-day project</span>
+                <h2>{plan.proof}</h2>
+                <p>{Number(weeklyHours) === 1 ? 'About one focused hour each week.' : `${weeklyHours} focused hours each week.`}</p>
+              </div>
+            </div>
+
+            <section className="ap-startHere" aria-labelledby="ap-start-here-title">
+              <div>
+                <span>Start here</span>
+                <h2 id="ap-start-here-title">{plan.firstTask}</h2>
+                <p>About 45 minutes · finish with something you can inspect.</p>
+              </div>
+              <button
+                type="button"
+                className="ap-primary"
+                onClick={() => setFirstTaskState(state => state === 'not-started' ? 'started' : 'complete')}
+                disabled={firstTaskState === 'complete'}
+              >
+                {firstTaskState === 'not-started' ? 'Start my first task' : firstTaskState === 'started' ? 'Mark task complete' : 'First task complete'}
+                <ArrowIcon />
+              </button>
+            </section>
+
+            {resources.length > 0 && (
+              <section className="ap-resources" aria-labelledby="ap-resources-title">
+                <div className="ap-sectionHeading"><p className="ap-eyebrow">Recommended learning</p><h2 id="ap-resources-title">A small stack, chosen for this path</h2></div>
+                <div className="ap-resourceList">
+                  {resources.map(resource => (
+                    <article key={resource.id} data-testid="learning-resource">
+                      <div><span>{resource.format}</span><small>{resource.estimatedHours} hours · {resource.free ? 'Free' : resource.costDisclosure}</small></div>
+                      <h3>{resource.title}</h3>
+                      <p>{resource.reason}</p>
+                      {resource.canonicalUrl ? <a href={resource.canonicalUrl} target="_blank" rel="noreferrer">Open resource <span aria-hidden="true">↗</span></a> : <span className="ap-included">Included in your project plan</span>}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <div className="ap-pathDetails">
+              <details>
+                <summary>See the full four-week plan</summary>
+                <div className="ap-weekGrid">
+                  {plan.weeks.map(week => (
+                    <article key={week.week}>
+                      <span>{week.week}</span>
+                      <h3>{week.theme}</h3>
+                      <p>{week.outcome}</p>
+                      <ul>{week.tasks.map(task => <li key={task}>{task}</li>)}</ul>
+                    </article>
+                  ))}
+                </div>
+              </details>
+
+              <details>
+                <summary>Why this fits you</summary>
+                <div className="ap-whyList">
+                  {planReasons.map(reason => <p key={reason.id}><CheckIcon /> {reason.detail}</p>)}
+                  <p><CheckIcon /> Advanced agent frameworks can wait until this first workflow is reliable.</p>
+                </div>
+              </details>
+
+              <details>
+                <summary>Privacy and data</summary>
+                <div className="ap-privacyBody">
+                  <p>This report was built from the typed answers you confirmed. No microphone audio or live voice model was used.</p>
+                  <button type="button" className="ap-textButton" onClick={() => { void restart() }}>Delete this session and start over</button>
+                </div>
+              </details>
+            </div>
+          </section>
+        )}
+      </main>
     </div>
   )
 }

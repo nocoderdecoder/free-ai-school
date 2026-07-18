@@ -8,9 +8,9 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     throw new Error(`QA refuses a non-local target: ${appOrigin}`)
   }
 
-  const failures = []
   const checkpoints = []
   const blockedRequests = []
+  const paidPathRequests = []
   const consoleErrors = []
   const sessionRequests = []
   const analysisRequests = []
@@ -23,6 +23,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   const waitForHeading = async (name) => {
     await page.getByRole('heading', { name }).waitFor({ state: 'visible', timeout: 15_000 })
   }
+  const isVisible = async (locator) => locator.isVisible().catch(() => false)
   const assertNoHorizontalOverflow = async (label) => {
     const metrics = await page.evaluate(() => ({
       viewport: window.innerWidth,
@@ -39,10 +40,12 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'auto' }))
     await page.waitForTimeout(100)
     await assertNoHorizontalOverflow(`${name} ${width}x${height}`)
-    await page.screenshot({
-      path: `${artifactDir}/${name}-${width}x${height}.png`,
-      fullPage: true,
-    })
+    await page.screenshot({ path: `${artifactDir}/${name}-${width}x${height}.png`, fullPage: true })
+  }
+  const captureRequiredViewports = async (name) => {
+    for (const [width, height] of [[375, 812], [768, 1024], [1440, 900]]) {
+      await captureViewport(name, width, height)
+    }
   }
   const assertInteractiveNames = async (label) => {
     const unnamed = await page.locator('button, a[href], input, textarea, select, summary').evaluateAll((elements) => (
@@ -66,21 +69,19 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     ))
     assert(unnamed.length === 0, `${label} has unnamed interactive controls: ${unnamed.join(', ')}`)
   }
-  const assertHeadingFocused = async (name, label = name) => {
+  const assertHeadingFocused = async (name, label = String(name)) => {
     const heading = page.getByRole('heading', { name }).first()
     await heading.waitFor({ state: 'visible', timeout: 15_000 })
     const headingHandle = await heading.elementHandle()
     assert(headingHandle, `${label} heading could not be inspected for programmatic focus`)
-    await page.waitForFunction(
-      element => document.activeElement === element,
-      headingHandle,
-      { timeout: 5_000 },
-    ).catch(() => {
+    await page.waitForFunction(element => document.activeElement === element, headingHandle, { timeout: 5_000 }).catch(() => {
       throw new Error(`${label} heading did not receive programmatic focus`)
     })
   }
 
-  const reportGoal = 'Build a citation-preserving weekly market intelligence workflow that colleagues can inspect, rerun, and improve without relying on hidden context.'
+  const qaGoal = 'Build a citation-preserving weekly market intelligence workflow that colleagues can inspect, rerun, and improve.'
+  const correctedGoal = `${qaGoal} It must also explain what happens when a source disappears.`
+  const privateCanary = 'QA_PRIVATE_SIMPLICITY_CANARY_DO_NOT_COPY_TO_ANALYTICS'
   const skillIds = [
     'foundations',
     'prompt-context',
@@ -92,13 +93,39 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     'deployment-operations',
     'safety-governance',
   ]
+  const recommendations = Array.from({ length: 4 }, (_, index) => ({
+    id: `qa-resource-${index + 1}`,
+    title: [
+      'Build a citation-preserving research workflow',
+      'Evaluate AI outputs with a lightweight rubric',
+      'Design reliable prompts and context',
+      'This fourth resource must be hidden by the simple path',
+    ][index],
+    provider: 'Deterministic QA Learning Library',
+    canonicalUrl: null,
+    format: index === 0 ? 'project' : 'course',
+    free: true,
+    costDisclosure: 'Free. No purchase, paid API, account, subscription, or trial is required.',
+    estimatedHours: index + 1,
+    quality: 0.95 - (index * 0.01),
+    skills: [{ skillId: index === 1 ? 'evaluation-reliability' : 'workflow-design', entryLevel: 1, exitLevel: 2 }],
+    prerequisites: [],
+    codingRequirement: 'none',
+    accountRequirement: 'none',
+    paidServiceRequirement: 'none',
+    deferredForGoalTypes: [],
+    reason: 'This resource directly supports the learner’s reviewed goal and produces inspectable evidence within the available time.',
+    rank: index + 1,
+    score: 240 - index,
+    matchedSkillIds: [index === 1 ? 'evaluation-reliability' : 'workflow-design'],
+  }))
   const report = {
     reportVersion: '2026-07-16.v1',
     taxonomyVersion: '2026-07-16.v1',
     scoringVersion: '2026-07-16.v1',
     catalogVersion: '2026-07-17.v2',
     generatedAt: '2026-07-17T02:30:00.000Z',
-    goal: reportGoal,
+    goal: correctedGoal,
     results: skillIds.map((skillId) => {
       const assessed = ['workflow-design', 'evaluation-reliability'].includes(skillId)
       return {
@@ -109,42 +136,15 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
         evidenceIds: assessed ? [`evidence-${skillId}`] : [],
         contradictionIds: [],
         rationale: assessed
-          ? 'Level 1 is supported by exact learner-reviewed evidence while stronger claims remain deliberately unassessed.'
+          ? 'Level 1 is supported by exact learner-reviewed evidence.'
           : 'No evidence was collected; this is not a zero score.',
       }
     }),
     strengths: [],
     growthAreas: ['workflow-design', 'evaluation-reliability'],
     recommendationStatus: 'available',
-    recommendations: [
-      {
-        id: 'qa-long-resource',
-        title: 'Designing a citation-preserving research workflow with explicit review checkpoints, failure recovery, provenance, and maintainable handoff documentation',
-        provider: 'Deterministic QA Learning Library',
-        canonicalUrl: 'https://example.invalid/blocked-by-local-qa',
-        format: 'project',
-        free: true,
-        costDisclosure: 'Free learning project. The intentionally long disclosure verifies resilient wrapping without requiring a purchase, account, subscription, trial, or paid API.',
-        estimatedHours: 2,
-        quality: 0.95,
-        skills: [{ skillId: 'workflow-design', entryLevel: 1, exitLevel: 2 }],
-        prerequisites: [],
-        codingRequirement: 'none',
-        accountRequirement: 'none',
-        paidServiceRequirement: 'none',
-        deferredForGoalTypes: [],
-        reason: 'This long recommendation reason stress-tests card layout while explaining that the project directly addresses the learner’s reviewed workflow-design gap.',
-        rank: 1,
-        score: 240,
-        matchedSkillIds: ['workflow-design'],
-      },
-    ],
+    recommendations,
     disclaimer: 'This learning assessment reflects reviewed evidence and is guidance, not a credential or employment decision.',
-  }
-  const emptyReport = {
-    ...report,
-    recommendationStatus: 'no_eligible_resources',
-    recommendations: [],
   }
 
   page.on('console', (message) => {
@@ -168,23 +168,29 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     await route.abort('blockedbyclient')
   })
 
+  await page.route('**/api/ai-path/realtime/**', async (route) => {
+    paidPathRequests.push(route.request().url())
+    await route.abort('blockedbyclient')
+  })
+
   await page.route('**/api/ai-path/session', async (route) => {
     const request = route.request()
     assert(request.method() === 'POST', `unexpected session method ${request.method()}`)
-    sessionRequests.push(request.postDataJSON())
+    const body = request.postDataJSON()
+    sessionRequests.push(body)
     await route.fulfill({
       status: 201,
       contentType: 'application/json',
       body: JSON.stringify({
         session: {
-          id: 'qa-session-0001',
+          id: 'qa-session-simple-0001',
           status: 'consented',
           createdAt: '2026-07-17T02:29:00.000Z',
           mode: 'text',
           locale: 'en-US',
-          goal: reportGoal,
+          goal: body.goal,
           goalType: 'workflows',
-          targetRole: 'Product marketing and research operations lead',
+          targetRole: body.targetRole || '',
           consentVersion: '2026-07-16.v1',
           saveTranscript: false,
         },
@@ -198,16 +204,8 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   await page.route('**/api/ai-path/events', async (route) => {
     const request = route.request()
     assert(request.method() === 'POST', `unexpected analytics method ${request.method()}`)
-    assert((request.headers()['content-type'] || '').startsWith('application/json'), 'analytics request omitted JSON content type')
-    const rawBody = request.postData() || ''
-    const utf8ByteLength = [...rawBody].reduce((total, character) => {
-      const codePoint = character.codePointAt(0)
-      return total + (codePoint <= 0x7f ? 1 : codePoint <= 0x7ff ? 2 : codePoint <= 0xffff ? 3 : 4)
-    }, 0)
-    assert(utf8ByteLength <= 8 * 1024, 'analytics request exceeded the governed 8 KiB limit')
-    analyticsRequests.push(request.postDataJSON())
-    // The production sink is intentionally latched closed. A 503 must never
-    // interrupt the learner flow or encourage the UI to claim external storage.
+    const body = request.postDataJSON()
+    analyticsRequests.push(body)
     await route.fulfill({
       status: 503,
       contentType: 'application/json',
@@ -219,375 +217,193 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     const request = route.request()
     assert(request.method() === 'POST', `unexpected analysis method ${request.method()}`)
     analysisRequests.push(request.postDataJSON())
-    if (analysisRequests.length === 1) {
-      await route.fulfill({
-        status: 503,
-        contentType: 'application/json',
-        body: JSON.stringify({ error: 'analysis_unavailable', details: ['Deterministic QA injected a temporary report failure.'] }),
-      })
-      return
-    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ report: analysisRequests.length === 2 ? emptyReport : report }),
+      body: JSON.stringify({ report }),
     })
   })
 
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' })
-  await waitForHeading('Find your next useful AI move.')
-  await assertHeadingFocused('Find your next useful AI move.', 'landing')
-  await assertNoHorizontalOverflow('landing desktop')
-  await page.screenshot({ path: `${artifactDir}/landing-1440x900.png`, fullPage: true })
-  checkpoint('landing loaded and focused')
+  await waitForHeading('What would you like AI to help you do better?')
+  await assertHeadingFocused('What would you like AI to help you do better?', 'start')
 
-  const buildButton = page.getByRole('button', { name: 'Build my plan' })
-  await buildButton.focus()
-  await page.keyboard.press('Tab')
-  await page.keyboard.press('Shift+Tab')
-  const focusStyle = await buildButton.evaluate((element) => {
+  const startInputs = page.locator('textarea:visible, input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):visible, select:visible')
+  assert(await startInputs.count() === 1, `start must expose one goal field, found ${await startInputs.count()}`)
+  const goalField = page.getByLabel('Your goal')
+  assert(await goalField.isVisible(), 'the single start field is not labeled Your goal')
+  const voiceButton = page.getByRole('button', { name: 'Voice conversation coming soon' })
+  assert(await voiceButton.isVisible(), 'the honest voice status is missing')
+  assert(await voiceButton.isDisabled() || await voiceButton.getAttribute('aria-disabled') === 'true', 'unavailable voice control must not start a paid or fake session')
+  await assertInteractiveNames('start')
+  await captureViewport('start', 1440, 900)
+
+  let startActions = 0
+  await goalField.fill(qaGoal)
+  const typedStart = page.getByRole('button', { name: 'Start typed conversation' })
+  await typedStart.focus()
+  const focusStyle = await typedStart.evaluate((element) => {
     const style = window.getComputedStyle(element)
     return { outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth }
   })
   assert(focusStyle.outlineStyle !== 'none' && focusStyle.outlineWidth !== '0px', `keyboard focus is not visible: ${JSON.stringify(focusStyle)}`)
   await page.keyboard.press('Enter')
-  await waitForHeading('Start with what should change.')
-  checkpoint('keyboard entry to profile')
+  startActions += 1
+  assert(startActions <= 2, `conversation required ${startActions} start actions`)
+  await page.getByLabel('Your answer').waitFor({ state: 'visible', timeout: 15_000 })
+  assert(sessionRequests.length === 0, 'the local typed conversation should not create a server session before path generation')
+  checkpoint('one-field start reached the typed conversation in one action')
 
-  const longRole = 'Product marketing, customer intelligence, research operations, competitive strategy, enablement, and cross-functional planning lead for a global B2B platform'
-  const longOutcome = `${reportGoal} The workflow should retain exact citations, show uncertainty, handle missing sources, preserve a clear reviewer checkpoint, and produce a handoff that remains understandable when project names, market segments, and source titles are unusually long.`
-  const longBlocker = 'The calendar is fragmented across meetings and urgent requests, so long courses lose momentum before a useful artifact appears. I need small tasks, explicit stopping points, and a visible proof of progress every week.'
-  await page.getByLabel('Your role or area of work').fill(longRole)
-  await page.getByLabel('Which work workflow should improve in 30 days?').fill(longOutcome)
-  await page.getByLabel('Time available each week').selectOption('3')
-  await page.getByLabel('Coding comfort').selectOption({ label: 'Some, but I prefer no-code first' })
-  await page.getByLabel('What most often gets in the way?').fill(longBlocker)
-  await page.getByLabel(/I agree to send my typed responses/).check()
-  await page.getByRole('button', { name: 'Start guided questions' }).click()
-  await page.getByRole('progressbar', { name: 'Adaptive interview question 1 of up to 7' }).waitFor({ state: 'visible', timeout: 5_000 })
-  checkpoint('text session started')
+  await captureViewport('conversation', 375, 812)
+  await assertInteractiveNames('conversation')
+  assert(!(await page.getByText('Conversation outline', { exact: true }).isVisible().catch(() => false)), 'old conversation sidebar is still visible')
+  assert(!(await page.getByText('What I am testing', { exact: true }).isVisible().catch(() => false)), 'internal assessment methodology is still visible')
 
-  const promptResponses = [
-    {
-      pattern: /Describe one real work process/,
-      answer: 'Last week I used a specific research workflow to collect six trustworthy sources and produce a cited brief for a colleague.',
-    },
-    {
-      pattern: /Use one specific occasion/,
-      answer: 'For example, the input was six public reports, I compared their claims, and the output was a two-page cited market brief.',
-    },
-    {
-      pattern: /Which parts did you personally decide or complete/,
-      answer: 'I personally gathered the sources, decided which claims to retain, mapped citations, and reviewed the handoff; a colleague only reviewed the final draft.',
-    },
-    {
-      pattern: /What inspectable artifact exists/,
-      answer: 'I created a two-page market brief with claim-level links and a source ledger; a colleague reran one section and found two unsupported claims out of ten.',
-    },
-    {
-      pattern: /What failed, became unreliable/,
-      answer: 'The workflow failed when citations drifted. I tested every claim against its source, reviewed failures, and reduced the brief from ten claims to eight verified claims.',
-    },
-    {
-      pattern: /What data, permission, privacy/,
-      answer: 'I avoid private customer data, use public-source notes, label uncertainty, and require human review before external sharing.',
-    },
-    {
-      pattern: /Given your real calendar, tools, and access/,
-      answer: 'Meetings break the week into short blocks. I have three hours weekly and need tasks with explicit stopping points and visible proof of progress.',
-    },
+  const answers = [
+    'Last week I collected six public reports and produced a two-page cited market brief for a colleague.',
+    'I compared claims against the original sources, retained claim-level citations, and included a source ledger.',
+    'I personally chose the sources, wrote the brief, and designed the reviewer checkpoint; a colleague reviewed the final draft.',
+    `${privateCanary}: the inspectable artifact is a cited brief and ledger that a colleague can rerun.`,
+    'Citation links drifted, so I tested every claim, removed two unsupported claims, and documented the failure.',
+    'I use public data, label uncertainty, and require human review before external sharing.',
+    'I have about three hours each week and prefer a no-code or light-code workflow with explicit stopping points.',
   ]
   let adaptiveAnswerCount = 0
-  while (!(await page.getByRole('heading', { name: 'Here is what I understood.' }).isVisible())) {
-    assert(adaptiveAnswerCount < 7, 'adaptive interview exceeded its seven-question bound')
-    const currentPrompt = (await page.locator('.ap-advisorQuestion h1').textContent())?.trim() || ''
-    const response = promptResponses.find(candidate => candidate.pattern.test(currentPrompt))
-    assert(response, `adaptive QA has no semantically matched answer for prompt: ${currentPrompt}`)
-    await page.getByLabel('Your response').fill(response.answer)
-    await page.getByRole('button', { name: 'Send typed answer' }).click()
+  while (!(await isVisible(page.getByRole('heading', { name: 'Here’s what I heard' })))) {
+    const reviewButton = page.getByRole('button', { name: 'Review what I heard' })
+    if (await isVisible(reviewButton)) {
+      assert(adaptiveAnswerCount >= 5, `adaptive conversation ended too early after ${adaptiveAnswerCount} answers`)
+      await reviewButton.click()
+      break
+    }
+    assert(adaptiveAnswerCount < 7, 'adaptive conversation exceeded its seven-question bound')
+
+    const answerField = page.getByLabel('Your answer')
+    await answerField.waitFor({ state: 'visible', timeout: 10_000 })
+    await answerField.fill(answers[adaptiveAnswerCount])
+    const continueButton = page.getByRole('button', { name: 'Continue' })
+    await continueButton.click()
     adaptiveAnswerCount += 1
-    await page.waitForFunction((previousOrdinal) => (
-      document.querySelector('h1')?.textContent?.includes('Here is what I understood.')
-      || document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') !== String(previousOrdinal)
-    ), adaptiveAnswerCount, { timeout: 5_000 })
+
+    await page.waitForFunction(() => {
+      const field = Array.from(document.querySelectorAll('textarea, input')).find((element) => (
+        element.labels && Array.from(element.labels).some(label => label.textContent?.trim() === 'Your answer')
+      ))
+      const review = Array.from(document.querySelectorAll('button')).some(button => button.textContent?.trim() === 'Review what I heard')
+      const confirmation = Array.from(document.querySelectorAll('h1, h2')).some(heading => heading.textContent?.trim() === 'Here’s what I heard')
+      return review || confirmation || (field && field.value === '')
+    }, null, { timeout: 10_000 })
   }
-  assert(adaptiveAnswerCount >= 5, `adaptive interview ended too early after ${adaptiveAnswerCount} answers`)
-  await waitForHeading('Here is what I understood.')
-  assert(await page.locator('.ap-evidenceCount strong').getByText(String(adaptiveAnswerCount + 2), { exact: true }).isVisible(), 'each adaptive answer plus the profile constraint was not preserved as a separate reviewed input')
-  assert(await page.locator('.ap-evidenceCount').getByText('included · 0 removed', { exact: true }).isVisible(), 'review input inclusion label is missing')
-  for (const [width, height] of [[375, 812], [768, 1024], [1440, 900]]) {
-    await captureViewport('review', width, height)
+  await waitForHeading('Here’s what I heard')
+  assert(adaptiveAnswerCount >= 5 && adaptiveAnswerCount <= 7, `expected 5–7 questions, completed ${adaptiveAnswerCount}`)
+  checkpoint(`adaptive conversation completed in ${adaptiveAnswerCount} questions without methodology chrome`)
+
+  const confirmationParts = page.getByTestId('confirmation-part')
+  assert(await confirmationParts.count() === 3, `confirmation must contain three compact parts, found ${await confirmationParts.count()}`)
+  assert(await page.getByLabel('Your goal', { exact: true }).isVisible(), 'confirmation is missing Your goal')
+  for (const [id, label] of [
+    ['ap-role', 'Role or area of work'],
+    ['ap-weekly-hours', 'Time available each week'],
+    ['ap-coding-comfort', 'Coding comfort'],
+    ['ap-constraint', 'Main constraint'],
+  ]) {
+    assert(await page.locator(`#${id}`).isVisible(), `confirmation is missing ${label}`)
+    assert(await page.locator(`label[for="${id}"]`).count() === 1, `${label} is not explicitly labeled`)
   }
-  await assertInteractiveNames('review')
-  checkpoint(`adaptive interview completed in ${adaptiveAnswerCount} questions`)
+  const conversationDetails = page.getByText('Review conversation details', { exact: true })
+  assert(await conversationDetails.isVisible(), 'conversation evidence is not available by progressive disclosure')
+  const conversationDisclosure = conversationDetails.locator('xpath=ancestor::details')
+  assert(await conversationDisclosure.count() === 1, 'Review conversation details must use a native disclosure')
+  assert(!(await conversationDisclosure.evaluate(element => element.open)), 'conversation details must be collapsed by default')
+  await page.getByLabel('Your goal', { exact: true }).fill(correctedGoal)
+  await captureViewport('confirmation', 375, 812)
+  await captureViewport('confirmation', 768, 1024)
+  await assertInteractiveNames('confirmation')
+  await page.getByRole('button', { name: 'Build my path' }).click()
 
-  await page.getByRole('button', { name: 'Edit this' }).first().click()
-  const correctedOutcome = `${longOutcome} Correction: the handoff must also explain what happens when a source disappears or a citation cannot be verified.`
-  await page.getByLabel('Edit Your 30-day outcome').fill(correctedOutcome)
-  await page.getByRole('button', { name: 'Save correction' }).click()
-  const correctedConstraint = 'I only have access to free tools, so every exercise needs a tool-free or free-tier fallback.'
-  await page.getByRole('button', { name: 'Edit this' }).last().click()
-  await page.getByLabel('Edit Profile constraint the plan must respect').fill(correctedConstraint)
-  await page.getByRole('button', { name: 'Save correction' }).last().click()
-  const privacyCanary = 'QA_PRIVATE_REVIEW_CANARY_DO_NOT_COPY_TO_ANALYTICS'
-  const nearLimitReviewedResponse = `${privacyCanary}: ${'A citation-preserving, reviewer-visible workflow step with explicit uncertainty and recovery. '.repeat(21)}`.slice(0, 1_950)
-  const nearLimitCard = page.locator('.ap-understandingCard').nth(1)
-  await nearLimitCard.getByRole('button', { name: 'Edit this' }).click()
-  const nearLimitTextarea = nearLimitCard.locator('textarea')
-  assert(await nearLimitTextarea.getAttribute('maxlength') === '2000', 'review correction did not expose the governed 2,000-character limit')
-  await nearLimitTextarea.fill(nearLimitReviewedResponse)
-  await nearLimitCard.getByRole('button', { name: 'Save correction' }).click()
-  await assertNoHorizontalOverflow('review with near-limit response')
-  checkpoint('near-limit reviewed content remained layout-safe')
-
-  const removableCard = page.locator('.ap-understandingCard').nth(2)
-  const removedReviewedResponse = (await removableCard.locator('.ap-reviewedValue').textContent())?.trim() || ''
-  assert(removedReviewedResponse.length > 0, 'remove/restore QA did not capture a reviewed response')
-  await removableCard.getByRole('button', { name: 'Remove from report' }).click()
-  assert(await removableCard.getByText('Rejected interpretation · excluded from the report', { exact: true }).isVisible(), 'removed interpretation was not visibly excluded')
-  assert(await page.locator('.ap-evidenceCount').getByText('included · 1 removed', { exact: true }).isVisible(), 'removed interpretation did not update the included count')
-  checkpoint('reviewed interpretation removed before analysis')
-
-  await page.getByRole('button', { name: 'Use this to build my report' }).click()
-  const analysisAlert = page.getByRole('alert').filter({ hasText: 'We could not build the report.' })
-  await analysisAlert.waitFor({ state: 'visible', timeout: 5_000 })
-  assert(await analysisAlert.getByText('Deterministic QA injected a temporary report failure.', { exact: true }).isVisible(), 'temporary report failure was not explained')
-  assert(await page.getByText(privacyCanary, { exact: false }).isVisible(), 'reviewed responses were not retained after report failure')
-  assert(!analysisRequests[0].reviewedInputs.some(input => input.value === removedReviewedResponse), 'removed interpretation reached the analysis request')
-  await removableCard.getByRole('button', { name: 'Restore interpretation' }).click()
-  assert(await removableCard.getByRole('button', { name: 'Remove from report' }).isVisible(), 'restored interpretation did not return to the included state')
-  await analysisAlert.getByRole('button', { name: 'Try again' }).click()
-  await waitForHeading(/Working direction:/)
-  await assertHeadingFocused(/Working direction:/, 'empty report')
-  assert(await page.getByRole('status').filter({ hasText: 'No governed resource fits this report yet.' }).isVisible(), 'empty recommendation state was not rendered')
-  assert(await page.getByText('The current evidence, prerequisites, format, and time filters produced no eligible match.', { exact: false }).isVisible(), 'empty recommendation state omitted recovery context')
-  await page.getByRole('button', { name: 'Edit what we understood' }).click()
-  await assertHeadingFocused('Here is what I understood.', 'return to reviewed understanding')
-  await page.getByRole('button', { name: 'Use this to build my report' }).click()
-  await waitForHeading(/Working direction:/)
-  await assertHeadingFocused(/Working direction:/, 'populated report')
-  assert(await page.getByText('2 skills assessed', { exact: false }).isVisible(), 'report did not display assessed skill count')
-  assert(await page.getByText('No evidence was collected; this is not a zero score.').first().isVisible(), 'unassessed skills were not explicit')
-  assert(await page.getByText('Designing a citation-preserving research workflow', { exact: false }).isVisible(), 'long recommendation was not rendered')
-  checkpoint('report failure recovery, empty state, and populated report rendered')
-
-  assert(sessionRequests.length === 1, `expected one session request, saw ${sessionRequests.length}`)
-  assert(sessionRequests[0].mode === 'text', 'session did not use text mode')
-  assert(sessionRequests[0].saveTranscript === false, 'session unexpectedly requested transcript persistence')
-  assert(analysisRequests.length === 3, `expected three analysis attempts, saw ${analysisRequests.length}`)
+  await waitForHeading('Your AI learning path')
+  await assertHeadingFocused('Your AI learning path', 'path')
+  assert(sessionRequests.length === 1, `expected one text session request while building the path, saw ${sessionRequests.length}`)
+  assert(analysisRequests.length === 1, `expected one analysis request, saw ${analysisRequests.length}`)
+  assert(analysisRequests[0].goal === correctedGoal, 'confirmed goal did not reach analysis')
+  assert(Array.isArray(analysisRequests[0].reviewedInputs), 'analysis omitted reviewed conversation inputs')
+  assert(analysisRequests[0].reviewedInputs.some(input => input.value.includes(privateCanary)), 'conversation evidence was lost before analysis')
   assert(!('evidence' in analysisRequests[0]), 'browser assigned competency evidence')
-  assert(Array.isArray(analysisRequests[0].reviewedInputs), 'analysis omitted reviewed inputs')
-  assert(analysisRequests[0].reviewedInputs[0].value === correctedOutcome, 'review correction did not reach analysis request')
-  assert(analysisRequests[0].goal === correctedOutcome, 'reviewed goal did not become the analysis goal')
-  assert(analysisRequests[0].reviewedInputs.at(-1).value === correctedConstraint, 'reviewed constraint did not reach analysis')
-  assert(analysisRequests.every(request => request.reviewedInputs.some(input => input.value === nearLimitReviewedResponse)), 'near-limit reviewed response was not retained across report retries')
-  assert(analysisRequests.slice(1).every(request => request.reviewedInputs.some(input => input.value === removedReviewedResponse)), 'restored interpretation did not reach later report attempts')
-  assert(analysisRequests.every(request => request.codingPreference === 'no-code'), 'coding comfort was not carried into governed recommendation selection')
-  checkpoint('request trust boundary validated')
+  checkpoint('three-part confirmation remained editable and reached analysis')
 
-  for (const [width, height] of [[375, 812], [768, 1024], [1440, 900]]) {
-    await captureViewport('results', width, height)
+  for (const label of ['Your next skill', 'Your 30-day project', 'Start here']) {
+    assert(await page.getByText(label, { exact: true }).isVisible(), `path is missing ${label}`)
   }
-  await assertInteractiveNames('results')
-  checkpoint('results responsive and named-control audit')
+  const resourceItems = page.getByTestId('learning-resource')
+  const resourceCount = await resourceItems.count()
+  assert(resourceCount > 0 && resourceCount <= 3, `path must show 1–3 resources, found ${resourceCount}`)
+  assert(!(await page.getByText('This fourth resource must be hidden by the simple path', { exact: true }).isVisible().catch(() => false)), 'path exposed more than three resources')
 
-  const planFitFieldset = page.locator('fieldset').filter({ hasText: 'How well does the plan fit your goal and constraints?' })
-  const reportUsefulnessFieldset = page.locator('fieldset').filter({ hasText: 'How useful is the report for deciding what to do next?' })
-  const planFitFive = planFitFieldset.getByRole('radio', { name: '5', exact: true })
-  await planFitFive.focus()
-  assert(await planFitFive.evaluate(element => document.activeElement === element), 'plan-fit rating was not keyboard focusable')
-  await page.keyboard.press('Space')
-  assert(await planFitFive.isChecked(), 'Space did not select the plan-fit rating')
-  const reportUsefulFour = reportUsefulnessFieldset.getByRole('radio', { name: '4', exact: true })
-  await reportUsefulFour.focus()
-  await page.keyboard.press('Space')
-  assert(await reportUsefulFour.isChecked(), 'Space did not select the report-usefulness rating')
-  await page.getByLabel(/How many of the .* skill findings are materially wrong/).selectOption('1')
-  const feedbackButton = page.getByRole('button', { name: 'Submit numeric feedback' })
-  assert(await feedbackButton.isEnabled(), 'numeric feedback submission did not enable after both ratings')
-  await feedbackButton.focus()
+  const planSummary = page.getByText('See the full four-week plan', { exact: true })
+  const whySummary = page.getByText('Why this fits you', { exact: true })
+  const privacySummary = page.getByText('Privacy and data', { exact: true })
+  for (const [label, summary] of [['plan', planSummary], ['rationale', whySummary], ['privacy', privacySummary]]) {
+    assert(await summary.isVisible(), `${label} disclosure is missing`)
+    const details = summary.locator('xpath=ancestor::details')
+    assert(await details.count() === 1, `${label} disclosure must use native details`)
+    assert(!(await details.evaluate(element => element.open)), `${label} disclosure must be collapsed by default`)
+  }
+  await planSummary.click()
+  assert(await planSummary.locator('xpath=ancestor::details').evaluate(element => element.open), 'four-week plan did not expand')
+  await privacySummary.click()
+  const privacyDetails = privacySummary.locator('xpath=ancestor::details')
+  assert(await privacyDetails.evaluate(element => element.open), 'privacy disclosure did not expand')
+  assert(await privacyDetails.getByText(/delete|deletion/i).isVisible(), 'privacy disclosure omits deletion')
+  checkpoint('single path page shows the decision first and details progressively')
+
+  const firstTaskButton = page.getByRole('button', { name: 'Start my first task' })
+  await firstTaskButton.focus()
   await page.keyboard.press('Enter')
-  const feedbackStatus = page.getByRole('status').filter({ hasText: 'production analytics sink is still disabled' })
-  await feedbackStatus.waitFor({ state: 'visible', timeout: 5_000 })
-  assert(await feedbackStatus.getAttribute('aria-live') === 'polite', 'feedback status was not announced politely')
-  checkpoint('keyboard numeric feedback and closed-sink recovery')
+  await page.getByRole('button', { name: 'Mark task complete' }).waitFor({
+    state: 'visible',
+    timeout: 5_000,
+  })
+  checkpoint('first action starts from the path page')
 
-  await page.getByRole('button', { name: 'Open my 30-day plan' }).first().click()
-  await page.locator('.ap-planTitle h1').waitFor({ state: 'visible', timeout: 15_000 })
-  assert(await page.locator('.ap-planTitle h1').evaluate(element => document.activeElement === element), 'plan heading did not receive programmatic focus')
-  assert(await page.getByText('The first week includes the application-owned access recovery pattern.', { exact: true }).isVisible(), 'reviewed constraint did not causally change the personalized plan')
-  await page.setViewportSize({ width: 1440, height: 900 })
-  const firstTask = page.locator('.ap-weekList article').first().locator('li strong').first()
-  let originalFirstTask = (await firstTask.textContent()).trim()
+  await captureRequiredViewports('path')
+  await assertInteractiveNames('path')
+  checkpoint('path responsive and named-control audit')
 
-  const pinButton = page.getByRole('button', { name: 'Pin in this browser tab' })
-  await pinButton.focus()
-  await page.keyboard.press('Enter')
-  assert(await page.getByRole('button', { name: 'Pinned in this browser tab' }).isVisible(), 'keyboard activation did not pin the plan')
-  await page.locator('.ap-weekList input[type="checkbox"]').first().check()
-  assert(await page.getByText('8%', { exact: true }).isVisible(), 'task completion did not update progress to 8%')
-  await page.getByLabel('Weekly time budget').selectOption('1')
-  await page.getByRole('button', { name: 'Confirm schedule change' }).click()
-  assert(await page.getByText('0%', { exact: true }).isVisible(), 'schedule change did not reset preview progress')
-  assert(await page.getByText('Time budget changed to 1 hour per week.', { exact: false }).isVisible(), 'time-budget status was not announced')
-  originalFirstTask = (await firstTask.textContent()).trim()
-  checkpoint('task completion and time-budget recalculation')
+  assert(sessionRequests[0].mode === 'text', 'typed fallback did not create a text session')
+  assert(sessionRequests[0].saveTranscript === false, 'session unexpectedly requested transcript persistence')
+  assert(paidPathRequests.length === 0, `app attempted a paid Realtime path: ${paidPathRequests.join(', ')}`)
+  assert(blockedRequests.length === 0, `app attempted external requests: ${blockedRequests.join(', ')}`)
 
-  await page.getByRole('button', { name: 'Use smaller alternatives this week' }).first().click()
-  const smallerFirstTask = (await firstTask.textContent()).trim()
-  assert(smallerFirstTask !== originalFirstTask && smallerFirstTask.includes('Create a one-page example'), 'smaller alternative did not replace week tasks')
-  await page.getByRole('button', { name: 'Restore original tasks' }).first().click()
-  assert((await firstTask.textContent()).trim() === originalFirstTask, 'original week tasks were not restored')
-  checkpoint('smaller alternatives and restore')
-
-  const checkIn = page.getByLabel('What worked, and what got in the way?')
-  await checkIn.fill('I was busy, missed the second task, and need a smaller plan next week.')
-  await page.getByRole('button', { name: 'Propose an adaptation' }).click()
-  await page.getByText('Protect one essential task next week').waitFor({ state: 'visible' })
-  await page.getByRole('button', { name: 'Keep current plan' }).click()
-  assert(await page.getByText('Proposal rejected. The current plan remains unchanged.').isVisible(), 'rejection was not announced')
-  assert((await firstTask.textContent()).trim() === originalFirstTask, 'rejected proposal changed the task')
-
-  await checkIn.fill('I am stuck and blocked by a citation error that I cannot reproduce reliably.')
-  await page.getByRole('button', { name: 'Propose an adaptation' }).click()
-  await page.getByText('Replace the next task with a smaller diagnostic').waitFor({ state: 'visible' })
-  await page.getByRole('button', { name: 'Accept proposal' }).click()
-  assert(await page.getByText('Accepted: Replace the next task with a smaller diagnostic.', { exact: false }).isVisible(), 'acceptance was not announced')
-  assert((await firstTask.textContent()).includes('Run a 30-minute diagnostic'), 'accepted proposal did not change the next incomplete task')
-  checkpoint('check-in rejection and acceptance')
-
-  for (const [width, height] of [[375, 812], [768, 1024], [1440, 900]]) {
-    await captureViewport('plan', width, height)
-  }
-  await assertInteractiveNames('plan')
-  checkpoint('plan responsive and named-control audit')
-
-  const downloadPromise = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Export report & plan' }).click()
-  const download = await downloadPromise
-  assert(download.suggestedFilename() === 'ai-path-plan.json', `unexpected export filename ${download.suggestedFilename()}`)
-  await download.saveAs(`${artifactDir}/ai-path-plan.json`)
-  const exportStream = await download.createReadStream()
-  let exportText = ''
-  for await (const chunk of exportStream) exportText += chunk.toString('utf8')
-  const exported = JSON.parse(exportText)
-  assert(exported.report.reportVersion === '2026-07-16.v1', 'export omitted the report version')
-  assert(exported.report.catalogVersion === '2026-07-17.v2', 'export omitted the catalog version')
-  assert(exported.plan.weeklyHours === 1, 'export omitted the changed time budget')
-  assert(exported.plan.adaptationStatus.includes('Accepted:'), 'export omitted the accepted adaptation status')
-  await page.getByText('Export prepared.', { exact: false }).waitFor({ state: 'visible' })
-  checkpoint('download export validated')
-
-  await page.getByRole('button', { name: 'View preview history' }).click()
-  await waitForHeading('Plans are snapshots, not permanent labels.')
-  assert(await page.locator('.ap-historyList article.is-current dt').getByText('Time budget', { exact: true }).isVisible(), 'history omitted time budget')
-  await page.getByRole('button', { name: 'Start a short reassessment' }).click()
-  await waitForHeading('Start with what should change.')
-  checkpoint('history and reassessment reset')
-
-  await page.getByRole('button', { name: 'Delete browser preview' }).click()
-  await waitForHeading('Find your next useful AI move.')
-  await assertHeadingFocused('Find your next useful AI move.', 'post-deletion landing')
-  assert(await page.getByRole('button', { name: 'Build my plan' }).isVisible(), 'deletion did not return to an empty landing state')
-  checkpoint('browser-preview deletion')
-
-  const analyticsPropertyKeys = {
-    landing_viewed: ['audience', 'source'],
-    profile_completed: ['audience', 'pathIntent', 'weeklyHoursBand'],
-    assessment_started: ['audience', 'mode'],
-    assessment_completed: ['audience', 'durationSeconds', 'mode'],
-    understanding_reviewed: ['audience', 'correctionCount', 'removedObservationCount'],
-    report_viewed: ['audience', 'resultStatus'],
-    plan_saved: ['audience', 'planVersion'],
-    first_task_started: ['audience', 'taskKind'],
-    first_task_completed: ['audience', 'elapsedMinutes', 'taskKind'],
-    feedback_submitted: ['audience', 'planFitRating', 'reportUsefulnessRating'],
-    finding_feedback_submitted: ['audience', 'materiallyWrongFindings', 'totalFindings'],
-    data_deleted: ['audience', 'scope'],
-  }
-  const expectedEventCounts = {
-    landing_viewed: 1,
-    profile_completed: 1,
-    assessment_started: 1,
-    assessment_completed: 1,
-    understanding_reviewed: 3,
-    report_viewed: 2,
-    plan_saved: 1,
-    first_task_started: 1,
-    first_task_completed: 1,
-    feedback_submitted: 1,
-    finding_feedback_submitted: 1,
-    data_deleted: 1,
-  }
-  const eventCounts = analyticsRequests.reduce((counts, event) => ({
-    ...counts,
-    [event.eventName]: (counts[event.eventName] || 0) + 1,
-  }), {})
-  assert(Object.keys(eventCounts).length === Object.keys(expectedEventCounts).length, `unexpected governed analytics events: ${JSON.stringify(eventCounts)}`)
-  for (const [eventName, expectedCount] of Object.entries(expectedEventCounts)) {
-    assert(eventCounts[eventName] === expectedCount, `expected ${expectedCount} ${eventName} event(s), saw ${eventCounts[eventName] || 0}`)
-  }
-  const anonymousIds = new Set(analyticsRequests.map(event => event.anonymousId))
-  assert(anonymousIds.size === 1, 'analytics rotated or correlated more than one anonymous browser identifier')
-  const [anonymousId] = anonymousIds
-  assert(/^anon_[a-f0-9]{32}$/.test(anonymousId), `anonymous analytics id was not opaque: ${anonymousId}`)
-  const sessionEvents = new Set([
-    'assessment_started',
-    'assessment_completed',
-    'understanding_reviewed',
-    'report_viewed',
-    'plan_saved',
-    'first_task_started',
-    'first_task_completed',
-    'feedback_submitted',
-    'finding_feedback_submitted',
-  ])
-  const assessmentIds = new Set(analyticsRequests.filter(event => sessionEvents.has(event.eventName)).map(event => event.assessmentSessionId))
-  assert(assessmentIds.size === 1, 'session-scoped analytics did not use one opaque assessment identifier')
-  const [assessmentId] = assessmentIds
-  assert(/^assessment_[a-f0-9]{32}$/.test(assessmentId), `assessment analytics id was not opaque: ${assessmentId}`)
-  for (const event of analyticsRequests) {
-    assert(event.measurementVersion === '2026-07-16.v1', `${event.eventName} used an unexpected measurement version`)
-    assert(Number.isFinite(Date.parse(event.occurredAt)), `${event.eventName} omitted a valid occurrence time`)
-    assert(JSON.stringify(Object.keys(event).sort()) === JSON.stringify(['anonymousId', 'assessmentSessionId', 'eventName', 'measurementVersion', 'occurredAt', 'properties']), `${event.eventName} emitted unexpected envelope fields`)
-    assert(Object.prototype.hasOwnProperty.call(analyticsPropertyKeys, event.eventName), `ungoverned analytics event emitted: ${event.eventName}`)
-    assert(JSON.stringify(Object.keys(event.properties).sort()) === JSON.stringify(analyticsPropertyKeys[event.eventName]), `${event.eventName} emitted unexpected property fields: ${JSON.stringify(event.properties)}`)
-    assert(event.properties.audience === 'workflow-builder-alpha', `${event.eventName} used an unexpected audience`)
-    assert(sessionEvents.has(event.eventName) ? event.assessmentSessionId === assessmentId : event.assessmentSessionId === null, `${event.eventName} used an invalid assessment identifier scope`)
-  }
   const serializedAnalytics = JSON.stringify(analyticsRequests)
-  for (const privateText of [privacyCanary, longRole, longOutcome, longBlocker, correctedOutcome, correctedConstraint]) {
+  for (const privateText of [qaGoal, correctedGoal, privateCanary, ...answers]) {
     assert(!serializedAnalytics.includes(privateText), `learner-authored text leaked into analytics: ${privateText.slice(0, 40)}`)
   }
-  const feedbackEvent = analyticsRequests.find(event => event.eventName === 'feedback_submitted')
-  assert(feedbackEvent.properties.planFitRating === 5 && feedbackEvent.properties.reportUsefulnessRating === 4, 'numeric feedback payload did not match keyboard selections')
-  const findingFeedbackEvent = analyticsRequests.find(event => event.eventName === 'finding_feedback_submitted')
-  assert(findingFeedbackEvent.properties.totalFindings === skillIds.length && findingFeedbackEvent.properties.materiallyWrongFindings === 1, 'numeric finding feedback payload was incorrect')
   assert(analyticsRequests.every(event => JSON.stringify(event).length < 8 * 1024), 'analytics payload exceeded the intake body budget')
-  checkpoint('analytics envelope, governance, opaque identity, and no-free-text invariants')
+  checkpoint('zero external or paid requests and no learner-text analytics leakage')
 
-  assert(blockedRequests.length === 0, `the app attempted external requests: ${blockedRequests.join(', ')}`)
   const expectedUnavailableResourceError = 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)'
-  const expectedUnavailableConsoleErrors = consoleErrors.filter(message => message === expectedUnavailableResourceError)
-  assert(expectedUnavailableConsoleErrors.length <= analyticsRequests.length + 1, 'more 503 console messages appeared than the intercepted analytics and injected report failures can explain')
   const actionableConsoleErrors = consoleErrors.filter((message) => (
     !message.includes('favicon') && message !== expectedUnavailableResourceError
   ))
   assert(actionableConsoleErrors.length === 0, `browser console errors: ${actionableConsoleErrors.join(' | ')}`)
 
   return {
-    ok: failures.length === 0,
+    ok: true,
     checkpoints,
+    journey: ['start', 'conversation', 'confirmation', 'path'],
+    questionsAnswered: adaptiveAnswerCount,
+    startActions,
+    resourcesShown: resourceCount,
     viewports: ['375x812', '768x1024', '1440x900'],
     network: {
       externalRequestsAttempted: blockedRequests.length,
       paidRequestsAllowed: false,
+      paidPathRequestsAttempted: paidPathRequests.length,
       sessionRequests: sessionRequests.length,
       analysisRequests: analysisRequests.length,
       analyticsRequests: analyticsRequests.length,
       analyticsSinkAccepted: false,
-      expectedUnavailableConsoleErrors: expectedUnavailableConsoleErrors.length,
     },
     artifacts: artifactDir,
   }
