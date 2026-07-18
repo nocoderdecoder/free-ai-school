@@ -69,7 +69,15 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   const assertHeadingFocused = async (name, label = name) => {
     const heading = page.getByRole('heading', { name }).first()
     await heading.waitFor({ state: 'visible', timeout: 15_000 })
-    assert(await heading.evaluate(element => document.activeElement === element), `${label} heading did not receive programmatic focus`)
+    const headingHandle = await heading.elementHandle()
+    assert(headingHandle, `${label} heading could not be inspected for programmatic focus`)
+    await page.waitForFunction(
+      element => document.activeElement === element,
+      headingHandle,
+      { timeout: 5_000 },
+    ).catch(() => {
+      throw new Error(`${label} heading did not receive programmatic focus`)
+    })
   }
 
   const reportGoal = 'Build a citation-preserving weekly market intelligence workflow that colleagues can inspect, rerun, and improve without relying on hidden context.'
