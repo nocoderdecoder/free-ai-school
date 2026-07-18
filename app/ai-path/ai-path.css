@@ -1067,6 +1067,96 @@
   margin: 8px 0 0;
 }
 
+.ap-ds-planWhy {
+  align-items: start;
+  background: var(--path-surface);
+  border: 1px solid var(--path-line);
+  border-radius: 14px;
+  display: grid;
+  gap: 18px 28px;
+  grid-template-columns: minmax(210px, .7fr) minmax(0, 1.3fr);
+  margin-bottom: 16px;
+  padding: 24px;
+}
+
+.ap-ds-planWhy h2,
+.ap-ds-evidenceSummary h2,
+.ap-ds-resources > h2 {
+  font-size: clamp(20px, 2.6vw, 25px);
+  font-weight: 580;
+  line-height: 1.28;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ap-ds-planWhy > div:first-child > p:last-child {
+  color: var(--path-muted);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 9px 0 0;
+}
+
+.ap-ds-planReasons {
+  display: grid;
+  gap: 10px;
+}
+
+.ap-ds-planReasons p {
+  align-items: flex-start;
+  color: var(--path-text);
+  display: flex;
+  font-size: 13px;
+  gap: 9px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.ap-ds-planReasons svg {
+  color: var(--path-primary);
+  flex: 0 0 auto;
+  height: 16px;
+  margin-top: 2px;
+  width: 16px;
+}
+
+.ap-ds-planProfile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  grid-column: 1 / -1;
+}
+
+.ap-ds-planProfile span {
+  background: var(--path-soft);
+  border-radius: 999px;
+  color: var(--path-muted);
+  font-size: 11px;
+  line-height: 1.3;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 6px 10px;
+}
+
+.ap-ds-assumptions {
+  background: #fff8f2;
+  border-left: 3px solid #d6804d;
+  border-radius: 0 10px 10px 0;
+  margin: 0 0 16px;
+  padding: 14px 18px;
+}
+
+.ap-ds-assumptions strong {
+  font-size: 13px;
+}
+
+.ap-ds-assumptions ul {
+  color: var(--path-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 7px 0 0;
+  padding-left: 18px;
+}
+
 .ap-ds-firstAction {
   align-items: center;
   background: var(--path-selected);
@@ -1092,6 +1182,13 @@
   margin: 0;
 }
 
+.ap-ds-firstAction > small {
+  color: var(--path-muted);
+  font-size: 11px;
+  grid-column: 1;
+  line-height: 1.4;
+}
+
 .ap-ds-firstAction button {
   align-items: center;
   background: var(--path-primary);
@@ -1103,7 +1200,7 @@
   font-weight: 650;
   gap: 8px;
   grid-column: 2;
-  grid-row: 1 / span 2;
+  grid-row: 1 / span 3;
   justify-content: center;
   min-height: 46px;
   padding: 10px 14px;
@@ -1196,11 +1293,76 @@
 
 .ap-ds-evaluation,
 .ap-ds-risk,
-.ap-ds-profile {
+.ap-ds-profile,
+.ap-ds-evidenceSummary {
   display: grid;
   gap: 24px;
   grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
   margin-top: 16px;
+}
+
+.ap-ds-evidenceSummary {
+  background: var(--path-surface);
+  border: 1px solid var(--path-line);
+  border-radius: 14px;
+  min-width: 0;
+  padding: 24px;
+}
+
+.ap-ds-confidence {
+  color: var(--path-primary);
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 10px;
+  text-transform: capitalize;
+}
+
+.ap-ds-evidenceChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ap-ds-evidenceChips > span {
+  background: var(--path-soft);
+  border-radius: 8px;
+  color: var(--path-muted);
+  display: grid;
+  font-size: 11px;
+  gap: 2px;
+  line-height: 1.35;
+  min-width: 150px;
+  padding: 9px 11px;
+}
+
+.ap-ds-evidenceChips strong {
+  color: var(--path-text);
+  font-size: 12px;
+}
+
+.ap-ds-evidenceSummary > div:last-child > p {
+  color: var(--path-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.ap-ds-evidenceGap {
+  border-top: 1px solid var(--path-line);
+  margin-top: 14px;
+  padding-top: 13px;
+}
+
+.ap-ds-evidenceGap strong {
+  font-size: 12px;
+}
+
+.ap-ds-evidenceGap p {
+  color: var(--path-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 5px 0 0;
 }
 
 .ap-ds-evaluation ul,
@@ -1240,15 +1402,20 @@
   margin-top: 14px;
 }
 
+.ap-ds-resources > h2 {
+  margin-top: 2px;
+}
+
 .ap-ds-skills article,
 .ap-ds-resources article {
   background: var(--path-soft);
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   padding: 18px;
 }
 
-.ap-ds-skills article > span,
-.ap-ds-resources article > span {
+.ap-ds-skills article > span {
   color: var(--path-primary);
   font-size: 12px;
   font-weight: 700;
@@ -1262,6 +1429,88 @@
   line-height: 1.35;
   margin: 14px 0 0;
   overflow-wrap: anywhere;
+}
+
+.ap-ds-resourceTopline {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.ap-ds-resourceTopline > span {
+  color: var(--path-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ap-ds-resourceTopline small {
+  background: #e5f3ec;
+  border-radius: 999px;
+  color: var(--path-primary);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 5px 7px;
+}
+
+.ap-ds-resourceTopline small.is-freemium {
+  background: #fff4e8;
+  color: #8a4b22;
+}
+
+.ap-ds-resourceTopline small.is-paid {
+  background: #f3eeee;
+  color: #6d4141;
+}
+
+.ap-ds-resources .ap-ds-resourceMeta {
+  color: var(--path-primary);
+  font-size: 10px;
+  font-weight: 650;
+  margin: 6px 0 0;
+  text-transform: capitalize;
+}
+
+.ap-ds-resources article > p:not(.ap-ds-resourceMeta) {
+  flex: 1 1 auto;
+}
+
+.ap-ds-resources details {
+  border-top: 1px solid var(--path-line);
+  margin-top: 8px;
+  padding-top: 9px;
+}
+
+.ap-ds-resources summary {
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.ap-ds-resources details p {
+  font-size: 11px;
+  margin: 7px 0 0;
+}
+
+.ap-ds-resources article > a,
+.ap-ds-includedResource {
+  align-items: center;
+  align-self: flex-start;
+  color: var(--path-primary);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 14px;
+  min-height: 30px;
+}
+
+.ap-ds-resources article > a {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.ap-ds-includedResource {
+  color: var(--path-muted);
 }
 
 .ap-ds-profile > div:last-child article {
@@ -1338,6 +1587,18 @@
 
 .ap-ds-month article h3 {
   margin-top: 7px;
+}
+
+.ap-ds-month article ul {
+  color: var(--path-muted);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 10px 0 0;
+  padding-left: 16px;
+}
+
+.ap-ds-month article li + li {
+  margin-top: 5px;
 }
 
 .ap-ds-resultFooter {
@@ -1420,7 +1681,9 @@
 
   .ap-ds-evaluation,
   .ap-ds-risk,
-  .ap-ds-profile {
+  .ap-ds-profile,
+  .ap-ds-evidenceSummary,
+  .ap-ds-planWhy {
     grid-template-columns: 1fr;
   }
 
@@ -1607,6 +1870,8 @@
   .ap-ds-risk,
   .ap-ds-skills,
   .ap-ds-profile,
+  .ap-ds-evidenceSummary,
+  .ap-ds-planWhy,
   .ap-ds-month,
   .ap-ds-resources {
     padding: 20px;

@@ -604,9 +604,75 @@ function CapabilityForm({
   )
 }
 
+const SAVED_PLAN_STORAGE_KEY = 'ai-path.saved-next-step.v1'
+
+function resultSignature(result: DiagnosticResult): string {
+  const value = `${result.version}|${result.policyVersion}|${result.kind}|${result.title}|${result.firstAction}`
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return `plan-${(hash >>> 0).toString(36)}`
+}
+
+function formatMinutes(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  const remainder = minutes % 60
+  return remainder ? `${hours}h ${remainder}m` : `${hours}h`
+}
+
+function safeResourceUrl(value: string | null): string | null {
+  if (!value) return null
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' ? url.toString() : null
+  } catch {
+    return null
+  }
+}
+
 function ResultScene({ result, onEdit, onRestart }: { result: DiagnosticResult; onEdit(): void; onRestart(): void }) {
   const isUseCase = result.kind === 'use-case-blueprint'
+  const signature = useMemo(() => resultSignature(result), [result])
   const [actionSaved, setActionSaved] = useState(false)
+  const evidence = isUseCase ? [] : result.evidenceProfile.filter(item => item.assessedLevel !== 'none').slice(0, 3)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem(SAVED_PLAN_STORAGE_KEY) ?? 'null') as { signature?: string } | null
+        setActionSaved(saved?.signature === signature)
+      } catch {
+        setActionSaved(false)
+      }
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [signature])
+
+  function toggleSavedAction() {
+    try {
+      if (actionSaved) {
+        const saved = JSON.parse(localStorage.getItem(SAVED_PLAN_STORAGE_KEY) ?? 'null') as { signature?: string } | null
+        if (saved?.signature === signature) localStorage.removeItem(SAVED_PLAN_STORAGE_KEY)
+        setActionSaved(false)
+        return
+      }
+      localStorage.setItem(SAVED_PLAN_STORAGE_KEY, JSON.stringify({
+        schemaVersion: 1,
+        signature,
+        savedAt: new Date().toISOString(),
+        title: result.title,
+        firstAction: result.firstAction,
+        weeks: result.weeks,
+      }))
+      setActionSaved(true)
+    } catch {
+      setActionSaved(false)
+    }
+  }
+
   return (
     <main className="ap-ds-result" data-result-kind={result.kind}>
       <div className="ap-ds-resultTopline"><button type="button" onClick={onEdit}>← Edit my answers</button><span>{isUseCase ? 'Your project plan' : 'Your learning plan'}</span></div>
@@ -620,12 +686,36 @@ function ResultScene({ result, onEdit, onRestart }: { result: DiagnosticResult; 
         )}
       </section>
 
+      <section className="ap-ds-planWhy" aria-labelledby="ap-plan-why-title">
+        <div>
+          <p className="ap-ds-kicker">Why this plan</p>
+          <h2 id="ap-plan-why-title">Built from what you told us</h2>
+          <p>{result.planProfile.role} · {result.planProfile.weeklyHours} {result.planProfile.weeklyHours === 1 ? 'hour' : 'hours'} a week</p>
+        </div>
+        <div className="ap-ds-planReasons">
+          {result.personalizationReasons.slice(0, 4).map(reason => <p key={reason.id}><CheckIcon /><span>{reason.detail}</span></p>)}
+        </div>
+        <div className="ap-ds-planProfile" aria-label="Plan settings">
+          <span>{result.planProfile.buildMode}</span>
+          <span>{result.planProfile.learningMode}</span>
+          <span>{result.planProfile.budgetMode}</span>
+        </div>
+      </section>
+
+      {result.assumptions.length ? (
+        <section className="ap-ds-assumptions">
+          <strong>What we assumed</strong>
+          <ul>{result.assumptions.map(assumption => <li key={assumption.id}>{assumption.detail}</li>)}</ul>
+        </section>
+      ) : null}
+
       <section className="ap-ds-firstAction">
         <span>Start here</span>
         <h2>{result.firstAction}</h2>
-        <button type="button" className={actionSaved ? 'is-saved' : ''} onClick={() => setActionSaved(value => !value)}>
+        <button type="button" className={actionSaved ? 'is-saved' : ''} onClick={toggleSavedAction} aria-pressed={actionSaved}>
           {actionSaved ? 'Next step saved' : 'Save this as my next step'} {actionSaved ? <CheckIcon /> : <ArrowIcon />}
         </button>
+        <small aria-live="polite">{actionSaved ? 'Saved in this browser. Select again to remove it.' : 'Keep this next step in this browser.'}</small>
       </section>
 
       {isUseCase ? (
@@ -642,22 +732,38 @@ function ResultScene({ result, onEdit, onRestart }: { result: DiagnosticResult; 
         <>
           <div className="ap-ds-resultGrid">
             <section className="is-dark"><p className="ap-ds-kicker">Build this next</p><h2>{result.project.title}</h2><p>{result.project.outcome}</p><ul>{result.project.deliverables.map(item => <li key={item}>{item}</li>)}</ul></section>
-            <section><p className="ap-ds-kicker">Focus on this skill</p><h2>{result.nextCapability}</h2><p>This project is selected to create something you can show—not merely add another course completion.</p><details><summary>How you’ll know the project is done</summary><ul>{result.definitionOfDone.map(item => <li key={item}>{item}</li>)}</ul></details></section>
+            <section><p className="ap-ds-kicker">Focus on this skill</p><h2>{result.nextCapability}</h2>{result.secondaryCapabilities.length ? <p>Then add: {result.secondaryCapabilities.join(' · ')}</p> : null}<p>This project creates evidence you can inspect—not merely another course completion.</p><details><summary>How you’ll know the project is done</summary><ul>{result.definitionOfDone.map(item => <li key={item}>{item}</li>)}</ul></details></section>
           </div>
-          <section className="ap-ds-profile"><div><p className="ap-ds-kicker">What your experience currently shows</p><h2>Your starting point</h2></div><div>{result.evidenceProfile.map(item => <article key={item.domain}><span>{item.label}</span><strong>{item.assessment}</strong></article>)}</div></section>
-          {result.untested.length ? <section className="ap-ds-untested"><strong>Not assessed yet</strong><p>You didn’t give us a practical example in these areas: {result.untested.join(' · ')}</p></section> : null}
+          <section className="ap-ds-evidenceSummary">
+            <div><p className="ap-ds-kicker">Your starting point</p><h2>{result.strongest}</h2><span className="ap-ds-confidence">{result.confidence} confidence</span></div>
+            <div>
+              {evidence.length ? <div className="ap-ds-evidenceChips">{evidence.map(item => <span key={item.domain}><strong>{item.label}</strong>{item.assessment}</span>)}</div> : <p>No practical evidence was claimed yet. The plan starts by creating a small example.</p>}
+              <div className="ap-ds-evidenceGap"><strong>What the plan will help you prove</strong><p>{result.evidenceGap.summary}</p></div>
+            </div>
+          </section>
         </>
       )}
 
       <section className="ap-ds-month">
         <p className="ap-ds-kicker">Your next four weeks</p>
         <h2>{isUseCase ? 'From first test to a useful result' : 'From first practice to something you can show'}</h2>
-        <div>{result.weeks.map(week => <article key={week.week}><span>{week.week}</span><small>Week {week.week}</small><h3>{week.focus}</h3><p>{week.outcome}</p></article>)}</div>
+        <div>{result.weeks.map(week => <article key={week.week}><span>{week.week}</span><small>Week {week.week} · {formatMinutes(week.estimatedMinutes)}</small><h3>{week.focus}</h3><p>{week.outcome}</p><ul>{week.activities.map(activity => <li key={activity}>{activity}</li>)}</ul></article>)}</div>
       </section>
 
       <section className="ap-ds-resources">
         <p className="ap-ds-kicker">Learn only what the project needs</p>
-        <div>{result.resources.map((resource, index) => <article key={resource.id}><span>0{index + 1}</span><h3>{resource.title}</h3><p>{resource.purpose}</p></article>)}</div>
+        <h2>Reviewed resources, with the tradeoffs visible</h2>
+        <div>{result.resources.map((resource, index) => {
+          const url = safeResourceUrl(resource.canonicalUrl)
+          return <article key={resource.id}>
+            <div className="ap-ds-resourceTopline"><span>0{index + 1}</span><small className={`is-${resource.cost.kind}`}>{resource.cost.kind === 'free' ? 'Free' : resource.cost.kind === 'freemium' ? 'Free + optional paid' : 'Paid'}</small></div>
+            <h3>{resource.title}</h3>
+            <p className="ap-ds-resourceMeta">{resource.provider} · {resource.format} · {formatMinutes(resource.estimatedMinutes)}</p>
+            <p>{resource.purpose}</p>
+            <details><summary>Cost and access</summary><p>{resource.cost.disclosure}</p></details>
+            {url ? <a href={url} target="_blank" rel="noreferrer">Open resource <span aria-hidden="true">↗</span></a> : <span className="ap-ds-includedResource">Activity included in your plan</span>}
+          </article>
+        })}</div>
       </section>
 
       <div className="ap-ds-resultFooter"><button type="button" onClick={onRestart}>Start over</button><p>No account, course, paid tool or outside service was activated.</p></div>

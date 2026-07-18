@@ -51,6 +51,37 @@ const capabilityFixture = {
   constraints: { weeklyHours: 4, learningPreference: 'balanced', pace: '30-day', resourceBudget: 'free-only', publicProject: 'yes' },
 }
 
+function requireResult(result) {
+  assert.ok(result, 'expected a complete diagnostic to produce a result')
+  return result
+}
+
+function useCaseExecutionFingerprint(result) {
+  return {
+    architecture: result.architecture,
+    prototype: result.prototype,
+    skills: result.skills,
+    weeks: result.weeks,
+    firstAction: result.firstAction,
+    resources: result.resources,
+  }
+}
+
+function capabilityPlanFingerprint(result) {
+  return {
+    nextCapability: result.nextCapability,
+    project: result.project,
+    definitionOfDone: result.definitionOfDone,
+    weeks: result.weeks,
+    firstAction: result.firstAction,
+    resources: result.resources,
+  }
+}
+
+function combinedCapabilityPlanText(result) {
+  return JSON.stringify(capabilityPlanFingerprint(result)).toLowerCase()
+}
+
 test('the versioned diagnostic has exactly six top-level sections per path and frozen initial values', () => {
   assert.equal(USE_CASE_SECTION_IDS.length, 6)
   assert.equal(CAPABILITY_SECTION_IDS.length, 6)
@@ -159,6 +190,188 @@ test('each plain-language direction produces a relevant project recommendation',
     assert.match(result.nextCapability, capabilityPattern)
     assert.match(result.project.title, projectPattern)
   }
+})
+
+test('use-case execution changes when risk, available time, build approach, team, or budget changes', () => {
+  const baseline = requireResult(composeUseCaseBlueprint(useCaseFixture))
+  const lowerRisk = requireResult(composeUseCaseBlueprint({
+    ...useCaseFixture,
+    risk: { ...useCaseFixture.risk, dataSensitivity: 'public', consequence: 'low', humanApproval: 'no' },
+  }))
+  assert.notDeepEqual(lowerRisk.risk, baseline.risk, 'risk answers must change safeguards')
+  assert.notDeepEqual(
+    useCaseExecutionFingerprint(lowerRisk),
+    useCaseExecutionFingerprint(baseline),
+    'risk answers must change an execution decision, not only a badge',
+  )
+
+  const lowerTime = requireResult(composeUseCaseBlueprint({
+    ...useCaseFixture,
+    constraints: { ...useCaseFixture.constraints, weeklyHours: 2 },
+  }))
+  assert.notDeepEqual(lowerTime.weeks, baseline.weeks, 'weekly hours must resize the execution plan')
+
+  const noCode = requireResult(composeUseCaseBlueprint({
+    ...useCaseFixture,
+    constraints: {
+      ...useCaseFixture.constraints,
+      codingComfort: 'none',
+      approach: 'no-code-first',
+    },
+  }))
+  assert.notDeepEqual(noCode.prototype, baseline.prototype, 'coding comfort and approach must change prototype scope')
+  assert.notDeepEqual(noCode.resources, baseline.resources, 'coding comfort and approach must change the learning route')
+
+  const solo = requireResult(composeUseCaseBlueprint({
+    ...useCaseFixture,
+    constraints: { ...useCaseFixture.constraints, teamMode: 'solo' },
+  }))
+  assert.notDeepEqual(solo.weeks, baseline.weeks, 'solo and team plans must assign different execution work')
+  assert.notEqual(solo.firstAction, baseline.firstAction, 'solo and team execution must not start identically')
+
+  const freeOnly = requireResult(composeUseCaseBlueprint({
+    ...useCaseFixture,
+    constraints: { ...useCaseFixture.constraints, budget: 'free-only' },
+  }))
+  assert.notDeepEqual(freeOnly.resources, baseline.resources, 'budget must change the governed resource route')
+})
+
+test('capability role and selected goals materially change the recommended project', () => {
+  const operations = requireResult(composeCapabilityPrescription(capabilityFixture))
+  const marketing = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    direction: {
+      roleContext: 'Marketing manager creating campaign briefs and reviewing brand claims',
+      interests: capabilityFixture.direction.interests,
+    },
+  }))
+  assert.notDeepEqual(marketing.project, operations.project, 'role context must ground the recommended project')
+  assert.notEqual(marketing.firstAction, operations.firstAction, 'role context must ground the first action')
+
+  const application = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    direction: { ...capabilityFixture.direction, interests: ['build-ai-tool'] },
+  }))
+  assert.notDeepEqual(application.project, operations.project)
+  assert.notDeepEqual(application.resources, operations.resources)
+})
+
+test('capability experience changes plan difficulty rather than only the evidence label', () => {
+  const beginner = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    experience: { levels: {
+      'ai-assisted-work': 'exposure', automation: 'guided', applications: 'none', 'data-retrieval': 'none', 'evaluation-safety': 'none',
+    } },
+    evidence: { description: 'I have followed examples but have not built a complete workflow yet.', supportedDomains: [], artifactUrl: '' },
+  }))
+  const experienced = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    experience: { levels: {
+      'ai-assisted-work': 'demonstrated', automation: 'demonstrated', applications: 'independent', 'data-retrieval': 'adapted', 'evaluation-safety': 'adapted',
+    } },
+    evidence: {
+      description: 'I built, tested, documented, and handed off a repeatable ticket-routing workflow with a regression set and human escalation.',
+      supportedDomains: ['ai-assisted-work', 'automation', 'applications', 'data-retrieval', 'evaluation-safety'],
+      artifactUrl: 'https://example.com/inspectable-project',
+    },
+  }))
+  assert.notDeepEqual(
+    capabilityPlanFingerprint(beginner),
+    capabilityPlanFingerprint(experienced),
+    'verified experience must alter project difficulty, pacing, resources, or first action',
+  )
+  assert.notEqual(beginner.firstAction, experienced.firstAction, 'beginners and experienced builders need different starting actions')
+})
+
+test('capability coding, data, time, modality, budget, and publication constraints alter visible plan facets', () => {
+  const baseline = requireResult(composeCapabilityPrescription(capabilityFixture))
+  const noCode = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    foundations: { ...capabilityFixture.foundations, codingComfort: 'none' },
+  }))
+  assert.notDeepEqual(noCode.project, baseline.project, 'coding comfort must change the build route')
+  assert.notDeepEqual(noCode.weeks, baseline.weeks, 'coding comfort must change build activities')
+
+  const pipelineData = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    foundations: { ...capabilityFixture.foundations, dataComfort: 'pipelines' },
+  }))
+  assert.notDeepEqual(pipelineData.project, baseline.project, 'data comfort must change the project data route')
+  assert.notDeepEqual(pipelineData.weeks, baseline.weeks, 'data comfort must change weekly activities')
+
+  const twoHours = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    constraints: { ...capabilityFixture.constraints, weeklyHours: 2 },
+  }))
+  assert.notDeepEqual(twoHours.weeks, baseline.weeks, 'available time must resize the weekly plan')
+
+  const guided = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    constraints: { ...capabilityFixture.constraints, learningPreference: 'guided', pace: 'exploratory' },
+  }))
+  assert.notDeepEqual(guided.weeks, baseline.weeks, 'learning preference and pace must change weekly activities')
+  assert.notDeepEqual(guided.resources, baseline.resources, 'learning preference must change the resource route')
+
+  const paid = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    foundations: { ...capabilityFixture.foundations, codingComfort: 'experienced' },
+    constraints: { ...capabilityFixture.constraints, learningPreference: 'guided', resourceBudget: 'paid-ok' },
+  }))
+  const free = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    foundations: { ...capabilityFixture.foundations, codingComfort: 'experienced' },
+    constraints: { ...capabilityFixture.constraints, learningPreference: 'guided', resourceBudget: 'free-only' },
+  }))
+  assert.notDeepEqual(free.resources, paid.resources, 'budget must change governed resource eligibility')
+  assert.ok(free.resources.every(resource => resource.cost.kind === 'free'), 'free-only plans must contain only free resources')
+
+  const privateProject = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    constraints: { ...capabilityFixture.constraints, publicProject: 'no' },
+  }))
+  assert.notDeepEqual(privateProject.project, baseline.project, 'sharing preference must change the project deliverable')
+  assert.notDeepEqual(privateProject.weeks, baseline.weeks, 'sharing preference must change packaging work')
+})
+
+test('multiple capability goals are order invariant and every selected goal affects the plan', () => {
+  const automationReliability = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    direction: { ...capabilityFixture.direction, interests: ['automate-repeated-work', 'improve-reliability'] },
+  }))
+  const reliabilityAutomation = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    direction: { ...capabilityFixture.direction, interests: ['improve-reliability', 'automate-repeated-work'] },
+  }))
+  assert.deepEqual(automationReliability, reliabilityAutomation, 'checkbox order must not change the recommendation')
+  const combined = combinedCapabilityPlanText(automationReliability)
+  assert.match(combined, /automat|workflow/, 'the plan must represent the automation goal')
+  assert.match(combined, /reliab|evaluat|quality|test/, 'the plan must represent the reliability goal')
+
+  const automationOnly = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    direction: { ...capabilityFixture.direction, interests: ['automate-repeated-work'] },
+  }))
+  assert.notDeepEqual(
+    capabilityPlanFingerprint(automationReliability),
+    capabilityPlanFingerprint(automationOnly),
+    'adding a second selected goal must change at least one visible plan facet',
+  )
+})
+
+test('result composition is deterministic and does not mutate either diagnostic input', () => {
+  const useCase = structuredClone(useCaseFixture)
+  const useCaseBefore = structuredClone(useCase)
+  const firstUseCase = requireResult(composeUseCaseBlueprint(useCase))
+  const secondUseCase = requireResult(composeUseCaseBlueprint(structuredClone(useCase)))
+  assert.deepEqual(firstUseCase, secondUseCase)
+  assert.deepEqual(useCase, useCaseBefore)
+
+  const capability = structuredClone(capabilityFixture)
+  const capabilityBefore = structuredClone(capability)
+  const firstCapability = requireResult(composeCapabilityPrescription(capability))
+  const secondCapability = requireResult(composeCapabilityPrescription(structuredClone(capability)))
+  assert.deepEqual(firstCapability, secondCapability)
+  assert.deepEqual(capability, capabilityBefore)
 })
 
 test('the two paths cannot collapse into a generic shared output', () => {
