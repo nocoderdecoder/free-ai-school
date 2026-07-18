@@ -11,7 +11,6 @@ import {
 } from './client/voice-experience-state'
 import { VOICE_PROVIDER_UNAVAILABLE } from './client/voice-provider-availability'
 import { SignalRibbon } from './components/voice-experience/SignalRibbon'
-import { SoundCheckScreen } from './components/voice-experience/SoundCheckScreen'
 import { WelcomeScreen } from './components/voice-experience/WelcomeScreen'
 import {
   AI_PATH_ADAPTIVE_INTERVIEW_MAX_QUESTIONS,
@@ -24,7 +23,7 @@ import type { AiPathGoalType } from './lib/goal-type'
 import { getPlanBlueprint } from './lib/plan'
 import { composePersonalizedPlan } from './lib/plan-composer'
 
-type VisibleStage = 'welcome' | 'sound-check' | 'conversation' | 'understanding' | 'path'
+type VisibleStage = 'welcome' | 'conversation' | 'understanding' | 'path'
 type SummaryEditor = 'goal' | 'experience' | 'constraints' | null
 
 const GOAL_TYPE: AiPathGoalType = 'workflows'
@@ -35,7 +34,6 @@ const GOAL_DISCOVERY_PROMPT = 'What is one part of your work you wish AI could m
 
 const stageLabels: Record<VisibleStage, string> = {
   welcome: 'Welcome',
-  'sound-check': 'Sound check',
   conversation: 'Conversation',
   understanding: 'Review',
   path: 'Your path',
@@ -62,7 +60,7 @@ const hoursLabels: Record<string, string> = {
 
 function visibleStage(phase: VoiceExperiencePhase): VisibleStage {
   if (phase === 'welcome') return 'welcome'
-  if (phase === 'sound-check' || phase === 'permission-denied' || phase === 'service-unavailable') return 'sound-check'
+  if (phase === 'sound-check' || phase === 'permission-denied' || phase === 'service-unavailable') return 'welcome'
   if (phase === 'understanding-review' || phase === 'generating') return 'understanding'
   if (phase === 'path') return 'path'
   return 'conversation'
@@ -91,7 +89,7 @@ function PrimaryButton({ children, onClick, disabled = false }: { children: Reac
 }
 
 function AppHeader({ stage, onRestart }: { stage: VisibleStage; onRestart: () => void }) {
-  const orderedStages: VisibleStage[] = ['sound-check', 'conversation', 'understanding', 'path']
+  const orderedStages: VisibleStage[] = ['conversation', 'understanding', 'path']
   const step = Math.max(0, orderedStages.indexOf(stage))
   return (
     <header className="ap-header">
@@ -102,7 +100,7 @@ function AppHeader({ stage, onRestart }: { stage: VisibleStage; onRestart: () =>
       {stage === 'welcome' ? (
         <span className="ap-previewBadge">Private preview</span>
       ) : (
-        <div className="ap-journeyProgress" aria-label={`${stageLabels[stage]}, step ${step + 1} of 4`}>
+        <div className="ap-journeyProgress" aria-label={`${stageLabels[stage]}, step ${step + 1} of 3`}>
           <span>{stageLabels[stage]}</span>
           <i aria-hidden="true">{orderedStages.map((item, index) => <b className={index <= step ? 'is-active' : ''} key={item} />)}</i>
         </div>
@@ -200,11 +198,34 @@ export function AdvisorApp() {
     return () => window.cancelAnimationFrame(frame)
   }, [stage, currentQuestion?.id])
 
-  const beginTypedConversation = () => {
+  const startInterviewFromGoal = (rawGoal: string) => {
+    const trimmed = rawGoal.trim()
+    if (trimmed.length < 20) {
+      setErrorMessage('Share a little more about the task so I can ask a useful follow-up.')
+      return false
+    }
+    const started = startAdaptiveInterview({
+      goalType: GOAL_TYPE,
+      goal: trimmed,
+      weeklyMinutes: Number(DEFAULT_HOURS) * 60,
+    })
+    if (!started.ok) {
+      setErrorMessage('I could not start from that answer. Please make the task a little more specific.')
+      return false
+    }
+    setGoal(trimmed)
+    setInterview(started.state)
+    setAnswer('')
+    setErrorMessage('')
+    return true
+  }
+
+  const beginTypedConversation = (initialGoal?: string) => {
     if (voiceJourney.phase === 'welcome') sendVoiceEvent({ type: 'BEGIN_TYPED' })
     else sendVoiceEvent({ type: 'USE_TYPED_FALLBACK' })
     setAnswer('')
     setErrorMessage('')
+    if (initialGoal) startInterviewFromGoal(initialGoal)
   }
 
   const submitConversationAnswer = () => {
@@ -212,23 +233,7 @@ export function AdvisorApp() {
     if (!trimmed) return
 
     if (!interview) {
-      if (trimmed.length < 20) {
-        setErrorMessage('Share a little more about the task so I can ask a useful follow-up.')
-        return
-      }
-      const started = startAdaptiveInterview({
-        goalType: GOAL_TYPE,
-        goal: trimmed,
-        weeklyMinutes: Number(DEFAULT_HOURS) * 60,
-      })
-      if (!started.ok) {
-        setErrorMessage('I could not start from that answer. Please make the task a little more specific.')
-        return
-      }
-      setGoal(trimmed)
-      setInterview(started.state)
-      setAnswer('')
-      setErrorMessage('')
+      startInterviewFromGoal(trimmed)
       return
     }
 
@@ -340,22 +345,14 @@ export function AdvisorApp() {
       <main className="ap-main">
         {stage === 'welcome' && (
           <WelcomeScreen
-            voiceAvailable={VOICE_PROVIDER_UNAVAILABLE.canStart}
-            availabilityMessage="Live voice is not connected in this private preview. You can preview the microphone setup or start the complete guided conversation by typing."
-            onTalk={() => sendVoiceEvent({ type: 'BEGIN_VOICE' })}
-            onType={beginTypedConversation}
-          />
-        )}
-
-        {stage === 'sound-check' && (
-          <SoundCheckScreen
             provider={VOICE_PROVIDER_UNAVAILABLE}
             onStartVoice={() => {
-              // The closed provider capability prevents this callback today.
-              sendVoiceEvent({ type: 'SERVICE_UNAVAILABLE' })
+              setVoiceJourney(current => {
+                const begun = transitionVoiceExperience(current, { type: 'BEGIN_VOICE' })
+                return transitionVoiceExperience(begun.state, { type: 'MICROPHONE_READY' }).state
+              })
             }}
-            onTypedFallback={beginTypedConversation}
-            onBack={() => { void restart() }}
+            onStartTyped={beginTypedConversation}
           />
         )}
 

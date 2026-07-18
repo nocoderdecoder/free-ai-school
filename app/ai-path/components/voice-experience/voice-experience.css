@@ -12,182 +12,196 @@
   --vx-focus: #2563eb;
 }
 
-.vx-welcome,
-.vx-soundCheck,
-.vx-welcome *,
-.vx-soundCheck * {
+.vx-prepare,
+.vx-prepare * {
   box-sizing: border-box;
 }
 
-.vx-welcome button,
-.vx-welcome select,
-.vx-soundCheck button,
-.vx-soundCheck select {
+.vx-prepare button,
+.vx-prepare select,
+.vx-prepare textarea {
   font: inherit;
 }
 
-.vx-welcome button,
-.vx-soundCheck button,
-.vx-soundCheck select {
+.vx-prepare button,
+.vx-prepare select {
   cursor: pointer;
 }
 
-.vx-welcome button:disabled,
-.vx-soundCheck button:disabled {
+.vx-prepare button:disabled {
   cursor: not-allowed;
 }
 
-.vx-welcome :focus-visible,
-.vx-soundCheck :focus-visible {
+.vx-prepare :focus-visible {
   outline: 3px solid var(--vx-focus);
   outline-offset: 3px;
 }
 
+.vx-prepare {
+  background: var(--vx-paper);
+  color: var(--vx-ink);
+  min-height: calc(100vh - 64px);
+  padding: 28px 24px 36px;
+}
+
+.vx-prepareIntro {
+  margin: 0 auto 20px;
+  max-width: 740px;
+  text-align: center;
+}
+
 .vx-kicker {
   color: #2f6a61;
-  font-size: 12px;
-  font-weight: 750;
-  letter-spacing: .06em;
-  margin: 0 0 14px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .07em;
+  margin: 0 0 9px;
   text-transform: uppercase;
 }
 
-.vx-primaryAction,
-.vx-quietAction,
-.vx-backAction {
+.vx-prepareIntro h1 {
+  color: var(--vx-ink);
+  font-size: clamp(34px, 4vw, 40px);
+  letter-spacing: -.025em;
+  line-height: 1.08;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.vx-prepareIntro > p:last-child {
+  color: var(--vx-muted);
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 10px auto 0;
+  max-width: 660px;
+}
+
+.vx-modeWorkspace {
+  background: var(--vx-surface);
+  border: 1px solid var(--vx-line);
+  border-radius: 18px;
+  box-shadow: 0 12px 36px rgba(18, 44, 41, .07);
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, .92fr);
+  margin: 0 auto;
+  max-width: 1040px;
+  overflow: hidden;
+}
+
+.vx-modePanel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 22px 26px 24px;
+}
+
+.vx-typePanel {
+  background: #f9f8f3;
+  border-left: 1px solid var(--vx-line);
+}
+
+.vx-modeHeading {
   align-items: center;
-  border-radius: 12px;
-  display: inline-flex;
-  font-weight: 750;
-  gap: 10px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.vx-modeIcon {
+  align-items: center;
+  background: #e9efe9;
+  border-radius: 11px;
+  color: var(--vx-teal);
+  display: flex;
+  height: 42px;
   justify-content: center;
-  min-height: 50px;
-  padding: 12px 18px;
+  width: 42px;
 }
 
-.vx-primaryAction {
-  background: var(--vx-teal);
-  border: 1px solid var(--vx-teal);
-  color: #fff;
-}
-
-.vx-primaryAction:hover:not(:disabled) {
-  background: var(--vx-teal-hover);
-}
-
-.vx-primaryAction:disabled {
-  background: #aeb8b4;
-  border-color: #aeb8b4;
-  color: #eef1ef;
-}
-
-.vx-primaryAction svg,
-.vx-quietAction svg {
+.vx-modeIcon svg,
+.vx-primaryAction svg {
   fill: none;
-  height: 19px;
+  height: 20px;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
-  width: 19px;
+  width: 20px;
 }
 
-.vx-quietAction,
-.vx-backAction {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--vx-teal);
-}
-
-.vx-quietAction:hover,
-.vx-backAction:hover {
-  background: rgba(18, 63, 58, .06);
-}
-
-/* Welcome */
-.vx-welcome {
-  align-items: center;
-  background:
-    radial-gradient(circle at 84% 20%, rgba(201, 229, 109, .24), transparent 23rem),
-    var(--vx-paper);
-  color: var(--vx-ink);
-  display: grid;
-  grid-template-columns: minmax(0, 680px) minmax(180px, 1fr);
-  min-height: calc(100vh - 64px);
-  overflow: hidden;
-  padding: clamp(56px, 8vw, 110px) max(24px, calc((100vw - 1120px) / 2));
-}
-
-.vx-welcomeCopy {
-  min-width: 0;
-  position: relative;
-  z-index: 1;
-}
-
-.vx-welcome h1,
-.vx-soundCheck h1 {
-  color: var(--vx-ink);
-  font-size: clamp(42px, 6vw, 68px);
-  letter-spacing: -.045em;
-  line-height: 1.02;
+.vx-modeHeading h2 {
+  font-size: 19px;
+  line-height: 1.2;
   margin: 0;
-  max-width: 720px;
-  overflow-wrap: anywhere;
 }
 
-.vx-intro {
-  color: var(--vx-muted);
-  font-size: clamp(18px, 2.1vw, 21px);
-  line-height: 1.55;
-  margin: 24px 0 0;
-  max-width: 640px;
-}
-
-.vx-welcomeActions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  margin-top: 34px;
-}
-
-.vx-welcomeActions .vx-primaryAction {
-  min-width: 190px;
-}
-
-.vx-trustNote {
+.vx-modeHeading p {
   color: var(--vx-muted);
   font-size: 13px;
-  line-height: 1.5;
-  margin: 18px 0 0;
-  max-width: 600px;
+  line-height: 1.35;
+  margin: 3px 0 0;
 }
 
-.vx-welcomeSignal {
-  align-items: center;
-  color: #48665f;
-  display: flex;
+.vx-modeBadge {
+  background: var(--vx-blue);
+  border-radius: 999px;
+  color: #294965;
   font-size: 11px;
+  font-weight: 800;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+
+.vx-modeBadge.is-available {
+  background: #e5f0bf;
+  color: #345128;
+}
+
+.vx-modeDescription {
+  color: var(--vx-muted);
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 15px 0 8px;
+}
+
+.vx-liveStatus {
+  color: #526b65;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0 0 9px;
+}
+
+.vx-inlineMeter {
+  background: #f7f8f5;
+  border: 1px solid #e2e6e1;
+  border-radius: 12px;
+  margin: 0 0 13px;
+  padding: 0 14px 9px;
+}
+
+.vx-inlineMeter > p {
+  color: var(--vx-muted);
+  font-size: 13px;
+  line-height: 1.35;
+  margin: -5px 0 0;
+  min-height: 18px;
+  text-align: center;
+}
+
+.vx-voicePanel.is-listening .vx-inlineMeter > p {
+  color: var(--vx-teal);
   font-weight: 750;
-  gap: 12px;
-  letter-spacing: .05em;
-  min-width: 360px;
-  position: relative;
-  right: -16%;
-  text-transform: uppercase;
-  transform: rotate(-7deg);
 }
 
-.vx-welcomeSignal .vx-signalRibbon {
-  flex: 1;
+.vx-voicePanel.is-error .vx-inlineMeter > p {
+  color: var(--vx-error);
 }
 
-/* Original signal-path motif */
 .vx-signalRibbon {
   align-items: center;
   color: var(--vx-teal);
   display: flex;
-  height: 58px;
+  height: 46px;
   min-width: 0;
   position: relative;
   width: 100%;
@@ -197,7 +211,7 @@
   background: currentColor;
   height: 2px;
   inset: auto 0;
-  opacity: .32;
+  opacity: .3;
   position: absolute;
 }
 
@@ -226,7 +240,7 @@
   background: var(--vx-lime);
   border: 4px solid var(--vx-teal);
   border-radius: 50%;
-  box-shadow: 0 0 0 5px var(--vx-surface);
+  box-shadow: 0 0 0 4px var(--vx-surface);
   height: 14px;
   position: absolute;
   right: 0;
@@ -235,11 +249,6 @@
 
 .vx-signalRibbon.is-error {
   color: var(--vx-error);
-}
-
-.vx-signalRibbon.is-ready .vx-signalRibbonDot,
-.vx-signalRibbon.is-listening .vx-signalRibbonDot {
-  box-shadow: 0 0 0 5px var(--vx-surface), 0 0 0 7px rgba(201, 229, 109, .5);
 }
 
 .vx-signalRibbon.is-requesting .vx-signalRibbonBars i,
@@ -258,239 +267,201 @@
   to { transform: scaleY(1); }
 }
 
-/* Sound check */
-.vx-soundCheck {
-  background: var(--vx-paper);
-  color: var(--vx-ink);
-  min-height: calc(100vh - 64px);
-  padding: 32px 24px 72px;
-}
-
-.vx-backAction {
-  margin: 0 0 30px max(0px, calc((100vw - 920px) / 2));
-  padding-left: 8px;
-}
-
-.vx-soundCheckHeader {
-  margin: 0 auto 30px;
-  max-width: 760px;
-  text-align: center;
-}
-
-.vx-soundCheck h1 {
-  font-size: clamp(36px, 5vw, 54px);
-  margin: 0 auto;
-}
-
-.vx-soundCheckHeader > p:last-child {
-  color: var(--vx-muted);
-  font-size: 17px;
-  line-height: 1.55;
-  margin: 16px auto 0;
-  max-width: 610px;
-}
-
-.vx-soundConsole {
-  background: var(--vx-surface);
-  border: 1px solid var(--vx-line);
-  border-radius: 24px;
-  box-shadow: 0 20px 60px rgba(18, 44, 41, .08);
-  margin: 0 auto;
-  max-width: 720px;
-  padding: 24px clamp(20px, 5vw, 46px) 32px;
-}
-
-.vx-soundConsoleTopline {
-  align-items: center;
-  color: var(--vx-muted);
-  display: flex;
-  font-size: 12px;
-  gap: 12px;
-  justify-content: space-between;
-}
-
-.vx-localBadge {
-  background: var(--vx-blue);
-  border-radius: 999px;
-  color: #294965;
-  font-weight: 750;
-  padding: 6px 9px;
-}
-
-.vx-microphoneMark {
-  align-items: center;
-  display: flex;
-  justify-content: center;
-  margin: 32px 0 10px;
-}
-
-.vx-microphoneMark > span {
-  align-items: center;
-  background: var(--vx-teal);
-  border: 8px solid #e6ece7;
-  border-radius: 50%;
-  color: var(--vx-lime);
-  display: flex;
-  height: 84px;
-  justify-content: center;
-  position: relative;
-  width: 84px;
-}
-
-.vx-soundConsole.is-listening .vx-microphoneMark > span {
-  box-shadow: 0 0 0 9px rgba(201, 229, 109, .28);
-}
-
-.vx-soundConsole.is-error .vx-microphoneMark > span {
-  background: var(--vx-error);
-  color: #fff;
-}
-
-.vx-microphoneMark svg {
-  fill: none;
-  height: 32px;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.7;
-  width: 32px;
-}
-
-.vx-microphoneStatus {
-  color: var(--vx-muted);
-  font-size: 14px;
-  line-height: 1.5;
-  margin: 2px auto 24px;
-  min-height: 21px;
-  text-align: center;
-}
-
-.vx-soundConsole.is-listening .vx-microphoneStatus {
-  color: var(--vx-teal);
-  font-weight: 700;
-}
-
-.vx-soundConsole.is-error .vx-microphoneStatus {
-  color: var(--vx-error);
+.vx-devicePicker,
+.vx-typedPrompt {
+  display: grid;
+  gap: 7px;
 }
 
 .vx-devicePicker {
-  display: grid;
-  gap: 8px;
-  margin: 0 auto;
-  max-width: 520px;
+  margin: 0 0 13px;
 }
 
-.vx-devicePicker > span {
+.vx-devicePicker > span,
+.vx-typedPrompt > span {
   font-size: 13px;
   font-weight: 750;
+  line-height: 1.35;
 }
 
-.vx-devicePicker select {
-  appearance: none;
-  background:
-    linear-gradient(45deg, transparent 50%, var(--vx-teal) 50%) calc(100% - 18px) calc(50% - 2px) / 5px 5px no-repeat,
-    linear-gradient(135deg, var(--vx-teal) 50%, transparent 50%) calc(100% - 13px) calc(50% - 2px) / 5px 5px no-repeat,
-    #fff;
+.vx-devicePicker select,
+.vx-typedPrompt textarea {
+  background: #fff;
   border: 1px solid #9eaca6;
-  border-radius: 12px;
+  border-radius: 10px;
   color: var(--vx-ink);
-  min-height: 48px;
   min-width: 0;
-  padding: 10px 40px 10px 13px;
   width: 100%;
 }
 
-.vx-soundCheckActions {
-  align-items: stretch;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 22px auto 0;
-  max-width: 520px;
+.vx-devicePicker select {
+  min-height: 46px;
+  padding: 9px 12px;
+}
+
+.vx-typedPrompt {
+  margin-top: 18px;
+}
+
+.vx-typedPrompt textarea {
+  line-height: 1.5;
+  min-height: 137px;
+  padding: 12px 13px;
+  resize: vertical;
+}
+
+.vx-typedPrompt textarea::placeholder {
+  color: #82908c;
+}
+
+.vx-primaryAction {
+  align-items: center;
+  background: var(--vx-teal);
+  border: 1px solid var(--vx-teal);
+  border-radius: 10px;
+  color: #fff;
+  display: inline-flex;
+  font-weight: 750;
+  gap: 9px;
+  justify-content: center;
+  margin-top: auto;
+  min-height: 48px;
+  padding: 11px 16px;
+  width: 100%;
+}
+
+.vx-primaryAction:hover:not(:disabled) {
+  background: var(--vx-teal-hover);
+}
+
+.vx-primaryAction:disabled {
+  background: #aeb8b4;
+  border-color: #aeb8b4;
+  color: #eef1ef;
 }
 
 .vx-providerNotice {
-  background: #f3f5f2;
+  background: #eef1ed;
   border-left: 3px solid #82918b;
   color: var(--vx-muted);
   font-size: 13px;
-  line-height: 1.5;
-  margin: 18px auto 0;
-  max-width: 520px;
+  line-height: 1.45;
+  margin: auto 0 0;
   padding: 10px 12px;
 }
 
-@media (max-width: 760px) {
-  .vx-welcome {
-    align-items: start;
-    grid-template-columns: 1fr;
-    min-height: calc(100vh - 58px);
-    padding: 52px 16px 42px;
+.vx-localNote {
+  color: var(--vx-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 9px 0 0;
+  text-align: center;
+}
+
+.vx-typedError {
+  color: var(--vx-error);
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 7px 0;
+}
+
+.vx-trustRow {
+  color: var(--vx-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 8px 24px;
+  justify-content: center;
+  margin: 16px auto 0;
+}
+
+.vx-trustRow span::before {
+  color: #4f726b;
+  content: '✓';
+  font-weight: 800;
+  margin-right: 7px;
+}
+
+.vx-mobileOr {
+  display: none;
+}
+
+@media (max-width: 800px) {
+  .vx-prepare {
+    padding: 24px 16px 40px;
   }
 
-  .vx-welcome h1 {
-    font-size: clamp(38px, 12vw, 50px);
+  .vx-prepareIntro h1 {
+    font-size: clamp(30px, 7vw, 34px);
   }
 
-  .vx-welcomeActions {
-    align-items: stretch;
-    flex-direction: column;
-    margin-top: 28px;
+  .vx-modeWorkspace {
+    display: block;
   }
 
-  .vx-welcomeActions .vx-primaryAction,
-  .vx-welcomeActions .vx-quietAction {
-    width: 100%;
+  .vx-modePanel {
+    padding: 20px;
   }
 
-  .vx-welcomeSignal {
-    margin-top: 44px;
-    min-width: 0;
-    right: auto;
-    transform: none;
-    width: 100%;
+  .vx-typePanel {
+    border-left: 0;
+    border-top: 1px solid var(--vx-line);
   }
 
-  .vx-soundCheck {
-    min-height: calc(100vh - 58px);
-    padding: 18px 16px 48px;
+  .vx-mobileOr {
+    display: block;
+    height: 0;
+    position: relative;
+    text-align: center;
+    z-index: 1;
   }
 
-  .vx-backAction {
-    margin: 0 0 22px -8px;
+  .vx-mobileOr span {
+    background: var(--vx-paper);
+    border: 1px solid var(--vx-line);
+    border-radius: 999px;
+    color: var(--vx-muted);
+    display: inline-block;
+    font-size: 11px;
+    padding: 3px 8px;
+    position: relative;
+    top: -12px;
   }
 
-  .vx-soundCheckHeader {
-    margin-bottom: 24px;
+  .vx-typedPrompt textarea {
+    min-height: 120px;
+  }
+}
+
+@media (max-width: 420px) {
+  .vx-prepare {
+    padding-top: 20px;
   }
 
-  .vx-soundCheck h1 {
-    font-size: 36px;
+  .vx-prepareIntro {
+    margin-bottom: 17px;
   }
 
-  .vx-soundCheckHeader > p:last-child {
-    font-size: 16px;
+  .vx-prepareIntro > p:last-child {
+    font-size: 15px;
   }
 
-  .vx-soundConsole {
-    border-radius: 18px;
-    padding: 18px 16px 24px;
+  .vx-modeHeading {
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .vx-soundConsoleTopline {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .vx-microphoneMark {
-    margin-top: 24px;
+  .vx-modeBadge {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .vx-signalRibbonBars {
     gap: 3px;
     padding: 0 12px;
+  }
+
+  .vx-trustRow {
+    gap: 7px 14px;
   }
 }
 

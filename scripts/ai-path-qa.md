@@ -1,7 +1,7 @@
 # AI Path simple-journey end-to-end QA
 
 This harness protects the intentionally small, voice-first learner experience.
-It exercises welcome, local sound check, unified conversation, understanding
+It exercises a combined preparation workspace, unified conversation, understanding
 review, and the project-first result without a live model, paid API, durable
 account store, real microphone permission, or external network resource. It
 requires an already running local AI Path server and never starts, stops,
@@ -30,20 +30,17 @@ The target is rejected unless its host is `127.0.0.1` or `localhost`.
 
 The harness fails if the learner-facing flow grows beyond this contract:
 
-1. **Welcome:** no goal form or setup questionnaire. When the provider is
-   unavailable, **Start guided conversation** is primary and **Preview
-   microphone setup** is explicitly secondary. The live-capable rendering uses
-   **Talk it through** only after reviewed capability opens.
-2. **Sound check:** microphone permission is requested only after **Turn on
-   microphone**. The level check is local-only, the provider-unavailable state
-   is explicit, and **Continue by typing** remains available after denial.
-3. **Conversation:** goal discovery plus five to seven adaptive turns use one
+1. **Prepare:** voice discussion and typed entry share one compact workspace.
+   Microphone permission is requested only after **Enable microphone**. The
+   level check is local-only, provider unavailability is explicit, and the goal
+   can be entered immediately through **Start typed discussion**.
+2. **Conversation:** goal discovery plus five to seven adaptive turns use one
    answer field and one Continue action. The old question sidebar, assessment
    methodology, and scoring explanations stay out of the learner's way.
-4. **Understanding:** exactly three compact confirmation rows keep goal,
+3. **Understanding:** exactly three compact confirmation rows keep goal,
    starting point, and constraints editable. Detailed conversation evidence is
    available in a collapsed disclosure instead of a mandatory audit screen.
-5. **Project:** one result page presents the prescribed 30-day project before
+4. **Project:** one result page presents the prescribed 30-day project before
    skill diagnostics, then one first action and no more than three learning
    resources. The four-week plan, rationale, and privacy/data information are
    collapsed by default.
@@ -82,8 +79,7 @@ These hooks express product invariants, not layout or CSS implementation.
 
 | Area | Assertions |
 | --- | --- |
-| Welcome | Focused heading, zero form fields, visible keyboard focus, honest provider-aware primary action, secondary microphone preview |
-| Sound check | Local-only disclosure, no automatic permission request, deterministic denial recovery, honest provider-unavailable state, typed fallback |
+| Prepare | Focused heading, voice and typing together, immediate typed goal entry, local-only microphone disclosure, no automatic permission request, deterministic denial recovery, honest provider-unavailable state |
 | Conversation | Typed fallback, goal discovery plus five-to-seven adaptive turns, one answer surface, no outline or methodology panel, named controls |
 | Understanding | Exactly three compact rows, editable goal/experience/role/constraint/time/coding fields, collapsed conversation-details disclosure |
 | Project | Project appears before skill diagnostics, one first action, one-to-three resources, fourth fixture resource hidden |
@@ -99,7 +95,7 @@ These hooks express product invariants, not layout or CSS implementation.
 
 Each run creates `output/playwright/ai-path-e2e-<UTC timestamp>/` containing:
 
-- welcome, sound-check, conversation, understanding, and project screenshots;
+- prepare, conversation, understanding, and project screenshots;
 - project screenshots at 375×812, 768×1024, and 1440×900;
 - Playwright snapshot, console, and network logs;
 - `results.txt` with the checkpoint result.

@@ -256,36 +256,34 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   assert(welcomeHeadingText.length > 0, 'welcome is missing a clear heading')
   await assertHeadingFocused(welcomeHeadingText, 'welcome')
 
-  const welcomeInputs = page.locator('main textarea:visible, main input:not([type="hidden"]):visible, main select:visible')
-  assert(await welcomeInputs.count() === 0, `welcome must begin without form work, found ${await welcomeInputs.count()} field(s)`)
-  await captureRequiredViewports('welcome')
-  const talkButton = page.getByRole('button', { name: 'Preview microphone setup' })
-  await talkButton.waitFor({ state: 'visible' })
-  await talkButton.focus()
-  const focusStyle = await talkButton.evaluate((element) => {
+  await waitForHeading('Voice discussion')
+  await waitForHeading('Type instead')
+  assert(await page.getByLabel('What would you like AI to help you improve?').isVisible(), 'typed entry is not available on the preparation page')
+  assert(await page.getByText('Live voice is not enabled yet.', { exact: false }).isVisible(), 'provider-unavailable state is not honest on the preparation page')
+  assert(await page.evaluate(() => window.__AI_PATH_QA_MIC_CALLS__) === 0, 'preparation page requested microphone access before an explicit action')
+  assert(await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__) === 0, 'preparation page constructed a provider peer connection')
+  await captureRequiredViewports('prepare')
+  await assertInteractiveNames('prepare')
+
+  const microphoneButton = page.getByRole('button', { name: 'Enable microphone' })
+  await microphoneButton.waitFor({ state: 'visible' })
+  await microphoneButton.focus()
+  const focusStyle = await microphoneButton.evaluate((element) => {
     const style = window.getComputedStyle(element)
     return { outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth }
   })
   assert(focusStyle.outlineStyle !== 'none' && focusStyle.outlineWidth !== '0px', `keyboard focus is not visible: ${JSON.stringify(focusStyle)}`)
   await page.keyboard.press('Enter')
-  await waitForHeading('Let’s make sure I can hear you.')
-  await assertHeadingFocused('Let’s make sure I can hear you.', 'sound check')
-  assert(await page.getByText('Audio stays on this device during this check.', { exact: false }).isVisible(), 'sound check does not clearly state that audio remains local')
-  assert(await page.getByText('Live voice is not enabled yet.', { exact: false }).isVisible(), 'provider-unavailable state is not honest')
-  assert(await page.evaluate(() => window.__AI_PATH_QA_MIC_CALLS__) === 0, 'sound check requested microphone access before an explicit action')
-  assert(await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__) === 0, 'sound check constructed a provider peer connection')
-  await captureRequiredViewports('sound-check')
-  await assertInteractiveNames('sound check')
-
-  await page.getByRole('button', { name: 'Turn on microphone' }).click()
   await page.getByText('Microphone access was not allowed. You can continue by typing.', { exact: true }).waitFor({ state: 'visible' })
   assert(await page.evaluate(() => window.__AI_PATH_QA_MIC_CALLS__) === 1, 'explicit microphone test did not stay on the deterministic local boundary')
   assert(await page.evaluate(() => window.__AI_PATH_QA_PEER_CALLS__) === 0, 'local microphone test constructed a provider peer connection')
   assert(paidPathRequests.length === 0, 'local microphone test attempted a Realtime request')
-  await page.getByRole('button', { name: 'Continue by typing' }).click()
+
+  await page.getByLabel('What would you like AI to help you improve?').fill(qaGoal)
+  await page.getByRole('button', { name: 'Start typed discussion' }).click()
   await page.getByLabel('Your answer').waitFor({ state: 'visible', timeout: 15_000 })
   assert(sessionRequests.length === 0, 'the local typed conversation should not create a server session before path generation')
-  checkpoint('welcome reached an honest local-only sound check with typed fallback')
+  checkpoint('one compact preparation page exposed local microphone testing and typed entry together')
 
   await captureRequiredViewports('conversation')
   await assertInteractiveNames('conversation')
@@ -293,7 +291,6 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   assert(!(await page.getByText('What I am testing', { exact: true }).isVisible().catch(() => false)), 'internal assessment methodology is still visible')
 
   const answers = [
-    qaGoal,
     'Last week I collected six public reports and produced a two-page cited market brief for a colleague.',
     'I compared claims against the original sources, retained claim-level citations, and included a source ledger.',
     'I personally chose the sources, wrote the brief, and designed the reviewer checkpoint; a colleague reviewed the final draft.',
@@ -302,7 +299,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
     'I have about three hours each week, use public data, require human review, and prefer a no-code or light-code workflow.',
     'A successful result is a brief another colleague can rerun, inspect, and correct without asking me for hidden context.',
   ]
-  let adaptiveAnswerCount = 0
+  let adaptiveAnswerCount = 1
   while (!(await isVisible(page.getByRole('heading', { name: 'Did I understand you correctly?' })))) {
     const reviewButton = page.getByRole('button', { name: 'Review what I heard' })
     if (await isVisible(reviewButton)) {
@@ -314,7 +311,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
 
     const answerField = page.getByLabel('Your answer')
     await answerField.waitFor({ state: 'visible', timeout: 10_000 })
-    await answerField.fill(answers[adaptiveAnswerCount])
+    await answerField.fill(answers[adaptiveAnswerCount - 1])
     const continueButton = page.getByRole('button', { name: 'Continue' })
     await continueButton.click()
     adaptiveAnswerCount += 1
@@ -436,7 +433,7 @@ globalThis.__AI_PATH_QA_RUN__ = async (page) => {
   return {
     ok: true,
     checkpoints,
-    journey: ['welcome', 'sound-check', 'conversation', 'understanding', 'project'],
+    journey: ['prepare', 'conversation', 'understanding', 'project'],
     questionsAnswered: adaptiveAnswerCount,
     resourcesShown: resourceCount,
     viewports: ['375x812', '768x1024', '1440x900'],

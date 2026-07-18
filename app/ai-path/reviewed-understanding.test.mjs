@@ -16,19 +16,26 @@ const inputs = [
 ]
 
 const advisorSource = readFileSync(new URL('./AdvisorApp.tsx', import.meta.url), 'utf8')
+const welcomeSource = readFileSync(new URL('./components/voice-experience/WelcomeScreen.tsx', import.meta.url), 'utf8')
 
-test('first use starts blank and enters a voice-first five-surface journey without form work', () => {
+test('first use combines voice preparation and typed entry in one compact workspace', () => {
   assert.match(advisorSource, /const GOAL_TYPE: AiPathGoalType = 'workflows'/)
-  assert.match(advisorSource, /type VisibleStage = 'welcome' \| 'sound-check' \| 'conversation' \| 'understanding' \| 'path'/)
+  assert.match(advisorSource, /type VisibleStage = 'welcome' \| 'conversation' \| 'understanding' \| 'path'/)
   assert.match(advisorSource, /GOAL_DISCOVERY_PROMPT = 'What is one part of your work/)
   assert.match(advisorSource, /<WelcomeScreen/)
-  assert.match(advisorSource, /<SoundCheckScreen/)
-  assert.match(advisorSource, /onType=\{beginTypedConversation\}/)
+  assert.doesNotMatch(advisorSource, /<SoundCheckScreen/)
+  assert.match(advisorSource, /onStartTyped=\{beginTypedConversation\}/)
   assert.match(advisorSource, /const \[goal, setGoal\] = useState\(''\)/)
   assert.match(advisorSource, /const \[role, setRole\] = useState\(''\)/)
   assert.match(advisorSource, /const \[experience, setExperience\] = useState\(''\)/)
   assert.match(advisorSource, /const \[constraint, setConstraint\] = useState\(''\)/)
-  assert.doesNotMatch(advisorSource, /Start typed conversation|placeholder="For example:|Workflow-builder private alpha|goalOptions/)
+  assert.match(welcomeSource, /Voice discussion/)
+  assert.match(welcomeSource, /Type instead/)
+  assert.match(welcomeSource, /Enable microphone/)
+  assert.match(welcomeSource, /Start typed discussion/)
+  assert.match(welcomeSource, /id="vx-starting-goal"/)
+  assert.match(welcomeSource, /createBrowserMicrophonePreflightController/)
+  assert.doesNotMatch(welcomeSource, /Build a better way to work with AI|vx-welcomeSignal|Preview microphone setup/)
 })
 
 test('understanding review keeps three editable summaries and makes detailed evidence optional', () => {

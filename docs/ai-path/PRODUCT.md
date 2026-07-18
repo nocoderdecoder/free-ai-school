@@ -10,9 +10,10 @@ The product is not a quiz, a personality test, or a course marketplace. It is a 
 
 The private alpha is intentionally narrow: working professionals who already use general-purpose AI tools and want to build one reliable work workflow. They may prefer no-code or light code. Later tracks can cover applied-AI engineers, leaders, creators, and career switchers after the assessment model is validated.
 
-The first screen asks for no form work. It offers a guided conversation and,
-only when the reviewed provider capability is open, makes live voice the primary
-entry. The learner's goal is discovered in the first conversational turn. Role,
+The first screen is a compact preparation workspace with voice and typing visible
+together. It offers a local microphone check and an immediately usable typed
+goal entry; only when the reviewed provider capability is open can the voice
+discussion begin. Role,
 experience, time, coding comfort, and constraints are collected naturally inside
 the conversation. The private alpha does not claim broader persona coverage that
 the assessment is not yet designed to support.
@@ -28,20 +29,17 @@ next action without learning how the assessment system works.
 
 ## End-to-end journey
 
-1. **Welcome.** State the outcome and begin without a goal form. Offer live
-   voice as the primary action only when it is genuinely available; otherwise
-   present the complete guided typed conversation and a clearly labeled local
-   microphone-setup preview.
-2. **Sound check.** After an explicit action, test the selected microphone and
-   show a live local input signal. Keep typing available. No audio leaves the
-   device and no provider connection starts during this check.
-3. **Talk.** Ask one adaptive question at a time. The first turn discovers the
-   goal. Role, prior experience,
+1. **Prepare.** Present voice discussion and typed entry side by side. After an
+   explicit action, test the selected microphone and show a live local input
+   signal. Keep typed goal entry usable throughout. No audio leaves the device
+   and no provider connection starts during this check.
+2. **Talk.** Ask one adaptive question at a time. The first typed entry discovers
+   the goal. Role, prior experience,
    constraints, available time, and coding preference are discovered inside the
    conversation rather than through a separate application form.
-4. **Understand.** Show three short, editable summaries: goal, current experience,
+3. **Understand.** Show three short, editable summaries: goal, current experience,
    and practical constraints. Detailed evidence provenance is optional.
-5. **Get a path.** Lead with one practical project, then one recommended skill
+4. **Get a path.** Lead with one practical project, then one recommended skill
    direction, one 30-minute first action, and no more than three resources. The full
    four-week plan and assessment rationale are collapsed by default.
 
