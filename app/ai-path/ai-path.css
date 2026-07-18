@@ -785,6 +785,25 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.ap-ds-choiceGroup.is-stacked > div {
+  grid-template-columns: 1fr;
+}
+
+.ap-ds-choiceGroup.is-stacked label {
+  align-items: center;
+  min-height: 68px;
+  padding: 14px 16px;
+}
+
+.ap-ds-choiceGroup.is-stacked label strong {
+  font-size: 15px;
+}
+
+.ap-ds-choiceGroup.is-stacked label small {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .ap-ds-specGrid,
 .ap-ds-controlGrid {
   display: grid;

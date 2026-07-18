@@ -37,7 +37,7 @@ const useCaseSections = [
 
 const capabilitySections = [
   ['direction', 'What do you want to get better at?', 'Where AI could expand your work'],
-  ['experience', 'What have you done so far?', 'The highest level you have actually reached'],
+  ['experience', 'What have you done so far?', 'Choose the statement that feels closest'],
   ['evidence', 'Tell us about your best example', 'What you made, improved or tested'],
   ['reasoning', 'How do you make decisions?', 'How you test, limit risk and review'],
   ['foundations', 'What are you comfortable using?', 'Coding, data and AI tools'],
@@ -59,6 +59,70 @@ const capabilityLabels: Record<CapabilityDomain, string> = {
   applications: 'Building AI applications',
   'data-retrieval': 'Data and retrieval',
   'evaluation-safety': 'Evaluation, safety and reliability',
+}
+
+type CapabilityExperienceStage = 'new' | 'everyday' | 'workflows' | 'builder'
+
+const capabilityExperienceOptions: readonly [CapabilityExperienceStage, string, string][] = [
+  ['new', 'I’m just getting started with AI', 'I have tried a few tools, watched tutorials, or experimented occasionally.'],
+  ['everyday', 'I use AI for everyday tasks', 'For example: writing and editing, email drafting, research, summaries, brainstorming, or presentations.'],
+  ['workflows', 'I have created repeatable AI workflows', 'I use prompts, custom assistants, automations, or connected tools to complete recurring work.'],
+  ['builder', 'I have built and tested AI tools', 'I have made an app, automation, or data-based AI system and checked whether it works reliably.'],
+]
+
+const capabilityStageLevels: Record<
+  CapabilityExperienceStage,
+  Readonly<Record<CapabilityDomain, ExperienceLevel>>
+> = {
+  new: {
+    'ai-assisted-work': 'none',
+    automation: 'none',
+    applications: 'none',
+    'data-retrieval': 'none',
+    'evaluation-safety': 'none',
+  },
+  everyday: {
+    'ai-assisted-work': 'guided',
+    automation: 'none',
+    applications: 'none',
+    'data-retrieval': 'none',
+    'evaluation-safety': 'none',
+  },
+  workflows: {
+    'ai-assisted-work': 'adapted',
+    automation: 'adapted',
+    applications: 'guided',
+    'data-retrieval': 'exposure',
+    'evaluation-safety': 'guided',
+  },
+  builder: {
+    'ai-assisted-work': 'independent',
+    automation: 'adapted',
+    applications: 'adapted',
+    'data-retrieval': 'adapted',
+    'evaluation-safety': 'guided',
+  },
+}
+
+function capabilityExperienceStage(
+  levels: Readonly<Record<CapabilityDomain, ExperienceLevel>>,
+): CapabilityExperienceStage {
+  if (
+    ['adapted', 'independent', 'demonstrated', 'operational'].includes(levels.applications) ||
+    ['adapted', 'independent', 'demonstrated', 'operational'].includes(levels['data-retrieval']) ||
+    ['independent', 'demonstrated', 'operational'].includes(levels['ai-assisted-work'])
+  ) return 'builder'
+
+  if (
+    ['adapted', 'independent', 'demonstrated', 'operational'].includes(levels.automation) ||
+    ['adapted', 'independent', 'demonstrated', 'operational'].includes(levels['ai-assisted-work'])
+  ) return 'workflows'
+
+  if (['guided', 'adapted', 'independent', 'demonstrated', 'operational'].includes(levels['ai-assisted-work'])) {
+    return 'everyday'
+  }
+
+  return 'new'
 }
 
 const interestOptions = [
@@ -122,15 +186,17 @@ function ChoiceGroup<T extends string>({
   options,
   onChange,
   compact = false,
+  stacked = false,
 }: {
   label: string
   value: T | ''
   options: readonly (readonly [T, string, string?])[]
   onChange(value: T): void
   compact?: boolean
+  stacked?: boolean
 }) {
   return (
-    <fieldset className={`ap-ds-choiceGroup${compact ? ' is-compact' : ''}`}>
+    <fieldset className={`ap-ds-choiceGroup${compact ? ' is-compact' : ''}${stacked ? ' is-stacked' : ''}`}>
       <legend>{label}</legend>
       <div>
         {options.map(([option, title, detail]) => (
@@ -423,23 +489,27 @@ function CapabilityForm({
       </Section>
 
       <Section {...common('experience', 1)}>
-        <p className="ap-ds-sectionPrompt">For each area, choose the highest level you have actually reached.</p>
-        <div className="ap-ds-evidenceMatrix">
-          {(Object.keys(capabilityLabels) as CapabilityDomain[]).map(domain => (
-            <label key={domain} htmlFor={`ap-level-${domain}`}>
-              <span>{capabilityLabels[domain]}</span>
-              <select id={`ap-level-${domain}`} value={value.experience.levels[domain]} onChange={event => onChange({ ...value, experience: { levels: { ...value.experience.levels, [domain]: event.target.value as ExperienceLevel } } })}>
-                {experienceOptions.map(([option, title]) => <option key={option} value={option}>{title}</option>)}
-              </select>
-            </label>
-          ))}
-        </div>
-        <p className="ap-ds-calibration">Course completion shows exposure. Independent application requires something you built and tested.</p>
+        <ChoiceGroup
+          stacked
+          label="Which statement sounds most like you today?"
+          value={capabilityExperienceStage(value.experience.levels)}
+          options={capabilityExperienceOptions}
+          onChange={stage => {
+            const levels: Record<CapabilityDomain, ExperienceLevel> = { ...capabilityStageLevels[stage] }
+            const supportedDomains = value.evidence.supportedDomains.filter(domain => !['none', 'exposure', 'guided'].includes(levels[domain]))
+            onChange({
+              ...value,
+              experience: { levels },
+              evidence: { ...value.evidence, supportedDomains },
+            })
+          }}
+        />
+        <p className="ap-ds-calibration">Choose the closest match. You can tell us about your strongest example next.</p>
       </Section>
 
       <Section {...common('evidence', 2)}>
         <TextAreaField id="ap-capability-evidence" label="What is the strongest thing you have made or improved with AI?" help="What did you do yourself? What was difficult? How did you check the result? “I haven’t built anything yet” is a valid answer." value={value.evidence.description} voiceTarget={voiceTarget} onVoice={onVoice} onChange={description => onChange({ ...value, evidence: { ...value.evidence, description } })} rows={5} placeholder="Type your answer…" />
-        {claimedDomains.length ? <MultiChoice label="Which claims does this evidence support?" values={value.evidence.supportedDomains} options={claimedDomains} onChange={supportedDomains => onChange({ ...value, evidence: { ...value.evidence, supportedDomains: supportedDomains as CapabilityDomain[] } })} /> : null}
+        {claimedDomains.length ? <MultiChoice label="Which parts of this example did you personally work on?" values={value.evidence.supportedDomains.map(domain => capabilityLabels[domain])} options={claimedDomains.map(domain => capabilityLabels[domain])} onChange={selectedLabels => onChange({ ...value, evidence: { ...value.evidence, supportedDomains: claimedDomains.filter(domain => selectedLabels.includes(capabilityLabels[domain])) } })} /> : null}
         <label className="ap-ds-simpleField" htmlFor="ap-capability-artifact"><span>Artifact link <small>Optional</small></span><input id="ap-capability-artifact" type="url" value={value.evidence.artifactUrl} onChange={event => onChange({ ...value, evidence: { ...value.evidence, artifactUrl: event.target.value } })} placeholder="https://…" /></label>
       </Section>
 

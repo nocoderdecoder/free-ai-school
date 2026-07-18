@@ -52,7 +52,7 @@ The target is rejected unless its host is `127.0.0.1` or `localhost`.
 | Entry | Two exact choices, no diagnostic jargon, no automatic microphone request |
 | Progressive flow | Six domain sections per path, one active group, plain progress, Back/Continue focus movement |
 | Path A | Conditional practical example, sensitive-use-case human boundary, readiness gate |
-| Path B | Five-domain experience map, applied scenario, conservative claim support, explicit unassessed areas |
+| Path B | One plain-language experience ladder, applied scenario, conservative claim support, explicit unassessed areas |
 | Voice | One global local test, deterministic permission denial, honest unavailable copy, typing remains usable |
 | Results | Different result kinds, project and first action first, definition of done, four weeks, maximum three resources |
 | Editing | Back and result editing retain answers; Start over clears both drafts |

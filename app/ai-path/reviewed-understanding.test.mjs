@@ -40,6 +40,10 @@ test('the progressive form retains six semantic sections and explicit navigation
   assert.match(advisorSource, />Continue/)
   assert.match(advisorSource, /Create my project plan/)
   assert.match(advisorSource, /Create my learning plan/)
+  assert.match(advisorSource, /I use AI for everyday tasks/)
+  assert.match(advisorSource, /writing and editing, email drafting, research, summaries/)
+  assert.match(advisorSource, /I have created repeatable AI workflows/)
+  assert.doesNotMatch(advisorSource, /ap-level-/)
 })
 
 test('the two paths produce distinct result scenes with edit and restart controls', () => {
