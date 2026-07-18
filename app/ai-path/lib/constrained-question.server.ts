@@ -9,22 +9,27 @@ import {
 // Opening this latch can consume paid credits. It requires an explicit user
 // approval and reviewed code change; environment variables cannot open it.
 export const AI_PATH_ADAPTIVE_MODEL_LATCH = false as const
+export const AI_PATH_ADAPTIVE_MODEL_ID = 'gpt-5-nano' as const
 
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses'
 
 export function getAdaptiveQuestionModelCapability() {
+  const configuredModel = process.env.AI_PATH_ADAPTIVE_MODEL || AI_PATH_ADAPTIVE_MODEL_ID
+  const costApprovedModel = configuredModel === AI_PATH_ADAPTIVE_MODEL_ID
   const configured = process.env.AI_PATH_ADAPTIVE_MODEL_ENABLED === 'true'
     && Boolean(process.env.OPENAI_API_KEY)
-    && Boolean(process.env.AI_PATH_ADAPTIVE_MODEL)
+    && costApprovedModel
   const liveEnabled = configured && AI_PATH_ADAPTIVE_MODEL_LATCH
   return Object.freeze({
     liveEnabled,
     noNetworkCall: !liveEnabled,
-    model: process.env.AI_PATH_ADAPTIVE_MODEL || 'not-configured',
+    model: AI_PATH_ADAPTIVE_MODEL_ID,
     reason: liveEnabled
       ? 'constrained adaptive model is explicitly enabled'
       : !AI_PATH_ADAPTIVE_MODEL_LATCH
         ? 'paid adaptive-model latch is closed'
+        : !costApprovedModel
+          ? 'configured model is outside the reviewed low-cost boundary'
         : 'adaptive model configuration is incomplete',
   })
 }

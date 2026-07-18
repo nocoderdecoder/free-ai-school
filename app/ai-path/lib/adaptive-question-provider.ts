@@ -71,6 +71,8 @@ export function buildAdaptiveResponsesRequest(input: Readonly<{
   return {
     model: input.model,
     store: false,
+    service_tier: 'default',
+    reasoning: { effort: 'minimal' },
     max_output_tokens: 100,
     metadata: {
       feature: 'ai-path-question-adaptation',

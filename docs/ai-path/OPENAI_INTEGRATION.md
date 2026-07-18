@@ -10,7 +10,7 @@ Use the ignored `.env.local` file at the repository root:
 
 ```dotenv
 OPENAI_API_KEY=your-key-from-the-OpenAI-platform
-AI_PATH_ADAPTIVE_MODEL=gpt-5.6-luna
+AI_PATH_ADAPTIVE_MODEL=gpt-5-nano
 AI_PATH_ADAPTIVE_MODEL_ENABLED=false
 ```
 
@@ -21,6 +21,14 @@ after changing `.env.local`.
 `AI_PATH_ADAPTIVE_MODEL_ENABLED=false` is intentional. A code-level latch also
 keeps provider traffic fail-closed. Both controls remain closed until paid API
 usage has explicit approval and the adaptive behavior suite passes.
+
+`gpt-5-nano` is the cost-first choice for this narrow classification and
+rewriting step. Requests use minimal reasoning, the standard service tier, a
+100-token output ceiling, no tools, and no response storage. Upgrade the model
+only if evaluation data shows that Nano cannot reliably satisfy the schema and
+teacher-policy tests. The server also pins `gpt-5-nano` as the only accepted
+model for this feature, so an environment change cannot silently select a more
+expensive model.
 
 ## Interview contract
 

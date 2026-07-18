@@ -95,6 +95,8 @@ test('live model transport is code-latched, server-only, authenticated, and rate
   const provider = readFileSync(new URL('./lib/adaptive-question-provider.ts', import.meta.url), 'utf8')
   const route = readFileSync(new URL('../api/ai-path/question-adaptation/route.ts', import.meta.url), 'utf8')
   assert.match(server, /AI_PATH_ADAPTIVE_MODEL_LATCH = false as const/)
+  assert.match(server, /AI_PATH_ADAPTIVE_MODEL_ID = 'gpt-5-nano' as const/)
+  assert.match(server, /configuredModel === AI_PATH_ADAPTIVE_MODEL_ID/)
   assert.match(server, /import 'server-only'/)
   assert.match(provider, /text:\s*\{[\s\S]*type: 'json_schema'[\s\S]*strict: true/)
   assert.match(route, /sessionRuntime\.mode !== 'supabase' \|\| !sessionRuntime\.principal/)
