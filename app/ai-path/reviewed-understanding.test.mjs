@@ -17,29 +17,37 @@ const inputs = [
 
 const advisorSource = readFileSync(new URL('./AdvisorApp.tsx', import.meta.url), 'utf8')
 
-test('Diagnostic Studio exposes exactly two local paths with shared voice and typed fields', () => {
+test('AI Path exposes exactly two local paths and explicit microphone consent', () => {
   assert.match(advisorSource, /type DiagnosticResult = UseCaseBlueprint \| CapabilityPrescription/)
-  assert.match(advisorSource, /I have an AI use case/)
-  assert.match(advisorSource, /I want to grow my AI skills/)
+  assert.match(advisorSource, /I have a task or idea/)
+  assert.match(advisorSource, /I want to improve my AI skills/)
   assert.match(advisorSource, /<UseCaseForm/)
   assert.match(advisorSource, /<CapabilityForm/)
   assert.match(advisorSource, /createBrowserMicrophonePreflightController/)
-  assert.match(advisorSource, /aria-label=\{`Answer \$\{label\} by voice`\}/)
+  assert.match(advisorSource, /'Test microphone'/)
   assert.match(advisorSource, /<textarea id=\{id\} value=\{value\}/)
   assert.doesNotMatch(advisorSource, /createTextSession|analyzeReviewedAssessment|\bfetch\s*\(/)
 })
 
-test('the two six-section paths produce distinct result scenes with edit and restart controls', () => {
+test('the progressive form retains six semantic sections and explicit navigation', () => {
   assert.match(advisorSource, /USE_CASE_SECTION_IDS/)
   assert.match(advisorSource, /CAPABILITY_SECTION_IDS/)
   assert.match(advisorSource, /data-path="use-case"/)
   assert.match(advisorSource, /data-path="capability-growth"/)
+  assert.match(advisorSource, /data-section-id=\{id\}/)
+  assert.match(advisorSource, /className="ap-ds-progress"/)
+  assert.match(advisorSource, />Back</)
+  assert.match(advisorSource, />Continue/)
+  assert.match(advisorSource, /Create my project plan/)
+  assert.match(advisorSource, /Create my learning plan/)
+})
+
+test('the two paths produce distinct result scenes with edit and restart controls', () => {
   assert.match(advisorSource, /data-result-kind=\{result\.kind\}/)
-  assert.match(advisorSource, /Use-case blueprint/)
-  assert.match(advisorSource, /Capability prescription/)
-  assert.match(advisorSource, /← Edit diagnostic/)
-  assert.match(advisorSource, /Start a new diagnostic/)
-  assert.match(advisorSource, /No service, course or paid tool was activated/)
+  assert.match(advisorSource, /result\.kind === 'use-case-blueprint'/)
+  assert.match(advisorSource, /← Edit my answers/)
+  assert.match(advisorSource, /Start over/)
+  assert.match(advisorSource, /No account, course, paid tool or outside service was activated/)
 })
 
 test('removed and blank interpretations never cross the reviewed-input boundary', () => {

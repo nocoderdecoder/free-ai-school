@@ -27,30 +27,30 @@ import {
 type DiagnosticResult = UseCaseBlueprint | CapabilityPrescription
 
 const useCaseSections = [
-  ['outcome', 'Desired outcome', 'The person, task and result'],
-  ['workflow', 'Current workflow', 'Where the process breaks down'],
-  ['specification', 'System shape', 'Inputs, output and success'],
-  ['experience', 'What you tried', 'Evidence, not confidence'],
-  ['risk', 'Operating boundaries', 'Data, errors and review'],
-  ['constraints', 'Build constraints', 'Role, time and approach'],
+  ['outcome', 'What are you trying to improve?', 'Who it is for and what should be better'],
+  ['workflow', 'How does it work today?', 'The current steps and where they break down'],
+  ['specification', 'What should the AI do?', 'The smallest useful version'],
+  ['experience', 'What have you already tried?', 'The highest level you can support'],
+  ['risk', 'What could go wrong?', 'Where a person must stay in control'],
+  ['constraints', 'What must the plan fit?', 'Your time, skills and budget'],
 ] as const
 
 const capabilitySections = [
-  ['direction', 'Direction', 'Where you want to expand'],
-  ['experience', 'Experience map', 'What you have actually done'],
-  ['evidence', 'Strongest evidence', 'Ownership, difficulty and checks'],
-  ['reasoning', 'Applied judgment', 'How you handle uncertainty'],
-  ['foundations', 'Working foundations', 'Coding, data and tools'],
-  ['constraints', 'Learning constraints', 'Time, pace and format'],
+  ['direction', 'What do you want to get better at?', 'Where AI could expand your work'],
+  ['experience', 'What have you done so far?', 'The highest level you have actually reached'],
+  ['evidence', 'Tell us about your best example', 'What you made, improved or tested'],
+  ['reasoning', 'How do you make decisions?', 'How you test, limit risk and review'],
+  ['foundations', 'What are you comfortable using?', 'Coding, data and AI tools'],
+  ['constraints', 'What must your learning plan fit?', 'Your time, pace and preferred format'],
 ] as const
 
 const experienceOptions: readonly [ExperienceLevel, string, string][] = [
-  ['none', 'Not explored', 'No practical evidence yet'],
-  ['exposure', 'Used or studied', 'Tools or introductory material'],
-  ['guided', 'Followed an exercise', 'Closely followed an example'],
-  ['adapted', 'Modified for my problem', 'Changed an example for real use'],
-  ['independent', 'Built and tested', 'Selected the approach independently'],
-  ['demonstrated', 'Used by other people', 'Applied in a real setting'],
+  ['none', 'Not started', 'No practical example yet'],
+  ['exposure', 'Read or watched examples', 'Introductory material or tool use'],
+  ['guided', 'Followed an example', 'Closely followed an exercise'],
+  ['adapted', 'Changed an example for my task', 'Adapted it for real use'],
+  ['independent', 'Built and tested it myself', 'Chose the approach independently'],
+  ['demonstrated', 'Other people have used it', 'Applied in a real setting'],
 ]
 
 const capabilityLabels: Record<CapabilityDomain, string> = {
@@ -109,9 +109,8 @@ function Header({ scene, onRestart }: { scene: 'diagnostic' | 'result'; onRestar
         <strong>AI Path</strong>
       </button>
       <div className="ap-ds-headerMeta">
-        <span>{scene === 'diagnostic' ? 'Diagnostic studio' : 'Your recommendation'}</span>
-        <i aria-hidden="true" />
-        <span>Private preview</span>
+        <span>{scene === 'diagnostic' ? 'Your questions' : 'Your plan'}</span>
+        <span className="ap-ds-preview">Preview</span>
       </div>
     </header>
   )
@@ -182,12 +181,12 @@ function VoiceButton({ label, active, onClick }: { label: string; active: boolea
     <button
       type="button"
       className={`ap-ds-fieldMic${active ? ' is-active' : ''}`}
-      aria-label={`Answer ${label} by voice`}
+      aria-label={`Test microphone for ${label}`}
       aria-pressed={active}
       onClick={onClick}
     >
       <MicIcon />
-      <span>{active ? 'Voice selected' : 'Voice'}</span>
+      <span>{active ? 'Microphone selected' : 'Test microphone'}</span>
     </button>
   )
 }
@@ -248,12 +247,12 @@ function Section({
 }) {
   const statusLabel = status === 'complete' ? 'Captured' : status === 'needs_evidence' ? 'Needs evidence' : 'Incomplete'
   return (
-    <fieldset id={`ap-section-${id}`} className={`ap-ds-section is-${status}${active ? ' is-active' : ''}`} onFocusCapture={onActivate} onClick={onActivate}>
+    <fieldset id={`ap-section-${id}`} data-section-id={id} className={`ap-ds-section is-${status}${active ? ' is-active' : ''}`} onFocusCapture={onActivate} onClick={onActivate}>
       <legend className="sr-only">{number}. {title}</legend>
       <div className="ap-ds-sectionHeading">
         <span aria-hidden="true">{String(number).padStart(2, '0')}</span>
         <div><h2>{title}</h2><p>{reason}</p></div>
-        <small><i aria-hidden="true" />{statusLabel}</small>
+        <small><i aria-hidden="true" />{statusLabel === 'Captured' ? 'Done' : statusLabel === 'Needs evidence' ? 'Needs an example' : 'Not finished'}</small>
       </div>
       <div className="ap-ds-sectionBody">{children}</div>
       {issues.length ? <ul className="ap-ds-issues" aria-label={`${title} requirements`}>{issues.map(issue => <li key={issue}>{issue}</li>)}</ul> : null}
@@ -261,7 +260,7 @@ function Section({
   )
 }
 
-function EvidenceIndex({
+function QuestionProgress({
   sections,
   statuses,
   activeId,
@@ -274,27 +273,27 @@ function EvidenceIndex({
 }) {
   const completed = sections.filter(([id]) => statuses.get(id) === 'complete').length
   return (
-    <aside className="ap-ds-index" aria-label="Diagnostic sections">
-      <div className="ap-ds-indexIntro">
-        <span>Recommendation ingredients</span>
-        <strong>{completed} of 6 signals captured</strong>
-        <p>Not a score. These are the inputs needed to make the recommendation specific.</p>
+    <nav className="ap-ds-progress" aria-label="Your questions">
+      <div className="ap-ds-progressCopy">
+        <span>Question {Math.max(1, sections.findIndex(([id]) => id === activeId) + 1)} of 6</span>
+        <strong>{sections.find(([id]) => id === activeId)?.[1]}</strong>
+        <small>{completed} complete</small>
       </div>
-      <ol>
+      <ol aria-label="Question progress">
         {sections.map(([id, title, detail], index) => {
           const status = statuses.get(id) ?? 'missing'
           return (
             <li className={`${activeId === id ? 'is-active' : ''} is-${status}`} key={id}>
               <button type="button" onClick={() => onSelect(id)}>
-                <i aria-hidden="true">{index + 1}</i>
-                <span><strong>{title}</strong><small>{status === 'complete' ? 'Captured' : status === 'needs_evidence' ? 'Add evidence' : detail}</small></span>
+                <i aria-hidden="true">{status === 'complete' ? <CheckIcon /> : index + 1}</i>
+                <span className="sr-only">{title}: {status === 'complete' ? 'done' : status === 'needs_evidence' ? 'needs an example' : detail}</span>
               </button>
             </li>
           )
         })}
       </ol>
-      <div className="ap-ds-indexFoot"><span>Knowledge</span><span>Execution</span><span>Judgment</span></div>
-    </aside>
+      <div className="ap-ds-progressLine" aria-hidden="true"><i style={{ width: `${((sections.findIndex(([id]) => id === activeId) + 1) / 6) * 100}%` }} /></div>
+    </nav>
   )
 }
 
@@ -329,26 +328,26 @@ function UseCaseForm({
   return (
     <div className="ap-ds-sections" data-path="use-case">
       <Section {...common('outcome', 0)}>
-        <TextAreaField id="ap-outcome" label="What do you want AI to help someone accomplish?" help="Describe the user, task and desired result. Focus on the outcome rather than naming a tool." value={value.outcome.desiredOutcome} voiceTarget={voiceTarget} onVoice={onVoice} onChange={desiredOutcome => onChange({ ...value, outcome: { desiredOutcome } })} placeholder="Help our sales team answer RFP questions using approved material while keeping citations…" />
+        <TextAreaField id="ap-outcome" label="What do you want AI to help someone accomplish?" help="Describe who it is for, the task, and what should be better when it works." value={value.outcome.desiredOutcome} voiceTarget={voiceTarget} onVoice={onVoice} onChange={desiredOutcome => onChange({ ...value, outcome: { desiredOutcome } })} placeholder="Type your answer…" />
       </Section>
 
       <Section {...common('workflow', 1)}>
-        <TextAreaField id="ap-workflow" label="How is this handled today, and where does it become unreliable?" help="Describe the steps, people involved and the most important failure point." value={value.workflow.currentProcess} voiceTarget={voiceTarget} onVoice={onVoice} onChange={currentProcess => onChange({ ...value, workflow: { currentProcess } })} />
+        <TextAreaField id="ap-workflow" label="What happens today, and where does it become unreliable?" help="Walk through the current steps. Name the slowest, least reliable, or hardest-to-review part." value={value.workflow.currentProcess} voiceTarget={voiceTarget} onVoice={onVoice} onChange={currentProcess => onChange({ ...value, workflow: { currentProcess } })} placeholder="Type your answer…" />
       </Section>
 
       <Section {...common('specification', 2)}>
         <div className="ap-ds-specGrid">
-          <TextAreaField id="ap-inputs" label="What information goes in?" value={value.specification.inputs} voiceTarget={voiceTarget} onVoice={onVoice} onChange={inputs => onChange({ ...value, specification: { ...value.specification, inputs } })} rows={3} placeholder="Documents, messages, data, images…" />
-          <TextAreaField id="ap-output" label="What should come out?" value={value.specification.output} voiceTarget={voiceTarget} onVoice={onVoice} onChange={output => onChange({ ...value, specification: { ...value.specification, output } })} rows={3} placeholder="A cited draft, decision, prediction…" />
+          <TextAreaField id="ap-inputs" label="What will it receive?" help="For example: documents, messages, spreadsheet rows, images or form responses." value={value.specification.inputs} voiceTarget={voiceTarget} onVoice={onVoice} onChange={inputs => onChange({ ...value, specification: { ...value.specification, inputs } })} rows={3} placeholder="Type your answer…" />
+          <TextAreaField id="ap-output" label="What should it produce?" help="For example: a cited draft, recommendation, summary or structured record." value={value.specification.output} voiceTarget={voiceTarget} onVoice={onVoice} onChange={output => onChange({ ...value, specification: { ...value.specification, output } })} rows={3} placeholder="Type your answer…" />
           <TextAreaField id="ap-success" label="How will you know it works?" value={value.specification.success} voiceTarget={voiceTarget} onVoice={onVoice} onChange={success => onChange({ ...value, specification: { ...value.specification, success } })} rows={3} placeholder="One or two observable acceptance criteria" />
         </div>
       </Section>
 
       <Section {...common('experience', 3)}>
-        <ChoiceGroup label="How far have you taken this idea?" value={value.experience.level} options={experienceOptions} onChange={level => onChange({ ...value, experience: { ...value.experience, level } })} />
+        <ChoiceGroup label="How far have you taken this idea? Choose the highest option you can back up." value={value.experience.level} options={experienceOptions} onChange={level => onChange({ ...value, experience: { ...value.experience, level } })} />
         {value.experience.level !== 'none' ? (
           <div className="ap-ds-conditional">
-            <TextAreaField id="ap-use-case-evidence" label="What did you personally make or test, and what happened?" help="Higher experience claims need a concrete artifact and test—not confidence." value={value.experience.evidence} voiceTarget={voiceTarget} onVoice={onVoice} onChange={evidence => onChange({ ...value, experience: { ...value.experience, evidence } })} rows={3} />
+            <TextAreaField id="ap-use-case-evidence" label="What did you make or test?" help="Say what you did yourself, what happened, and how you checked it." value={value.experience.evidence} voiceTarget={voiceTarget} onVoice={onVoice} onChange={evidence => onChange({ ...value, experience: { ...value.experience, evidence } })} rows={3} placeholder="Type your answer…" />
             <label className="ap-ds-simpleField" htmlFor="ap-use-case-artifact"><span>Artifact link <small>Optional</small></span><input id="ap-use-case-artifact" type="url" value={value.experience.artifactUrl} onChange={event => onChange({ ...value, experience: { ...value.experience, artifactUrl: event.target.value } })} placeholder="https://…" /></label>
           </div>
         ) : null}
@@ -356,9 +355,9 @@ function UseCaseForm({
 
       <Section {...common('risk', 4)}>
         <div className="ap-ds-controlGrid">
-          <ChoiceGroup compact label="Data sensitivity" value={value.risk.dataSensitivity} options={[["public", "Public"], ["internal", "Internal"], ["confidential", "Confidential"], ["regulated", "Regulated"], ["unsure", "Unsure"]]} onChange={dataSensitivity => onChange({ ...value, risk: { ...value.risk, dataSensitivity } })} />
-          <ChoiceGroup compact label="If the result is wrong" value={value.risk.consequence} options={[["low", "Low impact"], ["moderate", "Moderate"], ["serious", "Serious"], ["critical", "Critical"]]} onChange={consequence => onChange({ ...value, risk: { ...value.risk, consequence } })} />
-          <ChoiceGroup compact label="Human approval before action" value={value.risk.humanApproval} options={[["yes", "Required"], ["no", "Not required"], ["unsure", "Unsure"]]} onChange={humanApproval => onChange({ ...value, risk: { ...value.risk, humanApproval } })} />
+          <ChoiceGroup compact label="How sensitive is the information?" value={value.risk.dataSensitivity} options={[["public", "Public"], ["internal", "Internal"], ["confidential", "Confidential"], ["regulated", "Regulated"], ["unsure", "Unsure"]]} onChange={dataSensitivity => onChange({ ...value, risk: { ...value.risk, dataSensitivity } })} />
+          <ChoiceGroup compact label="What happens if the answer is wrong?" value={value.risk.consequence} options={[["low", "Low impact"], ["moderate", "Moderate"], ["serious", "Serious"], ["critical", "Critical"]]} onChange={consequence => onChange({ ...value, risk: { ...value.risk, consequence } })} />
+          <ChoiceGroup compact label="Should a person approve it before use?" value={value.risk.humanApproval} options={[["yes", "Yes"], ["no", "No"], ["unsure", "Unsure"]]} onChange={humanApproval => onChange({ ...value, risk: { ...value.risk, humanApproval } })} />
         </div>
         <label className="ap-ds-simpleField" htmlFor="ap-systems"><span>Systems or data sources <small>Optional</small></span><input id="ap-systems" value={value.risk.existingSystems} onChange={event => onChange({ ...value, risk: { ...value.risk, existingSystems: event.target.value } })} placeholder="Drive, CRM, warehouse, approved documents…" /></label>
         {['confidential', 'regulated'].includes(value.risk.dataSensitivity) || ['serious', 'critical'].includes(value.risk.consequence) ? <p className="ap-ds-warning"><strong>Guardrail required.</strong> The result will keep human approval, access control and failure testing in the core design.</p> : null}
@@ -424,7 +423,7 @@ function CapabilityForm({
       </Section>
 
       <Section {...common('experience', 1)}>
-        <p className="ap-ds-sectionPrompt">Choose the highest statement you can support with something you actually did.</p>
+        <p className="ap-ds-sectionPrompt">For each area, choose the highest level you have actually reached.</p>
         <div className="ap-ds-evidenceMatrix">
           {(Object.keys(capabilityLabels) as CapabilityDomain[]).map(domain => (
             <label key={domain} htmlFor={`ap-level-${domain}`}>
@@ -439,20 +438,20 @@ function CapabilityForm({
       </Section>
 
       <Section {...common('evidence', 2)}>
-        <TextAreaField id="ap-capability-evidence" label="Tell us about the strongest one or two things you have actually done with AI." help="Explain what you personally did, what was difficult and how you checked the result. “I have not built anything yet” is valid." value={value.evidence.description} voiceTarget={voiceTarget} onVoice={onVoice} onChange={description => onChange({ ...value, evidence: { ...value.evidence, description } })} rows={5} />
+        <TextAreaField id="ap-capability-evidence" label="What is the strongest thing you have made or improved with AI?" help="What did you do yourself? What was difficult? How did you check the result? “I haven’t built anything yet” is a valid answer." value={value.evidence.description} voiceTarget={voiceTarget} onVoice={onVoice} onChange={description => onChange({ ...value, evidence: { ...value.evidence, description } })} rows={5} placeholder="Type your answer…" />
         {claimedDomains.length ? <MultiChoice label="Which claims does this evidence support?" values={value.evidence.supportedDomains} options={claimedDomains} onChange={supportedDomains => onChange({ ...value, evidence: { ...value.evidence, supportedDomains: supportedDomains as CapabilityDomain[] } })} /> : null}
         <label className="ap-ds-simpleField" htmlFor="ap-capability-artifact"><span>Artifact link <small>Optional</small></span><input id="ap-capability-artifact" type="url" value={value.evidence.artifactUrl} onChange={event => onChange({ ...value, evidence: { ...value.evidence, artifactUrl: event.target.value } })} placeholder="https://…" /></label>
       </Section>
 
       <Section {...common('reasoning', 3)}>
-        <div className="ap-ds-scenario"><span>Applied scenario</span><p>{scenario}</p></div>
+        <div className="ap-ds-scenario"><span>Imagine this situation</span><p>{scenario}</p></div>
         <TextAreaField id="ap-reasoning" label="What would you do, and why?" value={value.reasoning.response} voiceTarget={voiceTarget} onVoice={onVoice} onChange={response => onChange({ ...value, reasoning: { scenarioId: /automat|workflow/.test(primaryInterest) ? 'automation-reliability' : /app|build/.test(primaryInterest) ? 'application-evaluation' : 'human-ai-boundary', response } })} rows={5} />
       </Section>
 
       <Section {...common('foundations', 4)}>
         <ChoiceGroup compact label="Coding" value={value.foundations.codingComfort} options={[["none", "I have not coded"], ["modify-examples", "Modify examples"], ["small-programs", "Build small programs"], ["experienced", "Build software regularly"]]} onChange={codingComfort => onChange({ ...value, foundations: { ...value.foundations, codingComfort } })} />
         <ChoiceGroup compact label="Data" value={value.foundations.dataComfort} options={[["documents", "Mainly documents"], ["spreadsheets", "Spreadsheets"], ["queries", "Query or transform data"], ["pipelines", "Build pipelines or models"]]} onChange={dataComfort => onChange({ ...value, foundations: { ...value.foundations, dataComfort } })} />
-        <MultiChoice label="AI tools used — familiarity is context, not skill evidence" values={value.foundations.tools} options={toolOptions} onChange={tools => onChange({ ...value, foundations: { ...value.foundations, tools } })} />
+        <MultiChoice label="AI tools you’ve used" values={value.foundations.tools} options={toolOptions} onChange={tools => onChange({ ...value, foundations: { ...value.foundations, tools } })} />
       </Section>
 
       <Section {...common('constraints', 5)}>
@@ -475,58 +474,58 @@ function ResultScene({ result, onEdit, onRestart }: { result: DiagnosticResult; 
   const [actionSaved, setActionSaved] = useState(false)
   return (
     <main className="ap-ds-result" data-result-kind={result.kind}>
-      <div className="ap-ds-resultTopline"><button type="button" onClick={onEdit}>← Edit diagnostic</button><span>{isUseCase ? 'Use-case blueprint' : 'Capability prescription'}</span></div>
+      <div className="ap-ds-resultTopline"><button type="button" onClick={onEdit}>← Edit my answers</button><span>{isUseCase ? 'Your project plan' : 'Your learning plan'}</span></div>
       <section className="ap-ds-resultHero">
-        <p>{isUseCase ? 'Your use case, made buildable' : 'Your next evidence-building move'}</p>
+        <p>{isUseCase ? 'A small version you can test' : 'What to learn and build next'}</p>
         <h1 tabIndex={-1}>{result.title}</h1>
         {isUseCase ? (
-          <div className="ap-ds-verdict"><span>{result.feasibility.rating.replaceAll('-', ' ')}</span><p>{result.feasibility.rationale}</p></div>
+          <div className="ap-ds-verdict"><span>{result.feasibility.rating === 'strong-fit' ? 'A strong fit' : result.feasibility.rating === 'possible-with-constraints' ? 'A good fit with safeguards' : 'Needs a different approach'}</span><p>{result.feasibility.rationale}</p></div>
         ) : (
-          <div className="ap-ds-verdict"><span>{result.confidence} confidence</span><p>{result.strongest}</p></div>
+          <div className="ap-ds-verdict"><span>How sure we are: {result.confidence}</span><p>{result.strongest}</p></div>
         )}
       </section>
 
       <section className="ap-ds-firstAction">
-        <span>Your first working session</span>
+        <span>Start here</span>
         <h2>{result.firstAction}</h2>
         <button type="button" className={actionSaved ? 'is-saved' : ''} onClick={() => setActionSaved(value => !value)}>
-          {actionSaved ? 'Next action saved' : 'Mark as my next action'} {actionSaved ? <CheckIcon /> : <ArrowIcon />}
+          {actionSaved ? 'Next step saved' : 'Save this as my next step'} {actionSaved ? <CheckIcon /> : <ArrowIcon />}
         </button>
       </section>
 
       {isUseCase ? (
         <>
           <div className="ap-ds-resultGrid">
-            <section><p className="ap-ds-kicker">Smallest useful prototype</p><h2>{result.prototype.title}</h2><p>{result.prototype.scope}</p><details><summary>Keep out of the first version</summary><ul>{result.prototype.excluded.map(item => <li key={item}>{item}</li>)}</ul></details></section>
-            <section className="is-dark"><p className="ap-ds-kicker">Recommended system</p><h2>{result.architecture.pattern}</h2><ol>{result.architecture.stages.map(stage => <li key={stage}>{stage}</li>)}</ol></section>
+            <section><p className="ap-ds-kicker">Build this first</p><h2>{result.prototype.title}</h2><p>{result.prototype.scope}</p><details><summary>Keep out of the first version</summary><ul>{result.prototype.excluded.map(item => <li key={item}>{item}</li>)}</ul></details></section>
+            <section className="is-dark"><p className="ap-ds-kicker">How it should work</p><h2>{result.architecture.pattern}</h2><ol>{result.architecture.stages.map(stage => <li key={stage}>{stage}</li>)}</ol></section>
           </div>
-          <section className="ap-ds-evaluation"><div><p className="ap-ds-kicker">Definition of done</p><h2>{result.evaluation.acceptanceTarget}</h2></div><ul>{result.evaluation.checks.map(check => <li key={check}><CheckIcon />{check}</li>)}</ul></section>
-          <section className="ap-ds-risk"><div><p className="ap-ds-kicker">Risk level</p><h2>{result.risk.level}</h2></div><div>{result.risk.safeguards.map(item => <p key={item}><CheckIcon />{item}</p>)}</div></section>
-          <section className="ap-ds-skills"><p className="ap-ds-kicker">What to learn for this build</p><div>{result.skills.map((skill, index) => <article key={skill}><span>0{index + 1}</span><h3>{skill}</h3></article>)}</div></section>
+          <section className="ap-ds-evaluation"><div><p className="ap-ds-kicker">How you’ll know it works</p><h2>{result.evaluation.acceptanceTarget}</h2></div><ul>{result.evaluation.checks.map(check => <li key={check}><CheckIcon />{check}</li>)}</ul></section>
+          <section className="ap-ds-risk"><div><p className="ap-ds-kicker">What needs human review</p><h2>{result.risk.level}</h2></div><div>{result.risk.safeguards.map(item => <p key={item}><CheckIcon />{item}</p>)}</div></section>
+          <section className="ap-ds-skills"><p className="ap-ds-kicker">What to learn for this project</p><div>{result.skills.map((skill, index) => <article key={skill}><span>0{index + 1}</span><h3>{skill}</h3></article>)}</div></section>
         </>
       ) : (
         <>
           <div className="ap-ds-resultGrid">
-            <section className="is-dark"><p className="ap-ds-kicker">Recommended project</p><h2>{result.project.title}</h2><p>{result.project.outcome}</p><ul>{result.project.deliverables.map(item => <li key={item}>{item}</li>)}</ul></section>
-            <section><p className="ap-ds-kicker">Recommended next capability</p><h2>{result.nextCapability}</h2><p>This project is selected to create evidence—not merely add another course completion.</p><details><summary>Definition of done</summary><ul>{result.definitionOfDone.map(item => <li key={item}>{item}</li>)}</ul></details></section>
+            <section className="is-dark"><p className="ap-ds-kicker">Build this next</p><h2>{result.project.title}</h2><p>{result.project.outcome}</p><ul>{result.project.deliverables.map(item => <li key={item}>{item}</li>)}</ul></section>
+            <section><p className="ap-ds-kicker">Focus on this skill</p><h2>{result.nextCapability}</h2><p>This project is selected to create something you can show—not merely add another course completion.</p><details><summary>How you’ll know the project is done</summary><ul>{result.definitionOfDone.map(item => <li key={item}>{item}</li>)}</ul></details></section>
           </div>
-          <section className="ap-ds-profile"><div><p className="ap-ds-kicker">Evidence-based profile</p><h2>What your answers currently support</h2></div><div>{result.evidenceProfile.map(item => <article key={item.domain}><span>{item.label}</span><strong>{item.assessment}</strong></article>)}</div></section>
-          {result.untested.length ? <section className="ap-ds-untested"><strong>Untested, not “beginner”</strong><p>{result.untested.join(' · ')}</p></section> : null}
+          <section className="ap-ds-profile"><div><p className="ap-ds-kicker">What your experience currently shows</p><h2>Your starting point</h2></div><div>{result.evidenceProfile.map(item => <article key={item.domain}><span>{item.label}</span><strong>{item.assessment}</strong></article>)}</div></section>
+          {result.untested.length ? <section className="ap-ds-untested"><strong>Not assessed yet</strong><p>You didn’t give us a practical example in these areas: {result.untested.join(' · ')}</p></section> : null}
         </>
       )}
 
       <section className="ap-ds-month">
-        <p className="ap-ds-kicker">Your 30-day workpath</p>
-        <h2>One evidence trail from first move to proof</h2>
+        <p className="ap-ds-kicker">Your next four weeks</p>
+        <h2>{isUseCase ? 'From first test to a useful result' : 'From first practice to something you can show'}</h2>
         <div>{result.weeks.map(week => <article key={week.week}><span>{week.week}</span><small>Week {week.week}</small><h3>{week.focus}</h3><p>{week.outcome}</p></article>)}</div>
       </section>
 
       <section className="ap-ds-resources">
-        <p className="ap-ds-kicker">Only the learning support this path needs</p>
+        <p className="ap-ds-kicker">Learn only what the project needs</p>
         <div>{result.resources.map((resource, index) => <article key={resource.id}><span>0{index + 1}</span><h3>{resource.title}</h3><p>{resource.purpose}</p></article>)}</div>
       </section>
 
-      <div className="ap-ds-resultFooter"><button type="button" onClick={onRestart}>Start a new diagnostic</button><p>No service, course or paid tool was activated to create this recommendation.</p></div>
+      <div className="ap-ds-resultFooter"><button type="button" onClick={onRestart}>Start over</button><p>No account, course, paid tool or outside service was activated.</p></div>
     </main>
   )
 }
@@ -561,6 +560,10 @@ export function AdvisorApp() {
   const readiness = path === 'use-case' ? useCaseReadiness : capabilityReadiness
   const sections = path === 'use-case' ? useCaseSections : capabilitySections
   const statuses = new Map(readiness.sections.map(section => [section.id, section.status]))
+  const sectionIds = path === 'use-case' ? USE_CASE_SECTION_IDS : CAPABILITY_SECTION_IDS
+  const currentIndex = Math.max(0, sectionIds.findIndex(id => id === activeSection))
+  const currentSection = readiness.sections.find(section => section.id === activeSection)
+  const isLastQuestion = currentIndex === sectionIds.length - 1
 
   const choosePath = (nextPath: DiagnosticPath) => {
     setPath(nextPath)
@@ -577,6 +580,22 @@ export function AdvisorApp() {
   const startVoiceFor = (id: string) => {
     setVoiceTarget(id)
     if (mic.phase !== 'ready' && mic.phase !== 'requesting') void microphone.start(mic.selectedDeviceId)
+  }
+
+  const continueQuestion = () => {
+    if (currentSection?.status !== 'complete') {
+      setShowErrors(true)
+      return
+    }
+    setShowErrors(false)
+    const nextId = sectionIds[currentIndex + 1]
+    if (nextId) selectSection(nextId)
+  }
+
+  const previousQuestion = () => {
+    setShowErrors(false)
+    const previousId = sectionIds[currentIndex - 1]
+    if (previousId) selectSection(previousId)
   }
 
   const submit = (event: React.FormEvent) => {
@@ -612,32 +631,33 @@ export function AdvisorApp() {
     <div className="ap-ds-shell">
       <Header scene={scene} onRestart={restart} />
       {scene === 'result' && result ? <ResultScene result={result} onEdit={() => setScene('diagnostic')} onRestart={restart} /> : (
-        <main className="ap-ds-main">
+        <main className={`ap-ds-main${path ? ' has-path' : ''}`}>
           <section className="ap-ds-intro" aria-labelledby="ap-ds-title">
-            <div><p className="ap-ds-kicker">Structured AI learning diagnostic</p><h1 id="ap-ds-title">Bring a use case—or discover your next capability.</h1></div>
-            <p>This is not a generic AI chat. Six calibrated signals become one specific project, learning sequence and first move.</p>
+            <div><p className="ap-ds-kicker">A practical AI plan</p><h1 id="ap-ds-title">What would you like help with?</h1></div>
+            <p>Choose one. We’ll ask six short questions and give you a practical project and next step.</p>
           </section>
 
           <section className="ap-ds-pathSelector" aria-labelledby="ap-path-question">
-            <div className="ap-ds-selectorLabel"><span>Choose your diagnostic</span><h2 id="ap-path-question">What would you like help with?</h2></div>
+            <div className="ap-ds-selectorLabel"><h2 id="ap-path-question">Choose a path</h2></div>
             <div className="ap-ds-pathOptions">
               <button type="button" className={path === 'use-case' ? 'is-selected' : ''} aria-pressed={path === 'use-case'} onClick={() => choosePath('use-case')}>
-                <span>01</span><strong>I have an AI use case</strong><span className="ap-ds-pathDetail">Decide how to approach it, what to use and what to learn to build it.</span><i><ArrowIcon /></i>
+                <span className="ap-ds-pathIcon" aria-hidden="true">✦</span><strong>I have a task or idea</strong><span className="ap-ds-pathDetail">Help me turn it into a small, testable AI project.</span><i>{path === 'use-case' ? <CheckIcon /> : <ArrowIcon />}</i>
               </button>
               <button type="button" className={path === 'capability-growth' ? 'is-selected' : ''} aria-pressed={path === 'capability-growth'} onClick={() => choosePath('capability-growth')}>
-                <span>02</span><strong>I want to grow my AI skills</strong><span className="ap-ds-pathDetail">Assess what I have actually done, then prescribe what to learn and make next.</span><i><ArrowIcon /></i>
+                <span className="ap-ds-pathIcon" aria-hidden="true">↗</span><strong>I want to improve my AI skills</strong><span className="ap-ds-pathDetail">Help me choose what to learn and build next.</span><i>{path === 'capability-growth' ? <CheckIcon /> : <ArrowIcon />}</i>
               </button>
             </div>
           </section>
 
           {path ? (
-            <form className="ap-ds-workbench" onSubmit={submit} noValidate>
-              <EvidenceIndex sections={sections} statuses={statuses} activeId={activeSection} onSelect={selectSection} />
+            <form className="ap-ds-workbench" data-show-errors={showErrors} onSubmit={submit} noValidate>
+              <QuestionProgress sections={sections} statuses={statuses} activeId={activeSection} onSelect={selectSection} />
               <div className="ap-ds-formColumn">
                 <div className="ap-ds-voiceConsole">
-                  <div><span><MicIcon /></span><p><strong>Voice margin</strong><small>{mic.phase === 'ready' ? 'Microphone ready locally' : mic.error ?? 'Select any field’s Voice control to answer aloud.'}</small></p></div>
+                  <div><span><MicIcon /></span><p><strong>Speak or type</strong><small>{mic.phase === 'ready' ? 'Microphone is working locally.' : mic.error ?? 'Typing is ready. You can also test your microphone.'}</small></p></div>
                   <div className="ap-ds-level" aria-label={`Local microphone level ${Math.round(mic.level * 100)} percent`}><i style={{ transform: `scaleX(${Math.max(.04, mic.level)})` }} /></div>
-                  <p>{mic.phase === 'ready' ? 'Live transcription is not connected in this preview. Typing remains available in the same field.' : 'Microphone access begins only after an explicit Voice action. No audio is uploaded during the local check.'}</p>
+                  <button type="button" onClick={() => startVoiceFor(activeSection)}><MicIcon />{mic.phase === 'requesting' ? 'Allowing…' : 'Test microphone'}</button>
+                  <p>{mic.phase === 'ready' ? 'Voice-to-text is not connected yet, so type your answer below.' : 'No audio leaves this device during the test.'}</p>
                 </div>
 
                 {path === 'use-case' ? (
@@ -646,15 +666,19 @@ export function AdvisorApp() {
                   <CapabilityForm value={capability} readiness={capabilityReadiness} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { setCapability(value); setShowErrors(false) }} />
                 )}
 
-                <section className={`ap-ds-submitRail${readiness.canSubmit ? ' is-ready' : ''}`} aria-labelledby="ap-submit-title">
-                  <div><span>{readiness.canSubmit ? 'All six signals captured' : `${readiness.sections.filter(section => section.status === 'complete').length} of 6 signals captured`}</span><h2 id="ap-submit-title">{path === 'use-case' ? 'Build my use-case blueprint' : 'Create my capability prescription'}</h2><p>{readiness.canSubmit ? 'Your answers are ready to become a specific recommendation.' : 'Complete the highlighted requirements. Missing evidence stays unassessed—it is never treated as a low score.'}</p></div>
-                  <button type="submit">Create my recommendation <ArrowIcon /></button>
-                </section>
-                {showErrors && !readiness.canSubmit ? <p className="ap-ds-errorSummary" role="alert">Review the highlighted sections before creating your recommendation.</p> : null}
+                <div className="ap-ds-questionNav">
+                  <button type="button" className="ap-ds-backButton" onClick={previousQuestion} disabled={currentIndex === 0}>Back</button>
+                  {isLastQuestion ? (
+                    <button type="submit" className="ap-ds-continueButton">{path === 'use-case' ? 'Create my project plan' : 'Create my learning plan'} <ArrowIcon /></button>
+                  ) : (
+                    <button type="button" className="ap-ds-continueButton" onClick={continueQuestion}>Continue <ArrowIcon /></button>
+                  )}
+                </div>
+                {showErrors && currentSection?.status !== 'complete' ? <p className="ap-ds-errorSummary" role="alert">Please finish this question to continue.</p> : null}
               </div>
             </form>
           ) : (
-            <div className="ap-ds-emptyState" aria-hidden="true"><span /><p>Choose a diagnostic above. Your six-question workbench will open here—on this same page.</p><span /></div>
+            <div className="ap-ds-emptyState"><p>About 5 minutes <span aria-hidden="true">·</span> Speak or type <span aria-hidden="true">·</span> No scores</p></div>
           )}
         </main>
       )}

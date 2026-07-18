@@ -4,9 +4,9 @@ import './ai-path.css'
 
 export const metadata: Metadata = {
   title: {
-    absolute: 'AI Path Diagnostic Studio',
+    absolute: 'AI Path — Your practical AI plan',
   },
-  description: 'A two-path AI diagnostic that turns a use case or evidence of experience into a focused project, learning sequence, and first move.',
+  description: 'Answer six short questions and get a practical AI project, learning plan, and first step.',
   robots: {
     index: false,
     follow: false,
