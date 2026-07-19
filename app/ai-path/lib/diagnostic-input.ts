@@ -5,6 +5,7 @@ import {
   type CapabilityIntake,
   type CodingComfort,
   type ConsequenceLevel,
+  type DataComfort,
   type DataSensitivity,
   type ExperienceLevel,
   type UseCaseIntake,
@@ -25,6 +26,7 @@ const capabilityDomains = [
 const dataSensitivities = new Set<DataSensitivity>(['public', 'internal', 'confidential', 'regulated', 'unsure'])
 const consequences = new Set<ConsequenceLevel>(['low', 'moderate', 'serious', 'critical'])
 const codingComforts = new Set<CodingComfort>(['none', 'modify-examples', 'small-programs', 'experienced'])
+const dataComforts = new Set<DataComfort>(['documents', 'spreadsheets', 'queries', 'pipelines'])
 const buildApproaches = new Set<BuildApproach>(['no-code-first', 'code-first', 'either'])
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -75,6 +77,12 @@ function stringList(value: unknown, allowed: ReadonlySet<string> | null, maximum
     if (!result.includes(text)) result.push(text)
   }
   return result
+}
+
+function dataComfortList(value: unknown) {
+  if (value === '') return []
+  if (typeof value === 'string' && dataComforts.has(value as DataComfort)) return [value as DataComfort]
+  return stringList(value, dataComforts, dataComforts.size, 64) as DataComfort[] | null
 }
 
 function invalid(...details: string[]): ParseResult {
@@ -183,7 +191,7 @@ function parseCapability(input: Record<string, unknown>): ParseResult {
   const scenarioId = boundedText(reasoning.scenarioId, 100)
   const response = boundedText(reasoning.response, 3_000)
   const codingComfort = enumValue(foundations.codingComfort, codingComforts, true)
-  const dataComfort = enumValue(foundations.dataComfort, new Set(['documents', 'spreadsheets', 'queries', 'pipelines']), true)
+  const dataComfort = dataComfortList(foundations.dataComfort)
   const tools = stringList(foundations.tools, null, 12, 100)
   const weeklyHours = integerOrNull(constraints.weeklyHours, 1, 40)
   const learningPreference = enumValue(constraints.learningPreference, new Set(['guided', 'projects', 'balanced']), true)
@@ -203,7 +211,7 @@ function parseCapability(input: Record<string, unknown>): ParseResult {
     reasoning: { scenarioId: scenarioId!, response: response! },
     foundations: {
       codingComfort: codingComfort as CodingComfort | '',
-      dataComfort: dataComfort as 'documents' | 'spreadsheets' | 'queries' | 'pipelines' | '',
+      dataComfort: dataComfort!,
       tools: tools!,
     },
     constraints: {

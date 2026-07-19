@@ -35,7 +35,7 @@ function capability() {
     experience: { levels: { 'ai-assisted-work': 'adapted', automation: 'guided', applications: 'none', 'data-retrieval': 'none', 'evaluation-safety': 'guided' } },
     evidence: { description: 'I adapted an AI drafting workflow for weekly operating updates and checked it against the source spreadsheet.', supportedDomains: ['ai-assisted-work'], artifactUrl: '' },
     reasoning: { scenarioId: 'workflow-review', response: 'I would test expected and difficult examples, compare errors, and require a person to approve uncertain results.' },
-    foundations: { codingComfort: 'modify-examples', dataComfort: 'spreadsheets', tools: ['ChatGPT', 'Google Sheets'] },
+    foundations: { codingComfort: 'modify-examples', dataComfort: ['spreadsheets'], tools: ['ChatGPT', 'Google Sheets'] },
     constraints: { weeklyHours: 4, learningPreference: 'projects', pace: '30-day', resourceBudget: 'free-only', publicProject: 'no' },
   }
 }

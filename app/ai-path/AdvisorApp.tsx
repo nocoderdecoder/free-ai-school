@@ -23,6 +23,7 @@ import {
   type CapabilityDomain,
   type CapabilityIntake,
   type CapabilityPrescription,
+  type DataComfort,
   type DiagnosticReadiness,
   type DiagnosticPath,
   type ExperienceLevel,
@@ -108,6 +109,23 @@ const capabilityExperienceOptions: readonly [CapabilityExperienceStage, string, 
   ['builder', 'I have built and tested AI tools', 'I have made an app, automation, or data-based AI system and checked whether it works reliably.'],
   ['advanced', 'I build and operate AI systems', 'I have deployed systems, evaluated quality, monitored performance, and managed release or rollback decisions.'],
 ]
+
+const codingComfortOptions: readonly [Exclude<CapabilityIntake['foundations']['codingComfort'], ''>, string][] = [
+  ['none', 'I have not written code'],
+  ['modify-examples', 'I can edit simple examples'],
+  ['small-programs', 'I can build small scripts'],
+  ['experienced', 'I build and debug software'],
+]
+
+const dataComfortOptions: readonly [DataComfort, string][] = [
+  ['documents', 'Documents, PDFs, and web pages'],
+  ['spreadsheets', 'Spreadsheets and simple tables'],
+  ['queries', 'Databases, SQL, or dashboards'],
+  ['pipelines', 'Data pipelines or ML models'],
+]
+
+const dataComfortLabelByValue = Object.fromEntries(dataComfortOptions) as Record<DataComfort, string>
+const dataComfortValueByLabel = Object.fromEntries(dataComfortOptions.map(([value, label]) => [label, value])) as Record<string, DataComfort>
 
 const capabilityStageLevels: Record<
   CapabilityExperienceStage,
@@ -543,7 +561,7 @@ function UseCaseForm({
           <label className="ap-ds-simpleField" htmlFor="ap-role"><span>Your role in this work</span><input id="ap-role" maxLength={200} value={value.constraints.role} onChange={event => onChange({ ...value, constraints: { ...value.constraints, role: event.target.value } })} /></label>
           <label className="ap-ds-simpleField" htmlFor="ap-hours"><span>Hours available each week</span><input id="ap-hours" type="number" min="1" max="40" value={value.constraints.weeklyHours ?? ''} onChange={event => onChange({ ...value, constraints: { ...value.constraints, weeklyHours: event.target.value ? Number(event.target.value) : null } })} /></label>
         </div>
-        <ChoiceGroup compact label="Coding comfort" value={value.constraints.codingComfort} options={[["none", "No coding"], ["modify-examples", "Modify examples"], ["small-programs", "Build small programs"], ["experienced", "Experienced"]]} onChange={codingComfort => onChange({ ...value, constraints: { ...value.constraints, codingComfort } })} />
+        <ChoiceGroup compact label="Coding comfort" value={value.constraints.codingComfort} options={codingComfortOptions} onChange={codingComfort => onChange({ ...value, constraints: { ...value.constraints, codingComfort } })} />
         <ChoiceGroup compact label="Preferred approach" value={value.constraints.approach} options={[["no-code-first", "No-code first"], ["code-first", "Code first"], ["either", "Open to either"]]} onChange={approach => onChange({ ...value, constraints: { ...value.constraints, approach } })} />
         <div className="ap-ds-controlGrid">
           <ChoiceGroup compact label="Working mode" value={value.constraints.teamMode} options={[["solo", "Working alone"], ["team", "With a team"]]} onChange={teamMode => onChange({ ...value, constraints: { ...value.constraints, teamMode } })} />
@@ -636,8 +654,19 @@ function CapabilityForm({
 
       <Section {...common('foundations', 4)}>
         <p className="ap-ds-sectionPrompt">{adaptive('foundations').prompt}</p>
-        <ChoiceGroup compact label="Coding" value={value.foundations.codingComfort} options={[["none", "I have not coded"], ["modify-examples", "Modify examples"], ["small-programs", "Build small programs"], ["experienced", "Build software regularly"]]} onChange={codingComfort => onChange({ ...value, foundations: { ...value.foundations, codingComfort } })} />
-        <ChoiceGroup compact label="Data" value={value.foundations.dataComfort} options={[["documents", "Mainly documents"], ["spreadsheets", "Spreadsheets"], ["queries", "Query or transform data"], ["pipelines", "Build pipelines or models"]]} onChange={dataComfort => onChange({ ...value, foundations: { ...value.foundations, dataComfort } })} />
+        <ChoiceGroup compact label="Coding" value={value.foundations.codingComfort} options={codingComfortOptions} onChange={codingComfort => onChange({ ...value, foundations: { ...value.foundations, codingComfort } })} />
+        <MultiChoice
+          label="Data"
+          values={value.foundations.dataComfort.map(option => dataComfortLabelByValue[option])}
+          options={dataComfortOptions.map(([, label]) => label)}
+          onChange={selectedLabels => onChange({
+            ...value,
+            foundations: {
+              ...value.foundations,
+              dataComfort: selectedLabels.map(label => dataComfortValueByLabel[label]).filter(Boolean),
+            },
+          })}
+        />
         <MultiChoice label="AI tools you’ve used" values={value.foundations.tools} options={toolOptions} onChange={tools => onChange({ ...value, foundations: { ...value.foundations, tools } })} />
       </Section>
 

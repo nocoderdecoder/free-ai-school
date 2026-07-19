@@ -29,6 +29,7 @@ export type ExperienceLevel = 'none' | 'exposure' | 'guided' | 'adapted' | 'inde
 export type DataSensitivity = 'public' | 'internal' | 'confidential' | 'regulated' | 'unsure'
 export type ConsequenceLevel = 'low' | 'moderate' | 'serious' | 'critical'
 export type CodingComfort = 'none' | 'modify-examples' | 'small-programs' | 'experienced'
+export type DataComfort = 'documents' | 'spreadsheets' | 'queries' | 'pipelines'
 export type BuildApproach = 'no-code-first' | 'code-first' | 'either'
 export type CapabilityDomain = 'ai-assisted-work' | 'automation' | 'applications' | 'data-retrieval' | 'evaluation-safety'
 
@@ -62,7 +63,7 @@ export type CapabilityIntake = Readonly<{
   experience: Readonly<{ levels: Readonly<Record<CapabilityDomain, ExperienceLevel>> }>
   evidence: Readonly<{ description: string; supportedDomains: readonly CapabilityDomain[]; artifactUrl: string }>
   reasoning: Readonly<{ scenarioId: string; response: string }>
-  foundations: Readonly<{ codingComfort: CodingComfort | ''; dataComfort: 'documents' | 'spreadsheets' | 'queries' | 'pipelines' | ''; tools: readonly string[] }>
+  foundations: Readonly<{ codingComfort: CodingComfort | ''; dataComfort: readonly DataComfort[]; tools: readonly string[] }>
   constraints: Readonly<{
     weeklyHours: number | null
     learningPreference: 'guided' | 'projects' | 'balanced' | ''
@@ -110,7 +111,7 @@ export const INITIAL_CAPABILITY_INTAKE: CapabilityIntake = deepFreeze({
   experience: { levels: emptyLevels },
   evidence: { description: '', supportedDomains: [], artifactUrl: '' },
   reasoning: { scenarioId: '', response: '' },
-  foundations: { codingComfort: '', dataComfort: '', tools: [] },
+  foundations: { codingComfort: '', dataComfort: [], tools: [] },
   constraints: { weeklyHours: null, learningPreference: '', pace: '', resourceBudget: '', publicProject: '' },
 })
 
@@ -235,7 +236,7 @@ export function validateCapabilityIntake(input: CapabilityIntake): DiagnosticRea
     ]),
     section('foundations', [
       ...(!input.foundations.codingComfort ? ['Select your coding foundation.'] : []),
-      ...(!input.foundations.dataComfort ? ['Select your data foundation.'] : []),
+      ...(!input.foundations.dataComfort.length ? ['Select at least one data foundation.'] : []),
     ]),
     section('constraints', [
       ...(!validHours(input.constraints.weeklyHours) ? ['Choose 1–40 available hours per week.'] : []),
@@ -273,6 +274,7 @@ export function normalizeCapabilityIntake(input: CapabilityIntake): NormalizedCa
   return deepFreeze({
     ...structuredClone(input),
     direction: { ...input.direction, interests: [...new Set(input.direction.interests)].slice(0, 2) },
+    foundations: { ...input.foundations, dataComfort: [...new Set(input.foundations.dataComfort)] },
     evidence: {
       description: input.evidence.description.trim(),
       supportedDomains: [...input.evidence.supportedDomains],
@@ -668,14 +670,14 @@ function profileForUseCase(input: UseCaseIntake): PersonalizedPlanProfile {
 }
 
 function profileForCapability(input: CapabilityIntake, evidenceSummary: string): PersonalizedPlanProfile {
-  const dataModeByComfort = {
+  const dataModeByComfort: Record<DataComfort, string> = {
     documents: 'Document-based examples and source checks',
     spreadsheets: 'Spreadsheet examples and structured comparisons',
     queries: 'Queryable data and repeatable transformations',
     pipelines: 'Pipeline data with automated validation',
-  } as const
-  const dataMode = input.foundations.dataComfort
-    ? dataModeByComfort[input.foundations.dataComfort]
+  }
+  const dataMode = input.foundations.dataComfort.length
+    ? input.foundations.dataComfort.map(value => dataModeByComfort[value]).join('; ')
     : 'Data foundation not specified'
   return {
     role: compactText(input.direction.roleContext),
@@ -1092,7 +1094,7 @@ export function composeCapabilityPrescription(input: CapabilityIntake): Capabili
     evidenceProjectLinks: [
       { id: 'task-context', signal: context.source === 'evidence' ? `A concrete example supports ${context.label}.` : `The role and goal suggest ${context.label}.`, interpretation: context.source === 'evidence' ? 'The strongest practical example should anchor the project.' : 'No stronger practical example is established yet.', projectEffect: `The project and starter template focus on ${context.label}.` },
       { id: 'experience-scope', signal: `${strongest}`, interpretation: `The plan uses a ${persona} scope.`, projectEffect: `${sampleCount} examples and a ${firstStep.timeboxMinutes}-minute first step are assigned.` },
-      { id: 'foundations-route', signal: `${input.foundations.codingComfort} coding and ${input.foundations.dataComfort} data comfort.`, interpretation: 'The build route should fit demonstrated foundations.', projectEffect: buildMode },
+      { id: 'foundations-route', signal: `${input.foundations.codingComfort} coding and ${input.foundations.dataComfort.join(', ')} data comfort.`, interpretation: 'The build route should fit demonstrated foundations.', projectEffect: buildMode },
       { id: 'review-boundary', signal: reasoningHasReview ? 'The response includes a review or escalation boundary.' : 'The response does not yet name a review boundary.', interpretation: 'Uncertain or consequential outputs require a human decision.', projectEffect: summary.riskBoundary },
       { id: 'time-budget', signal: `${input.constraints.weeklyHours} hours are available each week.`, interpretation: 'The plan must fit stated capacity.', projectEffect: `Each week is capped at ${weeklyBudget} minutes and resources are assigned as short segments.` },
     ],
@@ -1105,7 +1107,7 @@ export function composeCapabilityPrescription(input: CapabilityIntake): Capabili
       { id: 'role-goals', source: 'direction', detail: `${compactText(input.direction.roleContext, 100)} and ${directions.map(item => item.capability).join(' plus ')} determine the project context and objectives.` },
       { id: 'evidence-level', source: 'experience and evidence', detail: `${strongest}; ${persona} scope is based on supported domains, the evidence description, and ${present(input.evidence.artifactUrl) ? 'an inspectable artifact' : 'no inspectable artifact link'}.` },
       { id: 'reasoning', source: 'reasoning', detail: `The ${input.reasoning.scenarioId} response ${reasoningHasEvaluation ? 'already includes evaluation thinking' : 'needs an explicit evaluation method'} and ${reasoningHasReview ? 'includes a review boundary' : 'needs a review boundary'}.` },
-      { id: 'foundations', source: 'foundations', detail: `${input.foundations.codingComfort === 'none' ? 'No' : input.foundations.codingComfort} coding and ${input.foundations.dataComfort} data experience set the ${buildMode.toLowerCase()} route; familiar tools are carried into the first prototype.` },
+      { id: 'foundations', source: 'foundations', detail: `${input.foundations.codingComfort === 'none' ? 'No' : input.foundations.codingComfort} coding and ${input.foundations.dataComfort.join(', ')} data experience set the ${buildMode.toLowerCase()} route; familiar tools are carried into the first prototype.` },
       { id: 'constraints', source: 'constraints', detail: `${input.constraints.weeklyHours} hours, ${input.constraints.learningPreference}, ${input.constraints.pace}, ${input.constraints.resourceBudget}, and ${input.constraints.publicProject} sharing determine workload, resource eligibility, and the final artifact.` },
     ],
     assumptions: [

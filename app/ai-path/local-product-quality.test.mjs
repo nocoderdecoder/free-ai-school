@@ -53,6 +53,22 @@ test('the diagnostic tells the truth about typing, microphone testing, processin
   assert.match(app, /Saved answers are kept for up to 90 days/i)
 })
 
+test('foundation options use professional labels and data is multi-select', async () => {
+  const app = await readFile(new URL('./AdvisorApp.tsx', import.meta.url), 'utf8')
+  assert.match(app, /I have not written code/)
+  assert.match(app, /I can edit simple examples/)
+  assert.match(app, /I can build small scripts/)
+  assert.match(app, /I build and debug software/)
+  assert.doesNotMatch(app, /I have not coded/)
+  assert.doesNotMatch(app, /\"Modify examples\"/)
+  assert.match(app, /Documents, PDFs, and web pages/)
+  assert.match(app, /Spreadsheets and simple tables/)
+  assert.match(app, /Databases, SQL, or dashboards/)
+  assert.match(app, /Data pipelines or ML models/)
+  assert.match(app, /<MultiChoice[\s\S]*label="Data"/)
+  assert.doesNotMatch(app, /<ChoiceGroup compact label="Data"/)
+})
+
 test('result UI renders the executive summary, structured first step, starter artifact, and honest resource allocation', async () => {
   const app = await readFile(new URL('./AdvisorApp.tsx', import.meta.url), 'utf8')
   assert.match(app, /result\.summary\.recommendation/)

@@ -47,7 +47,7 @@ const capabilityFixture = {
     scenarioId: 'automation-reliability',
     response: 'I would collect expected examples, measure incorrect outputs, require a person to review uncertain cases, and test before sending anything.',
   },
-  foundations: { codingComfort: 'modify-examples', dataComfort: 'spreadsheets', tools: ['ChatGPT', 'Python'] },
+  foundations: { codingComfort: 'modify-examples', dataComfort: ['spreadsheets'], tools: ['ChatGPT', 'Python'] },
   constraints: { weeklyHours: 4, learningPreference: 'balanced', pace: '30-day', resourceBudget: 'free-only', publicProject: 'yes' },
 }
 
@@ -310,7 +310,7 @@ test('beginner and advanced capability plans have distinct depth and eligible pr
       'ai-assisted-work': 'exposure', automation: 'none', applications: 'none', 'data-retrieval': 'none', 'evaluation-safety': 'none',
     } },
     evidence: { description: 'I have watched examples but have not built an AI tool.', supportedDomains: [], artifactUrl: '' },
-    foundations: { codingComfort: 'none', dataComfort: 'spreadsheets', tools: ['ChatGPT'] },
+    foundations: { codingComfort: 'none', dataComfort: ['spreadsheets'], tools: ['ChatGPT'] },
   }))
   const advanced = requireResult(composeCapabilityPrescription({
     ...capabilityFixture,
@@ -323,7 +323,7 @@ test('beginner and advanced capability plans have distinct depth and eligible pr
       supportedDomains: ['ai-assisted-work', 'automation', 'applications', 'data-retrieval', 'evaluation-safety'],
       artifactUrl: 'https://example.com/advanced-project',
     },
-    foundations: { codingComfort: 'experienced', dataComfort: 'pipelines', tools: ['Python', 'TypeScript', 'Postgres'] },
+    foundations: { codingComfort: 'experienced', dataComfort: ['pipelines'], tools: ['Python', 'TypeScript', 'Postgres'] },
   }))
   assert.equal(beginner.persona, 'beginner')
   assert.equal(advanced.persona, 'advanced')
@@ -472,7 +472,7 @@ test('capability coding, data, time, modality, budget, and publication constrain
 
   const pipelineData = requireResult(composeCapabilityPrescription({
     ...capabilityFixture,
-    foundations: { ...capabilityFixture.foundations, dataComfort: 'pipelines' },
+    foundations: { ...capabilityFixture.foundations, dataComfort: ['pipelines'] },
   }))
   assert.notDeepEqual(pipelineData.project, baseline.project, 'data comfort must change the project data route')
   assert.notDeepEqual(pipelineData.weeks, baseline.weeks, 'data comfort must change weekly activities')
