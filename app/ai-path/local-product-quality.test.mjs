@@ -35,3 +35,28 @@ test('consumer trust copy, privacy, terms, and portable plan output are present'
   assert.match(terms, /intended for adults/)
   assert.match(css, /@media print/)
 })
+
+test('the diagnostic tells the truth about typing, microphone testing, processing, and expected duration', async () => {
+  const app = await readFile(new URL('./AdvisorApp.tsx', import.meta.url), 'utf8')
+  assert.match(app, /Type your answers/)
+  assert.doesNotMatch(app, /<strong>Speak or type<\/strong>/)
+  assert.match(app, /Optional microphone test only\. It does not transcribe or submit audio\./)
+  assert.match(app, /Test microphone locally/)
+  assert.match(app, /(?:About|Allow) 10–15 minutes/)
+  assert.match(app, /Typed answers are sent to AI Path to create this plan/i)
+  assert.match(app, /not saved to your account unless you choose Save/i)
+  assert.match(app, /provider-backed question tailoring is enabled, an AI provider may process/i)
+  assert.match(app, /Saved answers are kept for up to 90 days/i)
+})
+
+test('result UI renders the executive summary, structured first step, starter artifact, and honest resource allocation', async () => {
+  const app = await readFile(new URL('./AdvisorApp.tsx', import.meta.url), 'utf8')
+  assert.match(app, /result\.summary\.recommendation/)
+  assert.match(app, /result\.summary\.decisionGate/)
+  assert.match(app, /result\.firstStep\.task/)
+  assert.match(app, /result\.firstStep\.doneWhen/)
+  assert.match(app, /result\.starterArtifact\.title/)
+  assert.match(app, /result\.starterArtifact\.fields\.map/)
+  assert.match(app, /resource\.week/)
+  assert.match(app, /formatMinutes\(resource\.planMinutes\)/)
+})

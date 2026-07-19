@@ -5,6 +5,7 @@ import test from 'node:test'
 import { AIPathApiError, createDiagnosticResult } from './client/api.ts'
 import { handleDiagnosticPost } from './lib/diagnostic-http.ts'
 import {
+  AI_PATH_RESULT_POLICY_VERSION,
   INITIAL_USE_CASE_INTAKE,
   composeDiagnosticResult,
 } from './lib/diagnostic.ts'
@@ -94,7 +95,7 @@ test('saving requires a verified user and persists only the server-composed resu
       assert.equal(value.idempotencyKey, idempotencyKey)
       assert.equal(value.intake.path, 'use-case')
       assert.equal(value.result.kind, 'use-case-blueprint')
-      assert.equal(value.result.policyVersion, '2026-07-18.v2')
+      assert.equal(value.result.policyVersion, AI_PATH_RESULT_POLICY_VERSION)
       assert.equal(value.storageConsent, true)
       assert.equal(value.privacyNoticeVersion, AI_PATH_DIAGNOSTIC_STORAGE_NOTICE_VERSION)
       return {

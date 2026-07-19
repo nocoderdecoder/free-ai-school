@@ -99,13 +99,14 @@ const capabilityLabels: Record<CapabilityDomain, string> = {
   'evaluation-safety': 'Evaluation, safety and reliability',
 }
 
-type CapabilityExperienceStage = 'new' | 'everyday' | 'workflows' | 'builder'
+type CapabilityExperienceStage = 'new' | 'everyday' | 'workflows' | 'builder' | 'advanced'
 
 const capabilityExperienceOptions: readonly [CapabilityExperienceStage, string, string][] = [
   ['new', 'I’m just getting started with AI', 'I have tried a few tools, watched tutorials, or experimented occasionally.'],
   ['everyday', 'I use AI for everyday tasks', 'For example: writing and editing, email drafting, research, summaries, brainstorming, or presentations.'],
   ['workflows', 'I have created repeatable AI workflows', 'I use prompts, custom assistants, automations, or connected tools to complete recurring work.'],
   ['builder', 'I have built and tested AI tools', 'I have made an app, automation, or data-based AI system and checked whether it works reliably.'],
+  ['advanced', 'I build and operate AI systems', 'I have deployed systems, evaluated quality, monitored performance, and managed release or rollback decisions.'],
 ]
 
 const capabilityStageLevels: Record<
@@ -140,12 +141,25 @@ const capabilityStageLevels: Record<
     'data-retrieval': 'adapted',
     'evaluation-safety': 'guided',
   },
+  advanced: {
+    'ai-assisted-work': 'independent',
+    automation: 'independent',
+    applications: 'demonstrated',
+    'data-retrieval': 'demonstrated',
+    'evaluation-safety': 'demonstrated',
+  },
 }
 
 function capabilityExperienceStage(
   levels: Readonly<Record<CapabilityDomain, ExperienceLevel>>,
 ): CapabilityExperienceStage | '' {
   if (Object.values(levels).every(level => level === 'none')) return ''
+
+  if (
+    ['demonstrated', 'operational'].includes(levels.applications) ||
+    ['demonstrated', 'operational'].includes(levels['data-retrieval']) ||
+    ['demonstrated', 'operational'].includes(levels['evaluation-safety'])
+  ) return 'advanced'
 
   if (
     ['adapted', 'independent', 'demonstrated', 'operational'].includes(levels.applications) ||
@@ -296,7 +310,11 @@ function DetailedMultiChoice<T extends string>({
         {options.map(([option, title, detail]) => (
           <label className={values.includes(option) ? 'is-selected' : ''} key={option}>
             <input type="checkbox" value={option} checked={values.includes(option)} onChange={() => toggle(option)} />
-            <span><strong>{title}</strong>{detail ? <small>{detail}</small> : null}</span>
+            <span>
+              <strong>{title}</strong>
+              {values.includes(option) ? <em className="ap-ds-choicePriority">{values.indexOf(option) === 0 ? 'Primary goal' : 'Secondary goal'}</em> : null}
+              {detail ? <small>{detail}</small> : null}
+            </span>
           </label>
         ))}
       </div>
@@ -336,29 +354,12 @@ function MultiChoice({
   )
 }
 
-function VoiceButton({ label, active, onClick }: { label: string; active: boolean; onClick(): void }) {
-  return (
-    <button
-      type="button"
-      className={`ap-ds-fieldMic${active ? ' is-active' : ''}`}
-      aria-label={`Test microphone for ${label}`}
-      aria-pressed={active}
-      onClick={onClick}
-    >
-      <MicIcon />
-      <span>{active ? 'Microphone selected' : 'Test microphone'}</span>
-    </button>
-  )
-}
-
 function TextAreaField({
   id,
   label,
   help,
   value,
   placeholder,
-  voiceTarget,
-  onVoice,
   onChange,
   rows = 4,
 }: {
@@ -367,8 +368,6 @@ function TextAreaField({
   help?: string
   value: string
   placeholder?: string
-  voiceTarget: string | null
-  onVoice(id: string): void
   onChange(value: string): void
   rows?: number
 }) {
@@ -376,7 +375,6 @@ function TextAreaField({
     <div className="ap-ds-field">
       <div className="ap-ds-fieldLabel">
         <label htmlFor={id}>{label}</label>
-        <VoiceButton label={label} active={voiceTarget === id} onClick={() => onVoice(id)} />
       </div>
       {help ? <p>{help}</p> : null}
       <textarea id={id} value={value} onChange={event => onChange(event.target.value)} rows={rows} maxLength={2000} placeholder={placeholder} />
@@ -470,18 +468,14 @@ function UseCaseForm({
   readiness,
   presentations,
   activeSection,
-  voiceTarget,
   onActivate,
-  onVoice,
   onChange,
 }: {
   value: UseCaseIntake
   readiness: ReturnType<typeof validateUseCaseIntake>
   presentations: PresentationMap
   activeSection: string
-  voiceTarget: string | null
   onActivate(id: string): void
-  onVoice(id: string): void
   onChange(value: UseCaseIntake): void
 }) {
   const status = new Map(readiness.sections.map(section => [section.id, section]))
@@ -499,27 +493,27 @@ function UseCaseForm({
   return (
     <div className="ap-ds-sections" data-path="use-case">
       <Section {...common('outcome', 0)}>
-        <TextAreaField id="ap-outcome" label={adaptive('outcome').prompt} help="Describe who it is for, the task, and what should be better when it works." value={value.outcome.desiredOutcome} voiceTarget={voiceTarget} onVoice={onVoice} onChange={desiredOutcome => onChange({ ...value, outcome: { desiredOutcome } })} placeholder="Type your answer…" />
+        <TextAreaField id="ap-outcome" label={adaptive('outcome').prompt} help="Describe who it is for, the task, and what should be better when it works." value={value.outcome.desiredOutcome} onChange={desiredOutcome => onChange({ ...value, outcome: { desiredOutcome } })} placeholder="Type your answer…" />
       </Section>
 
       <Section {...common('workflow', 1)}>
-        <TextAreaField id="ap-workflow" label={adaptive('workflow').prompt} help="Walk through the current steps. Name the slowest, least reliable, or hardest-to-review part." value={value.workflow.currentProcess} voiceTarget={voiceTarget} onVoice={onVoice} onChange={currentProcess => onChange({ ...value, workflow: { currentProcess } })} placeholder="Type your answer…" />
+        <TextAreaField id="ap-workflow" label={adaptive('workflow').prompt} help="Walk through the current steps. Name the slowest, least reliable, or hardest-to-review part." value={value.workflow.currentProcess} onChange={currentProcess => onChange({ ...value, workflow: { currentProcess } })} placeholder="Type your answer…" />
       </Section>
 
       <Section {...common('specification', 2)}>
         <p className="ap-ds-sectionPrompt">{adaptive('specification').prompt}</p>
         <div className="ap-ds-specGrid">
-          <TextAreaField id="ap-inputs" label="What will it receive?" help="For example: documents, messages, spreadsheet rows, images or form responses." value={value.specification.inputs} voiceTarget={voiceTarget} onVoice={onVoice} onChange={inputs => onChange({ ...value, specification: { ...value.specification, inputs } })} rows={3} placeholder="Type your answer…" />
-          <TextAreaField id="ap-output" label="What should it produce?" help="For example: a cited draft, recommendation, summary or structured record." value={value.specification.output} voiceTarget={voiceTarget} onVoice={onVoice} onChange={output => onChange({ ...value, specification: { ...value.specification, output } })} rows={3} placeholder="Type your answer…" />
-          <TextAreaField id="ap-success" label="How will you know it works?" value={value.specification.success} voiceTarget={voiceTarget} onVoice={onVoice} onChange={success => onChange({ ...value, specification: { ...value.specification, success } })} rows={3} placeholder="One or two observable acceptance criteria" />
+          <TextAreaField id="ap-inputs" label="What will it receive?" help="For example: documents, messages, spreadsheet rows, images or form responses." value={value.specification.inputs} onChange={inputs => onChange({ ...value, specification: { ...value.specification, inputs } })} rows={3} placeholder="Type your answer…" />
+          <TextAreaField id="ap-output" label="What should it produce?" help="For example: a cited draft, recommendation, summary or structured record." value={value.specification.output} onChange={output => onChange({ ...value, specification: { ...value.specification, output } })} rows={3} placeholder="Type your answer…" />
+          <TextAreaField id="ap-success" label="How will you know it works?" value={value.specification.success} onChange={success => onChange({ ...value, specification: { ...value.specification, success } })} rows={3} placeholder="One or two observable acceptance criteria" />
         </div>
       </Section>
 
       <Section {...common('experience', 3)}>
         <ChoiceGroup label={adaptive('experience').prompt} value={value.experience.level} options={experienceOptions} onChange={level => onChange({ ...value, experience: { ...value.experience, level } })} />
-        {value.experience.level !== 'none' ? (
+        {value.experience.level && value.experience.level !== 'none' ? (
           <div className="ap-ds-conditional">
-            <TextAreaField id="ap-use-case-evidence" label="What did you make or test?" help="Say what you did yourself, what happened, and how you checked it." value={value.experience.evidence} voiceTarget={voiceTarget} onVoice={onVoice} onChange={evidence => onChange({ ...value, experience: { ...value.experience, evidence } })} rows={3} placeholder="Type your answer…" />
+            <TextAreaField id="ap-use-case-evidence" label="What did you make or test?" help="Say what you did yourself, what happened, and how you checked it." value={value.experience.evidence} onChange={evidence => onChange({ ...value, experience: { ...value.experience, evidence } })} rows={3} placeholder="Type your answer…" />
             <label className="ap-ds-simpleField" htmlFor="ap-use-case-artifact"><span>Artifact link <small>Optional</small></span><input id="ap-use-case-artifact" type="url" maxLength={500} value={value.experience.artifactUrl} onChange={event => onChange({ ...value, experience: { ...value.experience, artifactUrl: event.target.value } })} placeholder="https://…" /></label>
           </div>
         ) : null}
@@ -558,18 +552,14 @@ function CapabilityForm({
   readiness,
   presentations,
   activeSection,
-  voiceTarget,
   onActivate,
-  onVoice,
   onChange,
 }: {
   value: CapabilityIntake
   readiness: ReturnType<typeof validateCapabilityIntake>
   presentations: PresentationMap
   activeSection: string
-  voiceTarget: string | null
   onActivate(id: string): void
-  onVoice(id: string): void
   onChange(value: CapabilityIntake): void
 }) {
   const status = new Map(readiness.sections.map(section => [section.id, section]))
@@ -625,14 +615,14 @@ function CapabilityForm({
       </Section>
 
       <Section {...common('evidence', 2)}>
-        <TextAreaField id="ap-capability-evidence" label={adaptive('evidence').prompt} help={adaptive('evidence').context ?? 'What did you do yourself? What was difficult? How did you check the result? “I haven’t built anything yet” is a valid answer.'} value={value.evidence.description} voiceTarget={voiceTarget} onVoice={onVoice} onChange={description => onChange({ ...value, evidence: { ...value.evidence, description } })} rows={5} placeholder="Type your answer…" />
+        <TextAreaField id="ap-capability-evidence" label={adaptive('evidence').prompt} help={adaptive('evidence').context ?? 'What did you do yourself? What was difficult? How did you check the result? “I haven’t built anything yet” is a valid answer.'} value={value.evidence.description} onChange={description => onChange({ ...value, evidence: { ...value.evidence, description } })} rows={5} placeholder="Type your answer…" />
         {claimedDomains.length ? <MultiChoice label="Which parts of this example did you personally work on?" values={value.evidence.supportedDomains.map(domain => capabilityLabels[domain])} options={claimedDomains.map(domain => capabilityLabels[domain])} onChange={selectedLabels => onChange({ ...value, evidence: { ...value.evidence, supportedDomains: claimedDomains.filter(domain => selectedLabels.includes(capabilityLabels[domain])) } })} /> : null}
         <label className="ap-ds-simpleField" htmlFor="ap-capability-artifact"><span>Artifact link <small>Optional</small></span><input id="ap-capability-artifact" type="url" maxLength={500} value={value.evidence.artifactUrl} onChange={event => onChange({ ...value, evidence: { ...value.evidence, artifactUrl: event.target.value } })} placeholder="https://…" /></label>
       </Section>
 
       <Section {...common('reasoning', 3)}>
         <div className="ap-ds-scenario"><span>{reasoningPresentation.variantId.includes('clarifier') ? 'What to include' : 'Imagine this situation'}</span><p>{scenario}</p></div>
-        <TextAreaField id="ap-reasoning" label={reasoningPresentation.prompt} value={value.reasoning.response} voiceTarget={voiceTarget} onVoice={onVoice} onChange={response => onChange({ ...value, reasoning: { scenarioId: reasoningPresentation.variantId, response } })} rows={5} />
+        <TextAreaField id="ap-reasoning" label={reasoningPresentation.prompt} value={value.reasoning.response} onChange={response => onChange({ ...value, reasoning: { scenarioId: reasoningPresentation.variantId, response } })} rows={5} />
       </Section>
 
       <Section {...common('foundations', 4)}>
@@ -661,7 +651,7 @@ function CapabilityForm({
 const SAVED_PLAN_STORAGE_KEY = 'ai-path.saved-next-step.v1'
 
 function resultSignature(result: DiagnosticResult): string {
-  const value = `${result.version}|${result.policyVersion}|${result.kind}|${result.title}|${result.firstAction}`
+  const value = `${result.version}|${result.policyVersion}|${result.kind}|${result.title}|${result.firstStep.task}`
   let hash = 2166136261
   for (let index = 0; index < value.length; index += 1) {
     hash ^= value.charCodeAt(index)
@@ -758,6 +748,78 @@ function ResultScene({
         )}
       </section>
 
+      <section className="ap-ds-summary" aria-labelledby="ap-plan-summary-title">
+        <div className="ap-ds-summaryLead">
+          <span className="ap-ds-persona">{result.persona} path</span>
+          <p className="ap-ds-kicker">Your recommendation</p>
+          <h2 id="ap-plan-summary-title">{result.summary.recommendation}</h2>
+          <p>{result.summary.reason}</p>
+        </div>
+        <dl>
+          <div><dt>Owner</dt><dd>{result.summary.owner}</dd></div>
+          <div><dt>Decision gate</dt><dd>{result.summary.decisionGate}</dd></div>
+          <div><dt>Checkpoint</dt><dd>{result.summary.checkpoint}</dd></div>
+          <div><dt>Keep a person responsible for</dt><dd>{result.summary.riskBoundary}</dd></div>
+        </dl>
+      </section>
+
+      <section className="ap-ds-firstAction">
+        <div className="ap-ds-firstStepHeading">
+          <span>Start here</span>
+          <small>{formatMinutes(result.firstStep.timeboxMinutes)}</small>
+        </div>
+        <h2>{result.firstStep.task}</h2>
+        <div className="ap-ds-firstStepDetails">
+          <div><strong>Use</strong><ul>{result.firstStep.inputs.map(input => <li key={input}>{input}</li>)}</ul></div>
+          <div><strong>Done when</strong><p>{result.firstStep.doneWhen}</p></div>
+        </div>
+        <button type="button" className={actionSaved ? 'is-saved' : ''} onClick={toggleSavedAction} aria-pressed={actionSaved}>
+          {actionSaved ? 'Next step saved' : 'Save this as my next step'} {actionSaved ? <CheckIcon /> : <ArrowIcon />}
+        </button>
+        <small aria-live="polite">{actionSaved ? 'Saved in this browser. Select again to remove it.' : 'Keep this next step in this browser.'}</small>
+      </section>
+
+      <section className="ap-ds-starterArtifact" aria-labelledby="ap-starter-title">
+        <div className="ap-ds-starterHeading">
+          <div><p className="ap-ds-kicker">Included starter template</p><h2 id="ap-starter-title">{result.starterArtifact.title}</h2></div>
+          <span>{result.starterArtifact.format}</span>
+        </div>
+        <p>{result.starterArtifact.instructions}</p>
+        <div className="ap-ds-templateFields">
+          {result.starterArtifact.fields.map(field => (
+            <article key={field.label}>
+              <h3>{field.label}</h3>
+              <p>{field.guidance}</p>
+              {field.example ? <small><strong>Example:</strong> {field.example}</small> : null}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="ap-ds-month">
+        <p className="ap-ds-kicker">Your next four weeks</p>
+        <h2>{isUseCase ? 'From first test to a useful result' : 'From first practice to something you can show'}</h2>
+        <div>{result.weeks.map(week => <article key={week.week}><span>{week.week}</span><small>Week {week.week} · {formatMinutes(week.estimatedMinutes)}</small><h3>{week.focus}</h3><p>{week.outcome}</p><ul>{week.activities.map(activity => <li key={activity}>{activity}</li>)}</ul></article>)}</div>
+      </section>
+
+      <section className="ap-ds-resources">
+        <p className="ap-ds-kicker">Learn only what the project needs</p>
+        <h2>Reviewed resources, fitted into your weekly plan</h2>
+        <div>{result.resources.map((resource, index) => {
+          const url = safeResourceUrl(resource.canonicalUrl)
+          return <article key={resource.id}>
+            <div className="ap-ds-resourceTopline"><span>Week {resource.week}</span><small className={`is-${resource.cost.kind}`}>{resource.cost.kind === 'free' ? 'Free' : resource.cost.kind === 'freemium' ? 'Free + optional paid' : 'Paid'}</small></div>
+            <h3><span className="sr-only">Resource {index + 1}: </span>{resource.title}</h3>
+            <p className="ap-ds-resourcePlanTime">{formatMinutes(resource.planMinutes)} included in your plan</p>
+            <p className="ap-ds-resourceMeta">{resource.provider} · {resource.format} · {formatMinutes(resource.estimatedMinutes)} full resource</p>
+            <p>{resource.purpose}</p>
+            {!url ? <p className="ap-ds-resourceOutcome"><strong>What you will produce:</strong> {resource.outcome}</p> : null}
+            <details><summary>Cost and access</summary><p>{resource.cost.disclosure}</p></details>
+            {url ? <a href={url} target="_blank" rel="noreferrer">Open resource <span aria-hidden="true">↗</span></a> : <span className="ap-ds-includedResource">Activity included in your plan</span>}
+          </article>
+        })}</div>
+      </section>
+
       <section className="ap-ds-planWhy" aria-labelledby="ap-plan-why-title">
         <div>
           <p className="ap-ds-kicker">Why this plan</p>
@@ -781,14 +843,12 @@ function ResultScene({
         </section>
       ) : null}
 
-      <section className="ap-ds-firstAction">
-        <span>Start here</span>
-        <h2>{result.firstAction}</h2>
-        <button type="button" className={actionSaved ? 'is-saved' : ''} onClick={toggleSavedAction} aria-pressed={actionSaved}>
-          {actionSaved ? 'Next step saved' : 'Save this as my next step'} {actionSaved ? <CheckIcon /> : <ArrowIcon />}
-        </button>
-        <small aria-live="polite">{actionSaved ? 'Saved in this browser. Select again to remove it.' : 'Keep this next step in this browser.'}</small>
-      </section>
+      {result.evidenceProjectLinks.length ? (
+        <section className="ap-ds-evidenceLinks" aria-labelledby="ap-evidence-links-title">
+          <div><p className="ap-ds-kicker">How your answers shaped the plan</p><h2 id="ap-evidence-links-title">Evidence, interpretation, project effect</h2></div>
+          <div>{result.evidenceProjectLinks.map(link => <article key={link.id}><strong>{link.signal}</strong><p>{link.interpretation}</p><small>{link.projectEffect}</small></article>)}</div>
+        </section>
+      ) : null}
 
       {isUseCase ? (
         <>
@@ -802,6 +862,24 @@ function ResultScene({
         </>
       ) : (
         <>
+          {result.discoveryExamples.length ? (
+            <section className="ap-ds-discoveryExamples" aria-labelledby="ap-discovery-examples-title">
+              <div><p className="ap-ds-kicker">Safe ways to start</p><h2 id="ap-discovery-examples-title">Three examples you can try</h2></div>
+              <div>
+                {result.discoveryExamples.map(example => (
+                  <article key={example.id}>
+                    <div><h3>{example.title}</h3><span>{formatMinutes(example.timeboxMinutes)}</span></div>
+                    <dl>
+                      <div><dt>Input</dt><dd>{example.input}</dd></div>
+                      <div><dt>Output</dt><dd>{example.output}</dd></div>
+                      <div><dt>Complete when</dt><dd>{example.completionCheck}</dd></div>
+                      <div><dt>Privacy boundary</dt><dd>{example.privacyBoundary}</dd></div>
+                    </dl>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
           <div className="ap-ds-resultGrid">
             <section className="is-dark"><p className="ap-ds-kicker">Build this next</p><h2>{result.project.title}</h2><p>{result.project.outcome}</p><ul>{result.project.deliverables.map(item => <li key={item}>{item}</li>)}</ul></section>
             <section><p className="ap-ds-kicker">Focus on this skill</p><h2>{result.nextCapability}</h2>{result.secondaryCapabilities.length ? <p>Then add: {result.secondaryCapabilities.join(' · ')}</p> : null}<p>This project creates evidence you can inspect—not merely another course completion.</p><details><summary>How you’ll know the project is done</summary><ul>{result.definitionOfDone.map(item => <li key={item}>{item}</li>)}</ul></details></section>
@@ -815,29 +893,6 @@ function ResultScene({
           </section>
         </>
       )}
-
-      <section className="ap-ds-month">
-        <p className="ap-ds-kicker">Your next four weeks</p>
-        <h2>{isUseCase ? 'From first test to a useful result' : 'From first practice to something you can show'}</h2>
-        <div>{result.weeks.map(week => <article key={week.week}><span>{week.week}</span><small>Week {week.week} · {formatMinutes(week.estimatedMinutes)}</small><h3>{week.focus}</h3><p>{week.outcome}</p><ul>{week.activities.map(activity => <li key={activity}>{activity}</li>)}</ul></article>)}</div>
-      </section>
-
-      <section className="ap-ds-resources">
-        <p className="ap-ds-kicker">Learn only what the project needs</p>
-        <h2>Reviewed resources, with the tradeoffs visible</h2>
-        <div>{result.resources.map((resource, index) => {
-          const url = safeResourceUrl(resource.canonicalUrl)
-          return <article key={resource.id}>
-            <div className="ap-ds-resourceTopline"><span>0{index + 1}</span><small className={`is-${resource.cost.kind}`}>{resource.cost.kind === 'free' ? 'Free' : resource.cost.kind === 'freemium' ? 'Free + optional paid' : 'Paid'}</small></div>
-            <h3>{resource.title}</h3>
-            <p className="ap-ds-resourceMeta">{resource.provider} · {resource.format} · {formatMinutes(resource.estimatedMinutes)}</p>
-            <p>{resource.purpose}</p>
-            {!url ? <p className="ap-ds-resourceOutcome"><strong>What you will produce:</strong> {resource.outcome}</p> : null}
-            <details><summary>Cost and access</summary><p>{resource.cost.disclosure}</p></details>
-            {url ? <a href={url} target="_blank" rel="noreferrer">Open resource <span aria-hidden="true">↗</span></a> : <span className="ap-ds-includedResource">Activity included in your plan</span>}
-          </article>
-        })}</div>
-      </section>
 
       <div className="ap-ds-resultFooter"><button type="button" onClick={onRestart}>Start over</button><p>{savedToAccount
         ? 'Your answers and plan were saved to your account for up to 90 days.'
@@ -860,7 +915,6 @@ export function AdvisorApp({
   const [useCase, setUseCase] = useState<UseCaseIntake>(() => structuredClone(INITIAL_USE_CASE_INTAKE))
   const [capability, setCapability] = useState<CapabilityIntake>(() => structuredClone(INITIAL_CAPABILITY_INTAKE))
   const [activeSection, setActiveSection] = useState('outcome')
-  const [voiceTarget, setVoiceTarget] = useState<string | null>(null)
   const [showErrors, setShowErrors] = useState(false)
   const [result, setResult] = useState<DiagnosticResult | null>(null)
   const [submitError, setSubmitError] = useState('')
@@ -934,7 +988,6 @@ export function AdvisorApp({
     setPath(nextPath)
     setActiveSection(nextPath === 'use-case' ? USE_CASE_SECTION_IDS[0] : CAPABILITY_SECTION_IDS[0])
     setShowErrors(false)
-    setVoiceTarget(null)
     setUsedClarifierSectionIds([])
     setClarifierAnswerBaselines({})
   }
@@ -979,8 +1032,7 @@ export function AdvisorApp({
     })
   }
 
-  const startVoiceFor = (id: string) => {
-    setVoiceTarget(id)
+  const startMicrophoneTest = () => {
     if (mic.phase !== 'ready' && mic.phase !== 'requesting') void microphone.start(mic.selectedDeviceId)
   }
 
@@ -1084,7 +1136,6 @@ export function AdvisorApp({
       adaptationAbort.current?.abort()
       adaptationRevision.current += 1
       microphone.stop()
-      setVoiceTarget(null)
       setResult(nextResult)
       setSavedToAccount(save)
       setScene('result')
@@ -1111,7 +1162,6 @@ export function AdvisorApp({
     setUseCase(structuredClone(INITIAL_USE_CASE_INTAKE))
     setCapability(structuredClone(INITIAL_CAPABILITY_INTAKE))
     setActiveSection('outcome')
-    setVoiceTarget(null)
     setShowErrors(false)
     setResult(null)
     setSubmitError('')
@@ -1167,16 +1217,22 @@ export function AdvisorApp({
               <QuestionProgress sections={sections} statuses={statuses} activeId={activeSection} onSelect={selectSection} />
               <div className="ap-ds-formColumn">
                 <div className="ap-ds-voiceConsole">
-                  <div><span><MicIcon /></span><p><strong>Speak or type</strong><small>{mic.phase === 'ready' ? 'Microphone is working locally.' : mic.error ?? 'Typing is ready. You can also test your microphone.'}</small></p></div>
+                  <div><span><MicIcon /></span><p><strong>Type your answers</strong><small>{mic.phase === 'ready' ? 'Microphone detected for the optional local test.' : mic.error ?? 'The microphone test is optional and stays on this device.'}</small></p></div>
                   <div className="ap-ds-level" aria-label={`Local microphone level ${Math.round(mic.level * 100)} percent`}><i style={{ transform: `scaleX(${Math.max(.04, mic.level)})` }} /></div>
-                  <button type="button" onClick={() => startVoiceFor(activeSection)}><MicIcon />{mic.phase === 'requesting' ? 'Allowing…' : 'Test microphone'}</button>
-                  <p>{mic.phase === 'ready' ? 'Voice-to-text is not connected yet, so type your answer below.' : 'No audio leaves this device during the test.'}</p>
+                  <button type="button" onClick={startMicrophoneTest}><MicIcon />{mic.phase === 'requesting' ? 'Allowing…' : 'Test microphone locally'}</button>
+                  <p>Optional microphone test only. It does not transcribe or submit audio.</p>
                 </div>
 
+                <aside className="ap-ds-dataUse" aria-label="How your typed answers are used">
+                  <strong>How we use your typed answers</strong>
+                  <span>Your typed answers are sent to AI Path to create this plan. They are not saved to your account unless you choose Save.</span>
+                  <span>If provider-backed question tailoring is enabled, an AI provider may process them. Saved answers are kept for up to 90 days. <a href="/ai-path/privacy">Privacy</a></span>
+                </aside>
+
                 {path === 'use-case' ? (
-                  <UseCaseForm value={useCase} readiness={effectiveUseCaseReadiness} presentations={presentations} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { if (isSubmitting) cancelSubmission(); setUseCase(value); invalidateFollowingPresentations('use-case', activeSection); setShowErrors(false) }} />
+                  <UseCaseForm value={useCase} readiness={effectiveUseCaseReadiness} presentations={presentations} activeSection={activeSection} onActivate={setActiveSection} onChange={value => { if (isSubmitting) cancelSubmission(); setUseCase(value); invalidateFollowingPresentations('use-case', activeSection); setShowErrors(false) }} />
                 ) : (
-                  <CapabilityForm value={capability} readiness={effectiveCapabilityReadiness} presentations={presentations} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { if (isSubmitting) cancelSubmission(); setCapability(value); invalidateFollowingPresentations('capability-growth', activeSection); setShowErrors(false) }} />
+                  <CapabilityForm value={capability} readiness={effectiveCapabilityReadiness} presentations={presentations} activeSection={activeSection} onActivate={setActiveSection} onChange={value => { if (isSubmitting) cancelSubmission(); setCapability(value); invalidateFollowingPresentations('capability-growth', activeSection); setShowErrors(false) }} />
                 )}
 
                 {isLastQuestion && authenticatedExperienceEnabled ? (
@@ -1210,7 +1266,7 @@ export function AdvisorApp({
               </div>
             </form>
           ) : (
-            <div className="ap-ds-emptyState"><p>About 5 minutes <span aria-hidden="true">·</span> Speak or type <span aria-hidden="true">·</span> No scores</p></div>
+            <div className="ap-ds-emptyState"><p>About 10–15 minutes <span aria-hidden="true">·</span> Type your answers <span aria-hidden="true">·</span> No scores</p></div>
           )}
         </main>
       )}

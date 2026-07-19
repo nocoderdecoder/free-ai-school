@@ -82,6 +82,44 @@ function combinedCapabilityPlanText(result) {
   return JSON.stringify(capabilityPlanFingerprint(result)).toLowerCase()
 }
 
+function assertProductionPlanContract(result) {
+  assert.ok(['beginner', 'practitioner', 'advanced', 'executive'].includes(result.persona))
+  for (const field of ['recommendation', 'reason', 'owner', 'riskBoundary', 'decisionGate', 'checkpoint']) {
+    assert.equal(typeof result.summary[field], 'string')
+    assert.ok(result.summary[field].trim().length > 5, `summary.${field} should be useful to the learner`)
+  }
+
+  assert.ok(result.firstStep.task.trim().length > 5)
+  assert.ok(result.firstStep.inputs.length > 0)
+  assert.equal(result.firstStep.artifactId, result.starterArtifact.id)
+  assert.ok(result.firstStep.timeboxMinutes >= 10 && result.firstStep.timeboxMinutes <= 90)
+  assert.ok(result.firstStep.doneWhen.trim().length > 10)
+  assert.match(result.firstAction, new RegExp(result.firstStep.task.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
+  assert.match(result.firstAction, new RegExp(result.firstStep.doneWhen.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
+
+  assert.ok(['brief', 'table', 'checklist', 'scorecard'].includes(result.starterArtifact.format))
+  assert.ok(result.starterArtifact.title.trim().length > 5)
+  assert.ok(result.starterArtifact.instructions.trim().length > 10)
+  assert.ok(result.starterArtifact.fields.length >= 4)
+  for (const field of result.starterArtifact.fields) {
+    assert.ok(field.label.trim().length > 1)
+    assert.ok(field.guidance.trim().length > 5)
+  }
+  assert.ok(result.evidenceProjectLinks.length > 0)
+
+  const weekMinutes = new Map(result.weeks.map(week => [week.week, week.estimatedMinutes]))
+  for (const resource of result.resources) {
+    assert.ok([1, 2, 3, 4].includes(resource.week))
+    assert.ok(resource.planMinutes > 0)
+    assert.ok(resource.planMinutes <= weekMinutes.get(resource.week), `${resource.id} must fit inside its assigned week`)
+  }
+  assert.ok(
+    result.resources.reduce((total, resource) => total + resource.planMinutes, 0)
+      <= result.weeks.reduce((total, week) => total + week.estimatedMinutes, 0),
+    'planned resource time must fit inside the four-week plan',
+  )
+}
+
 test('the versioned diagnostic has exactly six top-level sections per path and frozen initial values', () => {
   assert.equal(USE_CASE_SECTION_IDS.length, 6)
   assert.equal(CAPABILITY_SECTION_IDS.length, 6)
@@ -128,6 +166,32 @@ test('readiness distinguishes missing fields, unsupported evidence, and complete
   assert.match(conflictingDiscovery.sections.find(section => section.id === 'direction').issues.join(' '), /discovery by itself/i)
 })
 
+test('initial experience is untouched, explicit no experience is valid, and delivery constraints require an answer', () => {
+  assert.equal(INITIAL_USE_CASE_INTAKE.experience.level, '', 'the untouched screen must not preselect “Not started”')
+  const untouched = validateUseCaseIntake(INITIAL_USE_CASE_INTAKE)
+  assert.equal(untouched.sections.find(section => section.id === 'experience').status, 'missing')
+
+  const explicitNone = validateUseCaseIntake({
+    ...useCaseFixture,
+    experience: { level: 'none', evidence: '', artifactUrl: '' },
+  })
+  assert.equal(explicitNone.status, 'complete', 'an explicit “Not started” answer is complete and distinct from untouched')
+
+  const noResourceBudget = validateCapabilityIntake({
+    ...capabilityFixture,
+    constraints: { ...capabilityFixture.constraints, resourceBudget: '' },
+  })
+  assert.equal(noResourceBudget.sections.find(section => section.id === 'constraints').status, 'missing')
+  assert.match(noResourceBudget.sections.find(section => section.id === 'constraints').issues.join(' '), /resource|budget/i)
+
+  const noSharingDecision = validateCapabilityIntake({
+    ...capabilityFixture,
+    constraints: { ...capabilityFixture.constraints, publicProject: '' },
+  })
+  assert.equal(noSharingDecision.sections.find(section => section.id === 'constraints').status, 'missing')
+  assert.match(noSharingDecision.sections.find(section => section.id === 'constraints').issues.join(' '), /shar|public|private/i)
+})
+
 test('normalization excludes hidden, irrelevant evidence values', () => {
   const useCase = normalizeUseCaseIntake({
     ...useCaseFixture,
@@ -150,13 +214,15 @@ test('Path A composes a deterministic, bounded use-case blueprint', () => {
   assert.deepEqual(first, second)
   assert.equal(first.kind, 'use-case-blueprint')
   assert.equal(first.feasibility.rating, 'possible-with-constraints')
-  assert.equal(first.title, 'Build a reviewable draft RFP response with a source citation and confidence indicator')
+  assert.match(first.title, /RFP/i)
+  assert.ok(first.title.length < 120, 'the result title should be semantic and scannable')
   assert.match(first.architecture.pattern, /Retrieval/)
-  assert.match(first.prototype.scope, /10–20 representative examples/)
+  assert.match(first.prototype.scope, /Use 20 representative examples/)
   assert.equal(first.weeks.length, 4)
   assert.ok(first.firstAction.length > 20)
   assert.ok(first.resources.length <= 3)
   assert.ok(first.risk.safeguards.some(item => /human/i.test(item)))
+  assertProductionPlanContract(first)
 })
 
 test('Path B composes an evidence-calibrated capability prescription', () => {
@@ -166,28 +232,128 @@ test('Path B composes an evidence-calibrated capability prescription', () => {
   assert.match(result.strongest, /AI-assisted work: Adapted practice/)
   assert.ok(result.untested.includes('Evaluation, safety and reliability'))
   assert.match(result.nextCapability, /workflow automation/i)
-  assert.match(result.project.title, /triage workflow/i)
+  assert.match(result.project.title, /quality evaluation|support triage|workflow automation/i)
+  assert.doesNotMatch(result.project.title, /^I\b/i)
+  assert.ok(result.evidenceProjectLinks.some(link => link.id === 'task-context'))
   assert.ok(result.definitionOfDone.some(item => /failures/i.test(item)))
   assert.equal(result.weeks.length, 4)
   assert.ok(result.resources.length <= 3)
+  assertProductionPlanContract(result)
+})
+
+test('protected headings, next actions, and starter artifacts do not echo raw first-person answers', () => {
+  const rawOutput = 'I want AI to somehow prepare a long weekly operating report from whatever I upload, exactly in my writing style.'
+  const rawUseCaseEvidence = 'I personally pasted a secret-looking draft into ChatGPT and then copied the whole response unchanged.'
+  const useCase = requireResult(composeUseCaseBlueprint({
+    ...useCaseFixture,
+    specification: { ...useCaseFixture.specification, output: rawOutput },
+    experience: { level: 'adapted', evidence: rawUseCaseEvidence, artifactUrl: '' },
+  }))
+  const protectedUseCaseText = JSON.stringify({
+    title: useCase.title,
+    prototypeTitle: useCase.prototype.title,
+    firstStep: useCase.firstStep,
+    starterArtifact: useCase.starterArtifact,
+  })
+  assert.doesNotMatch(protectedUseCaseText, new RegExp(rawOutput, 'i'))
+  assert.doesNotMatch(protectedUseCaseText, new RegExp(rawUseCaseEvidence, 'i'))
+  assert.doesNotMatch(useCase.title, /^I\b/i)
+
+  const rawCapabilityEvidence = 'I use ChatGPT sometimes to brainstorm and I am not sure what any of the technical words mean.'
+  const capability = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    direction: { roleContext: 'Regional sales manager', interests: ['discover-fit'] },
+    experience: { levels: {
+      'ai-assisted-work': 'exposure', automation: 'none', applications: 'none', 'data-retrieval': 'none', 'evaluation-safety': 'none',
+    } },
+    evidence: { description: rawCapabilityEvidence, supportedDomains: [], artifactUrl: '' },
+  }))
+  const protectedCapabilityText = JSON.stringify({
+    title: capability.title,
+    projectTitle: capability.project.title,
+    firstStep: capability.firstStep,
+    starterArtifact: capability.starterArtifact,
+  })
+  assert.doesNotMatch(protectedCapabilityText, new RegExp(rawCapabilityEvidence, 'i'))
+  assert.doesNotMatch(capability.project.title, /^I\b/i)
+  assert.ok(capability.project.title.length < 120)
+})
+
+test('finance plans keep calculations deterministic and constrain AI to narrative drafting', () => {
+  const finance = requireResult(composeUseCaseBlueprint({
+    ...useCaseFixture,
+    outcome: { desiredOutcome: 'Prepare a monthly finance variance commentary for budget owners.' },
+    workflow: { currentProcess: 'A finance analyst reconciles ledger actuals to the approved budget and writes explanations.' },
+    specification: {
+      inputs: 'Approved ledger actuals, budget values, account mapping, and controller notes',
+      output: 'A concise variance commentary with reconciled figures and source references',
+      success: 'Every number must match the approved ledger and budget; the controller approves every narrative.',
+    },
+    constraints: { ...useCaseFixture.constraints, role: 'FP&A manager' },
+  }))
+  assert.equal(finance.domainPolicy.domain, 'finance-narrative')
+  assert.match(finance.domainPolicy.calculationBoundary, /determin|approved|source/i)
+  assert.match(finance.domainPolicy.allowedAiRole, /narrative|draft|summar/i)
+  assert.ok(finance.domainPolicy.blockedActions.length > 0)
+  assert.match(finance.domainPolicy.releaseRule, /human|controller|approv/i)
+  assert.match(finance.architecture.pattern, /determin|narrative/i)
+  const financePolicy = JSON.stringify({ policy: finance.domainPolicy, safeguards: finance.risk.safeguards })
+  assert.match(financePolicy, /calculat|number|ledger|source/i)
+  assert.match(financePolicy, /narrative|draft/i)
+})
+
+test('beginner and advanced capability plans have distinct depth and eligible primary resources', () => {
+  const beginner = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    direction: { roleContext: 'Sales coordinator', interests: ['build-ai-tool'] },
+    experience: { levels: {
+      'ai-assisted-work': 'exposure', automation: 'none', applications: 'none', 'data-retrieval': 'none', 'evaluation-safety': 'none',
+    } },
+    evidence: { description: 'I have watched examples but have not built an AI tool.', supportedDomains: [], artifactUrl: '' },
+    foundations: { codingComfort: 'none', dataComfort: 'spreadsheets', tools: ['ChatGPT'] },
+  }))
+  const advanced = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    direction: { roleContext: 'Senior software engineer', interests: ['build-ai-tool', 'improve-reliability'] },
+    experience: { levels: {
+      'ai-assisted-work': 'demonstrated', automation: 'demonstrated', applications: 'demonstrated', 'data-retrieval': 'independent', 'evaluation-safety': 'independent',
+    } },
+    evidence: {
+      description: 'I built and operated an evaluated retrieval application with regression tests, monitoring, and human escalation.',
+      supportedDomains: ['ai-assisted-work', 'automation', 'applications', 'data-retrieval', 'evaluation-safety'],
+      artifactUrl: 'https://example.com/advanced-project',
+    },
+    foundations: { codingComfort: 'experienced', dataComfort: 'pipelines', tools: ['Python', 'TypeScript', 'Postgres'] },
+  }))
+  assert.equal(beginner.persona, 'beginner')
+  assert.equal(advanced.persona, 'advanced')
+  assert.notDeepEqual(capabilityPlanFingerprint(beginner), capabilityPlanFingerprint(advanced))
+  assert.notEqual(beginner.firstStep.task, advanced.firstStep.task)
+  assert.ok(advanced.firstStep.timeboxMinutes > beginner.firstStep.timeboxMinutes)
+  assert.match(advanced.firstStep.doneWhen, /release|rollback/i)
+  assert.ok(advanced.resources.length > 0)
+  assert.ok(!['free-ai-school-capability-decision-sprint', 'free-ai-school-no-code-integration-sprint'].includes(advanced.resources[0].id))
+  assert.doesNotMatch(`${advanced.resources[0].id} ${advanced.resources[0].title}`, /beginner|no-code/i)
 })
 
 test('each plain-language direction produces a relevant project recommendation', () => {
   const expectations = [
-    ['everyday-work', /Evidence-based AI-assisted work/i, /recurring work task/i],
-    ['automate-repeated-work', /workflow automation/i, /triage workflow/i],
-    ['build-ai-tool', /testable AI applications/i, /small AI application/i],
-    ['improve-reliability', /evaluating and improving AI systems/i, /quality test/i],
-    ['discover-fit', /finding valuable AI opportunities/i, /three small AI opportunities/i],
+    ['everyday-work', /Evidence-based AI-assisted work/i],
+    ['automate-repeated-work', /workflow automation/i],
+    ['build-ai-tool', /testable AI applications/i],
+    ['improve-reliability', /evaluating and improving AI systems/i],
+    ['discover-fit', /finding valuable AI opportunities/i],
   ]
 
-  for (const [interest, capabilityPattern, projectPattern] of expectations) {
+  for (const [interest, capabilityPattern] of expectations) {
     const result = composeCapabilityPrescription({
       ...capabilityFixture,
       direction: { ...capabilityFixture.direction, interests: [interest] },
     })
     assert.match(result.nextCapability, capabilityPattern)
-    assert.match(result.project.title, projectPattern)
+    assert.doesNotMatch(result.project.title, /^I\b/i)
+    assert.ok(result.project.title.length < 120)
+    assert.ok(result.evidenceProjectLinks.some(link => link.id === 'task-context'))
   }
 })
 
@@ -226,7 +392,7 @@ test('use-case execution changes when risk, available time, build approach, team
     constraints: { ...useCaseFixture.constraints, teamMode: 'solo' },
   }))
   assert.notDeepEqual(solo.weeks, baseline.weeks, 'solo and team plans must assign different execution work')
-  assert.notEqual(solo.firstAction, baseline.firstAction, 'solo and team execution must not start identically')
+  assert.notEqual(solo.planProfile.collaborationMode, baseline.planProfile.collaborationMode, 'the plan must preserve the collaboration decision')
 
   const freeOnly = requireResult(composeUseCaseBlueprint({
     ...useCaseFixture,
@@ -236,16 +402,29 @@ test('use-case execution changes when risk, available time, build approach, team
 })
 
 test('capability role and selected goals materially change the recommended project', () => {
-  const operations = requireResult(composeCapabilityPrescription(capabilityFixture))
+  const operationsRole = 'Operations analyst for customer support and service request escalation'
+  const marketingRole = 'Marketing research manager synthesizing cited sources'
+  const noConcreteEvidence = { description: 'I have not built anything yet.', supportedDomains: [], artifactUrl: '' }
+  const operations = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    direction: { ...capabilityFixture.direction, roleContext: operationsRole },
+    evidence: noConcreteEvidence,
+  }))
   const marketing = requireResult(composeCapabilityPrescription({
     ...capabilityFixture,
     direction: {
-      roleContext: 'Marketing manager creating campaign briefs and reviewing brand claims',
+      roleContext: marketingRole,
       interests: capabilityFixture.direction.interests,
     },
+    evidence: noConcreteEvidence,
   }))
   assert.notDeepEqual(marketing.project, operations.project, 'role context must ground the recommended project')
-  assert.notEqual(marketing.firstAction, operations.firstAction, 'role context must ground the first action')
+  const operationsContext = operations.evidenceProjectLinks.find(link => link.id === 'task-context')
+  const marketingContext = marketing.evidenceProjectLinks.find(link => link.id === 'task-context')
+  assert.match(JSON.stringify(operationsContext), /support|triage|escalation/i)
+  assert.match(JSON.stringify(marketingContext), /research|source|synthesis/i)
+  assert.doesNotMatch(JSON.stringify(operations.project), new RegExp(operationsRole, 'i'))
+  assert.doesNotMatch(JSON.stringify(marketing.project), new RegExp(marketingRole, 'i'))
 
   const application = requireResult(composeCapabilityPrescription({
     ...capabilityFixture,
@@ -372,7 +551,9 @@ test('capability plans use the learner’s real example and do not award unsuppo
       artifactUrl: 'https://example.com/unverified',
     },
   }))
-  assert.match(JSON.stringify(result.project), /sales targets/i)
+  const taskContext = result.evidenceProjectLinks.find(link => link.id === 'task-context')
+  assert.match(JSON.stringify(taskContext), /forecast/i, 'the sales-target example should map to the controlled forecast archetype')
+  assert.match(JSON.stringify(result.project), /forecast/i)
   assert.doesNotMatch(result.project.title, /I used AI/i, 'headings should use a concise task label rather than repeat the full answer')
   assert.ok(result.project.title.length < 120, 'the recommended project title should remain scannable')
   assert.equal(result.evidenceProfile.find(item => item.domain === 'automation').assessedLevel, 'none')
