@@ -6,8 +6,21 @@ import {
   createBrowserMicrophonePreflightController,
   INITIAL_MICROPHONE_PREFLIGHT_SNAPSHOT,
 } from './client/microphone-preflight'
+import { createBrowserRealtimeDependencies } from './client/realtime-browser-dependencies'
+import { createRealtimeVoiceController, type RealtimeVoiceController } from './client/realtime-controller'
+import { createVoiceConsent } from './client/realtime-consent'
+import {
+  createHandsFreeInterviewController,
+  createInitialHandsFreeInterviewState,
+  type HandsFreeAnswerReview,
+  type HandsFreeInterviewController,
+  type HandsFreeInterviewState,
+  type HandsFreeNextQuestion,
+  type HandsFreeTranscriptTurn,
+} from './client/hands-free-interview'
 import { localAdaptiveQuestionDecision, requestAdaptiveQuestion } from './client/question-adaptation'
-import { createDiagnosticResult } from './client/api'
+import { createDiagnosticResult, createVoiceSession } from './client/api'
+import { HandsFreeInterviewPanel } from './components/voice-experience/HandsFreeInterviewPanel'
 import {
   canonicalQuestionPresentation,
   type AdaptiveQuestionPresentation,
@@ -18,11 +31,13 @@ import {
   INITIAL_CAPABILITY_INTAKE,
   INITIAL_USE_CASE_INTAKE,
   USE_CASE_SECTION_IDS,
+  isSubstantiveDiagnosticText,
   validateCapabilityIntake,
   validateUseCaseIntake,
   type CapabilityDomain,
   type CapabilityIntake,
   type CapabilityPrescription,
+  type CodingComfort,
   type DataComfort,
   type DiagnosticReadiness,
   type DiagnosticPath,
@@ -31,6 +46,7 @@ import {
   type UseCaseBlueprint,
   type UseCaseIntake,
 } from './lib/diagnostic'
+import type { AiPathGoalType } from './lib/goal-type'
 
 type DiagnosticResult = UseCaseBlueprint | CapabilityPrescription
 type PresentationMap = Readonly<Partial<Record<DiagnosticSectionId, AdaptiveQuestionPresentation>>>
@@ -211,6 +227,192 @@ const interestOptions = [
 ] as const
 
 const toolOptions = ['ChatGPT', 'Claude', 'Gemini', 'Microsoft Copilot', 'n8n', 'Zapier', 'Model APIs'] as const
+
+function boundedText(value: string, fallback = 'Not specified yet') {
+  const text = value.trim().replace(/\s+/g, ' ')
+  return text.length >= 3 ? text.slice(0, 500) : fallback
+}
+
+function firstHours(value: string, fallback = 2) {
+  const match = value.match(/\b([1-9]|[1-3][0-9]|40)\b/)
+  return match ? Number(match[1]) : fallback
+}
+
+function inferCodingComfort(value: string): CodingComfort {
+  const text = value.toLowerCase()
+  if (/\b(code|coding|javascript|python|typescript|react|api|sql|script|developer|engineer)\b/.test(text)) return 'small-programs'
+  if (/\b(no[- ]?code|zapier|n8n|spreadsheet|sheets|excel)\b/.test(text)) return 'modify-examples'
+  return 'none'
+}
+
+function inferExperienceLevel(value: string): ExperienceLevel {
+  const text = value.toLowerCase()
+  if (/\b(deploy|users?|team used|customer|production|launched|live)\b/.test(text)) return 'demonstrated'
+  if (/\b(built|made|created|tested|prototype|workflow|automation|app)\b/.test(text)) return 'adapted'
+  if (/\b(use|used|chatgpt|claude|gemini|copilot|prompt)\b/.test(text)) return 'guided'
+  if (/\b(haven't|have not|not tried|never)\b/.test(text)) return 'none'
+  return 'exposure'
+}
+
+function inferCapabilityStage(value: string): CapabilityExperienceStage {
+  const text = value.toLowerCase()
+  if (/\b(deploy|operate|production|monitor|rollback|eval|evaluation|release)\b/.test(text)) return 'advanced'
+  if (/\b(app|api|model|code|built|prototype|tool)\b/.test(text)) return 'builder'
+  if (/\b(workflow|automation|zapier|n8n|agent|assistant)\b/.test(text)) return 'workflows'
+  if (/\b(email|content|research|summar|presentation|draft|write|editing)\b/.test(text)) return 'everyday'
+  return 'new'
+}
+
+function inferInterests(value: string): string[] {
+  const text = value.toLowerCase()
+  const interests: string[] = []
+  if (/\b(automate|automation|workflow|zapier|n8n|repeat|manual|scheduler|calendar)\b/.test(text)) interests.push('automate-repeated-work')
+  if (/\b(app|tool|assistant|creator|planner|builder|build|software)\b/.test(text)) interests.push('build-ai-tool')
+  if (/\b(accurate|reliable|quality|mistake|test|evaluate)\b/.test(text)) interests.push('improve-reliability')
+  if (/\b(content|email|research|analysis|presentation|draft|editing)\b/.test(text)) interests.push('everyday-work')
+  return [...new Set(interests)].slice(0, 2).length ? [...new Set(interests)].slice(0, 2) : ['discover-fit']
+}
+
+function inferDataComfort(value: string): DataComfort[] {
+  const text = value.toLowerCase()
+  const values: DataComfort[] = []
+  if (/\b(pdf|doc|document|website|web page|content|brief)\b/.test(text)) values.push('documents')
+  if (/\b(sheet|spreadsheet|excel|csv|table|forecast|target)\b/.test(text)) values.push('spreadsheets')
+  if (/\b(sql|database|dashboard|warehouse|query|crm)\b/.test(text)) values.push('queries')
+  if (/\b(pipeline|model|ml|etl|dataflow)\b/.test(text)) values.push('pipelines')
+  return [...new Set(values)].length ? [...new Set(values)] : ['documents']
+}
+
+function inferTools(value: string): string[] {
+  const text = value.toLowerCase()
+  const tools: string[] = []
+  if (text.includes('chatgpt')) tools.push('ChatGPT')
+  if (text.includes('claude')) tools.push('Claude')
+  if (text.includes('gemini')) tools.push('Gemini')
+  if (text.includes('copilot')) tools.push('Microsoft Copilot')
+  if (text.includes('n8n')) tools.push('n8n')
+  if (text.includes('zapier')) tools.push('Zapier')
+  if (/\bapi|model api|openai\b/.test(text)) tools.push('Model APIs')
+  return [...new Set(tools)]
+}
+
+function inferGoalType(path: DiagnosticPath, answers: Readonly<Record<string, unknown>>): AiPathGoalType {
+  if (path === 'use-case') {
+    const outcome = (answers as unknown as UseCaseIntake).outcome?.desiredOutcome?.toLowerCase?.() ?? ''
+    if (/\b(app|tool|assistant|software|build)\b/.test(outcome)) return 'builder'
+    if (/\b(team|leader|org|department)\b/.test(outcome)) return 'leader'
+    return 'workflows'
+  }
+  const interests = (answers as unknown as CapabilityIntake).direction?.interests ?? []
+  if (interests.includes('build-ai-tool')) return 'builder'
+  if (interests.includes('automate-repeated-work')) return 'workflows'
+  if (interests.includes('improve-reliability')) return 'leader'
+  if (interests.includes('everyday-work')) return 'foundations'
+  return 'unsure'
+}
+
+function applyVoiceAnswer(path: DiagnosticPath, sectionId: DiagnosticSectionId, transcript: string, answers: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
+  const text = boundedText(transcript)
+  if (path === 'use-case') {
+    const current = answers as unknown as UseCaseIntake
+    if (sectionId === 'outcome') return { ...current, outcome: { desiredOutcome: text } }
+    if (sectionId === 'workflow') return { ...current, workflow: { currentProcess: text } }
+    if (sectionId === 'specification') {
+      return {
+        ...current,
+        specification: {
+          inputs: text,
+          output: text,
+          success: `It works when a small real example produces a useful result I can review: ${text}`,
+        },
+      }
+    }
+    if (sectionId === 'experience') {
+      const level = inferExperienceLevel(text)
+      return {
+        ...current,
+        experience: {
+          level,
+          evidence: level === 'none' ? '' : text,
+          artifactUrl: current.experience.artifactUrl,
+        },
+      }
+    }
+    if (sectionId === 'risk') {
+      const lower = text.toLowerCase()
+      return {
+        ...current,
+        risk: {
+          dataSensitivity: /\b(customer|client|private|confidential|financial|health)\b/.test(lower) ? 'confidential' : 'internal',
+          existingSystems: text,
+          consequence: /\b(critical|legal|money|customer|wrong|risk)\b/.test(lower) ? 'serious' : 'moderate',
+          humanApproval: /\b(approve|review|person|human|manager)\b/.test(lower) ? 'yes' : 'unsure',
+        },
+      }
+    }
+    if (sectionId === 'constraints') {
+      const codingComfort = inferCodingComfort(text)
+      return {
+        ...current,
+        constraints: {
+          role: current.constraints.role || text,
+          codingComfort,
+          weeklyHours: firstHours(text, current.constraints.weeklyHours ?? 2),
+          approach: codingComfort === 'none' ? 'no-code-first' : 'either',
+          teamMode: /\b(team|we|manager|stakeholder|reviewer)\b/i.test(text) ? 'team' : 'solo',
+          budget: /\b(paid|budget|company|organisation|organization)\b/i.test(text) ? 'organisation-decides' : 'free-only',
+        },
+      }
+    }
+    return current
+  }
+
+  const current = answers as unknown as CapabilityIntake
+  if (sectionId === 'direction') {
+    return { ...current, direction: { roleContext: text, interests: inferInterests(text) } }
+  }
+  if (sectionId === 'experience') {
+    return { ...current, experience: { levels: { ...capabilityStageLevels[inferCapabilityStage(text)] } } }
+  }
+  if (sectionId === 'evidence') {
+    const supportedDomains = (Object.keys(current.experience.levels) as CapabilityDomain[])
+      .filter(domain => !['none', 'exposure', 'guided'].includes(current.experience.levels[domain]))
+    return {
+      ...current,
+      evidence: {
+        description: text,
+        supportedDomains: supportedDomains.length ? supportedDomains : ['ai-assisted-work'],
+        artifactUrl: current.evidence.artifactUrl,
+      },
+    }
+  }
+  if (sectionId === 'reasoning') {
+    return { ...current, reasoning: { scenarioId: current.reasoning.scenarioId || 'voice-reasoning', response: text } }
+  }
+  if (sectionId === 'foundations') {
+    return {
+      ...current,
+      foundations: {
+        codingComfort: inferCodingComfort(text),
+        dataComfort: inferDataComfort(text),
+        tools: inferTools(text),
+      },
+    }
+  }
+  if (sectionId === 'constraints') {
+    return {
+      ...current,
+      constraints: {
+        weeklyHours: firstHours(text, current.constraints.weeklyHours ?? 2),
+        learningPreference: /\b(project|build|hands on|hands-on)\b/i.test(text) ? 'projects' : 'balanced',
+        pace: /\b(month|30|sprint)\b/i.test(text) ? '30-day' : 'exploratory',
+        resourceBudget: /\b(paid|budget|course|subscription)\b/i.test(text) ? 'paid-ok' : 'free-only',
+        publicProject: /\b(public|linkedin|portfolio|share)\b/i.test(text) ? 'yes' : 'unsure',
+      },
+    }
+  }
+  return current
+}
 
 function PathMark() {
   return (
@@ -950,9 +1152,11 @@ function ResultScene({
 export function AdvisorApp({
   authenticatedExperienceEnabled = false,
   storagePersistenceAvailable = false,
+  realtimeVoiceAvailable = false,
 }: {
   authenticatedExperienceEnabled?: boolean
   storagePersistenceAvailable?: boolean
+  realtimeVoiceAvailable?: boolean
 }) {
   const [scene, setScene] = useState<'diagnostic' | 'result'>('diagnostic')
   const [path, setPath] = useState<DiagnosticPath | null>(null)
@@ -972,11 +1176,17 @@ export function AdvisorApp({
   const [isAdapting, setIsAdapting] = useState(false)
   const [usedClarifierSectionIds, setUsedClarifierSectionIds] = useState<DiagnosticSectionId[]>([])
   const [clarifierAnswerBaselines, setClarifierAnswerBaselines] = useState<ClarifierAnswerBaselines>({})
+  const [voiceState, setVoiceState] = useState<HandsFreeInterviewState>(() => createInitialHandsFreeInterviewState('use-case'))
+  const [voiceTranscript, setVoiceTranscript] = useState<readonly HandsFreeTranscriptTurn[]>([])
   const adaptationRevision = useRef(0)
   const adaptationAbort = useRef<AbortController | null>(null)
   const submissionRevision = useRef(0)
   const submissionAbort = useRef<AbortController | null>(null)
   const storageSubmission = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null)
+  const voiceAudio = useRef<HTMLAudioElement | null>(null)
+  const realtimeVoice = useRef<RealtimeVoiceController | null>(null)
+  const handsFree = useRef<HandsFreeInterviewController<DiagnosticResult> | null>(null)
+  const voiceAutoPlanTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const microphone = useMemo(() => createBrowserMicrophonePreflightController(), [])
   const mic = useSyncExternalStore(microphone.subscribe, microphone.getSnapshot, () => INITIAL_MICROPHONE_PREFLIGHT_SNAPSHOT)
@@ -986,9 +1196,24 @@ export function AdvisorApp({
     return () => {
       adaptationAbort.current?.abort()
       submissionAbort.current?.abort()
+      if (voiceAutoPlanTimeout.current) clearTimeout(voiceAutoPlanTimeout.current)
+      handsFree.current?.close()
+      realtimeVoice.current?.close()
       microphone.destroy()
     }
   }, [microphone])
+
+  useEffect(() => {
+    if (!path || voiceState.path === path) return
+    handsFree.current?.close()
+    realtimeVoice.current?.close()
+    if (voiceAutoPlanTimeout.current) clearTimeout(voiceAutoPlanTimeout.current)
+    voiceAutoPlanTimeout.current = null
+    handsFree.current = null
+    realtimeVoice.current = null
+    setVoiceTranscript([])
+    setVoiceState(createInitialHandsFreeInterviewState(path))
+  }, [path, voiceState.path])
 
   useEffect(() => {
     if (scene !== 'result') return
@@ -1102,6 +1327,201 @@ export function AdvisorApp({
       <span>{mic.phase === 'requesting' ? 'Allowing...' : mic.phase === 'ready' ? 'Mic ready' : 'Mic'}</span>
     </button>
   )
+
+  const waitForRealtimeConnected = async (controller: RealtimeVoiceController) => {
+    const started = Date.now()
+    while (Date.now() - started < 8_000) {
+      if (controller.getState().phase === 'connected') return true
+      if (['failed', 'device-lost', 'provider-disabled', 'consent-required'].includes(controller.getState().phase)) return false
+      await wait(100)
+    }
+    return controller.getState().phase === 'connected'
+  }
+
+  const reviewVoiceAnswer = async (input: {
+    path: DiagnosticPath
+    sectionId: DiagnosticSectionId
+    transcript: string
+    answers: Readonly<Record<string, unknown>>
+    repairAttempt: number
+  }): Promise<HandsFreeAnswerReview> => {
+    const transcript = input.transcript.trim().replace(/\s+/g, ' ')
+    if (!isSubstantiveDiagnosticText(transcript, 12)) {
+      return { ok: false, repairPrompt: 'I did not catch enough to make this useful. Please give one concrete example in a sentence or two.' }
+    }
+    const nextAnswers = applyVoiceAnswer(input.path, input.sectionId, transcript, input.answers)
+    const sectionReadiness = input.path === 'use-case'
+      ? validateUseCaseIntake(nextAnswers as unknown as UseCaseIntake)
+      : validateCapabilityIntake(nextAnswers as unknown as CapabilityIntake)
+    const reviewedSection = sectionReadiness.sections.find(section => section.id === input.sectionId)
+    if (reviewedSection?.status !== 'complete') {
+      return {
+        ok: false,
+        repairPrompt: reviewedSection?.issues[0]
+          ? `${reviewedSection.issues[0]} Say it as one concrete sentence.`
+          : 'Please add one concrete detail so I can use that answer.',
+      }
+    }
+    if (input.path === 'use-case') setUseCase(nextAnswers as unknown as UseCaseIntake)
+    else setCapability(nextAnswers as unknown as CapabilityIntake)
+    return {
+      ok: true,
+      answers: nextAnswers,
+      acknowledgement: transcript.length > 80 ? 'Got it. I’ll use that as the concrete context.' : 'Got it.',
+    }
+  }
+
+  const requestVoiceNextQuestion = async (input: {
+    path: DiagnosticPath
+    completedSectionId: DiagnosticSectionId
+    expectedSectionId: DiagnosticSectionId | null
+    answers: Readonly<Record<string, unknown>>
+    usedClarifierSectionIds: readonly DiagnosticSectionId[]
+  }): Promise<HandsFreeNextQuestion> => {
+    if (!input.expectedSectionId) return { action: 'complete' }
+    const fallback = localAdaptiveQuestionDecision({
+      path: input.path,
+      completedSectionId: input.completedSectionId,
+      expectedSectionId: input.expectedSectionId,
+      answers: input.answers,
+      usedClarifierSectionIds: input.usedClarifierSectionIds,
+    })
+    try {
+      const [adaptation] = await Promise.all([
+        requestAdaptiveQuestion({
+          path: input.path,
+          completedSectionId: input.completedSectionId,
+          expectedSectionId: input.expectedSectionId,
+          answers: input.answers,
+          usedClarifierSectionIds: input.usedClarifierSectionIds,
+        }),
+        wait(MINIMUM_ADAPTIVE_THINKING_MS),
+      ])
+      return { action: adaptation.action, presentation: adaptation.presentation }
+    } catch {
+      await wait(MINIMUM_ADAPTIVE_THINKING_MS)
+      return { action: fallback.action, presentation: fallback.presentation }
+    }
+  }
+
+  const startVoiceConversation = async () => {
+    if (!path || !voiceAudio.current || isSubmitting) return
+    setSubmitError('')
+    const activeAnswers = (path === 'use-case' ? useCase : capability) as unknown as Readonly<Record<string, unknown>>
+    const consent = createVoiceConsent({ audioStreamingAccepted: true, transcriptReviewAccepted: true })
+    if (!consent) {
+      setSubmitError('Voice consent could not be prepared. Continue by typing.')
+      return
+    }
+    const goal = path === 'use-case'
+      ? boundedText(useCase.outcome.desiredOutcome, 'Build a practical AI workflow')
+      : boundedText(capability.direction.roleContext, 'Build my AI skills')
+    const targetRole = path === 'use-case'
+      ? boundedText(useCase.constraints.role, 'Learner')
+      : boundedText(capability.direction.roleContext, 'Learner')
+
+    try {
+      const session = await createVoiceSession({
+        goal,
+        goalType: inferGoalType(path, activeAnswers),
+        targetRole,
+        consent,
+        saveTranscript: authenticatedExperienceEnabled && storageConsent,
+      })
+      const controller = createRealtimeVoiceController({
+        dependencies: createBrowserRealtimeDependencies({
+          assessmentSessionId: session.session.id,
+          remoteAudio: voiceAudio.current,
+        }),
+        onStateChange: state => {
+          if (state.phase === 'interrupted') handsFree.current?.notifySpeechStarted()
+        },
+        onFinalUserTranscript: item => {
+          void handsFree.current?.submitFinalTranscript({ itemId: item.itemId, text: item.text })
+        },
+      })
+      realtimeVoice.current = controller
+      const voiceController = createHandsFreeInterviewController<DiagnosticResult>({
+        path,
+        initialAnswers: activeAnswers,
+        reviewAnswer: reviewVoiceAnswer,
+        requestNextQuestion: requestVoiceNextQuestion,
+        generatePlan: async input => {
+          const intake = input.answers as unknown as UseCaseIntake | CapabilityIntake
+          return input.path === 'use-case'
+            ? await createDiagnosticResult(intake as UseCaseIntake, { save: false, idempotencyKey: null })
+            : await createDiagnosticResult(intake as CapabilityIntake, { save: false, idempotencyKey: null })
+        },
+        speak: async ({ text }) => {
+          const spoken = await realtimeVoice.current?.speakText(text)
+          if (!spoken) throw new Error('voice_speak_failed')
+        },
+        stopSpeaking: () => {
+          realtimeVoice.current?.stopSpeaking()
+        },
+        onStateChange: state => {
+          setVoiceState(state)
+          setVoiceTranscript(voiceController.getTranscript())
+          setActiveSection(state.currentSectionId)
+          if (state.phase === 'reviewing') {
+            if (voiceAutoPlanTimeout.current) clearTimeout(voiceAutoPlanTimeout.current)
+            voiceAutoPlanTimeout.current = setTimeout(() => {
+              if (handsFree.current === voiceController && voiceController.getState().phase === 'reviewing') {
+                void voiceController.confirmTranscript()
+              }
+            }, 650)
+          }
+          if (state.question) {
+            setAdaptivePresentations(current => ({
+              ...current,
+              [path]: { ...current[path], [state.currentSectionId]: state.question },
+            }))
+          }
+        },
+        onPlanReady: plan => {
+          if (voiceAutoPlanTimeout.current) clearTimeout(voiceAutoPlanTimeout.current)
+          voiceAutoPlanTimeout.current = null
+          microphone.stop()
+          setResult(plan)
+          setSavedToAccount(false)
+          setScene('result')
+        },
+      })
+      handsFree.current = voiceController
+      setVoiceState(voiceController.getState())
+      setVoiceTranscript([])
+      const connectedState = await controller.connect(consent)
+      if (connectedState.phase === 'failed') throw new Error('voice_connect_failed')
+      const connected = await waitForRealtimeConnected(controller)
+      if (!connected) throw new Error('voice_connect_timeout')
+      await voiceController.start()
+    } catch {
+      realtimeVoice.current?.close()
+      handsFree.current?.close()
+      if (voiceAutoPlanTimeout.current) clearTimeout(voiceAutoPlanTimeout.current)
+      voiceAutoPlanTimeout.current = null
+      realtimeVoice.current = null
+      handsFree.current = null
+      setVoiceState(createInitialHandsFreeInterviewState(path))
+      setVoiceTranscript([])
+      setSubmitError('Voice could not start. Check Realtime env settings or continue by typing.')
+    }
+  }
+
+  const endVoiceConversation = () => {
+    handsFree.current?.close()
+    realtimeVoice.current?.close()
+    if (voiceAutoPlanTimeout.current) clearTimeout(voiceAutoPlanTimeout.current)
+    voiceAutoPlanTimeout.current = null
+    handsFree.current = null
+    realtimeVoice.current = null
+    if (path) setVoiceState(createInitialHandsFreeInterviewState(path))
+    setVoiceTranscript([])
+  }
+
+  const confirmVoiceTranscript = () => {
+    void handsFree.current?.confirmTranscript()
+  }
 
   const continueQuestion = async () => {
     if (isAdapting) return
@@ -1281,6 +1701,20 @@ export function AdvisorApp({
           {path ? (
             <form className="ap-ds-workbench" data-show-errors={showErrors} data-thinking={isAdapting || isSubmitting} onSubmit={submit} noValidate aria-busy={isSubmitting || isAdapting}>
               <QuestionProgress sections={sections} statuses={statuses} activeId={activeSection} onSelect={selectSection} />
+              <HandsFreeInterviewPanel
+                state={voiceState.path === path ? voiceState : createInitialHandsFreeInterviewState(path)}
+                transcript={voiceTranscript}
+                providerAvailable={realtimeVoiceAvailable}
+                onStart={() => void startVoiceConversation()}
+                onEnd={endVoiceConversation}
+                onUseTyped={endVoiceConversation}
+                onConfirmTranscript={confirmVoiceTranscript}
+                onTranscriptChange={(itemId, text) => {
+                  handsFree.current?.updateTranscript({ itemId, text })
+                  setVoiceTranscript(handsFree.current?.getTranscript() ?? [])
+                }}
+              />
+              <audio ref={voiceAudio} className="sr-only" aria-hidden="true" />
               <div className="ap-ds-formColumn">
                 {path === 'use-case' ? (
                   <UseCaseForm value={useCase} readiness={effectiveUseCaseReadiness} presentations={presentations} activeSection={activeSection} inputAccessory={textInputAccessory} onActivate={setActiveSection} onChange={value => { if (isSubmitting) cancelSubmission(); setUseCase(value); invalidateFollowingPresentations('use-case', activeSection); setShowErrors(false) }} />

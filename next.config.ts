@@ -1,17 +1,38 @@
 import type { NextConfig } from "next";
 
+function originFromUrl(value: string | undefined) {
+  if (!value) return null
+  try {
+    return new URL(value).origin
+  } catch {
+    return null
+  }
+}
+
+const supabaseOrigin = originFromUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)
+const aiPathFormSources = [
+  "'self'",
+  'https://accounts.google.com',
+  supabaseOrigin,
+].filter(Boolean).join(' ')
+const aiPathConnectSources = [
+  "'self'",
+  'https://api.openai.com',
+  supabaseOrigin,
+].filter(Boolean).join(' ')
+
 const aiPathContentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
   "frame-ancestors 'none'",
-  "form-action 'self'",
+  `form-action ${aiPathFormSources}`,
   `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'production' ? '' : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
   "media-src 'self' blob:",
-  "connect-src 'self'",
+  `connect-src ${aiPathConnectSources}`,
   "worker-src 'self' blob:",
   "manifest-src 'self'",
 ].join('; ')

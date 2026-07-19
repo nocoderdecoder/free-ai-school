@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { AdvisorApp } from './AdvisorApp'
 import { getConsumerAuthCapability, hasVerifiedConsumerSession } from './lib/consumer-auth.server'
 import { getConsumerDiagnosticPersistenceCapability } from './lib/diagnostic-persistence-runtime.server'
+import { getRealtimeCapability } from './lib/realtime.server'
 import './ai-path.css'
 import './components/voice-experience/voice-experience.css'
 
@@ -23,11 +24,13 @@ export default async function AIPathPage() {
   const authenticatedExperienceEnabled = authConfigured && await hasVerifiedConsumerSession()
   const storagePersistenceAvailable = authenticatedExperienceEnabled
     && getConsumerDiagnosticPersistenceCapability().available
+  const realtimeCapability = getRealtimeCapability()
   return (
     <div className="aiPath">
       <AdvisorApp
         authenticatedExperienceEnabled={authenticatedExperienceEnabled}
         storagePersistenceAvailable={storagePersistenceAvailable}
+        realtimeVoiceAvailable={realtimeCapability.liveEnabled}
       />
     </div>
   )

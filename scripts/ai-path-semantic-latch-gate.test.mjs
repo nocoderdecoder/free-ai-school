@@ -87,15 +87,15 @@ test('a credential read or provider call before its latch guard fails closed', (
     replace(
       root,
       'app/ai-path/lib/realtime.server.ts',
-      /if \(!AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY\)/,
-      'if (false)',
+      /\}\): Promise<LiveRealtimeResult> \{\n/,
+      '}): Promise<LiveRealtimeResult> {\n  await fetch(OPENAI_REALTIME_CLIENT_SECRETS_URL)\n',
     )
     const report = inspectAiPathSemanticLatchGate({ root })
     const retention = report.checks.find(item => item.id === 'durable_retention_runtime_credentials')
     const provider = report.checks.find(item => item.id === 'public_realtime_provider_call')
     assert.equal(report.ok, false)
     assert.match(retention?.failures.join('\n') ?? '', /precedes the terminating guard/)
-    assert.match(provider?.failures.join('\n') ?? '', /no terminating guard/)
+    assert.match(provider?.failures.join('\n') ?? '', /precedes the terminating guard/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

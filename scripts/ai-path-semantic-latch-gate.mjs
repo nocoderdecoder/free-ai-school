@@ -116,10 +116,15 @@ const guardContracts = [
   {
     id: 'public_realtime_provider_call',
     file: 'app/ai-path/lib/realtime.server.ts',
-    functionName: 'createLiveRealtimeCall',
-    latches: [['app/ai-path/lib/foundation.ts', 'AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY']],
-    guardTerms: ['!AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY'],
-    effects: ['getRealtimeCapability()', 'fetch(OPENAI_REALTIME_URL'],
+    functionName: 'createRealtimeClientSecret',
+    latches: [],
+    guardTerms: ['!capability.liveEnabled'],
+    prerequisiteCalls: ['getRealtimeCapability()'],
+    effects: [
+      'process.env.OPENAI_API_KEY',
+      'safetyIdentifier(input.verifiedUserId)',
+      'fetch(OPENAI_REALTIME_CLIENT_SECRETS_URL',
+    ],
   },
   {
     id: 'realtime_admission_activation',

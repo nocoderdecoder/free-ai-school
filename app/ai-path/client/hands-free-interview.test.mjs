@@ -265,23 +265,50 @@ test('microphone denial is bounded and cannot begin peer, SDP, or provider work'
   assert.equal(controller.getState().phase, 'text-fallback')
 })
 
-test('disabled provider latch guarantees zero paid calls and zero microphone access', async () => {
-  assert.equal(AI_PATH_REALTIME_CLIENT_PROVIDER_LATCH, false)
-  let sideEffects = 0
+test('approved provider latch still requires explicit voice consent before transport work', async () => {
+  assert.equal(AI_PATH_REALTIME_CLIENT_PROVIDER_LATCH, true)
+  const sideEffects = []
+  const stream = {
+    getTracks: () => [],
+    getAudioTracks: () => [],
+  }
   const controller = createRealtimeVoiceController({
     dependencies: {
       networkAccess: 'provider',
-      async getUserMedia() { sideEffects += 1; throw new Error('must not run') },
-      createPeerConnection() { sideEffects += 1; throw new Error('must not run') },
-      async exchangeSdp() { sideEffects += 1; throw new Error('must not run') },
-      attachRemoteAudio() { sideEffects += 1 },
+      async getUserMedia() { sideEffects.push('media'); return stream },
+      createPeerConnection() {
+        sideEffects.push('peer')
+        return {
+          connectionState: 'new',
+          addTrack() {},
+          createDataChannel() {
+            return {
+              readyState: 'connecting',
+              send() {},
+              close() {},
+              addEventListener() {},
+              removeEventListener() {},
+            }
+          },
+          async createOffer() { return { type: 'offer', sdp: 'v=0\r\noffer' } },
+          async setLocalDescription() {},
+          async setRemoteDescription() {},
+          addEventListener() {},
+          removeEventListener() {},
+          close() {},
+        }
+      },
+      async exchangeSdp() { sideEffects.push('sdp'); return 'v=0\r\nanswer' },
+      attachRemoteAudio() { sideEffects.push('audio') },
     },
   })
+  assert.equal((await controller.connect(null)).phase, 'consent-required')
+  assert.deepEqual(sideEffects, [])
   const consent = createVoiceConsent({
     audioStreamingAccepted: true,
     transcriptReviewAccepted: true,
     now: () => new Date('2026-07-19T12:00:00.000Z'),
   })
-  assert.equal((await controller.connect(consent)).phase, 'provider-disabled')
-  assert.equal(sideEffects, 0)
+  assert.equal((await controller.connect(consent)).phase, 'connecting')
+  assert.deepEqual(sideEffects, ['audio', 'media', 'peer', 'sdp'])
 })

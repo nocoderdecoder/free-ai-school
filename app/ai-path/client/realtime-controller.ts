@@ -11,7 +11,7 @@ import {
   type VoiceTranscriptItem,
 } from './realtime-transcript.ts'
 
-export const AI_PATH_REALTIME_CLIENT_PROVIDER_LATCH = false as const
+export const AI_PATH_REALTIME_CLIENT_PROVIDER_LATCH = true as const
 
 type EventListener = (event: unknown) => void
 
@@ -58,6 +58,8 @@ export type RealtimeVoiceController = Readonly<{
   connect(consent: VoiceConsent | null): Promise<RealtimeVoiceState>
   reconnect(): Promise<RealtimeVoiceState>
   sendTypedMessage(text: string): boolean
+  speakText(text: string): Promise<boolean>
+  stopSpeaking(): boolean
   useTextFallback(): void
   close(): void
   getState(): RealtimeVoiceState
@@ -68,6 +70,8 @@ type ControllerOptions = Readonly<{
   dependencies: RealtimeControllerDependencies
   onStateChange?: (state: RealtimeVoiceState) => void
   onTranscriptChange?: (items: readonly VoiceTranscriptItem[]) => void
+  onFinalUserTranscript?: (item: VoiceTranscriptItem) => void
+  onFinalAssistantTranscript?: (item: VoiceTranscriptItem) => void
   maxReconnectAttempts?: number
 }>
 
@@ -84,7 +88,8 @@ export function createRealtimeVoiceController(options: ControllerOptions): Realt
   let channel: RealtimeDataChannel | null = null
   let localStream: RealtimeMediaStream | null = null
   let closing = false
-  let initialResponseSent = false
+  let pendingSpeech: { resolve(value: boolean): void; timeout: ReturnType<typeof setTimeout> } | null = null
+  const pendingChannelMessages: string[] = []
   const maxReconnectAttempts = Math.max(0, Math.min(3, options.maxReconnectAttempts ?? 2))
 
   const dispatch = (action: RealtimeVoiceAction) => {
@@ -106,7 +111,21 @@ export function createRealtimeVoiceController(options: ControllerOptions): Realt
     const type = event && typeof event === 'object' && 'type' in event ? (event as { type: unknown }).type : null
     if (type === 'input_audio_buffer.speech_started') dispatch({ type: 'SPEECH_STARTED' })
     if (type === 'input_audio_buffer.speech_stopped') dispatch({ type: 'SPEECH_STOPPED' })
+    if (type === 'response.done' || type === 'response.output_audio.done') {
+      const resolver = pendingSpeech
+      pendingSpeech = null
+      if (resolver) {
+        clearTimeout(resolver.timeout)
+        resolver.resolve(true)
+      }
+    }
     if (type === 'error') {
+      const resolver = pendingSpeech
+      pendingSpeech = null
+      if (resolver) {
+        clearTimeout(resolver.timeout)
+        resolver.resolve(false)
+      }
       dispatch({ type: 'FAILED', error: 'The live conversation reported an error. Continue by typing.' })
       cleanup(false)
       return
@@ -115,22 +134,19 @@ export function createRealtimeVoiceController(options: ControllerOptions): Realt
     if (!update) return
     transcript = applyTranscriptUpdate(transcript, update)
     options.onTranscriptChange?.(transcript)
+    const updated = transcript.find(item => item.itemId === update.itemId)
+    if (updated?.final && updated.text.trim()) {
+      if (updated.role === 'user') options.onFinalUserTranscript?.(updated)
+      if (updated.role === 'assistant') options.onFinalAssistantTranscript?.(updated)
+    }
   }
 
   const handleChannelOpen = () => {
     if (!channel || closing) return
-    try {
-      if (!initialResponseSent) {
-        // The server-created session owns all instructions. This empty event
-        // only asks that governed session to begin the interview.
-        channel.send(JSON.stringify({ type: 'response.create' }))
-        initialResponseSent = true
-      }
-      dispatch({ type: 'CONNECTED' })
-    } catch {
-      dispatch({ type: 'FAILED', error: 'The voice interview could not begin. Continue by typing.' })
-      cleanup(false)
+    while (pendingChannelMessages.length && channel.readyState === 'open') {
+      channel.send(pendingChannelMessages.shift() as string)
     }
+    dispatch({ type: 'CONNECTED' })
   }
   const handleChannelClose = () => {
     if (!closing && state.phase !== 'device-lost' && state.phase !== 'failed') {
@@ -163,6 +179,12 @@ export function createRealtimeVoiceController(options: ControllerOptions): Realt
 
   function cleanup(markClosed: boolean) {
     closing = true
+    const resolver = pendingSpeech
+    pendingSpeech = null
+    if (resolver) {
+      clearTimeout(resolver.timeout)
+      resolver.resolve(false)
+    }
     channel?.removeEventListener('open', handleChannelOpen)
     channel?.removeEventListener('close', handleChannelClose)
     channel?.removeEventListener('error', handleChannelError)
@@ -171,7 +193,8 @@ export function createRealtimeVoiceController(options: ControllerOptions): Realt
     peer?.removeEventListener('track', handleRemoteTrack)
     peer?.removeEventListener('connectionstatechange', handleConnectionState)
     peer?.close()
-    for (const track of localStream?.getTracks() ?? []) {
+    const tracks = typeof localStream?.getTracks === 'function' ? localStream.getTracks() : []
+    for (const track of tracks) {
       track.removeEventListener?.('ended', handleTrackEnded)
       track.stop()
     }
@@ -183,15 +206,25 @@ export function createRealtimeVoiceController(options: ControllerOptions): Realt
     channel = null
     peer = null
     localStream = null
+    pendingChannelMessages.length = 0
     if (markClosed) dispatch({ type: 'CLOSED' })
     closing = false
   }
 
+  function sendOrQueue(value: string) {
+    if (channel?.readyState === 'open') {
+      channel.send(value)
+      return true
+    }
+    if (channel && channel.readyState === 'connecting') {
+      pendingChannelMessages.push(value)
+      return true
+    }
+    return false
+  }
+
   async function performConnection(nextConsent: VoiceConsent): Promise<RealtimeVoiceState> {
     try {
-      // Every reconnect creates a fresh provider session and data channel. The
-      // new channel must receive its own initial response request exactly once.
-      initialResponseSent = false
       dispatch({ type: 'MICROPHONE_REQUESTED' })
       localStream = await options.dependencies.getUserMedia({ audio: true })
       for (const track of localStream.getAudioTracks()) track.addEventListener?.('ended', handleTrackEnded)
@@ -243,13 +276,61 @@ export function createRealtimeVoiceController(options: ControllerOptions): Realt
     },
     sendTypedMessage(value) {
       const text = value.trim()
-      if (!text || channel?.readyState !== 'open') return false
-      channel.send(JSON.stringify({
+      if (!text) return false
+      const created = sendOrQueue(JSON.stringify({
         type: 'conversation.item.create',
         item: { type: 'message', role: 'user', content: [{ type: 'input_text', text }] },
       }))
-      channel.send(JSON.stringify({ type: 'response.create' }))
-      return true
+      const requested = sendOrQueue(JSON.stringify({ type: 'response.create' }))
+      return created && requested
+    },
+    speakText(value) {
+      const text = value.trim().replace(/\s+/g, ' ').slice(0, 1_200)
+      if (!text || !channel || !['connecting', 'open'].includes(channel.readyState)) return Promise.resolve(false)
+      const previous = pendingSpeech
+      pendingSpeech = null
+      if (previous) {
+        clearTimeout(previous.timeout)
+        previous.resolve(false)
+      }
+      return new Promise(resolve => {
+        const timeout = setTimeout(() => {
+          if (pendingSpeech?.resolve === resolve) pendingSpeech = null
+          resolve(false)
+        }, Math.max(4_000, Math.min(20_000, text.length * 75)))
+        pendingSpeech = { resolve, timeout }
+        const sent = sendOrQueue(JSON.stringify({
+          type: 'response.create',
+          response: {
+            instructions: [
+              'Speak the following AI Path interview line exactly in a calm, premium product voice.',
+              'Do not add any new question, extra advice, course recommendation, or explanation.',
+              text,
+            ].join('\n\n'),
+            modalities: ['audio', 'text'],
+          },
+        }))
+        if (!sent) {
+          pendingSpeech = null
+          clearTimeout(timeout)
+          resolve(false)
+        }
+      })
+    },
+    stopSpeaking() {
+      pendingChannelMessages.length = 0
+      if (!channel || !['connecting', 'open'].includes(channel.readyState)) return false
+      const resolver = pendingSpeech
+      pendingSpeech = null
+      if (resolver) {
+        clearTimeout(resolver.timeout)
+        resolver.resolve(false)
+      }
+      try {
+        return sendOrQueue(JSON.stringify({ type: 'response.cancel' }))
+      } catch {
+        return false
+      }
     },
     useTextFallback() {
       cleanup(false)

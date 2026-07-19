@@ -768,6 +768,8 @@ export function validateEvidenceAgainstTranscript(
 export type RealtimeEnvironment = {
   enableLiveRealtime?: string
   allowPaidApiCalls?: string
+  localPreviewEnabled?: string
+  nodeEnv?: string
   authReady?: string
   distributedRateLimitReady?: string
   spendControlsReady?: string
@@ -778,12 +780,15 @@ export type RealtimeEnvironment = {
   model?: string
 }
 
-// Launch invariant: a public route must not mint a live Realtime session until
-// persisted ownership checks and one-active-session enforcement are implemented.
+// Production invariant: a public route must not mint a live Realtime session
+// until persisted ownership checks and one-active-session enforcement are
+// implemented. Local preview is separately gated in resolveRealtimeCapability.
 export const AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY = false as const
 
-export function canBootstrapPublicRealtime(capability: { liveEnabled: boolean }): boolean {
-  return AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY && capability.liveEnabled
+export function canBootstrapPublicRealtime(capability: { liveEnabled: boolean; reason?: string }): boolean {
+  return capability.liveEnabled
+    && (AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY
+      || capability.reason === 'explicit local Realtime preview is enabled')
 }
 
 export function resolveRealtimeCapability(environment: RealtimeEnvironment): {
@@ -792,12 +797,21 @@ export function resolveRealtimeCapability(environment: RealtimeEnvironment): {
   reason: string
   model: string
 } {
-  const model = environment.model?.trim() || 'gpt-realtime-2.1'
-  if (environment.enableLiveRealtime !== 'true') {
+  const model = environment.model?.trim() || 'gpt-realtime'
+  const localPreview = environment.nodeEnv !== 'production'
+    && environment.allowPaidApiCalls === 'true'
+    && environment.localPreviewEnabled !== 'false'
+  if (environment.enableLiveRealtime !== 'true' && !localPreview) {
     return { mode: 'mock', liveEnabled: false, reason: 'live mode is not enabled', model }
   }
   if (environment.allowPaidApiCalls !== 'true') {
     return { mode: 'mock', liveEnabled: false, reason: 'paid API calls are not explicitly allowed', model }
+  }
+  if (localPreview) {
+    if (!environment.apiKey) {
+      return { mode: 'mock', liveEnabled: false, reason: 'OpenAI API key is not configured', model }
+    }
+    return { mode: 'live', liveEnabled: true, reason: 'explicit local Realtime preview is enabled', model }
   }
   if (environment.authReady !== 'true') {
     return { mode: 'mock', liveEnabled: false, reason: 'authenticated persisted session ownership is not ready', model }

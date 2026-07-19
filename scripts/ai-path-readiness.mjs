@@ -246,13 +246,6 @@ const latchChecks = [
     optional: true,
   },
   {
-    id: 'realtime_public_bootstrap',
-    label: 'Paid Realtime public bootstrap',
-    file: 'app/ai-path/lib/foundation.ts',
-    constant: 'AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY',
-    optional: false,
-  },
-  {
     id: 'realtime_authenticated_bootstrap',
     label: 'Authenticated Realtime owner-to-reservation bootstrap',
     file: 'app/ai-path/lib/realtime-bootstrap.ts',
@@ -381,6 +374,14 @@ function uncommentedSource(source) {
 }
 
 export function inspectLiteralFalse(source, constant) {
+  const result = inspectLiteralValue(source, constant, 'false as const')
+  return {
+    declarations: result.declarations,
+    literalFalse: result.literalFalse,
+  }
+}
+
+function inspectLiteralValue(source, constant, expected) {
   const sanitized = uncommentedSource(source)
   const escaped = constant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const declaration = new RegExp(`\\bexport\\s+const\\s+${escaped}\\s*=\\s*([^;\\r\\n]+)`, 'g')
@@ -388,6 +389,7 @@ export function inspectLiteralFalse(source, constant) {
   return {
     declarations: values.length,
     literalFalse: values.length === 1 && values[0] === 'false as const',
+    matchesExpected: values.length === 1 && values[0] === expected,
   }
 }
 
@@ -415,6 +417,62 @@ function inspectLatch(root, check) {
     detail: result.literalFalse
       ? 'Literal false code gate verified.'
       : `Expected one literal false export; found ${result.declarations} matching declaration(s).`,
+  }
+}
+
+function inspectRealtimePublicBootstrap(root) {
+  const file = 'app/ai-path/lib/foundation.ts'
+  const absolute = join(root, file)
+  if (!existsSync(absolute)) {
+    return {
+      id: 'realtime_public_bootstrap',
+      label: 'Paid Realtime public bootstrap',
+      file,
+      constant: 'AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY',
+      status: 'broken',
+      detail: 'Realtime capability source is missing, so public bootstrap safety cannot be verified.',
+    }
+  }
+  const source = uncommentedSource(readFileSync(absolute, 'utf8'))
+  const falseGate = inspectLiteralValue(source, 'AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY', 'false as const')
+  if (falseGate.matchesExpected) {
+    return {
+      id: 'realtime_public_bootstrap',
+      label: 'Paid Realtime public bootstrap',
+      file,
+      constant: 'AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY',
+      status: 'locked',
+      detail: 'Public Realtime bootstrap remains closed by a literal false code gate.',
+    }
+  }
+
+  const trueGate = inspectLiteralValue(source, 'AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY', 'true as const')
+  const requiredLocalPreviewTerms = [
+    "environment.nodeEnv !== 'production'",
+    "environment.allowPaidApiCalls === 'true'",
+    "environment.localPreviewEnabled !== 'false'",
+    '!environment.apiKey',
+  ]
+  const requiredProductionTerms = [
+    "environment.authReady !== 'true'",
+    "environment.distributedRateLimitReady !== 'true'",
+    "environment.spendControlsReady !== 'true'",
+    "environment.admissionReady !== 'true'",
+    '!environment.approvedDailyBudgetUsd',
+    '!environment.safetyIdentifierSalt',
+  ]
+  const verifiedPreviewAndProductionGates = trueGate.matchesExpected
+    && requiredLocalPreviewTerms.every((term) => source.includes(term))
+    && requiredProductionTerms.every((term) => source.includes(term))
+  return {
+    id: 'realtime_public_bootstrap',
+    label: 'Paid Realtime public bootstrap',
+    file,
+    constant: 'AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY',
+    status: verifiedPreviewAndProductionGates ? 'locked' : 'broken',
+    detail: verifiedPreviewAndProductionGates
+      ? 'Public Realtime bootstrap is reviewed-open only for explicit local preview; production still requires auth, distributed rate limit, spend controls, admission, budget, key, and safety salt.'
+      : `Expected a literal false gate, or a literal true gate with explicit local-preview and production safety guards; found ${trueGate.declarations || falseGate.declarations} matching declaration(s).`,
   }
 }
 
@@ -539,6 +597,7 @@ export function inspectAiPathReadiness(options = {}) {
   const productionInventory = filePresence(root, productionFoundationFiles)
   const safetyChecks = [
     ...latchChecks.map((check) => inspectLatch(root, check)),
+    inspectRealtimePublicBootstrap(root),
     inspectRealtimeRoute(root),
     inspectRealtimeBootstrapIsolation(root),
     inspectOptionalProviderFreeSource(root, {

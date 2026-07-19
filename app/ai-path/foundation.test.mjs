@@ -247,6 +247,7 @@ test('Realtime remains inert until every server-side live and paid gate is expli
     apiKey: 'test-key',
     safetyIdentifierSalt: 'test-salt',
     model: 'test-realtime-model',
+    nodeEnv: 'production',
   }
   assert.equal(resolveRealtimeCapability(base).liveEnabled, false)
   assert.equal(resolveRealtimeCapability({ ...base, enableLiveRealtime: 'true' }).liveEnabled, false)
@@ -278,6 +279,16 @@ test('Realtime remains inert until every server-side live and paid gate is expli
   })
   assert.equal(admittedCapability.liveEnabled, true)
   assert.equal(canBootstrapPublicRealtime(admittedCapability), false)
+  const previewCapability = resolveRealtimeCapability({
+    ...base,
+    enableLiveRealtime: 'true',
+    allowPaidApiCalls: 'true',
+    localPreviewEnabled: 'true',
+    nodeEnv: 'development',
+  })
+  assert.equal(previewCapability.liveEnabled, true)
+  assert.match(previewCapability.reason, /local Realtime preview/)
+  assert.equal(canBootstrapPublicRealtime(previewCapability), true)
   assert.equal(resolveRealtimeCapability({
     ...base,
     enableLiveRealtime: 'true',

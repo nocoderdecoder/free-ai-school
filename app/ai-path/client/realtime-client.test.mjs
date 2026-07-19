@@ -98,8 +98,8 @@ test('voice consent is explicit, versioned, and separate from text consent', () 
   assert.equal(isCurrentVoiceConsent({ ...accepted, version: 'old' }), false)
 })
 
-test('provider-marked dependencies are blocked before microphone, peer, remote audio, or SDP work', async () => {
-  assert.equal(AI_PATH_REALTIME_CLIENT_PROVIDER_LATCH, false)
+test('provider-marked dependencies are allowed after explicit Realtime approval', async () => {
+  assert.equal(AI_PATH_REALTIME_CLIENT_PROVIDER_LATCH, true)
   const mock = harness()
   const states = []
   const controller = createRealtimeVoiceController({
@@ -107,9 +107,9 @@ test('provider-marked dependencies are blocked before microphone, peer, remote a
     onStateChange: state => states.push(state.phase),
   })
   const state = await controller.connect(consent())
-  assert.equal(state.phase, 'provider-disabled')
-  assert.deepEqual(mock.calls, [])
-  assert.deepEqual(states, ['provider-disabled'])
+  assert.equal(state.phase, 'connecting')
+  assert.deepEqual(mock.calls.map(call => call[0]), ['audio', 'media', 'peer', 'sdp'])
+  assert.deepEqual(states, ['requesting-microphone', 'connecting'])
 })
 
 test('missing consent blocks even the injected test transport', async () => {
@@ -130,9 +130,9 @@ test('mock transport owns media, WebRTC, oai-events, SDP, remote audio, and dete
   assert.deepEqual(peer.remoteDescription, { type: 'answer', sdp: 'v=0\r\nmock-answer' })
   peer.channel.open()
   assert.equal(controller.getState().phase, 'connected')
-  assert.deepEqual(peer.channel.sent.map(JSON.parse), [{ type: 'response.create' }])
+  assert.deepEqual(peer.channel.sent.map(JSON.parse), [])
   peer.channel.emit('open')
-  assert.deepEqual(peer.channel.sent.map(JSON.parse), [{ type: 'response.create' }])
+  assert.deepEqual(peer.channel.sent.map(JSON.parse), [])
 
   peer.emit('track', { streams: [{ id: 'remote-stream' }] })
   await Promise.resolve()
@@ -140,7 +140,6 @@ test('mock transport owns media, WebRTC, oai-events, SDP, remote audio, and dete
 
   assert.equal(controller.sendTypedMessage(' hello '), true)
   assert.deepEqual(peer.channel.sent.map(JSON.parse), [
-    { type: 'response.create' },
     {
       type: 'conversation.item.create',
       item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'hello' }] },
@@ -185,7 +184,7 @@ test('device loss, network failure, reconnect cap, and typed fallback are recove
   assert.equal(controller.getState().phase, 'device-lost')
   assert.equal((await controller.reconnect()).phase, 'connecting')
   mock.peers[1].channel.open()
-  assert.deepEqual(mock.peers[1].channel.sent.map(JSON.parse), [{ type: 'response.create' }])
+  assert.deepEqual(mock.peers[1].channel.sent.map(JSON.parse), [])
   mock.peers[1].connectionState = 'disconnected'
   mock.peers[1].emit('connectionstatechange')
   assert.equal(controller.getState().phase, 'failed')
@@ -213,10 +212,8 @@ test('state reducer and transcript normalizer ignore invalid transitions and unk
   assert.deepEqual(applyTranscriptUpdate([], update), [{ itemId: 'u1', role: 'user', text: 'I built a rubric.', final: true }])
 })
 
-test('browser dependency factory posts the bounded owned-session SDP contract and manages remote audio', async () => {
+test('browser dependency factory mints a client secret before posting SDP to Realtime', async () => {
   const requests = []
-  let mediaCalls = 0
-  let peerCalls = 0
   const audio = {
     autoplay: false,
     srcObject: null,
@@ -230,26 +227,37 @@ test('browser dependency factory posts the bounded owned-session SDP contract an
     remoteAudio: audio,
     async fetch(url, init) {
       requests.push({ url, init })
-      return new Response('v=0\r\nanswer', { status: 200, headers: { 'content-type': 'application/sdp' } })
+      if (String(url) === '/api/ai-path/realtime/session') {
+        return new Response(JSON.stringify({
+          clientSecret: 'ek_test_client_secret_1234567890',
+          expiresAt: '2026-07-19T12:02:00.000Z',
+        }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (String(url) === 'https://api.openai.com/v1/realtime/calls') {
+        return new Response('v=0\r\no=- 1 1 IN IP4 127.0.0.1\r\n', {
+          status: 200,
+          headers: { 'content-type': 'application/sdp' },
+        })
+      }
+      throw new Error(`unexpected browser-side provider request: ${url}`)
     },
-    async getUserMedia() { mediaCalls += 1; return { id: 'local' } },
-    createPeerConnection() { peerCalls += 1; return { id: 'peer' } },
   })
-  const gatedController = createRealtimeVoiceController({ dependencies })
-  assert.equal((await gatedController.connect(consent())).phase, 'provider-disabled')
-  assert.equal(mediaCalls, 0)
-  assert.equal(peerCalls, 0)
-  assert.equal(requests.length, 0)
-
-  // Exercise the adapter method directly to lock the dormant route contract;
-  // the controller above proves the client latch cannot reach it.
-  assert.equal(await dependencies.exchangeSdp('v=0\r\noffer'), 'v=0\r\nanswer')
+  assert.equal(await dependencies.exchangeSdp('v=0\r\noffer'), 'v=0\r\no=- 1 1 IN IP4 127.0.0.1')
   assert.equal(requests[0].url, '/api/ai-path/realtime/session')
   assert.deepEqual(JSON.parse(requests[0].init.body), {
     assessmentSessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-    sdp: 'v=0\r\noffer',
   })
   assert.equal(requests[0].init.credentials, 'same-origin')
+  assert.equal(requests[1].url, 'https://api.openai.com/v1/realtime/calls')
+  assert.equal(requests[1].init.headers.Authorization, 'Bearer ek_test_client_secret_1234567890')
+  assert.equal(requests[1].init.headers['Content-Type'], 'application/sdp')
+  assert.equal(requests[1].init.body, 'v=0\r\noffer')
+  assert.equal(requests.length, 2)
+  assert.equal(String(requests[0].init.body).includes('OPENAI_API_KEY'), false)
+  assert.equal(String(requests[0].init.body).includes('ek_'), false)
   const remote = { id: 'remote' }
   await dependencies.attachRemoteAudio(remote)
   assert.equal(audio.autoplay, true)
