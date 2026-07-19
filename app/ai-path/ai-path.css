@@ -1,16 +1,18 @@
 :root {
-  --path-page: #f7f6f2;
+  --path-page: #f5f7f4;
   --path-surface: #ffffff;
-  --path-soft: #f0f3ef;
-  --path-selected: #e7f2ec;
-  --path-ink: #17211d;
-  --path-muted: #65706b;
-  --path-line: #d9ddd9;
-  --path-primary: #176b54;
-  --path-primary-hover: #105743;
+  --path-soft: #eef2ef;
+  --path-selected: #e5f1eb;
+  --path-ink: #14201b;
+  --path-muted: #637069;
+  --path-line: #dce2de;
+  --path-primary: #11634c;
+  --path-primary-hover: #0b513e;
   --path-focus: #2f6feb;
   --path-error: #a54137;
   --path-warn: #fff2e8;
+  --path-shadow-sm: 0 1px 2px rgb(20 32 27 / 4%), 0 8px 24px rgb(20 32 27 / 5%);
+  --path-shadow-md: 0 2px 4px rgb(20 32 27 / 4%), 0 18px 50px rgb(20 32 27 / 8%);
 }
 
 .aiPath {
@@ -23,9 +25,12 @@
 }
 
 .ap-ds-shell {
-  background: var(--path-page);
+  background:
+    radial-gradient(circle at 50% -18%, rgb(196 223 208 / 45%), transparent 34rem),
+    var(--path-page);
   color: var(--path-ink);
   font-family: var(--font-geist-sans), Arial, sans-serif;
+  font-feature-settings: "ss01" 1, "cv02" 1;
   min-height: 100vh;
   min-width: 0;
   overflow-x: clip;
@@ -65,7 +70,7 @@
 }
 
 .ap-ds-shell :focus-visible {
-  outline: 2px solid var(--path-focus);
+  outline: 3px solid rgb(47 111 235 / 32%);
   outline-offset: 2px;
 }
 
@@ -88,13 +93,15 @@
 /* Header */
 .ap-ds-header {
   align-items: center;
-  background: rgba(255, 255, 255, .92);
+  backdrop-filter: blur(18px) saturate(150%);
+  background: rgb(255 255 255 / 82%);
   border-bottom: 1px solid var(--path-line);
   display: flex;
   justify-content: space-between;
   min-height: 64px;
   padding: 8px max(24px, calc((100vw - 1040px) / 2));
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 20;
 }
 
@@ -2292,6 +2299,338 @@
   margin: 0;
 }
 
+/* Premium consumer refinement */
+.ap-ds-brand > span {
+  background: linear-gradient(145deg, #17745a, #0a4939);
+  box-shadow: 0 7px 18px rgb(17 99 76 / 22%);
+}
+
+.ap-ds-brand,
+.ap-ds-headerMeta,
+.ap-ds-resultTopline {
+  letter-spacing: -.01em;
+}
+
+.ap-ds-main:not(.has-path) .ap-ds-intro,
+.ap-ds-main:not(.has-path) .ap-ds-pathSelector,
+.ap-ds-main:not(.has-path) .ap-ds-emptyState {
+  animation: ap-surface-enter 520ms cubic-bezier(.2, .75, .2, 1) both;
+}
+
+.ap-ds-main:not(.has-path) .ap-ds-pathSelector {
+  animation-delay: 70ms;
+}
+
+.ap-ds-main:not(.has-path) .ap-ds-emptyState {
+  animation-delay: 120ms;
+}
+
+.ap-ds-intro h1,
+.ap-ds-sectionHeading h2,
+.ap-ds-prescriptionMain h2 {
+  letter-spacing: -.035em;
+}
+
+.ap-ds-intro h1 {
+  text-wrap: balance;
+}
+
+.ap-ds-kicker {
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.ap-ds-pathOptions button {
+  box-shadow: var(--path-shadow-sm);
+  overflow: hidden;
+  position: relative;
+}
+
+.ap-ds-pathOptions button::before {
+  background: linear-gradient(90deg, transparent, rgb(17 99 76 / 7%), transparent);
+  content: "";
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-45%);
+  transition: opacity 220ms ease, transform 440ms cubic-bezier(.2, .75, .2, 1);
+}
+
+.ap-ds-pathOptions button:hover::before,
+.ap-ds-pathOptions button.is-selected::before {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.ap-ds-pathOptions button:hover {
+  box-shadow: 0 14px 38px rgb(20 32 27 / 10%);
+}
+
+.ap-ds-pathOptions button:active,
+.ap-ds-continueButton:active:not(:disabled),
+.ap-ds-nextStep button:active,
+.ap-ds-resultTopline button:active {
+  transform: translateY(1px) scale(.99);
+}
+
+.ap-ds-pathOptions button.is-selected {
+  box-shadow: 0 0 0 1px rgb(17 99 76 / 8%), 0 15px 36px rgb(17 99 76 / 12%);
+}
+
+.ap-ds-progressCopy {
+  background: rgb(255 255 255 / 54%);
+  border: 1px solid rgb(220 226 222 / 72%);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.ap-ds-progress li button {
+  box-shadow: 0 0 0 4px var(--path-page);
+}
+
+.ap-ds-progress li.is-active button {
+  box-shadow: 0 0 0 4px var(--path-page), 0 5px 15px rgb(17 99 76 / 20%);
+  transform: scale(1.08);
+}
+
+.ap-ds-progressLine {
+  border-radius: 999px;
+}
+
+.ap-ds-section {
+  border-color: rgb(210 219 214 / 90%);
+  box-shadow: var(--path-shadow-md);
+  overflow: hidden;
+  position: relative;
+}
+
+.ap-ds-section::before {
+  background: linear-gradient(90deg, var(--path-primary), #5aa88c 54%, transparent);
+  content: "";
+  height: 3px;
+  left: 0;
+  opacity: .84;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.ap-ds-sectionHeading {
+  background: linear-gradient(180deg, rgb(247 250 248 / 86%), white);
+}
+
+.ap-ds-sectionHeading > span {
+  box-shadow: inset 0 0 0 1px rgb(17 99 76 / 8%);
+}
+
+.ap-ds-sectionBody {
+  border-top-color: #edf1ee;
+}
+
+.ap-ds-field textarea,
+.ap-ds-simpleField input,
+.ap-ds-evidenceMatrix select {
+  border-color: #c8d0cc;
+  box-shadow: inset 0 1px 2px rgb(20 32 27 / 3%);
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.ap-ds-field textarea:focus-visible,
+.ap-ds-simpleField input:focus-visible,
+.ap-ds-evidenceMatrix select:focus-visible {
+  border-color: var(--path-primary);
+  box-shadow: 0 0 0 4px rgb(17 99 76 / 10%);
+  outline: none;
+}
+
+.ap-ds-choiceGroup label,
+.ap-ds-multiChoice label {
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.ap-ds-choiceGroup label:hover,
+.ap-ds-multiChoice label:hover {
+  box-shadow: 0 7px 18px rgb(20 32 27 / 6%);
+  transform: translateY(-1px);
+}
+
+.ap-ds-choiceGroup label.is-selected,
+.ap-ds-multiChoice label.is-selected {
+  box-shadow: inset 3px 0 0 var(--path-primary), 0 8px 22px rgb(17 99 76 / 8%);
+}
+
+.ap-ds-fieldMic {
+  box-shadow: 0 3px 10px rgb(20 32 27 / 7%);
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.ap-ds-fieldMic:hover {
+  box-shadow: 0 6px 16px rgb(17 99 76 / 12%);
+  transform: translateY(-1px);
+}
+
+.ap-ds-questionNav {
+  position: relative;
+}
+
+.ap-ds-continueButton {
+  box-shadow: 0 9px 22px rgb(17 99 76 / 18%);
+  position: relative;
+  transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.ap-ds-continueButton:hover:not(:disabled) {
+  box-shadow: 0 12px 26px rgb(17 99 76 / 25%);
+  transform: translateY(-1px);
+}
+
+.ap-ds-continueButton.is-thinking {
+  background: #174f40;
+  cursor: wait;
+  opacity: 1;
+}
+
+.ap-ds-thinkingDot {
+  animation: ap-thinking-spin 850ms linear infinite;
+  border: 2px solid rgb(255 255 255 / 32%);
+  border-radius: 50%;
+  border-top-color: white;
+  display: inline-block;
+  height: 15px;
+  width: 15px;
+}
+
+.ap-ds-workbench[data-thinking="true"] .ap-ds-section.is-active::after {
+  animation: ap-thinking-scan 1.2s cubic-bezier(.4, 0, .2, 1) infinite;
+  background: linear-gradient(90deg, transparent, rgb(17 99 76 / 16%), transparent);
+  content: "";
+  height: 3px;
+  left: -35%;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  width: 38%;
+  z-index: 2;
+}
+
+.ap-ds-sessionTools {
+  opacity: .88;
+}
+
+.ap-ds-privacyDetails summary {
+  text-underline-offset: 3px;
+}
+
+.ap-ds-result {
+  animation: ap-surface-enter 520ms cubic-bezier(.2, .75, .2, 1) both;
+}
+
+.ap-ds-resultTopline {
+  background: rgb(255 255 255 / 48%);
+  border: 1px solid rgb(220 226 222 / 74%);
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
+.ap-ds-prescription {
+  background:
+    radial-gradient(circle at 9% 0%, rgb(85 167 137 / 26%), transparent 21rem),
+    linear-gradient(145deg, #105d49, #113b32);
+  box-shadow: 0 24px 64px rgb(11 65 50 / 18%);
+  overflow: hidden;
+  position: relative;
+}
+
+.ap-ds-prescription::after {
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 50%;
+  content: "";
+  height: 280px;
+  pointer-events: none;
+  position: absolute;
+  right: -150px;
+  top: -170px;
+  width: 280px;
+}
+
+.ap-ds-nextStep {
+  box-shadow: 0 18px 44px rgb(3 31 23 / 20%);
+  position: relative;
+  z-index: 1;
+}
+
+.ap-ds-nextStep button {
+  box-shadow: 0 8px 20px rgb(17 99 76 / 18%);
+  transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.ap-ds-nextStep button:hover {
+  background: var(--path-primary-hover);
+  box-shadow: 0 11px 24px rgb(17 99 76 / 24%);
+  transform: translateY(-1px);
+}
+
+.ap-ds-resultGrid > section,
+.ap-ds-evidenceSummary,
+.ap-ds-starterArtifact,
+.ap-ds-supportingDetails,
+.ap-ds-discoveryExamples,
+.ap-ds-month,
+.ap-ds-resources,
+.ap-ds-skills {
+  border-color: rgb(216 224 219 / 92%);
+  box-shadow: var(--path-shadow-sm);
+}
+
+.ap-ds-resultGrid > section,
+.ap-ds-discoveryExamples article,
+.ap-ds-resources article,
+.ap-ds-skills article {
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.ap-ds-resultGrid > section:hover,
+.ap-ds-discoveryExamples article:hover,
+.ap-ds-resources article:hover,
+.ap-ds-skills article:hover {
+  box-shadow: 0 12px 28px rgb(20 32 27 / 8%);
+  transform: translateY(-2px);
+}
+
+.ap-ds-resources > div,
+.ap-ds-skills > div {
+  gap: 10px;
+}
+
+.ap-ds-resources article,
+.ap-ds-skills article,
+.ap-ds-discoveryExamples article {
+  border: 1px solid rgb(220 226 222 / 88%);
+  border-radius: 12px;
+}
+
+.ap-ds-result details > summary {
+  color: var(--path-primary);
+  transition: color 140ms ease;
+}
+
+.ap-ds-result details > summary:hover {
+  color: var(--path-primary-hover);
+}
+
+.ap-ds-result details[open] > summary {
+  color: var(--path-ink);
+}
+
+.ap-ds-result details[open] > :not(summary) {
+  animation: ap-detail-open 180ms ease both;
+}
+
+.ap-ds-resultFooter {
+  margin-top: 32px;
+}
+
 @keyframes ap-question-in {
   from {
     opacity: 0;
@@ -2301,6 +2640,37 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes ap-surface-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ap-detail-open {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ap-thinking-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ap-thinking-scan {
+  from { transform: translateX(0); }
+  to { transform: translateX(360%); }
 }
 
 @media (max-width: 780px) {

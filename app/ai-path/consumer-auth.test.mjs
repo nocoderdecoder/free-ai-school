@@ -6,6 +6,7 @@ import {
   AI_PATH_AUTH_DEFAULT_RETURN,
   consumerAuthBoundaryMode,
   isExactMutationOrigin,
+  isMissingConsumerAuthSessionError,
   isValidConsumerEmail,
   normalizeAIPathReturnPath,
   resolveConsumerAuthCapability,
@@ -40,6 +41,7 @@ test('consumer auth is fail-closed until every production control is configured'
 test('proxy boundary permits intentional preview but fails shut on broken activation', () => {
   assert.equal(consumerAuthBoundaryMode('development', undefined, { available: false }), 'preview')
   assert.equal(consumerAuthBoundaryMode('test', 'false', { available: false }), 'preview')
+  assert.equal(consumerAuthBoundaryMode('development', 'true', { available: false }), 'preview')
   assert.equal(consumerAuthBoundaryMode('production', undefined, { available: false }), 'unavailable')
   assert.equal(consumerAuthBoundaryMode('production', 'TRUE', { available: false }), 'unavailable')
   assert.equal(consumerAuthBoundaryMode('production', 'false', { available: false }), 'unavailable')
@@ -87,8 +89,16 @@ test('email and mutation-origin validation reject ambiguous inputs', () => {
   }), 'https://learn.example.com'), false)
 })
 
+test('missing Supabase auth session is unauthenticated, not service unavailable', () => {
+  assert.equal(isMissingConsumerAuthSessionError({ name: 'AuthSessionMissingError', message: 'Auth session missing!' }), true)
+  assert.equal(isMissingConsumerAuthSessionError({ message: 'No session found in request cookies.' }), true)
+  assert.equal(isMissingConsumerAuthSessionError({ code: 'session_not_found' }), true)
+  assert.equal(isMissingConsumerAuthSessionError({ name: 'AuthApiError', message: 'Project API key is invalid.' }), false)
+})
+
 test('route and proxy boundaries use verified identity and mutation-safe verbs', async () => {
   const proxySource = await readFile(new URL('../../proxy.ts', import.meta.url), 'utf8')
+  const diagnosticRouteSource = await readFile(new URL('../api/ai-path/diagnostic/route.ts', import.meta.url), 'utf8')
   const signOutSource = await readFile(new URL('../api/ai-path/auth/sign-out/route.ts', import.meta.url), 'utf8')
   const signInSource = await readFile(new URL('../api/ai-path/auth/sign-in/route.ts', import.meta.url), 'utf8')
   const callbackSource = await readFile(new URL('./auth/callback/route.ts', import.meta.url), 'utf8')
@@ -97,6 +107,8 @@ test('route and proxy boundaries use verified identity and mutation-safe verbs',
   assert.match(proxySource, /matcher: \['\/ai-path\/:path\*', '\/api\/ai-path\/:path\*'\]/)
   assert.match(proxySource, /consumerAuthBoundaryMode\([\s\S]*process\.env\.NODE_ENV,[\s\S]*process\.env\.AI_PATH_CONSUMER_AUTH_ENABLED/)
   assert.match(proxySource, /invalidAuthConfigurationResponse\(request\)/)
+  assert.match(proxySource, /isMissingConsumerAuthSessionError\(error\)/)
+  assert.match(diagnosticRouteSource, /isMissingConsumerAuthSessionError\(error\)/)
   assert.match(signOutSource, /export async function POST/)
   assert.match(signOutSource, /isExactMutationOrigin/)
   assert.match(signInSource, /MAX_AUTH_FORM_BYTES = 8_192/)

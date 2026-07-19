@@ -104,10 +104,7 @@ export async function requestAdaptiveQuestion(input: AdaptationInput): Promise<A
       {
         version: body.version,
         action: responseAction,
-        title: candidate.title,
-        reason: candidate.reason,
-        prompt: candidate.prompt,
-        context: candidate.context,
+        variantId: candidate.variantId,
       },
       fallback,
     )

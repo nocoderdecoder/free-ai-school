@@ -1,6 +1,6 @@
 # AI Path consumer security review
 
-Reviewed: 2026-07-18
+Reviewed: 2026-07-19
 Launch decision: **NO-GO for public consumers** until the blocking items below have staging evidence.
 
 This review covers the consumer-facing AI Path diagnostic, authentication foundation, server result boundary, Supabase persistence foundations, rate limiting, paid-provider gates, privacy operations, dependencies, and deployment checks. It follows the official [Next.js authentication](https://nextjs.org/docs/app/guides/authentication), [Next.js data security](https://nextjs.org/docs/app/guides/data-security), [Next.js production checklist](https://nextjs.org/docs/app/guides/production-checklist), [Supabase production checklist](https://supabase.com/docs/guides/deployment/going-into-prod), [Supabase security guidance](https://supabase.com/docs/guides/security/product-security), and OWASP [authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html), [session](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html), and [REST security](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html) guidance.
@@ -18,7 +18,9 @@ This review covers the consumer-facing AI Path diagnostic, authentication founda
 - Connected optional account saving to the server result route with explicit versioned consent, verified ownership, and a retry-stable completion key. Saving remains unavailable until hosted proof opens the persistence latch; unsaved results continue to work.
 - Added dormant full-account export/deletion orchestration. Destructive deletion remains impossible until a one-time reauthentication ceremony is bound to the current session, analytics erasure is assembled, and both code latches are reviewed open.
 - Added a minimal account page for export, sign-out, and an honestly disabled delete action.
-- Pinned answer-aware question phrasing to `gpt-5.6-luna` with no reasoning effort, a 100-token maximum, strict Structured Outputs, `store: false`, verified users, rate limiting, and an environment opt-in. No provider request was made in this pass.
+- Pinned answer-aware approved-variant selection to `gpt-5-nano` with minimal reasoning effort, a 300-token maximum, strict Structured Outputs, `store: false`, verified users, rate limiting, and separate feature and paid-call opt-ins.
+- Kept the two six-slot interviews and all learner-facing copy application-owned: the provider can select only an expert-approved variant for the next required slot, a deterministic relevance match cannot be downgraded, local readiness checks reject missing or gibberish answers before a provider call, and future-slot answers are excluded from context.
+- Normalized missing Supabase sessions to authentication-required responses while genuine provider/configuration failures continue to fail closed as unavailable.
 - Added an enforced AI Path CSP, HSTS, COOP, existing anti-framing/MIME/referrer/resource policies, and a blocking application CI workflow.
 - Kept hosted persistence, adaptive-model traffic, Realtime voice, retention jobs, and every unproven production capability closed.
 

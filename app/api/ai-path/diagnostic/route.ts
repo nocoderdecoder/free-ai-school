@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 
-import { consumerAuthBoundaryMode } from '../../../ai-path/lib/consumer-auth'
+import {
+  consumerAuthBoundaryMode,
+  isMissingConsumerAuthSessionError,
+} from '../../../ai-path/lib/consumer-auth'
 import {
   applyConsumerAuthResponse,
   createConsumerAuthRequestContext,
@@ -53,7 +56,15 @@ export async function POST(request: Request) {
     try {
       authContext = createConsumerAuthRequestContext(request)
       const { data, error } = await authContext.client.auth.getUser()
-      if (error) return withAuthCookies(authContext, privateError('authentication_unavailable', 503))
+      if (error) {
+        return withAuthCookies(
+          authContext,
+          privateError(
+            isMissingConsumerAuthSessionError(error) ? 'authentication_required' : 'authentication_unavailable',
+            isMissingConsumerAuthSessionError(error) ? 401 : 503,
+          ),
+        )
+      }
       if (!data.user) return withAuthCookies(authContext, privateError('authentication_required', 401))
       verifiedUserId = data.user.id
     } catch {

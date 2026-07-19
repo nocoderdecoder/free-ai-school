@@ -6,8 +6,8 @@ import {
   parseAdaptiveResponsesSelection,
 } from './adaptive-question-provider.ts'
 
-// The user explicitly approved the low-cost adaptive-question API path. The
-// environment flag and exact model pin still keep provider traffic opt-in.
+// Paid transport stays fail-closed behind the code latch, environment opt-in,
+// exact model pin, and the workspace-wide explicit paid-call approval gate.
 export const AI_PATH_ADAPTIVE_MODEL_LATCH = true as const
 export const AI_PATH_ADAPTIVE_MODEL_ID = 'gpt-5-nano' as const
 
@@ -16,9 +16,11 @@ const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses'
 export function getAdaptiveQuestionModelCapability() {
   const configuredModel = process.env.AI_PATH_ADAPTIVE_MODEL || AI_PATH_ADAPTIVE_MODEL_ID
   const costApprovedModel = configuredModel === AI_PATH_ADAPTIVE_MODEL_ID
+  const paidApiCallsApproved = process.env.AI_PATH_ALLOW_PAID_API_CALLS === 'true'
   const configured = process.env.AI_PATH_ADAPTIVE_MODEL_ENABLED === 'true'
     && Boolean(process.env.OPENAI_API_KEY)
     && costApprovedModel
+    && paidApiCallsApproved
   const liveEnabled = configured && AI_PATH_ADAPTIVE_MODEL_LATCH
   return Object.freeze({
     liveEnabled,
@@ -28,6 +30,8 @@ export function getAdaptiveQuestionModelCapability() {
       ? 'constrained adaptive model is explicitly enabled'
       : !AI_PATH_ADAPTIVE_MODEL_LATCH
         ? 'paid adaptive-model latch is closed'
+        : !paidApiCallsApproved
+          ? 'paid API calls are not explicitly approved'
         : !costApprovedModel
           ? 'configured model is outside the reviewed low-cost boundary'
         : 'adaptive model configuration is incomplete',
@@ -54,6 +58,7 @@ export function createAdaptiveQuestionModelGenerator(): AdaptiveVariantGenerator
         allowedActions: input.allowedActions,
         fallbackAction: input.fallbackAction,
         approvedClarifier: input.approvedClarifier,
+        allowedVariants: input.allowedVariants,
         answers: input.answers,
       })),
       signal: input.signal,

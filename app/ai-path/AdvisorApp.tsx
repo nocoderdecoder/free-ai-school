@@ -1279,7 +1279,7 @@ export function AdvisorApp({
           </section>
 
           {path ? (
-            <form className="ap-ds-workbench" data-show-errors={showErrors} onSubmit={submit} noValidate aria-busy={isSubmitting}>
+            <form className="ap-ds-workbench" data-show-errors={showErrors} data-thinking={isAdapting || isSubmitting} onSubmit={submit} noValidate aria-busy={isSubmitting || isAdapting}>
               <QuestionProgress sections={sections} statuses={statuses} activeId={activeSection} onSelect={selectSection} />
               <div className="ap-ds-formColumn">
                 {path === 'use-case' ? (
@@ -1308,9 +1308,9 @@ export function AdvisorApp({
                 <div className="ap-ds-questionNav">
                   <button type="button" className="ap-ds-backButton" onClick={previousQuestion} disabled={currentIndex === 0 || isSubmitting}>Back</button>
                   {isLastQuestion ? (
-                    <button type="submit" className="ap-ds-continueButton" disabled={isSubmitting}>{isSubmitting ? 'Creating your plan…' : path === 'use-case' ? 'Create my project plan' : 'Create my learning plan'} {!isSubmitting ? <ArrowIcon /> : null}</button>
+                    <button type="submit" className={`ap-ds-continueButton${isSubmitting ? ' is-thinking' : ''}`} disabled={isSubmitting}>{isSubmitting ? <span className="ap-ds-thinkingDot" aria-hidden="true" /> : null}{isSubmitting ? 'Creating your plan…' : path === 'use-case' ? 'Create my project plan' : 'Create my learning plan'} {!isSubmitting ? <ArrowIcon /> : null}</button>
                   ) : (
-                    <button type="button" className="ap-ds-continueButton" onClick={() => void continueQuestion()} disabled={isAdapting}>{isAdapting ? 'Thinking about your answer…' : 'Continue'} {!isAdapting ? <ArrowIcon /> : null}</button>
+                    <button type="button" className={`ap-ds-continueButton${isAdapting ? ' is-thinking' : ''}`} onClick={() => void continueQuestion()} disabled={isAdapting}>{isAdapting ? <span className="ap-ds-thinkingDot" aria-hidden="true" /> : null}{isAdapting ? 'Thinking about your answer…' : 'Continue'} {!isAdapting ? <ArrowIcon /> : null}</button>
                   )}
                 </div>
                 <p className="sr-only" aria-live="polite">{isAdapting ? 'Checking whether one short follow-up is needed before the next planned question.' : ''}</p>

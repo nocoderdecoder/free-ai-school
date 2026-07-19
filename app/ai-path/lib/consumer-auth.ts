@@ -25,7 +25,7 @@ export function consumerAuthBoundaryMode(
   capability: Pick<ConsumerAuthCapability, 'available'>,
 ): 'preview' | 'protect' | 'unavailable' {
   if (capability.available) return 'protect'
-  if (nodeEnv !== 'production' && enabled !== 'true') return 'preview'
+  if (nodeEnv !== 'production') return 'preview'
   return 'unavailable'
 }
 
@@ -109,6 +109,17 @@ export function isValidConsumerEmail(value: unknown): value is string {
   return email.length >= 3
     && email.length <= 254
     && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+export function isMissingConsumerAuthSessionError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as Readonly<{ name?: unknown; message?: unknown; code?: unknown }>
+  const name = typeof candidate.name === 'string' ? candidate.name : ''
+  const message = typeof candidate.message === 'string' ? candidate.message : ''
+  const code = typeof candidate.code === 'string' ? candidate.code : ''
+  return name === 'AuthSessionMissingError'
+    || code === 'session_not_found'
+    || /auth session missing|no session|session missing/i.test(message)
 }
 
 export function isExactMutationOrigin(request: Request, configuredOrigin?: string | null): boolean {

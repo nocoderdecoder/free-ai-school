@@ -1,8 +1,18 @@
 import { readBoundedJson } from './request-body.ts'
 import { adaptiveClarifierFor, decideAdaptiveInterviewPolicy, MAXIMUM_INTERVIEW_CLARIFIERS } from './adaptive-interview-policy.ts'
 import {
+  CAPABILITY_SECTION_IDS,
+  INITIAL_CAPABILITY_INTAKE,
+  INITIAL_USE_CASE_INTAKE,
+  USE_CASE_SECTION_IDS,
+  validateCapabilityIntake,
+  validateUseCaseIntake,
+  type DiagnosticPath,
+} from './diagnostic.ts'
+import {
   CONSTRAINED_QUESTION_VERSION,
   approvedClarifierPresentation,
+  approvedQuestionVariantOptions,
   parseAdaptiveQuestionRequest,
   resolveModelQuestionAdaptation,
   selectDeterministicQuestionPresentation,
@@ -15,6 +25,60 @@ import {
 const MAXIMUM_ADAPTIVE_REQUEST_BYTES = 24_000
 const PROVIDER_UNAVAILABLE = Symbol('provider-unavailable')
 
+function answersThroughCompletedSection(
+  path: DiagnosticPath,
+  completedSectionId: DiagnosticSectionId,
+  answers: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const ids: readonly DiagnosticSectionId[] = path === 'use-case'
+    ? USE_CASE_SECTION_IDS
+    : CAPABILITY_SECTION_IDS
+  const completedIndex = ids.indexOf(completedSectionId)
+  if (completedIndex < 0) return {}
+  return Object.fromEntries(
+    ids.slice(0, completedIndex + 1)
+      .filter(id => Object.hasOwn(answers, id))
+      .map(id => [id, answers[id]]),
+  )
+}
+
+function completedPrefixIsReady(
+  path: DiagnosticPath,
+  completedSectionId: DiagnosticSectionId,
+  answers: Readonly<Record<string, unknown>>,
+): boolean {
+  const ids: readonly DiagnosticSectionId[] = path === 'use-case'
+    ? USE_CASE_SECTION_IDS
+    : CAPABILITY_SECTION_IDS
+  const completedIndex = ids.indexOf(completedSectionId)
+  if (completedIndex < 0) return false
+  const boundedAnswers = answersThroughCompletedSection(path, completedSectionId, answers)
+
+  try {
+    if (path === 'use-case') {
+      const candidate = { ...INITIAL_USE_CASE_INTAKE } as Record<string, unknown>
+      for (const id of USE_CASE_SECTION_IDS) {
+        if (Object.hasOwn(boundedAnswers, id)) candidate[id] = boundedAnswers[id]
+      }
+      const readiness = validateUseCaseIntake(candidate as typeof INITIAL_USE_CASE_INTAKE)
+      return readiness.sections
+        .slice(0, completedIndex + 1)
+        .every(section => section.status === 'complete')
+    }
+
+    const candidate = { ...INITIAL_CAPABILITY_INTAKE } as Record<string, unknown>
+    for (const id of CAPABILITY_SECTION_IDS) {
+      if (Object.hasOwn(boundedAnswers, id)) candidate[id] = boundedAnswers[id]
+    }
+    const readiness = validateCapabilityIntake(candidate as typeof INITIAL_CAPABILITY_INTAKE)
+    return readiness.sections
+      .slice(0, completedIndex + 1)
+      .every(section => section.status === 'complete')
+  } catch {
+    return false
+  }
+}
+
 export type AdaptiveVariantGenerator = (input: Readonly<{
   path: 'use-case' | 'capability-growth'
   currentSectionId: DiagnosticSectionId
@@ -22,6 +86,7 @@ export type AdaptiveVariantGenerator = (input: Readonly<{
   allowedActions: readonly AdaptiveQuestionAction[]
   fallbackAction: AdaptiveQuestionAction
   approvedClarifier: Readonly<{ reason: string; prompt: string; answerGuidance: string }> | null
+  allowedVariants: readonly Readonly<{ variantId: string; title: string; reason: string; prompt: string; context: string | null }>[]
   answers: Readonly<Record<string, unknown>>
   signal: AbortSignal
 }>) => Promise<ModelQuestionAdaptation | unknown>
@@ -72,11 +137,18 @@ export async function handleAdaptiveQuestionPost(
       headers: noStoreHeaders(),
     })
   }
+  if (!completedPrefixIsReady(input.path, input.completedSectionId, input.answers)) {
+    return Response.json({ error: 'incomplete_adaptive_question_progress' }, {
+      status: 422,
+      headers: noStoreHeaders(),
+    })
+  }
+  const completedAnswers = answersThroughCompletedSection(input.path, input.completedSectionId, input.answers)
 
   const policy = decideAdaptiveInterviewPolicy({
     path: input.path,
     completedSectionId: input.completedSectionId,
-    answers: input.answers,
+    answers: completedAnswers,
     usedClarifierSectionIds: input.usedClarifierSectionIds,
   })
   if (policy.action === 'complete' || !policy.nextSectionId) {
@@ -88,10 +160,6 @@ export async function handleAdaptiveQuestionPost(
 
   const nextSectionId = policy.nextSectionId
   const usedClarifierSections = new Set(input.usedClarifierSectionIds)
-  const providerClarifier = usedClarifierSections.size < MAXIMUM_INTERVIEW_CLARIFIERS
-    && !usedClarifierSections.has(input.completedSectionId)
-    ? adaptiveClarifierFor(input.path, input.completedSectionId)
-    : null
   const fallback: AdaptiveQuestionAdaptation = policy.action === 'clarify_current' && policy.clarifier
     ? {
         action: 'clarify_current',
@@ -99,14 +167,29 @@ export async function handleAdaptiveQuestionPost(
       }
     : {
         action: 'advance',
-        presentation: selectDeterministicQuestionPresentation(input.path, nextSectionId, input.answers),
+        presentation: selectDeterministicQuestionPresentation(input.path, nextSectionId, completedAnswers),
       }
-  // The application owns the fixed route and required data. When the provider
-  // is enabled, it may still choose whether the current answer deserves one
-  // bounded clarification before the next fixed section.
-  const allowedActions: readonly AdaptiveQuestionAction[] = options.generate && providerClarifier && policy.action === 'advance'
-    ? ['clarify_current', 'advance']
-    : [policy.action]
+  const approvedClarifier = usedClarifierSections.size < MAXIMUM_INTERVIEW_CLARIFIERS
+    && !usedClarifierSections.has(input.completedSectionId)
+    ? policy.clarifier ?? adaptiveClarifierFor(input.path, input.completedSectionId)
+    : null
+  // The application owns the fixed route and the local completion gate. The
+  // provider may personalize the copy for that route decision, but it may not
+  // decide to hold, skip, or reorder sections on its own. This keeps the
+  // interview feeling intelligent without making the demo path unpredictable.
+  const allowedActions: readonly AdaptiveQuestionAction[] = [fallback.action]
+  const allowedVariants = fallback.action === 'clarify_current'
+    ? [{
+        variantId: fallback.presentation.variantId,
+        title: fallback.presentation.title,
+        reason: fallback.presentation.reason,
+        prompt: fallback.presentation.prompt,
+        context: fallback.presentation.context,
+      }]
+    : fallback.presentation.source === 'deterministic'
+      ? approvedQuestionVariantOptions(input.path, nextSectionId)
+          .filter(variant => variant.variantId === fallback.presentation.variantId)
+      : approvedQuestionVariantOptions(input.path, nextSectionId)
   let resolved = fallback
 
   if (options.generate) {
@@ -120,8 +203,9 @@ export async function handleAdaptiveQuestionPost(
           nextSectionId,
           allowedActions,
           fallbackAction: fallback.action,
-          approvedClarifier: providerClarifier,
-          answers: input.answers,
+          approvedClarifier,
+          allowedVariants,
+          answers: completedAnswers,
           signal,
         }).catch(() => PROVIDER_UNAVAILABLE),
         new Promise<typeof PROVIDER_UNAVAILABLE>(resolve => {

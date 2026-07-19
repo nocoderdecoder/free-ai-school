@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 import {
@@ -8,6 +9,13 @@ import {
   parseAdaptiveResponsesSelection,
 } from './lib/adaptive-question-provider.ts'
 import { CONSTRAINED_QUESTION_VERSION } from './lib/constrained-question-routing.ts'
+
+test('live adaptive transport requires the explicit paid-call approval gate', async () => {
+  const source = await readFile(new URL('./lib/constrained-question.server.ts', import.meta.url), 'utf8')
+  assert.match(source, /process\.env\.AI_PATH_ALLOW_PAID_API_CALLS === 'true'/)
+  assert.match(source, /configured[\s\S]*paidApiCallsApproved[\s\S]*liveEnabled/)
+  assert.match(source, /paid API calls are not explicitly approved/)
+})
 
 test('provider context contains only completed bounded sections and removes links', () => {
   const context = buildAdaptiveModelContext('capability-growth', 'reasoning', {
@@ -40,18 +48,28 @@ test('Responses request fixes the route and uses a strict bounded action schema'
       prompt: 'What did you personally do and check?',
       answerGuidance: 'One action, result, and check.',
     },
+    allowedVariants: [
+      {
+        variantId: 'reasoning-core',
+        title: 'How would you check that AI actually helped?',
+        reason: 'Use the example you just gave instead of an unrelated hypothetical',
+        prompt: 'How would you check whether AI helped, what could go wrong, and when should a person review it?',
+        context: 'Think about the example you just gave—or the first task you want to try.',
+      },
+    ],
     answers: { evidence: { description: 'To set sales targets' } },
   })
   assert.equal(body.model, 'configured-test-model')
   assert.equal(body.store, false)
   assert.equal(body.service_tier, 'default')
-  assert.deepEqual(body.reasoning, { effort: 'none' })
-  assert.equal(body.max_output_tokens, 100)
+  assert.deepEqual(body.reasoning, { effort: 'minimal' })
+  assert.equal(body.max_output_tokens, 300)
   assert.equal(body.text.format.type, 'json_schema')
   assert.equal(body.text.format.strict, true)
   assert.equal(body.text.format.schema.additionalProperties, false)
   assert.deepEqual(body.text.format.schema.properties.action.enum, ['clarify_current', 'advance'])
-  assert.deepEqual(body.text.format.schema.required, ['version', 'action', 'title', 'reason', 'prompt', 'context'])
+  assert.deepEqual(body.text.format.schema.required, ['version', 'action', 'variantId'])
+  assert.deepEqual(body.text.format.schema.properties.variantId.enum, ['reasoning-core'])
   assert.equal('tools' in body, false)
   const input = JSON.parse(body.input[1].content[0].text)
   assert.equal(input.currentFixedSectionId, 'evidence')
@@ -75,24 +93,18 @@ test('provider parser accepts one completed strict adaptation', () => {
     text: JSON.stringify({
       version: CONSTRAINED_QUESTION_VERSION,
       action: 'clarify_current',
-      title: 'Tell us about one real attempt',
-      reason: 'A concrete example makes the plan useful.',
-      prompt: 'What did you personally do, produce, and check?',
-      context: 'One task and one result are enough.',
+      variantId: 'evidence-outcome-clarifier',
     }),
   }]))
   assert.equal(selection?.action, 'clarify_current')
-  assert.match(selection?.prompt ?? '', /personally do/)
+  assert.equal(selection?.variantId, 'evidence-outcome-clarifier')
 })
 
 test('provider parser rejects refusals, incomplete output, ambiguity, and extra keys', () => {
   const validText = JSON.stringify({
     version: CONSTRAINED_QUESTION_VERSION,
     action: 'advance',
-    title: 'How would you test this?',
-    reason: 'A test makes the next step concrete.',
-    prompt: 'What would you check before relying on the result?',
-    context: null,
+    variantId: 'reasoning-core',
   })
   const cases = [
     providerResponse([{ type: 'refusal', refusal: 'No' }, { type: 'output_text', text: validText }]),

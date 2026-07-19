@@ -8,6 +8,7 @@ import {
   approvedVariantIds,
   selectDeterministicQuestionPresentation,
 } from './lib/constrained-question-routing.ts'
+import { validateCapabilityIntake, validateUseCaseIntake } from './lib/diagnostic.ts'
 import { requestAdaptiveQuestion } from './client/question-adaptation.ts'
 
 function request(body, origin = 'https://app.example') {
@@ -91,6 +92,74 @@ test('content app ideas ask about current process and existing AI usage', () => 
   assert.match(result.title, /doing this today/i)
   assert.match(result.prompt, /tools or AI do you already use/i)
   assert.match(result.prompt, /manual, slow, or hard to manage/i)
+})
+
+test('placeholder and gibberish text never complete typed answer sections', () => {
+  const useCase = validateUseCaseIntake({
+    version: '2026-07-18.v1',
+    path: 'use-case',
+    outcome: { desiredOutcome: 'I want to create a useful social media management app for myself.' },
+    workflow: { currentProcess: 'xyz xyz xyz fasdfasdf' },
+    specification: { inputs: 'posts', output: 'calendar', success: 'it saves an hour every week' },
+    experience: { level: 'guided', evidence: '', artifactUrl: '' },
+    risk: {
+      dataSensitivity: 'internal',
+      existingSystems: 'I would review before publishing.',
+      consequence: 'moderate',
+      humanApproval: 'yes',
+    },
+    constraints: {
+      role: 'founder',
+      codingComfort: 'none',
+      weeklyHours: 3,
+      approach: 'no-code-first',
+      teamMode: 'solo',
+      budget: 'free-only',
+    },
+  })
+  assert.equal(useCase.canSubmit, false)
+  assert.equal(useCase.sections.find(section => section.id === 'workflow')?.status, 'missing')
+
+  const capability = validateCapabilityIntake({
+    version: '2026-07-18.v1',
+    path: 'capability-growth',
+    direction: {
+      roleContext: 'Sales manager',
+      interests: ['everyday-work'],
+    },
+    experience: {
+      levels: {
+        'ai-assisted-work': 'guided',
+        automation: 'none',
+        applications: 'none',
+        'data-retrieval': 'none',
+        'evaluation-safety': 'none',
+      },
+    },
+    evidence: {
+      description: 'asdf qwer xyz random',
+      supportedDomains: [],
+      artifactUrl: '',
+    },
+    reasoning: {
+      scenarioId: 'quality-check',
+      response: 'I would check one example and ask a person to review before using it.',
+    },
+    foundations: {
+      codingComfort: 'none',
+      dataComfort: ['documents'],
+      tools: ['chatgpt'],
+    },
+    constraints: {
+      weeklyHours: 2,
+      learningPreference: 'guided',
+      pace: '30-day',
+      resourceBudget: 'free-only',
+      publicProject: 'no',
+    },
+  })
+  assert.equal(capability.canSubmit, false)
+  assert.equal(capability.sections.find(section => section.id === 'evidence')?.status, 'missing')
 })
 
 test('multi-select context is order invariant and remains inside the approved next-section family', () => {

@@ -96,10 +96,7 @@ test('HTTP clarification response stays on evidence and a model cannot skip the 
       return {
         version: CONSTRAINED_QUESTION_VERSION,
         action: 'advance',
-        title: 'Skip ahead',
-        reason: 'The model tried to bypass the clarification.',
-        prompt: 'Should the interview skip the evidence clarification?',
-        context: null,
+        variantId: 'reasoning-core',
       }
     },
   })

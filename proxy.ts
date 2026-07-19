@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server'
 import {
   AI_PATH_AUTH_HOME,
   consumerAuthBoundaryMode,
+  isMissingConsumerAuthSessionError,
   isAIPathAuthPublicPath,
   normalizeAIPathReturnPath,
 } from './app/ai-path/lib/consumer-auth'
@@ -65,7 +66,12 @@ export async function proxy(request: NextRequest) {
   try {
     const context = createConsumerAuthRequestContext(request)
     const { data, error } = await context.client.auth.getUser()
-    if (error) return applyConsumerAuthResponse(context, unauthenticatedResponse(request, true))
+    if (error) {
+      return applyConsumerAuthResponse(
+        context,
+        unauthenticatedResponse(request, !isMissingConsumerAuthSessionError(error)),
+      )
+    }
     if (!data.user) return applyConsumerAuthResponse(context, unauthenticatedResponse(request))
     return applyConsumerAuthResponse(context, NextResponse.next())
   } catch {

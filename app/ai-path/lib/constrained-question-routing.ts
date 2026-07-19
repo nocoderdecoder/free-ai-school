@@ -40,10 +40,7 @@ export type ModelVariantSelection = Readonly<{
 export type ModelQuestionAdaptation = Readonly<{
   version: typeof CONSTRAINED_QUESTION_VERSION
   action: AdaptiveQuestionAction
-  title: string
-  reason: string
-  prompt: string
-  context: string | null
+  variantId: string
 }>
 
 export type AdaptiveQuestionAdaptation = Readonly<{
@@ -231,6 +228,16 @@ export function approvedVariantIds(path: DiagnosticPath, sectionId: DiagnosticSe
   return Object.freeze(variantsFor(path, sectionId).map(variant => variant.id))
 }
 
+export function approvedQuestionVariantOptions(path: DiagnosticPath, sectionId: DiagnosticSectionId) {
+  return deepFreeze(variantsFor(path, sectionId).map(variant => ({
+    variantId: variant.id,
+    title: variant.title,
+    reason: variant.reason,
+    prompt: variant.prompt,
+    context: variant.context ?? null,
+  })))
+}
+
 export function approvedQuestionPresentation(
   path: DiagnosticPath,
   sectionId: DiagnosticSectionId,
@@ -259,16 +266,6 @@ export function approvedClarifierPresentation(
   })
 }
 
-const unsafeModelCopy = /https?:\/\/|www\.|<\/?[a-z]|\b(?:buy|purchase|subscribe|payment|credit card|password|api key|course|product|calibrat\w*|epistem\w*|taxonomy|input-to-output|capability matrix|artifact provenance)\b/i
-
-function boundedModelText(value: unknown, minimum: number, maximum: number): value is string {
-  return typeof value === 'string'
-    && value.trim() === value
-    && value.length >= minimum
-    && value.length <= maximum
-    && !unsafeModelCopy.test(value)
-}
-
 export function resolveModelQuestionAdaptation(
   path: DiagnosticPath,
   currentSectionId: DiagnosticSectionId,
@@ -279,28 +276,32 @@ export function resolveModelQuestionAdaptation(
 ): AdaptiveQuestionAdaptation {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return fallback
   const candidate = value as Record<string, unknown>
-  if (!exactKeys(candidate, ['action', 'context', 'prompt', 'reason', 'title', 'version'])) return fallback
+  if (!exactKeys(candidate, ['action', 'variantId', 'version'])) return fallback
   if (candidate.version !== CONSTRAINED_QUESTION_VERSION) return fallback
   if (candidate.action !== 'clarify_current' && candidate.action !== 'advance') return fallback
   if (!allowedActions.includes(candidate.action)) return fallback
-  if (!boundedModelText(candidate.title, 4, 100)) return fallback
-  if (!boundedModelText(candidate.reason, 8, 180)) return fallback
-  if (!boundedModelText(candidate.prompt, 12, 400) || !candidate.prompt.includes('?')) return fallback
-  if (candidate.context !== null && !boundedModelText(candidate.context, 8, 500)) return fallback
-  const sectionId = candidate.action === 'clarify_current' ? currentSectionId : nextSectionId
+  if (typeof candidate.variantId !== 'string') return fallback
+
+  if (candidate.action === 'clarify_current') {
+    if (candidate.variantId !== fallback.presentation.variantId) return fallback
+    return deepFreeze({
+      action: 'clarify_current',
+      presentation: {
+        ...fallback.presentation,
+        source: 'model-constrained',
+      },
+    })
+  }
+
+  const approved = resolveModelVariantSelection(
+    path,
+    nextSectionId,
+    { version: CONSTRAINED_QUESTION_VERSION, variantId: candidate.variantId },
+    fallback.presentation,
+  )
   return deepFreeze({
-    action: candidate.action,
-    presentation: {
-      version: CONSTRAINED_QUESTION_VERSION,
-      path,
-      sectionId,
-      variantId: candidate.action === 'clarify_current' ? 'model-clarifier' : 'model-contextual',
-      title: candidate.title,
-      reason: candidate.reason,
-      prompt: candidate.prompt,
-      context: candidate.context,
-      source: 'model-constrained',
-    },
+    action: 'advance',
+    presentation: approved,
   })
 }
 

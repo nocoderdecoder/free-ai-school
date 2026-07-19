@@ -51,7 +51,7 @@ test('client accepts a bounded model clarification before the next fixed section
     path: 'use-case',
     completedSectionId: 'outcome',
     expectedSectionId: 'workflow',
-    answers: { outcome: { desiredOutcome: 'I want to create a social media management app.' } },
+    answers: { outcome: { desiredOutcome: 'Make things better with AI.' } },
   }
   await withFetch(async () => Response.json({
     version: CONSTRAINED_QUESTION_VERSION,
@@ -60,7 +60,7 @@ test('client accepts a bounded model clarification before the next fixed section
     presentation: {
       path: 'use-case',
       sectionId: 'outcome',
-      variantId: 'model-clarifier',
+      variantId: 'use-case-real-task',
       source: 'model-constrained',
       title: 'Tell me one real example',
       reason: 'The app idea needs a concrete starting task.',
@@ -71,8 +71,8 @@ test('client accepts a bounded model clarification before the next fixed section
     const result = await requestAdaptiveQuestion(useCaseInput)
     assert.equal(result.action, 'clarify_current')
     assert.equal(result.sectionId, 'outcome')
-    assert.equal(result.variantId, 'model-clarifier')
-    assert.match(result.prompt, /how are you doing that task today/i)
+    assert.equal(result.variantId, 'use-case-real-task')
+    assert.match(result.prompt, /real example/i)
   })
 })
 
