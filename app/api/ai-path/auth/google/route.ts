@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server'
 import {
   AI_PATH_AUTH_HOME,
   isExactMutationOrigin,
-  isValidConsumerEmail,
   normalizeAIPathReturnPath,
 } from '@/app/ai-path/lib/consumer-auth'
 import {
@@ -14,7 +13,7 @@ import {
 } from '@/app/ai-path/lib/consumer-auth.server'
 import { checkAiPathRateLimit } from '@/app/ai-path/lib/rate-limit.server'
 
-const MAX_AUTH_FORM_BYTES = 8_192
+const MAX_AUTH_FORM_BYTES = 2_048
 
 function authPageRedirect(request: Request, parameters: Record<string, string>): NextResponse {
   const capability = getConsumerAuthCapability()
@@ -23,12 +22,25 @@ function authPageRedirect(request: Request, parameters: Record<string, string>):
   return NextResponse.redirect(destination, 303)
 }
 
+function isTrustedSupabaseAuthorizationUrl(value: string, supabaseUrl: string): boolean {
+  try {
+    const authorization = new URL(value)
+    const project = new URL(supabaseUrl)
+    return authorization.protocol === 'https:'
+      && authorization.origin === project.origin
+      && authorization.pathname === '/auth/v1/authorize'
+      && authorization.searchParams.get('provider') === 'google'
+  } catch {
+    return false
+  }
+}
+
 export async function POST(request: Request) {
   const capability = getConsumerAuthCapability()
-  if (!capability.available) {
-    return authPageRedirect(request, { error: 'not_configured' })
-  }
-  if (!isExactMutationOrigin(request, consumerAuthPublicOrigin(request, capability))) {
+  if (!capability.available) return authPageRedirect(request, { error: 'not_configured' })
+
+  const requestOrigin = consumerAuthPublicOrigin(request, capability)
+  if (!isExactMutationOrigin(request, requestOrigin)) {
     return NextResponse.json({ error: 'cross_origin_request_rejected' }, {
       status: 403,
       headers: { 'Cache-Control': 'no-store' },
@@ -56,42 +68,27 @@ export async function POST(request: Request) {
   if (new TextEncoder().encode(body).byteLength > MAX_AUTH_FORM_BYTES) {
     return authPageRedirect(request, { error: 'invalid_request' })
   }
-  const form = new URLSearchParams(body)
-  const email = form.get('email')?.trim()
-  const next = normalizeAIPathReturnPath(form.get('next'))
-  if (!isValidConsumerEmail(email)) {
-    return authPageRedirect(request, { error: 'invalid_email', next })
-  }
-
-  const emailRateLimit = await checkAiPathRateLimit(
-    request,
-    'ai-path-auth-email',
-    null,
-    email.toLowerCase(),
-  )
-  if (!emailRateLimit.allowed) {
-    const response = authPageRedirect(request, {
-      error: emailRateLimit.reason === 'unavailable' ? 'sign_in_unavailable' : 'too_many_attempts',
-    })
-    response.headers.set('Retry-After', String(Math.max(1, Math.ceil((emailRateLimit.resetAt - Date.now()) / 1_000))))
-    return response
-  }
+  const next = normalizeAIPathReturnPath(new URLSearchParams(body).get('next'))
+  const callback = new URL('/ai-path/auth/callback', requestOrigin)
+  callback.searchParams.set('next', next)
 
   const context = createConsumerAuthRequestContext(request)
-  const callback = new URL('/ai-path/auth/callback', consumerAuthPublicOrigin(request, capability))
-  callback.searchParams.set('next', next)
-  const { error } = await context.client.auth.signInWithOtp({
-    email,
+  const { data, error } = await context.client.auth.signInWithOAuth({
+    provider: 'google',
     options: {
-      emailRedirectTo: callback.toString(),
-      shouldCreateUser: true,
+      redirectTo: callback.toString(),
+      skipBrowserRedirect: true,
     },
   })
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (error || !data.url || !supabaseUrl || !isTrustedSupabaseAuthorizationUrl(data.url, supabaseUrl)) {
+    return applyConsumerAuthResponse(
+      context,
+      authPageRedirect(request, { error: 'google_sign_in_failed', next }),
+    )
+  }
 
-  const response = authPageRedirect(request, error
-    ? { error: 'sign_in_failed', next }
-    : { sent: '1', next })
-  return applyConsumerAuthResponse(context, response)
+  return applyConsumerAuthResponse(context, NextResponse.redirect(data.url, 303))
 }
 
 export async function GET(request: Request) {

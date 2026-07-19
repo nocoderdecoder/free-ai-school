@@ -30,6 +30,8 @@ export default async function AIPathAuthPage({ searchParams }: { searchParams: A
     ? 'Enter a valid email address.'
     : error === 'invalid_callback'
       ? 'That sign-in link is invalid or has expired. Request a new one.'
+      : error === 'google_sign_in_failed'
+        ? 'Google sign-in is not available yet. Try email or ask the site owner to enable Google in Supabase.'
       : error === 'sign_in_failed'
         ? 'We could not send a sign-in link. Please try again shortly.'
         : error === 'too_many_attempts'
@@ -50,8 +52,8 @@ export default async function AIPathAuthPage({ searchParams }: { searchParams: A
           <strong>AI Path</strong>
         </a>
         <p className="ap-auth-eyebrow">Your private learning plan</p>
-        <h1 id="auth-title">Sign in with your email</h1>
-        <p className="ap-auth-intro">We’ll send a one-time link. No password to remember.</p>
+        <h1 id="auth-title">Welcome to AI Path</h1>
+        <p className="ap-auth-intro">Sign in to save your answers and return to your learning plan.</p>
 
         {sent ? (
           <div className="ap-auth-notice ap-auth-success" role="status" aria-live="polite">
@@ -65,7 +67,22 @@ export default async function AIPathAuthPage({ searchParams }: { searchParams: A
           </div>
         ) : null}
 
-        <form method="post" action="/api/ai-path/auth/sign-in" className="ap-auth-form">
+        <form method="post" action="/api/ai-path/auth/google" className="ap-auth-form ap-auth-google-form">
+          <input type="hidden" name="next" value={next} />
+          <button type="submit" className="ap-auth-google" disabled={!capability.available}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+              <path fill="#4285F4" d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.9h5.4a4.6 4.6 0 0 1-2 3v2.6h3.3c1.9-1.8 2.9-4.4 2.9-7.5Z" />
+              <path fill="#34A853" d="M12 22c2.7 0 5-.9 6.7-2.3l-3.3-2.6c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.2H3v2.7A10 10 0 0 0 12 22Z" />
+              <path fill="#FBBC05" d="M6.4 13.9A6 6 0 0 1 6.1 12c0-.7.1-1.3.3-1.9V7.4H3A10 10 0 0 0 2 12c0 1.7.4 3.2 1 4.6l3.4-2.7Z" />
+              <path fill="#EA4335" d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.9-2.8A9.7 9.7 0 0 0 12 2a10 10 0 0 0-9 5.4l3.4 2.7A6 6 0 0 1 12 5.9Z" />
+            </svg>
+            Continue with Google
+          </button>
+        </form>
+
+        <div className="ap-auth-divider" aria-hidden="true"><span>or</span></div>
+
+        <form method="post" action="/api/ai-path/auth/sign-in" className="ap-auth-form ap-auth-email-form">
           <input type="hidden" name="next" value={next} />
           <label htmlFor="ai-path-email">Email address</label>
           <input
@@ -80,13 +97,13 @@ export default async function AIPathAuthPage({ searchParams }: { searchParams: A
             placeholder="you@example.com"
           />
           <button type="submit" disabled={!capability.available}>
-            Email me a sign-in link
+            Continue with email
           </button>
         </form>
 
         <p className="ap-auth-footnote">
           {capability.available
-            ? 'The link is single-use. Your session stays in a secure, HTTP-only cookie.'
+            ? 'Google and email sign-in both create a secure, HTTP-only session.'
             : 'Authentication is safely disabled until the production configuration is completed.'}
         </p>
       </section>

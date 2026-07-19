@@ -105,6 +105,52 @@
   margin-top: 28px;
 }
 
+.ap-auth-google-form {
+  margin-top: 28px;
+}
+
+.ap-auth-email-form {
+  margin-top: 0;
+}
+
+.ap-auth-form .ap-auth-google {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #b9c2bd;
+  color: var(--auth-ink);
+  display: inline-flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.ap-auth-form .ap-auth-google:hover:not(:disabled) {
+  background: #f3f7f5;
+  border-color: #8da098;
+}
+
+.ap-auth-google svg {
+  flex: 0 0 20px;
+  height: 20px;
+  width: 20px;
+}
+
+.ap-auth-divider {
+  align-items: center;
+  color: var(--auth-muted);
+  display: grid;
+  font-size: 13px;
+  gap: 12px;
+  grid-template-columns: 1fr auto 1fr;
+  margin: 20px 0;
+}
+
+.ap-auth-divider::before,
+.ap-auth-divider::after {
+  background: var(--auth-line);
+  content: '';
+  height: 1px;
+}
+
 .ap-auth-form label {
   font-size: 14px;
   font-weight: 650;

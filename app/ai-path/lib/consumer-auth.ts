@@ -133,6 +133,46 @@ export function isExactMutationOrigin(request: Request, configuredOrigin?: strin
   }
 }
 
+function isLoopbackHttpOrigin(url: URL): boolean {
+  return url.protocol === 'http:'
+    && (
+      url.hostname === 'localhost'
+      || url.hostname === '127.0.0.1'
+      || url.hostname === '[::1]'
+      || url.hostname === '::1'
+    )
+}
+
+/**
+ * Keeps production OAuth and CSRF redirects pinned to the reviewed canonical
+ * origin. In local development only, localhost, 127.0.0.1, and ::1 are equivalent
+ * loopback names when they use the same port, so the active browser origin is
+ * used consistently for the form POST, callback URL, and session cookie.
+ */
+export function resolveConsumerAuthRequestOrigin(
+  requestUrl: string,
+  configuredOrigin: string | null,
+  nodeEnv: string | undefined,
+  presentedOrigin?: string | null,
+): string {
+  const requestOrigin = new URL(requestUrl)
+  if (!configuredOrigin) return requestOrigin.origin
+
+  const canonicalOrigin = new URL(configuredOrigin)
+  let browserOrigin = requestOrigin
+  try {
+    if (presentedOrigin) browserOrigin = new URL(presentedOrigin)
+  } catch {
+    // A malformed Origin can never become an accepted browser origin.
+  }
+  const localAlias = nodeEnv !== 'production'
+    && isLoopbackHttpOrigin(browserOrigin)
+    && isLoopbackHttpOrigin(canonicalOrigin)
+    && browserOrigin.port === canonicalOrigin.port
+    && (!presentedOrigin || presentedOrigin === browserOrigin.origin)
+  return localAlias ? browserOrigin.origin : canonicalOrigin.origin
+}
+
 export function isAIPathAuthPublicPath(pathname: string): boolean {
   return pathname === AI_PATH_AUTH_HOME
     || pathname === AI_PATH_AUTH_CALLBACK

@@ -267,6 +267,241 @@
   to { transform: scaleY(1); }
 }
 
+.vx-conversation {
+  background:
+    radial-gradient(circle at 50% 12%, rgba(201, 229, 109, .16), transparent 34%),
+    linear-gradient(145deg, #fffefa, #f4f7f1);
+  border: 1px solid rgba(18, 63, 58, .16);
+  border-radius: 24px;
+  box-shadow: 0 30px 80px rgba(18, 44, 41, .12), inset 0 1px rgba(255, 255, 255, .9);
+  color: var(--vx-ink);
+  margin: 28px auto;
+  max-width: 880px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 22px clamp(18px, 4vw, 42px) 34px;
+}
+
+.vx-conversationTopline,
+.vx-reviewActions,
+.vx-conversationActions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.vx-conversationTopline {
+  justify-content: space-between;
+}
+
+.vx-conversationTopline p,
+.vx-conversationTopline span {
+  margin: 0;
+}
+
+.vx-conversationTopline p {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.vx-conversationTopline span {
+  color: var(--vx-muted);
+  font-size: 12px;
+}
+
+.vx-conversationTopline button,
+.vx-textLink {
+  background: transparent;
+  border: 0;
+  color: var(--vx-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.vx-conversationTopline button {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  min-height: 38px;
+  padding: 7px;
+}
+
+.vx-conversationTopline svg,
+.vx-conversationActions svg {
+  fill: none;
+  height: 18px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.8;
+  width: 18px;
+}
+
+.vx-progressTrack {
+  background: rgba(18, 63, 58, .1);
+  border-radius: 999px;
+  height: 4px;
+  margin: 18px 0 8px;
+  overflow: hidden;
+}
+
+.vx-progressTrack i {
+  background: linear-gradient(90deg, var(--vx-teal), #5f8665, var(--vx-lime));
+  display: block;
+  height: 100%;
+  transition: width 420ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.vx-conversationStage {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(24px, 6vw, 58px) 0 10px;
+  text-align: center;
+}
+
+.vx-voiceOrb {
+  align-items: center;
+  background: linear-gradient(145deg, #133f3a, #092c29);
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 50%;
+  box-shadow: 0 18px 46px rgba(18, 63, 58, .25), 0 0 0 12px rgba(18, 63, 58, .06);
+  color: #fff;
+  display: grid;
+  height: 112px;
+  place-items: center;
+  position: relative;
+  width: 112px;
+}
+
+.vx-voiceOrb span {
+  align-items: center;
+  background: rgba(255, 255, 255, .12);
+  border-radius: 50%;
+  display: flex;
+  height: 58px;
+  justify-content: center;
+  width: 58px;
+}
+
+.vx-voiceOrb svg {
+  fill: none;
+  height: 30px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.6;
+  width: 30px;
+}
+
+.vx-voiceOrb > i {
+  border: 1px solid rgba(18, 63, 58, .24);
+  border-radius: 50%;
+  inset: -10px;
+  opacity: 0;
+  position: absolute;
+}
+
+.vx-voiceOrb > i:nth-of-type(2) { inset: -22px; }
+.vx-voiceOrb > i:nth-of-type(3) { inset: -34px; }
+
+.vx-voiceOrb.is-listening > i,
+.vx-voiceOrb.is-speaking > i,
+.vx-voiceOrb.is-thinking > i {
+  animation: vx-orb-ring 1.8s ease-out infinite;
+}
+
+.vx-voiceOrb.is-listening > i:nth-of-type(2),
+.vx-voiceOrb.is-speaking > i:nth-of-type(2),
+.vx-voiceOrb.is-thinking > i:nth-of-type(2) { animation-delay: .32s; }
+.vx-voiceOrb.is-listening > i:nth-of-type(3),
+.vx-voiceOrb.is-speaking > i:nth-of-type(3),
+.vx-voiceOrb.is-thinking > i:nth-of-type(3) { animation-delay: .64s; }
+
+@keyframes vx-orb-ring {
+  0% { opacity: 0; transform: scale(.84); }
+  35% { opacity: .65; }
+  100% { opacity: 0; transform: scale(1.08); }
+}
+
+.vx-conversationStatus {
+  display: grid;
+  gap: 5px;
+  margin-top: 30px;
+}
+
+.vx-conversationStatus strong { font-size: 16px; }
+.vx-conversationStatus span { color: var(--vx-muted); font-size: 13px; }
+.vx-conversationStage > .vx-signalRibbon { max-width: 340px; }
+
+.vx-currentQuestion {
+  border-top: 1px solid var(--vx-line);
+  margin-top: 16px;
+  max-width: 690px;
+  padding-top: 28px;
+}
+
+.vx-currentQuestion h2,
+.vx-transcriptReview h2 {
+  font-size: clamp(25px, 4vw, 38px);
+  line-height: 1.15;
+  margin: 7px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.vx-conversationActions {
+  flex-direction: column;
+  margin-top: 28px;
+  max-width: 440px;
+  width: 100%;
+}
+
+.vx-conversationActions .vx-primaryAction { margin: 0; }
+.vx-conversationActions p { color: var(--vx-muted); font-size: 12px; line-height: 1.45; margin: 0; }
+.vx-textLink { min-height: 38px; }
+
+.vx-transcriptReview { padding: clamp(22px, 5vw, 44px) 0 4px; }
+.vx-transcriptReview > div:first-child { max-width: 650px; }
+.vx-transcriptReview > div:first-child > p:last-child { color: var(--vx-muted); line-height: 1.5; }
+.vx-transcriptTurns { display: grid; gap: 14px; margin-top: 24px; }
+.vx-transcriptTurns label { display: grid; gap: 7px; }
+.vx-transcriptTurns label > span { font-size: 13px; font-weight: 750; line-height: 1.4; }
+.vx-transcriptTurns textarea {
+  background: rgba(255, 255, 255, .82);
+  border: 1px solid #a9b6b0;
+  border-radius: 12px;
+  color: var(--vx-ink);
+  line-height: 1.5;
+  min-width: 0;
+  padding: 13px 14px;
+  resize: vertical;
+  width: 100%;
+}
+
+.vx-reviewActions { justify-content: flex-end; margin-top: 24px; }
+.vx-reviewActions .vx-primaryAction { margin: 0; width: auto; }
+.vx-secondaryAction {
+  background: #fff;
+  border: 1px solid #a9b6b0;
+  border-radius: 10px;
+  color: var(--vx-teal);
+  font-weight: 750;
+  min-height: 48px;
+  padding: 11px 16px;
+}
+
+@media (max-width: 600px) {
+  .vx-conversation { border-radius: 18px; margin: 12px; padding: 18px 16px 26px; }
+  .vx-conversationStage { padding-top: 34px; }
+  .vx-voiceOrb { height: 92px; width: 92px; }
+  .vx-currentQuestion h2 { font-size: 27px; }
+  .vx-reviewActions { align-items: stretch; flex-direction: column-reverse; }
+  .vx-reviewActions .vx-primaryAction { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vx-voiceOrb > i,
+  .vx-progressTrack i { animation: none !important; transition: none !important; }
+}
+
 .vx-devicePicker,
 .vx-typedPrompt {
   display: grid;

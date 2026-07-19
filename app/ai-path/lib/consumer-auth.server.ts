@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 
 import type { Database } from './database.types'
 import {
+  resolveConsumerAuthRequestOrigin,
   resolveConsumerAuthCapability,
   type ConsumerAuthCapability,
 } from './consumer-auth'
@@ -129,5 +130,10 @@ export function applyConsumerAuthResponse(
 }
 
 export function consumerAuthPublicOrigin(request: Request, capability: ConsumerAuthCapability): string {
-  return capability.publicOrigin || new URL(request.url).origin
+  return resolveConsumerAuthRequestOrigin(
+    request.url,
+    capability.publicOrigin,
+    process.env.NODE_ENV,
+    request.headers.get('origin'),
+  )
 }

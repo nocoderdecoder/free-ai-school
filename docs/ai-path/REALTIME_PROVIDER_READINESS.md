@@ -3,7 +3,33 @@
 Status: architecture review only. Paid traffic, provider credentials, public
 bootstrap, and every Realtime production latch remain disabled.
 
-Last checked against official OpenAI documentation: 2026-07-17.
+Last checked against official OpenAI documentation: 2026-07-19.
+
+## Prepared hands-free product contract
+
+The provider-independent interview coordinator and visible conversation shell
+are implemented without opening a microphone, creating a peer connection, or
+calling a paid provider. The product contract is deliberately narrower than a
+general voice chatbot:
+
+1. AI Path speaks one question from the same application-owned diagnostic route
+   used by the typed experience.
+2. The learner answers naturally. Voice activity events may end the turn and
+   barge-in immediately stops advisor playback.
+3. A finalized transcript must pass the shared diagnostic substance gate before
+   it can become evidence. Placeholder text, repeated nonsense, an empty turn,
+   and an overlong turn trigger one bounded repair instead of progression.
+4. The application reviews the answer for the current required information,
+   creates a short factual acknowledgement, and selects only an approved variant
+   of the next required question. Speech cannot skip or reorder the route.
+5. After four to six accepted core answers, the learner reviews and may edit the
+   transcript before the existing plan engine receives it.
+6. Silence, microphone denial, provider failure, disconnect, or repair exhaustion
+   always preserves accepted work and offers the complete typed route.
+
+The prepared UI exposes clear listening, user-speaking, analyzing,
+advisor-speaking, review, generation, and failure states; it respects reduced
+motion and does not claim that live voice is available while activation is off.
 
 ## Chosen connection contract
 

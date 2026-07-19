@@ -9,6 +9,7 @@ import {
   isMissingConsumerAuthSessionError,
   isValidConsumerEmail,
   normalizeAIPathReturnPath,
+  resolveConsumerAuthRequestOrigin,
   resolveConsumerAuthCapability,
 } from './lib/consumer-auth.ts'
 
@@ -61,6 +62,31 @@ test('development permits only loopback HTTP origins', () => {
   }).available, false)
 })
 
+test('development accepts the active loopback alias without weakening the production origin', () => {
+  assert.equal(resolveConsumerAuthRequestOrigin(
+    'http://localhost:3000/api/ai-path/auth/sign-in',
+    'http://localhost:3000',
+    'development',
+    'http://127.0.0.1:3000',
+  ), 'http://127.0.0.1:3000')
+  assert.equal(resolveConsumerAuthRequestOrigin(
+    'http://127.0.0.1:3001/api/ai-path/auth/sign-in',
+    'http://localhost:3000',
+    'development',
+  ), 'http://localhost:3000')
+  assert.equal(resolveConsumerAuthRequestOrigin(
+    'http://[::1]:3000/api/ai-path/auth/sign-in',
+    'http://localhost:3000',
+    'development',
+    'http://[::1]:3000',
+  ), 'http://[::1]:3000')
+  assert.equal(resolveConsumerAuthRequestOrigin(
+    'https://alternate.example/api/ai-path/auth/sign-in',
+    'https://learn.example.com',
+    'production',
+  ), 'https://learn.example.com')
+})
+
 test('return paths stay inside AI Path and cannot loop through the callback', () => {
   assert.equal(normalizeAIPathReturnPath('/ai-path?step=2'), '/ai-path?step=2')
   assert.equal(normalizeAIPathReturnPath('/ai-path/plan/abc'), '/ai-path/plan/abc')
@@ -101,6 +127,7 @@ test('route and proxy boundaries use verified identity and mutation-safe verbs',
   const diagnosticRouteSource = await readFile(new URL('../api/ai-path/diagnostic/route.ts', import.meta.url), 'utf8')
   const signOutSource = await readFile(new URL('../api/ai-path/auth/sign-out/route.ts', import.meta.url), 'utf8')
   const signInSource = await readFile(new URL('../api/ai-path/auth/sign-in/route.ts', import.meta.url), 'utf8')
+  const googleSource = await readFile(new URL('../api/ai-path/auth/google/route.ts', import.meta.url), 'utf8')
   const callbackSource = await readFile(new URL('./auth/callback/route.ts', import.meta.url), 'utf8')
   assert.match(proxySource, /auth\.getUser\(\)/)
   assert.doesNotMatch(proxySource, /auth\.getSession\(\)/)
@@ -115,6 +142,14 @@ test('route and proxy boundaries use verified identity and mutation-safe verbs',
   assert.match(signInSource, /application\/x-www-form-urlencoded/)
   assert.match(signInSource, /checkAiPathRateLimit\(request, 'ai-path-auth-sign-in'\)/)
   assert.match(signInSource, /'ai-path-auth-email'[\s\S]*email\.toLowerCase\(\)/)
+  assert.match(googleSource, /isExactMutationOrigin/)
+  assert.match(googleSource, /checkAiPathRateLimit\(request, 'ai-path-auth-sign-in'\)/)
+  assert.match(googleSource, /provider: 'google'/)
+  assert.match(googleSource, /skipBrowserRedirect: true/)
+  assert.match(googleSource, /isTrustedSupabaseAuthorizationUrl/)
+  assert.match(googleSource, /applyConsumerAuthResponse\(context, NextResponse\.redirect\(data\.url, 303\)\)/)
+  assert.match(googleSource, /export async function GET\(request: Request\)[\s\S]*authPageRedirect/)
+  assert.match(signInSource, /export async function GET\(request: Request\)[\s\S]*authPageRedirect/)
   assert.match(callbackSource, /checkAiPathRateLimit\(request, 'ai-path-auth-callback'\)/)
 })
 

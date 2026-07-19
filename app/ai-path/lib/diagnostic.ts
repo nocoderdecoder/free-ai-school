@@ -168,6 +168,15 @@ function substantiveText(value: string, minimum = 1): boolean {
   return true
 }
 
+/**
+ * Shared free-text quality gate for typed and voice interview surfaces.
+ * Keep placeholder and repetition policy in one place so voice cannot advance
+ * on content the canonical diagnostic would reject.
+ */
+export function isSubstantiveDiagnosticText(value: string, minimum = 1): boolean {
+  return substantiveText(value, minimum)
+}
+
 function validHours(value: number | null): boolean {
   return Number.isInteger(value) && Number(value) >= 1 && Number(value) <= 40
 }

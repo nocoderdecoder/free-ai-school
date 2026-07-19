@@ -3,6 +3,7 @@ import { AdvisorApp } from './AdvisorApp'
 import { getConsumerAuthCapability, hasVerifiedConsumerSession } from './lib/consumer-auth.server'
 import { getConsumerDiagnosticPersistenceCapability } from './lib/diagnostic-persistence-runtime.server'
 import './ai-path.css'
+import './components/voice-experience/voice-experience.css'
 
 export const metadata: Metadata = {
   title: {
