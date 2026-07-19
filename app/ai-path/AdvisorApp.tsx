@@ -1019,6 +1019,17 @@ export function AdvisorApp({
     const changedIndex = ids.findIndex(id => id === sectionId)
     if (changedIndex < 0) return
     setUsedClarifierSectionIds(current => current.filter(id => ids.indexOf(id as never) <= changedIndex))
+    setClarifierAnswerBaselines(current => {
+      const next: Partial<Record<DiagnosticSectionId, string>> = { ...current }
+      let changed = false
+      for (const id of ids.slice(changedIndex)) {
+        if (next[id]) {
+          delete next[id]
+          changed = true
+        }
+      }
+      return changed ? next : current
+    })
     setAdaptivePresentations(current => {
       const nextPathPresentations = { ...current[changedPath] }
       let changed = false
