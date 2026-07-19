@@ -80,3 +80,18 @@ test('result UI renders the executive summary, structured first step, starter ar
   assert.match(app, /resource\.week/)
   assert.match(app, /formatMinutes\(resource\.planMinutes\)/)
 })
+
+test('result UI is prescription-first with deeper reasoning collapsed', async () => {
+  const app = await readFile(new URL('./AdvisorApp.tsx', import.meta.url), 'utf8')
+  const css = await readFile(new URL('./ai-path.css', import.meta.url), 'utf8')
+  assert.match(app, /className="ap-ds-prescription"/)
+  assert.match(app, /className="ap-ds-nextStep"/)
+  assert.match(app, /className="ap-ds-planGuardrails"/)
+  assert.match(app, /Weekly actions/)
+  assert.match(app, /className="ap-ds-supportingDetails"/)
+  assert.match(app, /The reasoning is here if you want it/)
+  assert.doesNotMatch(app, /className="ap-ds-resultHero"/)
+  assert.doesNotMatch(app, /className="ap-ds-firstAction"/)
+  assert.match(css, /\.ap-ds-prescription/)
+  assert.match(css, /\.ap-ds-supportingDetails/)
+})

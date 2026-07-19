@@ -732,6 +732,7 @@ function ResultScene({
   const signature = useMemo(() => resultSignature(result), [result])
   const [actionSaved, setActionSaved] = useState(false)
   const evidence = isUseCase ? [] : result.evidenceProfile.filter(item => item.assessedLevel !== 'none').slice(0, 3)
+  const visibleReasons = result.personalizationReasons.slice(0, 4)
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -776,68 +777,48 @@ function ResultScene({
         <div><button type="button" onClick={onEdit}>← Edit my answers</button><button type="button" onClick={() => window.print()}>Print or save PDF</button></div>
         <span>{isUseCase ? 'Your project plan' : 'Your learning plan'}</span>
       </div>
-      <section className="ap-ds-resultHero">
-        <p>{isUseCase ? 'A small version you can test' : 'What to learn and build next'}</p>
-        <h1 tabIndex={-1}>{result.title}</h1>
-        {isUseCase ? (
-          <div className="ap-ds-verdict"><span>{result.feasibility.rating === 'strong-fit' ? 'A strong fit' : result.feasibility.rating === 'possible-with-constraints' ? 'A good fit with safeguards' : 'Needs a different approach'}</span><p>{result.feasibility.rationale}</p></div>
-        ) : (
-          <div className="ap-ds-verdict"><span>How sure we are: {result.confidence}</span><p>{result.strongest}</p></div>
-        )}
-      </section>
-
-      <section className="ap-ds-summary" aria-labelledby="ap-plan-summary-title">
-        <div className="ap-ds-summaryLead">
-          <span className="ap-ds-persona">{result.persona} path</span>
-          <p className="ap-ds-kicker">Your recommendation</p>
+      <section className="ap-ds-prescription" aria-labelledby="ap-plan-summary-title">
+        <div className="ap-ds-prescriptionMain">
+          <p className="ap-ds-kicker">{isUseCase ? 'A small version you can test' : 'What to learn and build next'}</p>
+          <h1 tabIndex={-1}>{isUseCase ? 'Your AI project plan' : 'Your AI learning path'}</h1>
+          <div className="ap-ds-prescriptionMeta">
+            <span>{result.persona} path</span>
+            {isUseCase ? (
+              <span>{result.feasibility.rating === 'strong-fit' ? 'Strong fit' : result.feasibility.rating === 'possible-with-constraints' ? 'Good fit with safeguards' : 'Needs a different approach'}</span>
+            ) : (
+              <span>{result.confidence} confidence</span>
+            )}
+          </div>
           <h2 id="ap-plan-summary-title">{result.summary.recommendation}</h2>
           <p>{result.summary.reason}</p>
         </div>
-        <dl>
+        <aside className="ap-ds-nextStep" aria-labelledby="ap-next-step-title">
+          <div className="ap-ds-firstStepHeading">
+            <span>Start this week</span>
+            <small>{formatMinutes(result.firstStep.timeboxMinutes)}</small>
+          </div>
+          <h2 id="ap-next-step-title">{result.firstStep.task}</h2>
+          <div className="ap-ds-firstStepDetails">
+            <div><strong>Use</strong><ul>{result.firstStep.inputs.map(input => <li key={input}>{input}</li>)}</ul></div>
+            <div><strong>Done when</strong><p>{result.firstStep.doneWhen}</p></div>
+          </div>
+          <button type="button" className={actionSaved ? 'is-saved' : ''} onClick={toggleSavedAction} aria-pressed={actionSaved}>
+            {actionSaved ? 'Next step saved' : 'Save next step'} {actionSaved ? <CheckIcon /> : <ArrowIcon />}
+          </button>
+          <small aria-live="polite">{actionSaved ? 'Saved in this browser. Select again to remove it.' : 'Keep this next step in this browser.'}</small>
+        </aside>
+        <dl className="ap-ds-planGuardrails">
           <div><dt>Owner</dt><dd>{result.summary.owner}</dd></div>
           <div><dt>Decision gate</dt><dd>{result.summary.decisionGate}</dd></div>
           <div><dt>Checkpoint</dt><dd>{result.summary.checkpoint}</dd></div>
-          <div><dt>Keep a person responsible for</dt><dd>{result.summary.riskBoundary}</dd></div>
+          <div><dt>Human review</dt><dd>{result.summary.riskBoundary}</dd></div>
         </dl>
-      </section>
-
-      <section className="ap-ds-firstAction">
-        <div className="ap-ds-firstStepHeading">
-          <span>Start here</span>
-          <small>{formatMinutes(result.firstStep.timeboxMinutes)}</small>
-        </div>
-        <h2>{result.firstStep.task}</h2>
-        <div className="ap-ds-firstStepDetails">
-          <div><strong>Use</strong><ul>{result.firstStep.inputs.map(input => <li key={input}>{input}</li>)}</ul></div>
-          <div><strong>Done when</strong><p>{result.firstStep.doneWhen}</p></div>
-        </div>
-        <button type="button" className={actionSaved ? 'is-saved' : ''} onClick={toggleSavedAction} aria-pressed={actionSaved}>
-          {actionSaved ? 'Next step saved' : 'Save this as my next step'} {actionSaved ? <CheckIcon /> : <ArrowIcon />}
-        </button>
-        <small aria-live="polite">{actionSaved ? 'Saved in this browser. Select again to remove it.' : 'Keep this next step in this browser.'}</small>
-      </section>
-
-      <section className="ap-ds-starterArtifact" aria-labelledby="ap-starter-title">
-        <div className="ap-ds-starterHeading">
-          <div><p className="ap-ds-kicker">Included starter template</p><h2 id="ap-starter-title">{result.starterArtifact.title}</h2></div>
-          <span>{result.starterArtifact.format}</span>
-        </div>
-        <p>{result.starterArtifact.instructions}</p>
-        <div className="ap-ds-templateFields">
-          {result.starterArtifact.fields.map(field => (
-            <article key={field.label}>
-              <h3>{field.label}</h3>
-              <p>{field.guidance}</p>
-              {field.example ? <small><strong>Example:</strong> {field.example}</small> : null}
-            </article>
-          ))}
-        </div>
       </section>
 
       <section className="ap-ds-month">
         <p className="ap-ds-kicker">Your next four weeks</p>
         <h2>{isUseCase ? 'From first test to a useful result' : 'From first practice to something you can show'}</h2>
-        <div>{result.weeks.map(week => <article key={week.week}><span>{week.week}</span><small>Week {week.week} · {formatMinutes(week.estimatedMinutes)}</small><h3>{week.focus}</h3><p>{week.outcome}</p><ul>{week.activities.map(activity => <li key={activity}>{activity}</li>)}</ul></article>)}</div>
+        <div>{result.weeks.map(week => <article key={week.week}><span>{week.week}</span><small>Week {week.week} · {formatMinutes(week.estimatedMinutes)}</small><h3>{week.focus}</h3><p>{week.outcome}</p><details><summary>Weekly actions</summary><ul>{week.activities.map(activity => <li key={activity}>{activity}</li>)}</ul></details></article>)}</div>
       </section>
 
       <section className="ap-ds-resources">
@@ -849,53 +830,23 @@ function ResultScene({
             <div className="ap-ds-resourceTopline"><span>Week {resource.week}</span><small className={`is-${resource.cost.kind}`}>{resource.cost.kind === 'free' ? 'Free' : resource.cost.kind === 'freemium' ? 'Free + optional paid' : 'Paid'}</small></div>
             <h3><span className="sr-only">Resource {index + 1}: </span>{resource.title}</h3>
             <p className="ap-ds-resourcePlanTime">{formatMinutes(resource.planMinutes)} included in your plan</p>
-            <p className="ap-ds-resourceMeta">{resource.provider} · {resource.format} · {formatMinutes(resource.estimatedMinutes)} full resource</p>
             <p>{resource.purpose}</p>
-            {!url ? <p className="ap-ds-resourceOutcome"><strong>What you will produce:</strong> {resource.outcome}</p> : null}
-            <details><summary>Cost and access</summary><p>{resource.cost.disclosure}</p></details>
+            <details><summary>Details and access</summary><p className="ap-ds-resourceMeta">{resource.provider} · {resource.format} · {formatMinutes(resource.estimatedMinutes)} full resource</p><p>{resource.cost.disclosure}</p>{!url ? <p className="ap-ds-resourceOutcome"><strong>What you will produce:</strong> {resource.outcome}</p> : null}</details>
             {url ? <a href={url} target="_blank" rel="noreferrer">Open resource <span aria-hidden="true">↗</span></a> : <span className="ap-ds-includedResource">Activity included in your plan</span>}
           </article>
         })}</div>
       </section>
 
-      <section className="ap-ds-planWhy" aria-labelledby="ap-plan-why-title">
-        <div>
-          <p className="ap-ds-kicker">Why this plan</p>
-          <h2 id="ap-plan-why-title">Built from what you told us</h2>
-          <p>{result.planProfile.role} · {result.planProfile.weeklyHours} {result.planProfile.weeklyHours === 1 ? 'hour' : 'hours'} a week</p>
-        </div>
-        <div className="ap-ds-planReasons">
-          {result.personalizationReasons.slice(0, 4).map(reason => <p key={reason.id}><CheckIcon /><span>{reason.detail}</span></p>)}
-        </div>
-        <div className="ap-ds-planProfile" aria-label="Plan settings">
-          <span>{result.planProfile.buildMode}</span>
-          <span>{result.planProfile.learningMode}</span>
-          <span>{result.planProfile.budgetMode}</span>
-        </div>
-      </section>
-
-      {result.assumptions.length ? (
-        <section className="ap-ds-assumptions">
-          <strong>What we assumed</strong>
-          <ul>{result.assumptions.map(assumption => <li key={assumption.id}>{assumption.detail}</li>)}</ul>
-        </section>
-      ) : null}
-
-      {result.evidenceProjectLinks.length ? (
-        <section className="ap-ds-evidenceLinks" aria-labelledby="ap-evidence-links-title">
-          <div><p className="ap-ds-kicker">How your answers shaped the plan</p><h2 id="ap-evidence-links-title">Evidence, interpretation, project effect</h2></div>
-          <div>{result.evidenceProjectLinks.map(link => <article key={link.id}><strong>{link.signal}</strong><p>{link.interpretation}</p><small>{link.projectEffect}</small></article>)}</div>
-        </section>
-      ) : null}
-
       {isUseCase ? (
         <>
           <div className="ap-ds-resultGrid">
-            <section><p className="ap-ds-kicker">Build this first</p><h2>{result.prototype.title}</h2><p>{result.prototype.scope}</p><details><summary>Keep out of the first version</summary><ul>{result.prototype.excluded.map(item => <li key={item}>{item}</li>)}</ul></details></section>
-            <section className="is-dark"><p className="ap-ds-kicker">How it should work</p><h2>{result.architecture.pattern}</h2><ol>{result.architecture.stages.map(stage => <li key={stage}>{stage}</li>)}</ol></section>
+            <section><p className="ap-ds-kicker">Build this first</p><h2>{result.prototype.title}</h2><p>{result.prototype.scope}</p><details><summary>Scope boundaries</summary><strong>Keep out of the first version</strong><ul>{result.prototype.excluded.map(item => <li key={item}>{item}</li>)}</ul></details></section>
+            <section><p className="ap-ds-kicker">How it should work</p><h2>{result.architecture.pattern}</h2><details open><summary>Workflow stages</summary><ol>{result.architecture.stages.map(stage => <li key={stage}>{stage}</li>)}</ol></details></section>
           </div>
-          <section className="ap-ds-evaluation"><div><p className="ap-ds-kicker">How you’ll know it works</p><h2>{result.evaluation.acceptanceTarget}</h2></div><ul>{result.evaluation.checks.map(check => <li key={check}><CheckIcon />{check}</li>)}</ul></section>
-          <section className="ap-ds-risk"><div><p className="ap-ds-kicker">What needs human review</p><h2>{result.risk.level}</h2></div><div>{result.risk.safeguards.map(item => <p key={item}><CheckIcon />{item}</p>)}</div></section>
+          <div className="ap-ds-resultGrid">
+            <section><p className="ap-ds-kicker">How you’ll know it works</p><h2>{result.evaluation.acceptanceTarget}</h2><details><summary>Checks to run</summary><ul>{result.evaluation.checks.map(check => <li key={check}><CheckIcon />{check}</li>)}</ul></details></section>
+            <section><p className="ap-ds-kicker">What needs human review</p><h2>{result.risk.level}</h2><details><summary>Safeguards</summary><ul>{result.risk.safeguards.map(item => <li key={item}><CheckIcon />{item}</li>)}</ul></details></section>
+          </div>
           <section className="ap-ds-skills"><p className="ap-ds-kicker">What to learn for this project</p><div>{result.skills.map((skill, index) => <article key={skill}><span>0{index + 1}</span><h3>{skill}</h3></article>)}</div></section>
         </>
       ) : (
@@ -919,7 +870,7 @@ function ResultScene({
             </section>
           ) : null}
           <div className="ap-ds-resultGrid">
-            <section className="is-dark"><p className="ap-ds-kicker">Build this next</p><h2>{result.project.title}</h2><p>{result.project.outcome}</p><ul>{result.project.deliverables.map(item => <li key={item}>{item}</li>)}</ul></section>
+            <section><p className="ap-ds-kicker">Project to build</p><h2>{result.project.title}</h2><p>{result.project.outcome}</p><details open><summary>Deliverables</summary><ul>{result.project.deliverables.map(item => <li key={item}>{item}</li>)}</ul></details></section>
             <section><p className="ap-ds-kicker">Focus on this skill</p><h2>{result.nextCapability}</h2>{result.secondaryCapabilities.length ? <p>Then add: {result.secondaryCapabilities.join(' · ')}</p> : null}<p>This project creates evidence you can inspect—not merely another course completion.</p><details><summary>How you’ll know the project is done</summary><ul>{result.definitionOfDone.map(item => <li key={item}>{item}</li>)}</ul></details></section>
           </div>
           <section className="ap-ds-evidenceSummary">
@@ -931,6 +882,56 @@ function ResultScene({
           </section>
         </>
       )}
+
+      <details className="ap-ds-starterArtifact">
+        <summary>
+          <span><span className="ap-ds-kicker">Included starter template</span><strong>{result.starterArtifact.title}</strong></span>
+          <em>{result.starterArtifact.format}</em>
+        </summary>
+        <p>{result.starterArtifact.instructions}</p>
+        <div className="ap-ds-templateFields">
+          {result.starterArtifact.fields.map(field => (
+            <article key={field.label}>
+              <h3>{field.label}</h3>
+              <p>{field.guidance}</p>
+              {field.example ? <small><strong>Example:</strong> {field.example}</small> : null}
+            </article>
+          ))}
+        </div>
+      </details>
+
+      <section className="ap-ds-supportingDetails" aria-labelledby="ap-supporting-details-title">
+        <div>
+          <p className="ap-ds-kicker">Why this recommendation</p>
+          <h2 id="ap-supporting-details-title">The reasoning is here if you want it</h2>
+        </div>
+        <details>
+          <summary>Built from what you told us</summary>
+          <p>{result.planProfile.role} · {result.planProfile.weeklyHours} {result.planProfile.weeklyHours === 1 ? 'hour' : 'hours'} a week</p>
+          <div className="ap-ds-planReasons">
+            {visibleReasons.map(reason => <p key={reason.id}><CheckIcon /><span>{reason.detail}</span></p>)}
+          </div>
+          <div className="ap-ds-planProfile" aria-label="Plan settings">
+            <span>{result.planProfile.buildMode}</span>
+            <span>{result.planProfile.learningMode}</span>
+            <span>{result.planProfile.budgetMode}</span>
+          </div>
+        </details>
+        {result.assumptions.length ? (
+          <details>
+            <summary>What we assumed</summary>
+            <ul>{result.assumptions.map(assumption => <li key={assumption.id}>{assumption.detail}</li>)}</ul>
+          </details>
+        ) : null}
+        {result.evidenceProjectLinks.length ? (
+          <details>
+            <summary>How your answers shaped the plan</summary>
+            <div className="ap-ds-evidenceLinksList">
+              {result.evidenceProjectLinks.map(link => <article key={link.id}><strong>{link.signal}</strong><p>{link.interpretation}</p><small>{link.projectEffect}</small></article>)}
+            </div>
+          </details>
+        ) : null}
+      </section>
 
       <div className="ap-ds-resultFooter"><button type="button" onClick={onRestart}>Start over</button><p>{savedToAccount
         ? 'Your answers and plan were saved to your account for up to 90 days.'
