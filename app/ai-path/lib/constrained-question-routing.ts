@@ -70,6 +70,7 @@ const QUESTION_CATALOG: QuestionCatalog = Object.freeze({
     workflow: Object.freeze([
       { id: 'workflow-core', title: 'How does it work today?', reason: 'The current steps and where they break down', prompt: 'What happens today, and where does it become unreliable?' },
       { id: 'workflow-handoff', title: 'Where does the work get stuck?', reason: 'The handoffs, searches or reviews slowing the outcome down', prompt: 'Walk us through the current work. Where do people wait, repeat work, search for information or need another person to check it?', signals: [/team|sales|customer|client|manager|approval|review|handoff/i] },
+      { id: 'workflow-current-ai-use', title: 'How are you doing this today?', reason: 'Your current process, tools and AI usage', prompt: 'How do you handle this today? What tools or AI do you already use, and where does it still become manual, slow, or hard to manage?', signals: [/content planner|content|creator|schedule|scheduler|calendar|social media|post|publish|campaign|app|assistant|tool/i] },
       { id: 'workflow-information', title: 'How does the information move today?', reason: 'The sources, manual steps and unreliable transformations', prompt: 'How is the information found, changed and delivered today—and which step is slowest or least reliable?', signals: [/document|research|report|data|spreadsheet|email|content|information/i] },
     ]),
     specification: Object.freeze([

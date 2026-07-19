@@ -9,7 +9,7 @@ import {
 // The user explicitly approved the low-cost adaptive-question API path. The
 // environment flag and exact model pin still keep provider traffic opt-in.
 export const AI_PATH_ADAPTIVE_MODEL_LATCH = true as const
-export const AI_PATH_ADAPTIVE_MODEL_ID = 'gpt-5.6-luna' as const
+export const AI_PATH_ADAPTIVE_MODEL_ID = 'gpt-5-nano' as const
 
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses'
 

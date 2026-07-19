@@ -80,6 +80,19 @@ test('substantive context selects an approved relevant variant without changing 
   assert.equal(information.variantId, 'workflow-information')
 })
 
+test('content app ideas ask about current process and existing AI usage', () => {
+  const result = selectDeterministicQuestionPresentation('use-case', 'workflow', {
+    outcome: {
+      desiredOutcome: 'It is for myself. I want to create a content planner, creator, scheduler, and calendar app that helps me manage various social media accounts.',
+    },
+  })
+  assert.equal(result.sectionId, 'workflow')
+  assert.equal(result.variantId, 'workflow-current-ai-use')
+  assert.match(result.title, /doing this today/i)
+  assert.match(result.prompt, /tools or AI do you already use/i)
+  assert.match(result.prompt, /manual, slow, or hard to manage/i)
+})
+
 test('multi-select context is order invariant and remains inside the approved next-section family', () => {
   const first = selectDeterministicQuestionPresentation('capability-growth', 'experience', capabilityBody.answers)
   const second = selectDeterministicQuestionPresentation('capability-growth', 'experience', {
