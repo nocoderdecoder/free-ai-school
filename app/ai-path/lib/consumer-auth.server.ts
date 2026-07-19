@@ -20,6 +20,7 @@ export type ConsumerAuthRequestContext = {
   client: SupabaseClient<Database>
   pendingCookies: PendingConsumerAuthCookie[]
   pendingHeaders: Record<string, string>
+  remember: boolean
 }
 
 export class ConsumerAuthUnavailableError extends Error {
@@ -41,17 +42,25 @@ export function getConsumerAuthCapability(): ConsumerAuthCapability {
   })
 }
 
+export type VerifiedConsumerUser = Readonly<{
+  id: string
+  email: string | null
+  provider: string | null
+  createdAt: string | null
+  lastSignInAt: string | null
+}>
+
 /**
  * Reads the request-time cookie store and asks Supabase to verify the user.
  * Configuration availability alone is never treated as authentication.
  */
-export async function hasVerifiedConsumerSession(): Promise<boolean> {
+export async function getVerifiedConsumerUser(): Promise<VerifiedConsumerUser | null> {
   const capability = getConsumerAuthCapability()
-  if (!capability.available) return false
+  if (!capability.available) return null
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
     || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !publishableKey) return false
+  if (!supabaseUrl || !publishableKey) return null
 
   try {
     const cookieStore = await cookies()
@@ -65,15 +74,27 @@ export async function hasVerifiedConsumerSession(): Promise<boolean> {
       },
     })
     const { data, error } = await client.auth.getUser()
-    return !error && Boolean(data.user?.id)
+    const user = error ? null : data.user
+    if (!user?.id) return null
+    return {
+      id: user.id,
+      email: user.email ?? null,
+      provider: user.app_metadata?.provider ?? user.identities?.[0]?.provider ?? null,
+      createdAt: user.created_at ?? null,
+      lastSignInAt: user.last_sign_in_at ?? null,
+    }
   } catch {
-    return false
+    return null
   }
 }
 
-function secureCookieOptions(options: CookieOptions): CookieOptions {
+export async function hasVerifiedConsumerSession(): Promise<boolean> {
+  return Boolean(await getVerifiedConsumerUser())
+}
+
+function secureCookieOptions(options: CookieOptions, remember: boolean): CookieOptions {
   return {
-    ...supabaseAuthCookieOptions(process.env.NODE_ENV),
+    ...supabaseAuthCookieOptions(process.env.NODE_ENV, { remember }),
     ...options,
     httpOnly: true,
     sameSite: 'lax',
@@ -82,7 +103,10 @@ function secureCookieOptions(options: CookieOptions): CookieOptions {
   }
 }
 
-export function createConsumerAuthRequestContext(request: Request): ConsumerAuthRequestContext {
+export function createConsumerAuthRequestContext(
+  request: Request,
+  options: { remember?: boolean } = {},
+): ConsumerAuthRequestContext {
   const capability = getConsumerAuthCapability()
   if (!capability.available) throw new ConsumerAuthUnavailableError(capability.reason)
 
@@ -102,14 +126,14 @@ export function createConsumerAuthRequestContext(request: Request): ConsumerAuth
       setAll: (cookies, headers) => {
         pendingCookies.push(...cookies.map(cookie => ({
           ...cookie,
-          options: secureCookieOptions(cookie.options),
+          options: secureCookieOptions(cookie.options, options.remember === true),
         })))
         Object.assign(pendingHeaders, headers)
       },
     },
   })
 
-  return { capability, client, pendingCookies, pendingHeaders }
+  return { capability, client, pendingCookies, pendingHeaders, remember: options.remember === true }
 }
 
 const allowedAuthResponseHeaders = new Set(['cache-control', 'expires', 'pragma'])

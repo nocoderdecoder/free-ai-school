@@ -9,7 +9,7 @@ test('plan submission is cancellable and stale responses cannot replace a restar
   assert.match(app, /submissionAbort = useRef<AbortController/)
   assert.match(app, /controller\.signal\.aborted \|\| submissionRevision\.current !== requestRevision/)
   assert.match(app, /submissionAbort\.current\?\.abort\(\)[\s\S]*setPath\(nextPath\)/)
-  assert.match(app, /aria-busy=\{isSubmitting\}/)
+  assert.match(app, /aria-busy=\{isSubmitting \|\| isAdapting\}/)
   assert.match(api, /signal: storage\.signal/)
 })
 
