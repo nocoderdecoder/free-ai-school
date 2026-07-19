@@ -50,6 +50,39 @@ test('adaptive HTTP handler computes the fixed next section and accepts an appro
   assert.equal(body.presentation.source, 'model-constrained')
 })
 
+test('provider may request one bounded clarification when local fallback would advance', async () => {
+  const response = await handleAdaptiveQuestionPost(request({
+    ...validBody,
+    path: 'use-case',
+    completedSectionId: 'outcome',
+    answers: {
+      outcome: { desiredOutcome: 'I want to create a social media management app.' },
+    },
+  }), {
+    generate: async input => {
+      assert.equal(input.currentSectionId, 'outcome')
+      assert.equal(input.nextSectionId, 'workflow')
+      assert.deepEqual(input.allowedActions, ['clarify_current', 'advance'])
+      assert.equal(input.fallbackAction, 'advance')
+      assert.equal(input.approvedClarifier?.reason, 'A real task makes the project and learning advice specific.')
+      return {
+        version: CONSTRAINED_QUESTION_VERSION,
+        action: 'clarify_current',
+        title: 'Tell me one real example',
+        reason: 'The app idea needs a concrete starting task.',
+        prompt: 'Which social media task would you handle first, and how are you doing that task today?',
+        context: 'Name the task, current tools or AI, and what still feels manual.',
+      }
+    },
+  })
+  assert.equal(response.status, 200)
+  const body = await response.json()
+  assert.equal(body.action, 'clarify_current')
+  assert.equal(body.presentation.sectionId, 'outcome')
+  assert.equal(body.presentation.variantId, 'model-clarifier')
+  assert.equal(body.presentation.source, 'model-constrained')
+})
+
 test('invalid model output and provider failure use approved deterministic fallback', async () => {
   for (const generate of [
     async () => ({ version: CONSTRAINED_QUESTION_VERSION, action: 'advance', title: 'Buy a course', reason: 'This is unsafe copy.', prompt: 'Will you buy it?', context: null }),
@@ -99,7 +132,10 @@ test('live model transport is code-latched, server-only, authenticated, and rate
   assert.match(server, /configuredModel === AI_PATH_ADAPTIVE_MODEL_ID/)
   assert.match(server, /import 'server-only'/)
   assert.match(provider, /text:\s*\{[\s\S]*type: 'json_schema'[\s\S]*strict: true/)
+  assert.match(provider, /gibberish, placeholder text, copied nonsense/)
+  assert.match(provider, /requiredDataChecklist/)
   assert.match(provider, /reasoning:\s*\{ effort: 'none' \}/)
+  assert.match(route, /process\.env\.NODE_ENV !== 'production'/)
   assert.match(route, /sessionRuntime\.mode !== 'supabase' \|\| !sessionRuntime\.principal/)
   assert.match(route, /checkAiPathRateLimit\([\s\S]*'ai-path-question-adaptation'[\s\S]*sessionRuntime\.principal\.userId/)
 })

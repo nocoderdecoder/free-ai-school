@@ -152,6 +152,13 @@ test('readiness distinguishes missing fields, unsupported evidence, and complete
   assert.equal(validateUseCaseIntake(useCaseFixture).status, 'complete')
   assert.equal(validateCapabilityIntake(capabilityFixture).status, 'complete')
 
+  const junkUseCase = validateUseCaseIntake({
+    ...useCaseFixture,
+    workflow: { currentProcess: 'xyz xyz xyz fasdfasdf' },
+  })
+  assert.equal(junkUseCase.sections.find(section => section.id === 'workflow').status, 'missing')
+  assert.match(junkUseCase.sections.find(section => section.id === 'workflow').issues.join(' '), /current process/i)
+
   const competingDirections = validateCapabilityIntake({
     ...capabilityFixture,
     direction: { ...capabilityFixture.direction, interests: ['automate-repeated-work', 'build-ai-tool'] },

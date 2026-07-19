@@ -247,8 +247,10 @@ test('client and route code contain no credential or authorization surface', () 
   const client = readFileSync(new URL('./client/question-adaptation.ts', import.meta.url), 'utf8')
   const advisor = readFileSync(new URL('./AdvisorApp.tsx', import.meta.url), 'utf8')
   const route = readFileSync(new URL('../api/ai-path/question-adaptation/route.ts', import.meta.url), 'utf8')
-  for (const source of [client, advisor, route]) {
+  for (const source of [client, advisor]) {
     assert.doesNotMatch(source, /OPENAI_API_KEY|Bearer\s|process\.env|Authorization\s*:/)
   }
+  assert.doesNotMatch(route, /OPENAI_API_KEY|Bearer\s|Authorization\s*:/)
+  assert.match(route, /process\.env\.NODE_ENV !== 'production'/)
   assert.doesNotMatch(client, /api\.openai\.com|responses/)
 })

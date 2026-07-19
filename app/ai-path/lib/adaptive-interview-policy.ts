@@ -88,6 +88,7 @@ const successPattern = /\b(?:\d|percent|%|minute|hour|faster|slower|accuracy|acc
 const evaluationPattern = /\b(?:test|check|measure|compare|example|rubric|expected|baseline|verify|validate)\b/i
 const failurePattern = /\b(?:wrong|fail|error|uncertain|edge|risk|harm|stop|reject|escalate|unsupported)\b/i
 const humanPattern = /\b(?:person|people|human|review|approve|manager|expert|owner|team)\b/i
+const vagueUseCaseOutcomePattern = /\b(?:make things better|save time|do things faster|improve everything|help me with ai)\b/i
 
 function record(value: unknown): Readonly<Record<string, unknown>> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Readonly<Record<string, unknown>> : {}
@@ -112,7 +113,7 @@ function meaningfulWordCount(value: string): number {
 function needsUseCaseClarifier(sectionId: DiagnosticSectionId, answers: Readonly<Record<string, unknown>>): boolean {
   if (sectionId === 'outcome') {
     const value = nestedText(answers, 'outcome', 'desiredOutcome')
-    return meaningfulWordCount(value) < 8 || !actorPattern.test(value)
+    return meaningfulWordCount(value) < 5 || !actorPattern.test(value) || vagueUseCaseOutcomePattern.test(value)
   }
   if (sectionId === 'workflow') {
     const value = nestedText(answers, 'workflow', 'currentProcess')
@@ -156,6 +157,20 @@ function needsClarifier(path: DiagnosticPath, sectionId: DiagnosticSectionId, an
     : needsCapabilityClarifier(sectionId, answers)
 }
 
+export function adaptiveClarifierFor(path: DiagnosticPath, sectionId: DiagnosticSectionId): GroundedClarifier | null {
+  const definition = CLARIFIERS[path][sectionId]
+  if (!definition) return null
+  return Object.freeze({
+    version: ADAPTIVE_INTERVIEW_POLICY_VERSION,
+    id: definition.id,
+    path,
+    sectionId,
+    reason: definition.reason,
+    prompt: definition.prompt,
+    answerGuidance: definition.answerGuidance,
+  })
+}
+
 function validSection(path: DiagnosticPath, sectionId: DiagnosticSectionId): boolean {
   const ids: readonly string[] = path === 'use-case' ? USE_CASE_SECTION_IDS : CAPABILITY_SECTION_IDS
   return ids.includes(sectionId)
@@ -177,28 +192,20 @@ export function decideAdaptiveInterviewPolicy(input: Readonly<{
     throw new Error('invalid_adaptive_interview_clarifier_state')
   }
   const nextSectionId = nextDiagnosticQuestionSection(input.path, input.completedSectionId)
-  const definition = CLARIFIERS[input.path][input.completedSectionId]
+  const clarifier = adaptiveClarifierFor(input.path, input.completedSectionId)
   const shouldClarify = usedSections.size < MAXIMUM_INTERVIEW_CLARIFIERS
     && !usedSections.has(input.completedSectionId)
-    && Boolean(definition)
+    && Boolean(clarifier)
     && needsClarifier(input.path, input.completedSectionId, input.answers)
 
-  if (shouldClarify && definition) {
+  if (shouldClarify && clarifier) {
     return Object.freeze({
       version: ADAPTIVE_INTERVIEW_POLICY_VERSION,
       action: 'clarify_current',
       fixedRoute: true,
       currentSectionId: input.completedSectionId,
       nextSectionId,
-      clarifier: Object.freeze({
-        version: ADAPTIVE_INTERVIEW_POLICY_VERSION,
-        id: definition.id,
-        path: input.path,
-        sectionId: input.completedSectionId,
-        reason: definition.reason,
-        prompt: definition.prompt,
-        answerGuidance: definition.answerGuidance,
-      }),
+      clarifier,
     })
   }
 

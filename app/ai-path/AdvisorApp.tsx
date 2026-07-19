@@ -35,6 +35,11 @@ import {
 type DiagnosticResult = UseCaseBlueprint | CapabilityPrescription
 type PresentationMap = Readonly<Partial<Record<DiagnosticSectionId, AdaptiveQuestionPresentation>>>
 type ClarifierAnswerBaselines = Readonly<Partial<Record<DiagnosticSectionId, string>>>
+const MINIMUM_ADAPTIVE_THINKING_MS = 1_200
+
+function wait(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
 
 function sectionAnswerFingerprint(
   answers: Readonly<Record<string, unknown>>,
@@ -1125,15 +1130,20 @@ export function AdvisorApp({
     setIsAdapting(true)
     let adaptation = fallback
     try {
-      adaptation = await requestAdaptiveQuestion({
-        path,
-        completedSectionId: activeSection as DiagnosticSectionId,
-        expectedSectionId: nextId,
-        answers,
-        usedClarifierSectionIds,
-        signal: controller.signal,
-      })
+      const [nextAdaptation] = await Promise.all([
+        requestAdaptiveQuestion({
+          path,
+          completedSectionId: activeSection as DiagnosticSectionId,
+          expectedSectionId: nextId,
+          answers,
+          usedClarifierSectionIds,
+          signal: controller.signal,
+        }),
+        wait(MINIMUM_ADAPTIVE_THINKING_MS),
+      ])
+      adaptation = nextAdaptation
     } catch {
+      await wait(MINIMUM_ADAPTIVE_THINKING_MS)
       // The fixed local route and approved deterministic copy remain available.
     }
     if (adaptationRevision.current !== requestRevision || controller.signal.aborted) return
@@ -1300,7 +1310,7 @@ export function AdvisorApp({
                   {isLastQuestion ? (
                     <button type="submit" className="ap-ds-continueButton" disabled={isSubmitting}>{isSubmitting ? 'Creating your plan…' : path === 'use-case' ? 'Create my project plan' : 'Create my learning plan'} {!isSubmitting ? <ArrowIcon /> : null}</button>
                   ) : (
-                    <button type="button" className="ap-ds-continueButton" onClick={() => void continueQuestion()} disabled={isAdapting}>{isAdapting ? 'Tailoring next question…' : 'Continue'} {!isAdapting ? <ArrowIcon /> : null}</button>
+                    <button type="button" className="ap-ds-continueButton" onClick={() => void continueQuestion()} disabled={isAdapting}>{isAdapting ? 'Thinking about your answer…' : 'Continue'} {!isAdapting ? <ArrowIcon /> : null}</button>
                   )}
                 </div>
                 <p className="sr-only" aria-live="polite">{isAdapting ? 'Checking whether one short follow-up is needed before the next planned question.' : ''}</p>

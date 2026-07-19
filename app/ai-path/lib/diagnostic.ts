@@ -153,6 +153,21 @@ function present(value: string, minimum = 1): boolean {
   return value.trim().length >= minimum
 }
 
+const placeholderTextPattern = /\b(?:asdf|fasdf|qwer|xyz|abc|lorem|ipsum|gibberish|random|test(?:ing)?)\b/i
+const usefulWordPattern = /[a-z0-9]+(?:'[a-z]+)?/gi
+
+function substantiveText(value: string, minimum = 1): boolean {
+  const normalized = value.trim()
+  if (normalized.length < minimum) return false
+  const words = normalized.toLowerCase().match(usefulWordPattern) ?? []
+  if (words.length < 3) return false
+  const uniqueWords = new Set(words)
+  const placeholderHits = words.filter(word => placeholderTextPattern.test(word)).length
+  if (placeholderHits >= 1 && uniqueWords.size <= 5) return false
+  if (uniqueWords.size <= 2 && words.length >= 3) return false
+  return true
+}
+
 function validHours(value: number | null): boolean {
   return Number.isInteger(value) && Number(value) >= 1 && Number(value) <= 40
 }
@@ -183,8 +198,8 @@ export function validateUseCaseIntake(input: UseCaseIntake): DiagnosticReadiness
     && experienceRank[input.experience.level] >= experienceRank.adapted
     && !present(input.experience.evidence, 20)
   return overallReadiness([
-    section('outcome', present(input.outcome.desiredOutcome, 20) ? [] : ['Describe the user, task, and desired outcome.']),
-    section('workflow', present(input.workflow.currentProcess, 20) ? [] : ['Describe the current process and its failure point.']),
+    section('outcome', substantiveText(input.outcome.desiredOutcome, 20) ? [] : ['Describe the user, task, and desired outcome.']),
+    section('workflow', substantiveText(input.workflow.currentProcess, 20) ? [] : ['Describe the current process and its failure point.']),
     section('specification', [
       ...(!present(input.specification.inputs, 3) ? ['Describe what information goes in.'] : []),
       ...(!present(input.specification.output, 3) ? ['Describe the expected output.'] : []),
@@ -227,12 +242,12 @@ export function validateCapabilityIntake(input: CapabilityIntake): DiagnosticRea
       ...(!Object.values(input.experience.levels).every(level => level in experienceRank) ? ['Choose a valid experience statement.'] : []),
     ]),
     section('evidence', [
-      ...(present(input.evidence.description, 12) ? [] : ['Describe your strongest work, or state that you have not built anything yet.']),
+      ...(substantiveText(input.evidence.description, 12) ? [] : ['Describe your strongest work, or state that you have not built anything yet.']),
       ...(validOptionalHttpsUrl(input.evidence.artifactUrl) ? [] : ['Use a complete HTTPS link, or leave the artifact link blank.']),
     ], evidenceIssues),
     section('reasoning', [
       ...(!present(input.reasoning.scenarioId) ? ['Select an applied reasoning scenario.'] : []),
-      ...(!present(input.reasoning.response, 30) ? ['Explain how you would test or control the scenario.'] : []),
+      ...(!substantiveText(input.reasoning.response, 30) ? ['Explain how you would test or control the scenario.'] : []),
     ]),
     section('foundations', [
       ...(!input.foundations.codingComfort ? ['Select your coding foundation.'] : []),

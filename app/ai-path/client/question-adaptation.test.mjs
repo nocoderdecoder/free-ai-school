@@ -46,6 +46,36 @@ test('client sends only the constrained route contract and rebuilds approved cop
   })
 })
 
+test('client accepts a bounded model clarification before the next fixed section', async () => {
+  const useCaseInput = {
+    path: 'use-case',
+    completedSectionId: 'outcome',
+    expectedSectionId: 'workflow',
+    answers: { outcome: { desiredOutcome: 'I want to create a social media management app.' } },
+  }
+  await withFetch(async () => Response.json({
+    version: CONSTRAINED_QUESTION_VERSION,
+    fixedRoute: true,
+    action: 'clarify_current',
+    presentation: {
+      path: 'use-case',
+      sectionId: 'outcome',
+      variantId: 'model-clarifier',
+      source: 'model-constrained',
+      title: 'Tell me one real example',
+      reason: 'The app idea needs a concrete starting task.',
+      prompt: 'Which social media task would you handle first, and how are you doing that task today?',
+      context: 'Name the task, current tools or AI, and what still feels manual.',
+    },
+  }), async () => {
+    const result = await requestAdaptiveQuestion(useCaseInput)
+    assert.equal(result.action, 'clarify_current')
+    assert.equal(result.sectionId, 'outcome')
+    assert.equal(result.variantId, 'model-clarifier')
+    assert.match(result.prompt, /how are you doing that task today/i)
+  })
+})
+
 test('client rejects wrong sections, unknown variants, and route failures', async () => {
   const responses = [
     () => Response.json({ version: CONSTRAINED_QUESTION_VERSION, fixedRoute: true, presentation: { path: 'capability-growth', sectionId: 'constraints', variantId: 'constraints-core', source: 'canonical' } }),

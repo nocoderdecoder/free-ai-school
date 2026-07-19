@@ -52,6 +52,18 @@ test('specific answers advance without adding an unnecessary follow-up', () => {
   assert.equal(evidence.nextSectionId, 'reasoning')
 })
 
+test('short concrete use-case ideas can advance to current-process discovery', () => {
+  const outcome = decideAdaptiveInterviewPolicy({
+    path: 'use-case',
+    completedSectionId: 'outcome',
+    answers: { outcome: { desiredOutcome: 'I want to create a social media management app.' } },
+    usedClarifierSectionIds: [],
+  })
+  assert.equal(outcome.action, 'advance')
+  assert.equal(outcome.nextSectionId, 'workflow')
+  assert.equal(outcome.clarifier, null)
+})
+
 test('a beginner who says they have no example is not pressed for proof', () => {
   const decision = decideAdaptiveInterviewPolicy({
     path: 'capability-growth',

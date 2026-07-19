@@ -1,4 +1,4 @@
-import { decideAdaptiveInterviewPolicy } from '../lib/adaptive-interview-policy.ts'
+import { adaptiveClarifierFor, decideAdaptiveInterviewPolicy } from '../lib/adaptive-interview-policy.ts'
 import {
   CONSTRAINED_QUESTION_VERSION,
   approvedClarifierPresentation,
@@ -74,13 +74,16 @@ export async function requestAdaptiveQuestion(input: AdaptationInput): Promise<A
     presentation?: Record<string, unknown>
   }
   const candidate = body.presentation
-  const expectedSectionId = fallback.action === 'clarify_current'
+  const responseAction = body.action
+  if (responseAction !== 'clarify_current' && responseAction !== 'advance') {
+    throw new Error('adaptive_question_invalid_response')
+  }
+  const expectedSectionId = responseAction === 'clarify_current'
     ? input.completedSectionId
     : input.expectedSectionId
   if (
     body.version !== CONSTRAINED_QUESTION_VERSION
     || body.fixedRoute !== true
-    || body.action !== fallback.action
     || !candidate
     || candidate.path !== input.path
     || candidate.sectionId !== expectedSectionId
@@ -97,10 +100,10 @@ export async function requestAdaptiveQuestion(input: AdaptationInput): Promise<A
       input.path,
       input.completedSectionId,
       input.expectedSectionId,
-      [fallback.action],
+      [responseAction],
       {
         version: body.version,
-        action: body.action,
+        action: responseAction,
         title: candidate.title,
         reason: candidate.reason,
         prompt: candidate.prompt,
@@ -108,10 +111,18 @@ export async function requestAdaptiveQuestion(input: AdaptationInput): Promise<A
       },
       fallback,
     )
+    if (resolved.action !== responseAction) throw new Error('adaptive_question_invalid_response')
     return combined(resolved)
   }
 
-  if (fallback.action === 'clarify_current') return fallback
+  if (responseAction === 'clarify_current') {
+    const clarifier = adaptiveClarifierFor(input.path, input.completedSectionId)
+    if (!clarifier || candidate.variantId !== clarifier.id) throw new Error('adaptive_question_invalid_response')
+    return combined({
+      action: 'clarify_current',
+      presentation: approvedClarifierPresentation(input.path, input.completedSectionId, clarifier),
+    })
+  }
   const presentation = approvedQuestionPresentation(
     input.path,
     input.expectedSectionId,

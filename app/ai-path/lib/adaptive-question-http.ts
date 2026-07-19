@@ -1,5 +1,5 @@
 import { readBoundedJson } from './request-body.ts'
-import { decideAdaptiveInterviewPolicy } from './adaptive-interview-policy.ts'
+import { adaptiveClarifierFor, decideAdaptiveInterviewPolicy, MAXIMUM_INTERVIEW_CLARIFIERS } from './adaptive-interview-policy.ts'
 import {
   CONSTRAINED_QUESTION_VERSION,
   approvedClarifierPresentation,
@@ -87,6 +87,11 @@ export async function handleAdaptiveQuestionPost(
   }
 
   const nextSectionId = policy.nextSectionId
+  const usedClarifierSections = new Set(input.usedClarifierSectionIds)
+  const providerClarifier = usedClarifierSections.size < MAXIMUM_INTERVIEW_CLARIFIERS
+    && !usedClarifierSections.has(input.completedSectionId)
+    ? adaptiveClarifierFor(input.path, input.completedSectionId)
+    : null
   const fallback: AdaptiveQuestionAdaptation = policy.action === 'clarify_current' && policy.clarifier
     ? {
         action: 'clarify_current',
@@ -96,9 +101,12 @@ export async function handleAdaptiveQuestionPost(
         action: 'advance',
         presentation: selectDeterministicQuestionPresentation(input.path, nextSectionId, input.answers),
       }
-  // The application owns whether this turn clarifies or advances. The model
-  // writes contextual learner-language copy but cannot override pedagogy.
-  const allowedActions: readonly AdaptiveQuestionAction[] = [policy.action]
+  // The application owns the fixed route and required data. When the provider
+  // is enabled, it may still choose whether the current answer deserves one
+  // bounded clarification before the next fixed section.
+  const allowedActions: readonly AdaptiveQuestionAction[] = options.generate && providerClarifier && policy.action === 'advance'
+    ? ['clarify_current', 'advance']
+    : [policy.action]
   let resolved = fallback
 
   if (options.generate) {
@@ -112,7 +120,7 @@ export async function handleAdaptiveQuestionPost(
           nextSectionId,
           allowedActions,
           fallbackAction: fallback.action,
-          approvedClarifier: policy.clarifier,
+          approvedClarifier: providerClarifier,
           answers: input.answers,
           signal,
         }).catch(() => PROVIDER_UNAVAILABLE),

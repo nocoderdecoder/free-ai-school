@@ -20,6 +20,11 @@ export async function POST(request: Request) {
 
   const sessionRuntime = await selectAssessmentRequestRuntime(request)
   if (sessionRuntime.mode !== 'supabase' || !sessionRuntime.principal) {
+    if (process.env.NODE_ENV !== 'production') {
+      return handleAdaptiveQuestionPost(request, {
+        generate: createAdaptiveQuestionModelGenerator(),
+      })
+    }
     return handleAdaptiveQuestionPost(request)
   }
   const rate = await checkAiPathRateLimit(
