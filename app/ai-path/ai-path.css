@@ -303,25 +303,6 @@
   text-align: center;
 }
 
-.ap-ds-trustNote {
-  align-items: center;
-  background: #fff8ee;
-  border: 1px solid #eddcc5;
-  border-radius: 12px;
-  color: var(--path-muted);
-  display: flex;
-  flex-wrap: wrap;
-  font-size: 12px;
-  gap: 8px 14px;
-  margin: 18px auto 0;
-  max-width: 1052px;
-  padding: 12px 16px;
-  width: calc(100% - 40px);
-}
-
-.ap-ds-trustNote strong { color: var(--path-text); }
-.ap-ds-trustNote a { color: var(--path-primary); font-weight: 700; }
-
 .ap-ds-emptyState p {
   margin: 0;
 }
@@ -381,7 +362,7 @@
 
 /* Question flow */
 .ap-ds-workbench {
-  margin: 28px auto 0;
+  margin: 20px auto 0;
   max-width: 760px;
   min-width: 0;
 }
@@ -487,101 +468,78 @@
   min-width: 0;
 }
 
-.ap-ds-voiceConsole {
-  align-items: center;
-  background: var(--path-soft);
-  border: 1px solid var(--path-line);
-  border-radius: 12px;
+.ap-ds-sessionTools {
+  color: var(--path-muted);
   display: grid;
-  gap: 8px 12px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  margin: 26px 0 14px;
-  padding: 12px 14px;
+  font-size: 12px;
+  gap: 10px;
+  margin-top: 18px;
 }
 
-.ap-ds-voiceConsole > div:first-child {
+.ap-ds-micTool {
   align-items: center;
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   min-width: 0;
 }
 
-.ap-ds-voiceConsole > div:first-child > span {
-  align-items: center;
-  background: white;
-  border-radius: 9px;
-  color: var(--path-primary);
-  display: flex;
-  flex: 0 0 auto;
-  height: 34px;
-  justify-content: center;
-  width: 34px;
+.ap-ds-micTool > span {
+  overflow-wrap: anywhere;
 }
 
-.ap-ds-voiceConsole svg {
-  height: 18px;
-  width: 18px;
-}
-
-.ap-ds-voiceConsole p {
-  margin: 0;
-}
-
-.ap-ds-voiceConsole p strong,
-.ap-ds-voiceConsole p small {
-  display: block;
-}
-
-.ap-ds-voiceConsole p strong {
-  font-size: 14px;
-}
-
-.ap-ds-voiceConsole p small,
-.ap-ds-voiceConsole > p {
-  color: var(--path-muted);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.ap-ds-voiceConsole > p {
-  grid-column: 1 / -1;
-}
-
-.ap-ds-voiceConsole > button {
+.ap-ds-micTool button {
   align-items: center;
   background: white;
   border: 1px solid #bdc8c2;
-  border-radius: 9px;
+  border-radius: 999px;
   color: var(--path-primary);
   display: inline-flex;
-  font-size: 13px;
+  flex: 0 0 auto;
+  font-size: 12px;
   font-weight: 650;
   gap: 7px;
   justify-content: center;
-  min-height: 40px;
-  padding: 8px 12px;
+  min-height: 34px;
+  padding: 6px 12px;
 }
 
-.ap-ds-voiceConsole > button:hover {
+.ap-ds-micTool button:hover {
   border-color: var(--path-primary);
 }
 
-.ap-ds-dataUse {
-  background: #f7faf8;
-  border-left: 3px solid var(--path-primary);
-  border-radius: 0 10px 10px 0;
-  color: var(--path-muted);
-  display: grid;
-  font-size: 11px;
-  gap: 4px;
-  line-height: 1.45;
-  margin: 0 0 14px;
-  padding: 11px 14px;
+.ap-ds-micTool svg {
+  height: 16px;
+  width: 16px;
 }
 
-.ap-ds-dataUse strong {
-  color: var(--path-text);
+.ap-ds-privacyDetails {
+  border-top: 1px solid var(--path-line);
+  padding-top: 10px;
+}
+
+.ap-ds-privacyDetails summary {
+  color: var(--path-primary);
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 650;
+  list-style-position: inside;
+}
+
+.ap-ds-privacyDetails p {
   font-size: 12px;
+  line-height: 1.5;
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.ap-ds-privacyDetails strong {
+  color: var(--path-text);
+}
+
+.ap-ds-privacyDetails a {
+  color: var(--path-primary);
+  font-weight: 650;
 }
 
 .ap-ds-level {
@@ -590,6 +548,7 @@
   display: none;
   height: 3px;
   overflow: hidden;
+  width: 78px;
 }
 
 .ap-ds-level i {
@@ -2234,16 +2193,12 @@
     margin-right: 13px;
   }
 
-  .ap-ds-voiceConsole {
-    grid-template-columns: 1fr;
+  .ap-ds-micTool {
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  .ap-ds-voiceConsole > button,
-  .ap-ds-voiceConsole > p {
-    grid-column: 1;
-  }
-
-  .ap-ds-voiceConsole > button {
+  .ap-ds-micTool button {
     width: 100%;
   }
 

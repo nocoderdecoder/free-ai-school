@@ -1206,29 +1206,10 @@ export function AdvisorApp({
             </div>
           </section>
 
-          <aside className="ap-ds-trustNote" aria-label="Privacy reminder">
-            <strong>Keep sensitive information out.</strong>
-            <span>Don’t enter passwords, API keys, financial or health information, or confidential customer or company data.</span>
-            <span><a href="/ai-path/privacy">Privacy</a> · <a href="/ai-path/terms">Terms</a></span>
-          </aside>
-
           {path ? (
             <form className="ap-ds-workbench" data-show-errors={showErrors} onSubmit={submit} noValidate aria-busy={isSubmitting}>
               <QuestionProgress sections={sections} statuses={statuses} activeId={activeSection} onSelect={selectSection} />
               <div className="ap-ds-formColumn">
-                <div className="ap-ds-voiceConsole">
-                  <div><span><MicIcon /></span><p><strong>Type your answers</strong><small>{mic.phase === 'ready' ? 'Microphone detected for the optional local test.' : mic.error ?? 'The microphone test is optional and stays on this device.'}</small></p></div>
-                  <div className="ap-ds-level" aria-label={`Local microphone level ${Math.round(mic.level * 100)} percent`}><i style={{ transform: `scaleX(${Math.max(.04, mic.level)})` }} /></div>
-                  <button type="button" onClick={startMicrophoneTest}><MicIcon />{mic.phase === 'requesting' ? 'Allowing…' : 'Test microphone locally'}</button>
-                  <p>Optional microphone test only. It does not transcribe or submit audio.</p>
-                </div>
-
-                <aside className="ap-ds-dataUse" aria-label="How your typed answers are used">
-                  <strong>How we use your typed answers</strong>
-                  <span>Your typed answers are sent to AI Path to create this plan. They are not saved to your account unless you choose Save.</span>
-                  <span>If provider-backed question tailoring is enabled, an AI provider may process them. Saved answers are kept for up to 90 days. <a href="/ai-path/privacy">Privacy</a></span>
-                </aside>
-
                 {path === 'use-case' ? (
                   <UseCaseForm value={useCase} readiness={effectiveUseCaseReadiness} presentations={presentations} activeSection={activeSection} onActivate={setActiveSection} onChange={value => { if (isSubmitting) cancelSubmission(); setUseCase(value); invalidateFollowingPresentations('use-case', activeSection); setShowErrors(false) }} />
                 ) : (
@@ -1263,6 +1244,20 @@ export function AdvisorApp({
                 <p className="sr-only" aria-live="polite">{isAdapting ? 'Checking whether one short follow-up is needed before the next planned question.' : ''}</p>
                 {showErrors && currentSection?.status !== 'complete' ? <p className="ap-ds-errorSummary" role="alert">Please finish this question to continue.</p> : null}
                 {submitError ? <p className="ap-ds-errorSummary" role="alert">{submitError}</p> : null}
+                <div className="ap-ds-sessionTools" aria-label="Input and privacy notes">
+                  <div className="ap-ds-micTool">
+                    <button type="button" onClick={startMicrophoneTest}><MicIcon />{mic.phase === 'requesting' ? 'Allowing…' : 'Test microphone locally'}</button>
+                    <span>{mic.phase === 'ready' ? 'Microphone detected.' : mic.error ?? 'Type your answers. Mic test is optional.'}</span>
+                    <div className="ap-ds-level" aria-label={`Local microphone level ${Math.round(mic.level * 100)} percent`}><i style={{ transform: `scaleX(${Math.max(.04, mic.level)})` }} /></div>
+                  </div>
+                  <details className="ap-ds-privacyDetails">
+                    <summary>Privacy and data use</summary>
+                    <p><strong>Keep sensitive information out.</strong> Don’t enter passwords, API keys, financial or health information, or confidential customer or company data.</p>
+                    <p>Optional microphone test only. It does not transcribe or submit audio.</p>
+                    <p>Your typed answers are sent to AI Path to create this plan. They are not saved to your account unless you choose Save.</p>
+                    <p>If provider-backed question tailoring is enabled, an AI provider may process them. Saved answers are kept for up to 90 days. <a href="/ai-path/privacy">Privacy</a> · <a href="/ai-path/terms">Terms</a></p>
+                  </details>
+                </div>
               </div>
             </form>
           ) : (
