@@ -281,6 +281,15 @@ send(46, "tools/call", {
   arguments: { projectName: "Website Change Monitor" },
 });
 await waitForResponse(46);
+const orphanInventoryPatchUrl = new URL("../generated/inventory-orphan-lab-card.patch", import.meta.url);
+try {
+  await fs.writeFile(orphanInventoryPatchUrl, "smoke inventory orphan\n", "utf8");
+  send(47, "tools/call", { name: "list_staged_lab_card_patches", arguments: {} });
+  send(48, "tools/call", { name: "list_staged_lab_card_patches", arguments: { extra: true } });
+  await Promise.all([waitForResponse(47), waitForResponse(48)]);
+} finally {
+  await fs.rm(orphanInventoryPatchUrl, { force: true });
+}
 server.kill();
 await once(server, "exit");
 
@@ -665,6 +674,35 @@ const stagedDiscardOk =
   successfulDiscard?.sourceFilesChanged === false &&
   successfulDiscard?.filesDeleted?.length === 2 &&
   discardedValidation?.status === "missing";
+const stagedInventory = JSON.parse(responseById.get(47)?.result?.content?.[0]?.text ?? "{}");
+const stagedInventoryArgValidationOk = responseById.get(48)?.result?.isError === true;
+const stagedInventoryOk =
+  stagedInventory?.checked >= 2 &&
+  stagedInventory?.complete >= 1 &&
+  stagedInventory?.incomplete >= 1 &&
+  stagedInventory?.reviewReady >= 1 &&
+  stagedInventory?.publishReady >= 1 &&
+  Array.isArray(stagedInventory?.items) &&
+  stagedInventory.items.every((item, index, items) =>
+    index === 0 || items[index - 1].slug.localeCompare(item.slug) <= 0
+  ) &&
+  stagedInventory.items.some((item) =>
+    item.slug === "website-change-monitor-ready" &&
+    item.projectName === "Website Change Monitor Ready" &&
+    item.status === "ready" &&
+    item.reviewReady === true &&
+    item.publishReadyAfterApply === true &&
+    item.patchFile === "portfolio-publisher-mcp/generated/website-change-monitor-ready-lab-card.patch" &&
+    item.handoffFile === "portfolio-publisher-mcp/generated/website-change-monitor-ready-lab-card.md"
+  ) &&
+  stagedInventory.items.some((item) =>
+    item.slug === "inventory-orphan" &&
+    item.status === "incomplete" &&
+    item.reviewReady === false &&
+    item.patchFile === "portfolio-publisher-mcp/generated/inventory-orphan-lab-card.patch" &&
+    item.handoffFile === null &&
+    item.issues?.some((issue) => issue.includes("Markdown handoff"))
+  );
 
 console.log(JSON.stringify({
   failed,
@@ -704,6 +742,8 @@ console.log(JSON.stringify({
   mismatchedStagedPatchOk,
   controlledApplyOk,
   stagedDiscardOk,
+  stagedInventoryOk,
+  stagedInventoryArgValidationOk,
 }, null, 2));
 
 if (
@@ -743,6 +783,8 @@ if (
   !mismatchedStagedPatchOk
   || !controlledApplyOk
   || !stagedDiscardOk
+  || !stagedInventoryOk
+  || !stagedInventoryArgValidationOk
 ) {
   process.exitCode = 1;
 }

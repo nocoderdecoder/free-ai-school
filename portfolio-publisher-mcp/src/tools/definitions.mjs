@@ -253,6 +253,17 @@ export const tools = [
     },
   },
   {
+    name: "list_staged_lab_card_patches",
+    title: "List Staged Lab Card Patches",
+    description:
+      "List staged Lab card patch artifacts, including review status, publish readiness, and incomplete file pairs.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "validate_staged_lab_card_patch",
     title: "Validate Staged Lab Card Patch",
     description:

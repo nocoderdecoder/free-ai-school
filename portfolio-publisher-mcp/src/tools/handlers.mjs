@@ -1106,6 +1106,99 @@ async function validateStagedLabCardPatch(projects, projectName, source) {
   };
 }
 
+async function listStagedLabCardPatches(projects, source) {
+  const generatedDir = path.join(paths.projectDir, "generated");
+  let entries;
+
+  try {
+    entries = await fs.readdir(assertSafeRead(generatedDir), { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") entries = [];
+    else throw error;
+  }
+
+  const artifacts = new Map();
+  const suffixPattern = /^(.*-lab-card)\.(patch|md)$/;
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const match = entry.name.match(suffixPattern);
+    if (!match) continue;
+    const record = artifacts.get(match[1]) ?? { baseName: match[1], patch: false, handoff: false };
+    record[match[2] === "md" ? "handoff" : "patch"] = true;
+    artifacts.set(match[1], record);
+  }
+
+  const items = [];
+  for (const record of [...artifacts.values()].sort((left, right) => left.baseName.localeCompare(right.baseName))) {
+    const slug = record.baseName.slice(0, -"-lab-card".length);
+    const patchFile = `portfolio-publisher-mcp/generated/${record.baseName}.patch`;
+    const handoffFile = `portfolio-publisher-mcp/generated/${record.baseName}.md`;
+
+    if (!record.patch || !record.handoff) {
+      items.push({
+        slug,
+        projectName: null,
+        status: "incomplete",
+        reviewReady: false,
+        publishReadyAfterApply: false,
+        patchFile: record.patch ? patchFile : null,
+        handoffFile: record.handoff ? handoffFile : null,
+        issues: [`Missing staged ${record.patch ? "Markdown handoff" : ".patch file"}.`],
+        ownerNextStep: "Discard the incomplete artifact or stage this Lab card patch again.",
+      });
+      continue;
+    }
+
+    const handoffContent = await fs.readFile(assertSafeRead(path.join(generatedDir, `${record.baseName}.md`)), "utf8");
+    const projectName = handoffContent.match(/^# Staged Lab card patch: (.+)$/m)?.[1]?.trim() ?? "";
+    if (!projectName) {
+      items.push({
+        slug,
+        projectName: null,
+        status: "invalid",
+        reviewReady: false,
+        publishReadyAfterApply: false,
+        patchFile,
+        handoffFile,
+        issues: ["Handoff is missing the staged project title."],
+        ownerNextStep: "Stage a fresh Lab card patch before review.",
+      });
+      continue;
+    }
+
+    const validation = await validateStagedLabCardPatch(projects, projectName, source);
+    const publishReadyAfterApply = /- Publish ready after apply: Yes\s*$/m.test(handoffContent);
+    items.push({
+      slug,
+      projectName,
+      status: validation.status,
+      reviewReady: validation.reviewReady,
+      publishReadyAfterApply,
+      patchFile,
+      handoffFile,
+      issues: validation.issues,
+      warnings: validation.warnings,
+      ownerNextStep: publishReadyAfterApply && validation.reviewReady
+        ? "Review this publish-ready handoff and patch before controlled apply."
+        : validation.ownerNextStep,
+    });
+  }
+
+  return {
+    checked: items.length,
+    complete: items.filter((item) => item.patchFile && item.handoffFile).length,
+    incomplete: items.filter((item) => item.status === "incomplete").length,
+    reviewReady: items.filter((item) => item.reviewReady).length,
+    publishReady: items.filter((item) => item.reviewReady && item.publishReadyAfterApply).length,
+    stale: items.filter((item) => item.status === "stale").length,
+    invalid: items.filter((item) => item.status === "invalid").length,
+    items,
+    ownerNextStep: items.length === 0
+      ? "Stage a Lab card patch when a project is ready for owner review."
+      : "Review publish-ready items first; restage stale or invalid items and discard incomplete artifacts.",
+  };
+}
+
 async function applyStagedLabCardPatch(projects, args, source) {
   if (args.confirm !== true) {
     return {
@@ -1868,6 +1961,11 @@ export async function callTool(name, args = {}) {
   if (name === "stage_lab_card_patch_artifact") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await stageLabCardPatchArtifact(projects, args, source));
+  }
+
+  if (name === "list_staged_lab_card_patches") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await listStagedLabCardPatches(projects, source));
   }
 
   if (name === "validate_staged_lab_card_patch") {
