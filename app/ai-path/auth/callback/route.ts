@@ -12,6 +12,8 @@ import {
 } from '@/app/ai-path/lib/consumer-auth.server'
 import { checkAiPathRateLimit } from '@/app/ai-path/lib/rate-limit.server'
 
+const REMEMBER_SEARCH_VALUE = '1'
+
 function safeAuthorizationCode(value: string | null): value is string {
   return Boolean(value && value.length <= 2_048 && !/[\s\u0000-\u001f\u007f]/.test(value))
 }
@@ -22,6 +24,7 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const next = normalizeAIPathReturnPath(requestUrl.searchParams.get('next'))
   const code = requestUrl.searchParams.get('code')
+  const remember = requestUrl.searchParams.get('remember') === REMEMBER_SEARCH_VALUE
 
   if (!capability.available || !safeAuthorizationCode(code)) {
     const destination = new URL(AI_PATH_AUTH_HOME, publicOrigin)
@@ -38,7 +41,7 @@ export async function GET(request: Request) {
     return response
   }
 
-  const context = createConsumerAuthRequestContext(request)
+  const context = createConsumerAuthRequestContext(request, { remember })
   const { error } = await context.client.auth.exchangeCodeForSession(code)
   const destination = new URL(error ? AI_PATH_AUTH_HOME : next, consumerAuthPublicOrigin(request, capability))
   if (error) destination.searchParams.set('error', 'invalid_callback')

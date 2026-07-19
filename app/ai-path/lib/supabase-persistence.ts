@@ -103,12 +103,16 @@ export function isSafeSupabaseProjectUrl(value: string): boolean {
   }
 }
 
-export function supabaseAuthCookieOptions(nodeEnv: string | undefined) {
+export function supabaseAuthCookieOptions(
+  nodeEnv: string | undefined,
+  options: { remember?: boolean } = {},
+) {
   return {
     httpOnly: true as const,
     sameSite: 'lax' as const,
     path: '/',
     secure: nodeEnv === 'production',
+    ...(options.remember ? { maxAge: 60 * 60 * 24 * 30 } : {}),
   }
 }
 

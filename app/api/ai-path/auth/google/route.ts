@@ -14,6 +14,7 @@ import {
 import { checkAiPathRateLimit } from '@/app/ai-path/lib/rate-limit.server'
 
 const MAX_AUTH_FORM_BYTES = 2_048
+const REMEMBER_SEARCH_VALUE = '1'
 
 function authPageRedirect(request: Request, parameters: Record<string, string>): NextResponse {
   const capability = getConsumerAuthCapability()
@@ -68,9 +69,12 @@ export async function POST(request: Request) {
   if (new TextEncoder().encode(body).byteLength > MAX_AUTH_FORM_BYTES) {
     return authPageRedirect(request, { error: 'invalid_request' })
   }
-  const next = normalizeAIPathReturnPath(new URLSearchParams(body).get('next'))
+  const form = new URLSearchParams(body)
+  const next = normalizeAIPathReturnPath(form.get('next'))
+  const remember = form.get('remember') === REMEMBER_SEARCH_VALUE
   const callback = new URL('/ai-path/auth/callback', requestOrigin)
   callback.searchParams.set('next', next)
+  if (remember) callback.searchParams.set('remember', REMEMBER_SEARCH_VALUE)
 
   const context = createConsumerAuthRequestContext(request)
   const { data, error } = await context.client.auth.signInWithOAuth({

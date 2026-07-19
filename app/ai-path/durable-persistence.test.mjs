@@ -140,6 +140,13 @@ test('server auth cookies are HttpOnly, same-site, scoped, and secure in product
     path: '/',
     secure: true,
   })
+  assert.deepEqual(supabaseAuthCookieOptions('production', { remember: true }), {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+    secure: true,
+    maxAge: 60 * 60 * 24 * 30,
+  })
   assert.equal(supabaseAuthCookieOptions('development').secure, false)
 })
 
