@@ -157,6 +157,7 @@ export async function analyzeReviewedAssessment(input: ReviewedAssessmentInput):
 export type DiagnosticStoragePreference = Readonly<{
   save: boolean
   idempotencyKey: string | null
+  signal?: AbortSignal
 }>
 
 export async function createDiagnosticResult(
@@ -176,6 +177,7 @@ export async function createDiagnosticResult(
     headers: { 'Content-Type': 'application/json' },
     cache: 'no-store',
     credentials: 'same-origin',
+    signal: storage.signal,
     body: JSON.stringify({
       intake: input,
       storageConsent: {

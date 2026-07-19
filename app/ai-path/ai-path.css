@@ -303,6 +303,25 @@
   text-align: center;
 }
 
+.ap-ds-trustNote {
+  align-items: center;
+  background: #fff8ee;
+  border: 1px solid #eddcc5;
+  border-radius: 12px;
+  color: var(--path-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 8px 14px;
+  margin: 18px auto 0;
+  max-width: 1052px;
+  padding: 12px 16px;
+  width: calc(100% - 40px);
+}
+
+.ap-ds-trustNote strong { color: var(--path-text); }
+.ap-ds-trustNote a { color: var(--path-primary); font-weight: 700; }
+
 .ap-ds-emptyState p {
   margin: 0;
 }
@@ -1090,6 +1109,12 @@
   padding: 4px;
 }
 
+.ap-ds-resultTopline > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
 .ap-ds-resultHero {
   align-items: end;
   display: grid;
@@ -1579,6 +1604,15 @@
   color: var(--path-muted);
 }
 
+.ap-ds-resourceOutcome {
+  background: var(--path-soft);
+  border-radius: 8px;
+  color: var(--path-text);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 10px 12px;
+}
+
 .ap-ds-profile > div:last-child article {
   border-bottom: 1px solid var(--path-line);
   display: grid;
@@ -2001,5 +2035,25 @@
   .ap-ds-progress li.is-active button,
   .ap-ds-progress li.is-complete button {
     border: 2px solid Highlight;
+  }
+}
+
+@media print {
+  .ap-ds-header,
+  .ap-ds-resultTopline button,
+  .ap-ds-firstAction button,
+  .ap-ds-resultFooter button {
+    display: none !important;
+  }
+
+  .ap-ds-result {
+    max-width: none;
+    padding: 0;
+  }
+
+  .ap-ds-result section,
+  .ap-ds-result article {
+    break-inside: avoid;
+    box-shadow: none !important;
   }
 }

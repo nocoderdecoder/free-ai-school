@@ -105,3 +105,16 @@ test('route and proxy boundaries use verified identity and mutation-safe verbs',
   assert.match(signInSource, /'ai-path-auth-email'[\s\S]*email\.toLowerCase\(\)/)
   assert.match(callbackSource, /checkAiPathRateLimit\(request, 'ai-path-auth-callback'\)/)
 })
+
+test('consumer pages distinguish configured auth from a verified signed-in user', async () => {
+  const serverSource = await readFile(new URL('./lib/consumer-auth.server.ts', import.meta.url), 'utf8')
+  const pageSource = await readFile(new URL('./page.tsx', import.meta.url), 'utf8')
+  const accountSource = await readFile(new URL('./account/page.tsx', import.meta.url), 'utf8')
+  assert.match(serverSource, /hasVerifiedConsumerSession[\s\S]*auth\.getUser\(\)/)
+  assert.doesNotMatch(serverSource, /hasVerifiedConsumerSession[\s\S]*auth\.getSession\(\)/)
+  assert.match(pageSource, /authenticatedExperienceEnabled = authConfigured && await hasVerifiedConsumerSession\(\)/)
+  assert.match(pageSource, /storagePersistenceAvailable = authenticatedExperienceEnabled/)
+  assert.match(accountSource, /isSignedIn = authConfigured && await hasVerifiedConsumerSession\(\)/)
+  assert.match(pageSource, /export const dynamic = 'force-dynamic'/)
+  assert.match(accountSource, /export const dynamic = 'force-dynamic'/)
+})

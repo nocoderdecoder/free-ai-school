@@ -156,6 +156,15 @@ function validHours(value: number | null): boolean {
   return Number.isInteger(value) && Number(value) >= 1 && Number(value) <= 40
 }
 
+function validOptionalHttpsUrl(value: string): boolean {
+  if (!present(value)) return true
+  try {
+    return new URL(value).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 function section<Id extends string>(id: Id, missing: string[], evidence: string[] = []): SectionReadiness<Id> {
   const status: ReadinessStatus = missing.length ? 'missing' : evidence.length ? 'needs_evidence' : 'complete'
   return { id, status, issues: [...missing, ...evidence] }
@@ -178,7 +187,7 @@ export function validateUseCaseIntake(input: UseCaseIntake): DiagnosticReadiness
       ...(!present(input.specification.output, 3) ? ['Describe the expected output.'] : []),
       ...(!present(input.specification.success, 8) ? ['Provide an observable success criterion.'] : []),
     ]),
-    section('experience', [], experienceNeedsEvidence ? ['This experience level requires a concrete build or test description.'] : []),
+    section('experience', validOptionalHttpsUrl(input.experience.artifactUrl) ? [] : ['Use a complete HTTPS link, or leave the artifact link blank.'], experienceNeedsEvidence ? ['This experience level requires a concrete build or test description.'] : []),
     section('risk', [
       ...(!input.risk.dataSensitivity ? ['Select the data sensitivity.'] : []),
       ...(!input.risk.consequence ? ['Select the consequence of an incorrect result.'] : []),
@@ -196,10 +205,8 @@ export function validateUseCaseIntake(input: UseCaseIntake): DiagnosticReadiness
 export function validateCapabilityIntake(input: CapabilityIntake): DiagnosticReadiness<CapabilitySectionId> {
   const claimedDomains = (Object.keys(input.experience.levels) as CapabilityDomain[])
     .filter(domain => experienceRank[input.experience.levels[domain]] >= experienceRank.adapted)
-  const unsupportedClaims = claimedDomains.filter(domain => !input.evidence.supportedDomains.includes(domain))
   const evidenceIssues = [
     ...(claimedDomains.length && !present(input.evidence.description, 30) ? ['Higher experience claims require a concrete description of personal work and evaluation.'] : []),
-    ...(unsupportedClaims.length ? [`Select which evidence supports: ${unsupportedClaims.map(domain => domainLabel[domain]).join(', ')}.`] : []),
   ]
   return overallReadiness([
     section('direction', [
@@ -211,7 +218,10 @@ export function validateCapabilityIntake(input: CapabilityIntake): DiagnosticRea
       ...(Object.values(input.experience.levels).every(level => level === 'none') ? ['Choose the statement that best describes your experience.'] : []),
       ...(!Object.values(input.experience.levels).every(level => level in experienceRank) ? ['Choose a valid experience statement.'] : []),
     ]),
-    section('evidence', present(input.evidence.description, 12) ? [] : ['Describe your strongest work, or state that you have not built anything yet.'], evidenceIssues),
+    section('evidence', [
+      ...(present(input.evidence.description, 12) ? [] : ['Describe your strongest work, or state that you have not built anything yet.']),
+      ...(validOptionalHttpsUrl(input.evidence.artifactUrl) ? [] : ['Use a complete HTTPS link, or leave the artifact link blank.']),
+    ], evidenceIssues),
     section('reasoning', [
       ...(!present(input.reasoning.scenarioId) ? ['Select an applied reasoning scenario.'] : []),
       ...(!present(input.reasoning.response, 30) ? ['Explain how you would test or control the scenario.'] : []),
@@ -252,7 +262,7 @@ export function normalizeCapabilityIntake(input: CapabilityIntake): NormalizedCa
   const hasArtifactContext = present(input.evidence.description) && input.evidence.supportedDomains.length > 0
   return deepFreeze({
     ...structuredClone(input),
-    direction: { ...input.direction, interests: [...new Set(input.direction.interests)].slice(0, 4) },
+    direction: { ...input.direction, interests: [...new Set(input.direction.interests)].slice(0, 2) },
     evidence: {
       description: input.evidence.description.trim(),
       supportedDomains: [...input.evidence.supportedDomains],
@@ -265,6 +275,7 @@ export type LearningResource = Readonly<{
   id: string
   title: string
   purpose: string
+  outcome: string
   provider: string
   canonicalUrl: string | null
   format: 'reading' | 'course' | 'project' | 'reference'
@@ -363,6 +374,7 @@ function governedResource(id: string, purpose: string): LearningResource {
     id: resource.id,
     title: resource.title,
     purpose,
+    outcome: resource.outcome,
     provider: resource.provider,
     canonicalUrl: resource.canonicalUrl,
     format: resource.format,
@@ -569,7 +581,7 @@ export function composeUseCaseBlueprint(input: UseCaseIntake): UseCaseBlueprint 
 function cappedAssessedLevel(input: CapabilityIntake, domain: CapabilityDomain): ExperienceLevel {
   const claimed = input.experience.levels[domain]
   if (experienceRank[claimed] < experienceRank.adapted) return claimed
-  if (!input.evidence.supportedDomains.includes(domain) || !present(input.evidence.description, 30)) return 'guided'
+  if (!input.evidence.supportedDomains.includes(domain) || !present(input.evidence.description, 30)) return 'none'
   if (experienceRank[claimed] >= experienceRank.demonstrated && !present(input.evidence.artifactUrl)) return 'independent'
   return claimed
 }
@@ -626,12 +638,9 @@ const capabilityDirectionByInterest: Readonly<Record<string, CapabilityDirection
   },
 }
 
-const capabilityInterestPriority = ['automate-repeated-work', 'build-ai-tool', 'improve-reliability', 'everyday-work', 'discover-fit'] as const
-
 function capabilityDirections(input: CapabilityIntake): CapabilityDirection[] {
-  const selected = new Set(input.direction.interests)
-  return capabilityInterestPriority
-    .filter(interest => selected.has(interest))
+  return input.direction.interests
+    .slice(0, 2)
     .map(interest => capabilityDirectionByInterest[interest])
     .filter((direction): direction is CapabilityDirection => Boolean(direction))
 }
@@ -645,6 +654,46 @@ function roleProjectContext(role: string): string {
   if (/engineer|developer|technical|data/i.test(role)) return 'a bounded internal workflow with validated inputs and outputs'
   if (/manager|lead|director|founder|executive/i.test(role)) return 'a team workflow with a named decision and review owner'
   return 'one recurring task from the stated working context'
+}
+
+function evidenceTaskLabel(description: string): string {
+  let label = compactText(description, 140)
+    .replace(/^i\s+(?:have\s+)?(?:used|tried)\s+.+?\s+to\s+/i, '')
+    .replace(/^i\s+(?:have\s+)?(?:built|created|made|worked on)\s+/i, '')
+    .replace(/^to\s+/i, '')
+    .split(/\s*(?:,|;|\bthen\b|\bbut\b|\band then\b)\s*/i)[0]
+    .replace(/[.!?]+$/, '')
+
+  const verbForms: Record<string, string> = {
+    analyze: 'analyzing',
+    automate: 'automating',
+    build: 'building',
+    compare: 'comparing',
+    create: 'creating',
+    draft: 'drafting',
+    forecast: 'forecasting',
+    improve: 'improving',
+    plan: 'planning',
+    research: 'researching',
+    review: 'reviewing',
+    summarize: 'summarizing',
+    write: 'writing',
+  }
+  label = label.replace(/^([a-z]+)/i, verb => verbForms[verb.toLowerCase()] ?? verb)
+  return compactText(label, 72)
+}
+
+function capabilityProjectContext(input: CapabilityIntake): { label: string; source: 'role' | 'evidence' } {
+  const role = compactText(input.direction.roleContext, 90)
+  if (/\b(?:working|creating|reviewing|building|managing|forecast|target|campaign|support|sales|research|analysis|content|operations?)\b/i.test(role)
+    && /\b(?:working|creating|reviewing|building|managing|forecast|target|campaign|support|research|analysis|content|operations?)\b/i.test(role.replace(/^(?:sales|support|content|operations?)\s+(?:manager|lead|analyst|director)\b/i, ''))) {
+    return { label: role.replace(/[.!?]+$/, ''), source: 'role' }
+  }
+  const evidence = compactText(input.evidence.description, 90)
+  if (evidence && !/^(?:i )?(?:have not|haven't|have not yet|haven't yet|not built|not tried)/i.test(evidence)) {
+    return { label: evidenceTaskLabel(evidence), source: 'evidence' }
+  }
+  return { label: roleProjectContext(input.direction.roleContext), source: 'role' }
 }
 
 export function composeCapabilityPrescription(input: CapabilityIntake): CapabilityPrescription | null {
@@ -667,13 +716,13 @@ export function composeCapabilityPrescription(input: CapabilityIntake): Capabili
     : `${ranked[0].label}: ${experienceLabel[ranked[0].assessedLevel]}`
   const untested = evidenceProfile.filter(item => item.assessedLevel === 'none').map(item => item.label)
   const highest = experienceRank[ranked[0].assessedLevel]
-  const confidence = highest >= experienceRank.demonstrated && present(input.evidence.artifactUrl)
-    ? 'high' : highest >= experienceRank.adapted ? 'moderate' : 'limited'
+  const confidence = highest >= experienceRank.adapted ? 'moderate' : 'limited'
   const directions = capabilityDirections(input)
   const direction = directions[0] ?? capabilityDirectionByInterest['everyday-work']
   const secondaryDirections = directions.slice(1)
   const experienceBand = highest <= experienceRank.guided ? 'beginner' : highest >= experienceRank.demonstrated ? 'experienced' : 'practitioner'
-  const context = roleProjectContext(input.direction.roleContext)
+  const projectContext = capabilityProjectContext(input)
+  const context = projectContext.label
   const buildMode = capabilityBuildMode(input)
   const planProfile = profileForCapability(input, strongest)
   const weeklyBudget = weeklyMinutes(input.constraints.weeklyHours ?? 1, input.constraints.pace)
@@ -703,7 +752,11 @@ export function composeCapabilityPrescription(input: CapabilityIntake): Capabili
     : experienceBand === 'experienced'
       ? 'Audit the strongest existing artifact and turn its failures into a regression baseline.'
       : 'Turn the strongest existing attempt into a ten-example baseline before expanding it.'
-  const firstAction = `${compactText(input.direction.roleContext, 80)}: ${experienceStart} Use ${context}; start with a ${buildMode.toLowerCase()}.`
+  const firstAction = experienceBand === 'beginner'
+    ? `Reproduce one small example of ${context}. Start with a ${buildMode.toLowerCase()}.`
+    : experienceBand === 'experienced'
+      ? `Audit your strongest ${context} example and turn its failures into a baseline.`
+      : `Turn your strongest ${context} attempt into a ten-example baseline.`
   const primaryResourceId = input.constraints.resourceBudget === 'paid-ok' && input.foundations.codingComfort === 'experienced'
     ? 'openai-api-quickstart'
     : direction.resourceId
@@ -764,11 +817,13 @@ export function composeCapabilityPrescription(input: CapabilityIntake): Capabili
       { id: 'role-goals', source: 'direction', detail: `${compactText(input.direction.roleContext, 100)} and ${directions.map(item => item.capability).join(' plus ')} determine the project context and objectives.` },
       { id: 'evidence-level', source: 'experience and evidence', detail: `${strongest}; ${experienceBand} scope is based on supported domains, the evidence description, and ${present(input.evidence.artifactUrl) ? 'an inspectable artifact' : 'no inspectable artifact link'}.` },
       { id: 'reasoning', source: 'reasoning', detail: `The ${input.reasoning.scenarioId} response ${reasoningHasEvaluation ? 'already includes evaluation thinking' : 'needs an explicit evaluation method'} and ${reasoningHasReview ? 'includes a review boundary' : 'needs a review boundary'}.` },
-      { id: 'foundations', source: 'foundations', detail: `${input.foundations.codingComfort} coding and ${input.foundations.dataComfort} data experience set the ${buildMode.toLowerCase()} route; familiar tools are carried into the first prototype.` },
+      { id: 'foundations', source: 'foundations', detail: `${input.foundations.codingComfort === 'none' ? 'No' : input.foundations.codingComfort} coding and ${input.foundations.dataComfort} data experience set the ${buildMode.toLowerCase()} route; familiar tools are carried into the first prototype.` },
       { id: 'constraints', source: 'constraints', detail: `${input.constraints.weeklyHours} hours, ${input.constraints.learningPreference}, ${input.constraints.pace}, ${input.constraints.resourceBudget}, and ${input.constraints.publicProject} sharing determine workload, resource eligibility, and the final artifact.` },
     ],
     assumptions: [
-      { id: 'suggested-task', detail: `No specific future task is captured on this path, so the plan suggests ${context} based on the stated role; replace it with a better real task if needed.` },
+      { id: 'suggested-task', detail: projectContext.source === 'evidence'
+        ? `We used ${context} as the project starting point because it was your clearest practical example; you can replace it with another recurring task.`
+        : `No specific future task is captured on this path, so the plan suggests ${context} from the stated work context; replace it with a better real task if needed.` },
       ...(!present(input.evidence.artifactUrl) ? [{ id: 'evidence-link', detail: 'No artifact link was supplied, so confidence is based on the described work and selected supported domains.' }] : []),
     ],
   })

@@ -109,8 +109,7 @@ test('readiness distinguishes missing fields, unsupported evidence, and complete
     ...capabilityFixture,
     experience: { levels: { ...capabilityFixture.experience.levels, automation: 'independent' } },
   })
-  assert.equal(unsupportedCapability.status, 'needs_evidence')
-  assert.match(unsupportedCapability.sections.find(section => section.id === 'evidence').issues.join(' '), /Automation/)
+  assert.equal(unsupportedCapability.status, 'complete', 'unsupported broad-stage claims are downgraded in the result instead of blocking the learner')
 
   assert.equal(validateUseCaseIntake(useCaseFixture).status, 'complete')
   assert.equal(validateCapabilityIntake(capabilityFixture).status, 'complete')
@@ -333,7 +332,7 @@ test('capability coding, data, time, modality, budget, and publication constrain
   assert.notDeepEqual(privateProject.weeks, baseline.weeks, 'sharing preference must change packaging work')
 })
 
-test('multiple capability goals are order invariant and every selected goal affects the plan', () => {
+test('the first selected capability goal is primary and an optional second goal remains represented', () => {
   const automationReliability = requireResult(composeCapabilityPrescription({
     ...capabilityFixture,
     direction: { ...capabilityFixture.direction, interests: ['automate-repeated-work', 'improve-reliability'] },
@@ -342,7 +341,9 @@ test('multiple capability goals are order invariant and every selected goal affe
     ...capabilityFixture,
     direction: { ...capabilityFixture.direction, interests: ['improve-reliability', 'automate-repeated-work'] },
   }))
-  assert.deepEqual(automationReliability, reliabilityAutomation, 'checkbox order must not change the recommendation')
+  assert.notEqual(automationReliability.nextCapability, reliabilityAutomation.nextCapability, 'the declared main goal must change the primary recommendation')
+  assert.match(automationReliability.nextCapability, /workflow automation/i)
+  assert.match(reliabilityAutomation.nextCapability, /evaluating and improving/i)
   const combined = combinedCapabilityPlanText(automationReliability)
   assert.match(combined, /automat|workflow/, 'the plan must represent the automation goal')
   assert.match(combined, /reliab|evaluat|quality|test/, 'the plan must represent the reliability goal')
@@ -356,6 +357,34 @@ test('multiple capability goals are order invariant and every selected goal affe
     capabilityPlanFingerprint(automationOnly),
     'adding a second selected goal must change at least one visible plan facet',
   )
+})
+
+test('capability plans use the learner’s real example and do not award unsupported experience', () => {
+  const result = requireResult(composeCapabilityPrescription({
+    ...capabilityFixture,
+    direction: { roleContext: 'Sales manager at a technology company', interests: ['everyday-work'] },
+    experience: { levels: {
+      'ai-assisted-work': 'independent', automation: 'adapted', applications: 'adapted', 'data-retrieval': 'adapted', 'evaluation-safety': 'guided',
+    } },
+    evidence: {
+      description: 'I used AI to compare historical sales performance and draft quarterly sales targets.',
+      supportedDomains: ['ai-assisted-work'],
+      artifactUrl: 'https://example.com/unverified',
+    },
+  }))
+  assert.match(JSON.stringify(result.project), /sales targets/i)
+  assert.doesNotMatch(result.project.title, /I used AI/i, 'headings should use a concise task label rather than repeat the full answer')
+  assert.ok(result.project.title.length < 120, 'the recommended project title should remain scannable')
+  assert.equal(result.evidenceProfile.find(item => item.domain === 'automation').assessedLevel, 'none')
+  assert.equal(result.evidenceProfile.find(item => item.domain === 'applications').assessedLevel, 'none')
+  assert.equal(result.confidence, 'moderate', 'an uninspected link must not create high confidence')
+})
+
+test('internal learning activities include a concrete outcome', () => {
+  const result = requireResult(composeCapabilityPrescription(capabilityFixture))
+  for (const resource of result.resources.filter(resource => resource.canonicalUrl === null)) {
+    assert.ok(resource.outcome.length > 20)
+  }
 })
 
 test('result composition is deterministic and does not mutate either diagnostic input', () => {

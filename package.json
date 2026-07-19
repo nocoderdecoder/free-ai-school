@@ -9,7 +9,7 @@
     "lint": "eslint",
     "lint:ai-path-consumer": "eslint app/ai-path app/api/ai-path proxy.ts next.config.ts",
     "test:ai-path-diagnostic": "node --test app/ai-path/lib/diagnostic.test.mjs",
-    "test:ai-path-consumer": "node --test app/ai-path/diagnostic-http.test.mjs app/ai-path/diagnostic-storage-wiring.test.mjs app/ai-path/account-controls.test.mjs",
+    "test:ai-path-consumer": "node --test app/ai-path/diagnostic-http.test.mjs app/ai-path/diagnostic-storage-wiring.test.mjs app/ai-path/account-controls.test.mjs app/ai-path/local-product-quality.test.mjs",
     "test:ai-path-security": "node --test app/ai-path/rate-limit-supabase.test.mjs",
     "test:ai-path-consumer-data": "node --test app/ai-path/account-privacy.test.mjs app/ai-path/diagnostic-persistence-supabase.test.mjs scripts/ai-path-db-proof/consumer-diagnostic-static.test.mjs",
     "test:ai-path-adaptive": "node --test app/ai-path/adaptive-interview-policy.test.mjs app/ai-path/constrained-question-routing.test.mjs app/ai-path/adaptive-question-provider.test.mjs app/ai-path/adaptive-question-http.test.mjs app/ai-path/adaptive-question-behavior.test.mjs app/ai-path/adaptive-question-clarification.test.mjs app/ai-path/client/question-adaptation.test.mjs",

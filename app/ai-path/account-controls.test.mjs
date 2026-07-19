@@ -21,7 +21,9 @@ test('account controls use safe verbs and keep destructive deletion disabled', a
 test('account page honestly reflects closed export and auth gates', async () => {
   const source = await readFile(new URL('./account/page.tsx', import.meta.url), 'utf8')
   assert.match(source, /AI_PATH_ACCOUNT_EXPORT_RUNTIME_LATCH/)
-  assert.match(source, /authConfigured=\{authConfigured\}/)
+  assert.match(source, /hasVerifiedConsumerSession\(\)/)
+  assert.match(source, /isSignedIn \? \(/)
+  assert.doesNotMatch(source, /<AccountControls[\s\S]*authConfigured=\{authConfigured\}/)
   assert.match(source, /role="status"/)
   assert.match(source, /robots: \{ index: false, follow: false \}/)
 })

@@ -206,14 +206,16 @@ function Header({
   scene,
   onRestart,
   authenticatedExperienceEnabled,
+  busy,
 }: {
   scene: 'diagnostic' | 'result'
   onRestart(): void
   authenticatedExperienceEnabled: boolean
+  busy: boolean
 }) {
   return (
     <header className="ap-ds-header">
-      <button type="button" className="ap-ds-brand" onClick={onRestart} aria-label="AI Path home">
+      <button type="button" className="ap-ds-brand" onClick={onRestart} aria-label="AI Path home" disabled={busy}>
         <span><PathMark /></span>
         <strong>AI Path</strong>
       </button>
@@ -263,6 +265,7 @@ function DetailedMultiChoice<T extends string>({
   values,
   options,
   exclusiveValue,
+  limit,
   onChange,
 }: {
   label: string
@@ -270,6 +273,7 @@ function DetailedMultiChoice<T extends string>({
   values: readonly T[]
   options: readonly (readonly [T, string, string?])[]
   exclusiveValue?: T
+  limit?: number
   onChange(values: T[]): void
 }) {
   const toggle = (option: T) => {
@@ -281,6 +285,7 @@ function DetailedMultiChoice<T extends string>({
       onChange([option])
       return
     }
+    if (limit && values.filter(value => value !== exclusiveValue).length >= limit) return
     onChange([...values.filter(value => value !== exclusiveValue), option])
   }
 
@@ -402,7 +407,15 @@ function Section({
 }) {
   const statusLabel = status === 'complete' ? 'Captured' : status === 'needs_evidence' ? 'Needs evidence' : 'Incomplete'
   return (
-    <fieldset id={`ap-section-${id}`} data-section-id={id} className={`ap-ds-section is-${status}${active ? ' is-active' : ''}`} onFocusCapture={onActivate} onClick={onActivate}>
+    <fieldset
+      id={`ap-section-${id}`}
+      data-section-id={id}
+      className={`ap-ds-section is-${status}${active ? ' is-active' : ''}`}
+      aria-invalid={status !== 'complete'}
+      aria-describedby={issues.length ? `ap-section-${id}-issues` : undefined}
+      onFocusCapture={onActivate}
+      onClick={onActivate}
+    >
       <legend className="sr-only">{number}. {title}</legend>
       <div className="ap-ds-sectionHeading">
         <span aria-hidden="true">{String(number).padStart(2, '0')}</span>
@@ -410,7 +423,7 @@ function Section({
         <small><i aria-hidden="true" />{statusLabel === 'Captured' ? 'Done' : statusLabel === 'Needs evidence' ? 'Needs an example' : 'Not finished'}</small>
       </div>
       <div className="ap-ds-sectionBody">{children}</div>
-      {issues.length ? <ul className="ap-ds-issues" aria-label={`${title} requirements`}>{issues.map(issue => <li key={issue}>{issue}</li>)}</ul> : null}
+      {issues.length ? <ul id={`ap-section-${id}-issues`} className="ap-ds-issues" aria-label={`${title} requirements`}>{issues.map(issue => <li key={issue}>{issue}</li>)}</ul> : null}
     </fieldset>
   )
 }
@@ -578,14 +591,15 @@ function CapabilityForm({
   return (
     <div className="ap-ds-sections" data-path="capability-growth">
       <Section {...common('direction', 0)}>
-        <label className="ap-ds-simpleField" htmlFor="ap-context"><span>Your role or working context</span><input id="ap-context" maxLength={200} value={value.direction.roleContext} onChange={event => onChange({ ...value, direction: { ...value.direction, roleContext: event.target.value } })} placeholder="Operations analyst, founder, student…" /></label>
+        <label className="ap-ds-simpleField" htmlFor="ap-context"><span>Your role and the work this plan should relate to</span><input id="ap-context" maxLength={200} value={value.direction.roleContext} onChange={event => onChange({ ...value, direction: { ...value.direction, roleContext: event.target.value } })} placeholder="Sales manager working on forecasting and targets…" /></label>
         <div className="ap-ds-directionChoices">
           <DetailedMultiChoice
             label={adaptive('direction').prompt}
-            hint="Choose all that apply"
+            hint="Choose a main goal and, optionally, one secondary goal"
             values={value.direction.interests}
             options={interestOptions}
             exclusiveValue="discover-fit"
+            limit={2}
             onChange={interests => onChange({ ...value, direction: { ...value.direction, interests } })}
           />
         </div>
@@ -730,7 +744,10 @@ function ResultScene({
 
   return (
     <main className="ap-ds-result" data-result-kind={result.kind}>
-      <div className="ap-ds-resultTopline"><button type="button" onClick={onEdit}>← Edit my answers</button><span>{isUseCase ? 'Your project plan' : 'Your learning plan'}</span></div>
+      <div className="ap-ds-resultTopline">
+        <div><button type="button" onClick={onEdit}>← Edit my answers</button><button type="button" onClick={() => window.print()}>Print or save PDF</button></div>
+        <span>{isUseCase ? 'Your project plan' : 'Your learning plan'}</span>
+      </div>
       <section className="ap-ds-resultHero">
         <p>{isUseCase ? 'A small version you can test' : 'What to learn and build next'}</p>
         <h1 tabIndex={-1}>{result.title}</h1>
@@ -815,6 +832,7 @@ function ResultScene({
             <h3>{resource.title}</h3>
             <p className="ap-ds-resourceMeta">{resource.provider} · {resource.format} · {formatMinutes(resource.estimatedMinutes)}</p>
             <p>{resource.purpose}</p>
+            {!url ? <p className="ap-ds-resourceOutcome"><strong>What you will produce:</strong> {resource.outcome}</p> : null}
             <details><summary>Cost and access</summary><p>{resource.cost.disclosure}</p></details>
             {url ? <a href={url} target="_blank" rel="noreferrer">Open resource <span aria-hidden="true">↗</span></a> : <span className="ap-ds-includedResource">Activity included in your plan</span>}
           </article>
@@ -858,6 +876,8 @@ export function AdvisorApp({
   const [clarifierAnswerBaselines, setClarifierAnswerBaselines] = useState<ClarifierAnswerBaselines>({})
   const adaptationRevision = useRef(0)
   const adaptationAbort = useRef<AbortController | null>(null)
+  const submissionRevision = useRef(0)
+  const submissionAbort = useRef<AbortController | null>(null)
   const storageSubmission = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null)
 
   const microphone = useMemo(() => createBrowserMicrophonePreflightController(), [])
@@ -867,6 +887,7 @@ export function AdvisorApp({
     void microphone.refreshDevices()
     return () => {
       adaptationAbort.current?.abort()
+      submissionAbort.current?.abort()
       microphone.destroy()
     }
   }, [microphone])
@@ -904,6 +925,9 @@ export function AdvisorApp({
   const isLastQuestion = currentIndex === sectionIds.length - 1
 
   const choosePath = (nextPath: DiagnosticPath) => {
+    submissionAbort.current?.abort()
+    submissionRevision.current += 1
+    setIsSubmitting(false)
     adaptationAbort.current?.abort()
     adaptationRevision.current += 1
     setIsAdapting(false)
@@ -915,13 +939,23 @@ export function AdvisorApp({
     setClarifierAnswerBaselines({})
   }
 
-  const selectSection = (id: string) => {
+  const selectSection = (id: string, focusFirstControl = false) => {
     setActiveSection(id)
     requestAnimationFrame(() => {
       const section = document.getElementById(`ap-section-${id}`)
       section?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      document.getElementById(`ap-section-title-${id}`)?.focus({ preventScroll: true })
+      const focusTarget = focusFirstControl
+        ? section?.querySelector<HTMLElement>('textarea, input:not([type="hidden"]), select, button')
+        : document.getElementById(`ap-section-title-${id}`)
+      focusTarget?.focus({ preventScroll: true })
     })
+  }
+
+  const cancelSubmission = () => {
+    submissionAbort.current?.abort()
+    submissionAbort.current = null
+    submissionRevision.current += 1
+    setIsSubmitting(false)
   }
 
   const invalidateFollowingPresentations = (changedPath: DiagnosticPath, sectionId: string) => {
@@ -954,6 +988,7 @@ export function AdvisorApp({
     if (isAdapting) return
     if (currentSection?.status !== 'complete') {
       setShowErrors(true)
+      selectSection(activeSection, true)
       return
     }
     setShowErrors(false)
@@ -1021,11 +1056,16 @@ export function AdvisorApp({
     if (isSubmitting || !path || !readiness.canSubmit) {
       setShowErrors(true)
       const first = readiness.sections.find(section => section.status !== 'complete')
-      if (first) selectSection(first.id)
+      if (first) selectSection(first.id, true)
       return
     }
     setSubmitError('')
     setIsSubmitting(true)
+    submissionAbort.current?.abort()
+    const controller = new AbortController()
+    const requestRevision = submissionRevision.current + 1
+    submissionRevision.current = requestRevision
+    submissionAbort.current = controller
     try {
       const intake = path === 'use-case' ? useCase : capability
       const save = authenticatedExperienceEnabled && storagePersistenceAvailable && storageConsent
@@ -1038,8 +1078,9 @@ export function AdvisorApp({
         idempotencyKey = storageSubmission.current.idempotencyKey
       }
       const nextResult = path === 'use-case'
-        ? await createDiagnosticResult(useCase, { save, idempotencyKey })
-        : await createDiagnosticResult(capability, { save, idempotencyKey })
+        ? await createDiagnosticResult(useCase, { save, idempotencyKey, signal: controller.signal })
+        : await createDiagnosticResult(capability, { save, idempotencyKey, signal: controller.signal })
+      if (controller.signal.aborted || submissionRevision.current !== requestRevision) return
       adaptationAbort.current?.abort()
       adaptationRevision.current += 1
       microphone.stop()
@@ -1048,13 +1089,20 @@ export function AdvisorApp({
       setSavedToAccount(save)
       setScene('result')
     } catch (error) {
+      if (controller.signal.aborted || submissionRevision.current !== requestRevision) return
       setSubmitError(error instanceof Error ? error.message : 'Your plan could not be created. Please try again.')
     } finally {
-      setIsSubmitting(false)
+      if (submissionRevision.current === requestRevision) {
+        setIsSubmitting(false)
+        submissionAbort.current = null
+      }
     }
   }
 
   const restart = () => {
+    submissionAbort.current?.abort()
+    submissionAbort.current = null
+    submissionRevision.current += 1
     adaptationAbort.current?.abort()
     adaptationRevision.current += 1
     microphone.stop()
@@ -1075,7 +1123,10 @@ export function AdvisorApp({
     setUsedClarifierSectionIds([])
     setClarifierAnswerBaselines({})
     setIsAdapting(false)
-    window.scrollTo({ top: 0, behavior: 'auto' })
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'auto' })
+      document.querySelector<HTMLElement>('.ap-ds-intro h1')?.focus({ preventScroll: true })
+    })
   }
 
   return (
@@ -1084,28 +1135,35 @@ export function AdvisorApp({
         scene={scene}
         onRestart={restart}
         authenticatedExperienceEnabled={authenticatedExperienceEnabled}
+        busy={isSubmitting}
       />
       {scene === 'result' && result ? <ResultScene result={result} onEdit={() => setScene('diagnostic')} onRestart={restart} authenticatedExperienceEnabled={authenticatedExperienceEnabled} savedToAccount={savedToAccount} /> : (
         <main className={`ap-ds-main${path ? ' has-path' : ''}`}>
           <section className="ap-ds-intro" aria-labelledby="ap-ds-title">
-            <div><p className="ap-ds-kicker">A practical AI plan</p><h1 id="ap-ds-title">What would you like help with?</h1></div>
+            <div><p className="ap-ds-kicker">A practical AI plan</p><h1 id="ap-ds-title" tabIndex={-1}>What would you like help with?</h1></div>
             <p>Choose one. We’ll ask six short questions and give you a practical project and next step.</p>
           </section>
 
           <section className="ap-ds-pathSelector" aria-labelledby="ap-path-question">
             <div className="ap-ds-selectorLabel"><h2 id="ap-path-question">Choose a path</h2></div>
             <div className="ap-ds-pathOptions">
-              <button type="button" className={path === 'use-case' ? 'is-selected' : ''} aria-pressed={path === 'use-case'} onClick={() => choosePath('use-case')}>
+              <button type="button" disabled={isSubmitting} className={path === 'use-case' ? 'is-selected' : ''} aria-pressed={path === 'use-case'} onClick={() => choosePath('use-case')}>
                 <span className="ap-ds-pathIcon" aria-hidden="true">✦</span><strong>I have a task or idea</strong><span className="ap-ds-pathDetail">Help me turn it into a small, testable AI project.</span><i>{path === 'use-case' ? <CheckIcon /> : <ArrowIcon />}</i>
               </button>
-              <button type="button" className={path === 'capability-growth' ? 'is-selected' : ''} aria-pressed={path === 'capability-growth'} onClick={() => choosePath('capability-growth')}>
+              <button type="button" disabled={isSubmitting} className={path === 'capability-growth' ? 'is-selected' : ''} aria-pressed={path === 'capability-growth'} onClick={() => choosePath('capability-growth')}>
                 <span className="ap-ds-pathIcon" aria-hidden="true">↗</span><strong>I want to improve my AI skills</strong><span className="ap-ds-pathDetail">Help me choose what to learn and build next.</span><i>{path === 'capability-growth' ? <CheckIcon /> : <ArrowIcon />}</i>
               </button>
             </div>
           </section>
 
+          <aside className="ap-ds-trustNote" aria-label="Privacy reminder">
+            <strong>Keep sensitive information out.</strong>
+            <span>Don’t enter passwords, API keys, financial or health information, or confidential customer or company data.</span>
+            <span><a href="/ai-path/privacy">Privacy</a> · <a href="/ai-path/terms">Terms</a></span>
+          </aside>
+
           {path ? (
-            <form className="ap-ds-workbench" data-show-errors={showErrors} onSubmit={submit} noValidate>
+            <form className="ap-ds-workbench" data-show-errors={showErrors} onSubmit={submit} noValidate aria-busy={isSubmitting}>
               <QuestionProgress sections={sections} statuses={statuses} activeId={activeSection} onSelect={selectSection} />
               <div className="ap-ds-formColumn">
                 <div className="ap-ds-voiceConsole">
@@ -1116,9 +1174,9 @@ export function AdvisorApp({
                 </div>
 
                 {path === 'use-case' ? (
-                  <UseCaseForm value={useCase} readiness={effectiveUseCaseReadiness} presentations={presentations} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { setUseCase(value); invalidateFollowingPresentations('use-case', activeSection); setShowErrors(false) }} />
+                  <UseCaseForm value={useCase} readiness={effectiveUseCaseReadiness} presentations={presentations} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { if (isSubmitting) cancelSubmission(); setUseCase(value); invalidateFollowingPresentations('use-case', activeSection); setShowErrors(false) }} />
                 ) : (
-                  <CapabilityForm value={capability} readiness={effectiveCapabilityReadiness} presentations={presentations} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { setCapability(value); invalidateFollowingPresentations('capability-growth', activeSection); setShowErrors(false) }} />
+                  <CapabilityForm value={capability} readiness={effectiveCapabilityReadiness} presentations={presentations} activeSection={activeSection} voiceTarget={voiceTarget} onActivate={setActiveSection} onVoice={startVoiceFor} onChange={value => { if (isSubmitting) cancelSubmission(); setCapability(value); invalidateFollowingPresentations('capability-growth', activeSection); setShowErrors(false) }} />
                 )}
 
                 {isLastQuestion && authenticatedExperienceEnabled ? (
@@ -1139,7 +1197,7 @@ export function AdvisorApp({
                 ) : null}
 
                 <div className="ap-ds-questionNav">
-                  <button type="button" className="ap-ds-backButton" onClick={previousQuestion} disabled={currentIndex === 0}>Back</button>
+                  <button type="button" className="ap-ds-backButton" onClick={previousQuestion} disabled={currentIndex === 0 || isSubmitting}>Back</button>
                   {isLastQuestion ? (
                     <button type="submit" className="ap-ds-continueButton" disabled={isSubmitting}>{isSubmitting ? 'Creating your plan…' : path === 'use-case' ? 'Create my project plan' : 'Create my learning plan'} {!isSubmitting ? <ArrowIcon /> : null}</button>
                   ) : (

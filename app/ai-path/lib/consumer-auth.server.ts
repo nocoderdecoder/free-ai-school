@@ -2,6 +2,7 @@ import 'server-only'
 
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 import type { Database } from './database.types'
@@ -37,6 +38,36 @@ export function getConsumerAuthCapability(): ConsumerAuthCapability {
       || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   })
+}
+
+/**
+ * Reads the request-time cookie store and asks Supabase to verify the user.
+ * Configuration availability alone is never treated as authentication.
+ */
+export async function hasVerifiedConsumerSession(): Promise<boolean> {
+  const capability = getConsumerAuthCapability()
+  if (!capability.available) return false
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+    || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !publishableKey) return false
+
+  try {
+    const cookieStore = await cookies()
+    const client = createServerClient<Database>(supabaseUrl, publishableKey, {
+      cookieOptions: supabaseAuthCookieOptions(process.env.NODE_ENV),
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: () => {
+          // Server Components cannot write cookies. Refreshes happen in route handlers/proxy.
+        },
+      },
+    })
+    const { data, error } = await client.auth.getUser()
+    return !error && Boolean(data.user?.id)
+  } catch {
+    return false
+  }
 }
 
 function secureCookieOptions(options: CookieOptions): CookieOptions {

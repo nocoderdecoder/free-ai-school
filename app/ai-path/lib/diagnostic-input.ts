@@ -175,7 +175,7 @@ function parseCapability(input: Record<string, unknown>): ParseResult {
   }
 
   const roleContext = boundedText(direction.roleContext, 500)
-  const interests = stringList(direction.interests, new Set(['everyday-work', 'automate-repeated-work', 'build-ai-tool', 'improve-reliability', 'discover-fit']), 4, 64)
+  const interests = stringList(direction.interests, new Set(['everyday-work', 'automate-repeated-work', 'build-ai-tool', 'improve-reliability', 'discover-fit']), 2, 64)
   const levels = Object.fromEntries(capabilityDomains.map(domain => [domain, enumValue(experienceLevelsInput[domain], experienceLevels)])) as Record<CapabilityDomain, ExperienceLevel | null>
   const description = boundedText(evidence.description, 3_000)
   const supportedDomains = stringList(evidence.supportedDomains, new Set(capabilityDomains), capabilityDomains.length, 64)

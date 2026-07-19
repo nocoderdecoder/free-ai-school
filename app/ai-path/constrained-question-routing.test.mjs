@@ -95,3 +95,9 @@ test('request parsing is strict and rejects forged route metadata or oversized c
   assert.equal(parseAdaptiveQuestionRequest({ ...valid, completedSectionId: 'outcome' }), null)
   assert.equal(parseAdaptiveQuestionRequest({ ...valid, answers: { text: 'x'.repeat(20_001) } }), null)
 })
+
+test('the default capability reasoning question is anchored to the learner’s own example', () => {
+  const presentation = canonicalQuestionPresentation('capability-growth', 'reasoning')
+  assert.match(`${presentation.context} ${presentation.prompt}`, /example you just gave/i)
+  assert.doesNotMatch(`${presentation.context} ${presentation.prompt}`, /automated workflow/i)
+})
