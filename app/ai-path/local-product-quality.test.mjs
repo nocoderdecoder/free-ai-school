@@ -38,10 +38,14 @@ test('consumer trust copy, privacy, terms, and portable plan output are present'
 
 test('the diagnostic tells the truth about typing, microphone testing, processing, and expected duration', async () => {
   const app = await readFile(new URL('./AdvisorApp.tsx', import.meta.url), 'utf8')
+  const css = await readFile(new URL('./ai-path.css', import.meta.url), 'utf8')
   assert.match(app, /Type your answers/)
   assert.doesNotMatch(app, /<strong>Speak or type<\/strong>/)
   assert.match(app, /Optional microphone test only\. It does not transcribe or submit audio\./)
   assert.match(app, /Test microphone locally/)
+  assert.match(app, /className="ap-ds-fieldMic"/)
+  assert.match(css, /\.ap-ds-fieldMic svg/)
+  assert.doesNotMatch(app, /className="ap-ds-micTool"/)
   assert.match(app, /(?:About|Allow) 10–15 minutes/)
   assert.match(app, /Typed answers are sent to AI Path to create this plan/i)
   assert.match(app, /not saved to your account unless you choose Save/i)

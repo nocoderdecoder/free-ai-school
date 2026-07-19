@@ -362,6 +362,7 @@ function TextAreaField({
   placeholder,
   onChange,
   rows = 4,
+  inputAccessory,
 }: {
   id: string
   label: string
@@ -370,6 +371,7 @@ function TextAreaField({
   placeholder?: string
   onChange(value: string): void
   rows?: number
+  inputAccessory?: React.ReactNode
 }) {
   return (
     <div className="ap-ds-field">
@@ -377,7 +379,10 @@ function TextAreaField({
         <label htmlFor={id}>{label}</label>
       </div>
       {help ? <p>{help}</p> : null}
-      <textarea id={id} value={value} onChange={event => onChange(event.target.value)} rows={rows} maxLength={2000} placeholder={placeholder} />
+      <div className="ap-ds-textAreaWrap">
+        <textarea id={id} value={value} onChange={event => onChange(event.target.value)} rows={rows} maxLength={2000} placeholder={placeholder} />
+        {inputAccessory}
+      </div>
     </div>
   )
 }
@@ -468,6 +473,7 @@ function UseCaseForm({
   readiness,
   presentations,
   activeSection,
+  inputAccessory,
   onActivate,
   onChange,
 }: {
@@ -475,6 +481,7 @@ function UseCaseForm({
   readiness: ReturnType<typeof validateUseCaseIntake>
   presentations: PresentationMap
   activeSection: string
+  inputAccessory?: React.ReactNode
   onActivate(id: string): void
   onChange(value: UseCaseIntake): void
 }) {
@@ -493,19 +500,19 @@ function UseCaseForm({
   return (
     <div className="ap-ds-sections" data-path="use-case">
       <Section {...common('outcome', 0)}>
-        <TextAreaField id="ap-outcome" label={adaptive('outcome').prompt} help="Describe who it is for, the task, and what should be better when it works." value={value.outcome.desiredOutcome} onChange={desiredOutcome => onChange({ ...value, outcome: { desiredOutcome } })} placeholder="Type your answer…" />
+        <TextAreaField id="ap-outcome" label={adaptive('outcome').prompt} help="Describe who it is for, the task, and what should be better when it works." value={value.outcome.desiredOutcome} onChange={desiredOutcome => onChange({ ...value, outcome: { desiredOutcome } })} placeholder="Type your answer…" inputAccessory={inputAccessory} />
       </Section>
 
       <Section {...common('workflow', 1)}>
-        <TextAreaField id="ap-workflow" label={adaptive('workflow').prompt} help="Walk through the current steps. Name the slowest, least reliable, or hardest-to-review part." value={value.workflow.currentProcess} onChange={currentProcess => onChange({ ...value, workflow: { currentProcess } })} placeholder="Type your answer…" />
+        <TextAreaField id="ap-workflow" label={adaptive('workflow').prompt} help="Walk through the current steps. Name the slowest, least reliable, or hardest-to-review part." value={value.workflow.currentProcess} onChange={currentProcess => onChange({ ...value, workflow: { currentProcess } })} placeholder="Type your answer…" inputAccessory={inputAccessory} />
       </Section>
 
       <Section {...common('specification', 2)}>
         <p className="ap-ds-sectionPrompt">{adaptive('specification').prompt}</p>
         <div className="ap-ds-specGrid">
-          <TextAreaField id="ap-inputs" label="What will it receive?" help="For example: documents, messages, spreadsheet rows, images or form responses." value={value.specification.inputs} onChange={inputs => onChange({ ...value, specification: { ...value.specification, inputs } })} rows={3} placeholder="Type your answer…" />
-          <TextAreaField id="ap-output" label="What should it produce?" help="For example: a cited draft, recommendation, summary or structured record." value={value.specification.output} onChange={output => onChange({ ...value, specification: { ...value.specification, output } })} rows={3} placeholder="Type your answer…" />
-          <TextAreaField id="ap-success" label="How will you know it works?" value={value.specification.success} onChange={success => onChange({ ...value, specification: { ...value.specification, success } })} rows={3} placeholder="One or two observable acceptance criteria" />
+          <TextAreaField id="ap-inputs" label="What will it receive?" help="For example: documents, messages, spreadsheet rows, images or form responses." value={value.specification.inputs} onChange={inputs => onChange({ ...value, specification: { ...value.specification, inputs } })} rows={3} placeholder="Type your answer…" inputAccessory={inputAccessory} />
+          <TextAreaField id="ap-output" label="What should it produce?" help="For example: a cited draft, recommendation, summary or structured record." value={value.specification.output} onChange={output => onChange({ ...value, specification: { ...value.specification, output } })} rows={3} placeholder="Type your answer…" inputAccessory={inputAccessory} />
+          <TextAreaField id="ap-success" label="How will you know it works?" value={value.specification.success} onChange={success => onChange({ ...value, specification: { ...value.specification, success } })} rows={3} placeholder="One or two observable acceptance criteria" inputAccessory={inputAccessory} />
         </div>
       </Section>
 
@@ -513,7 +520,7 @@ function UseCaseForm({
         <ChoiceGroup label={adaptive('experience').prompt} value={value.experience.level} options={experienceOptions} onChange={level => onChange({ ...value, experience: { ...value.experience, level } })} />
         {value.experience.level && value.experience.level !== 'none' ? (
           <div className="ap-ds-conditional">
-            <TextAreaField id="ap-use-case-evidence" label="What did you make or test?" help="Say what you did yourself, what happened, and how you checked it." value={value.experience.evidence} onChange={evidence => onChange({ ...value, experience: { ...value.experience, evidence } })} rows={3} placeholder="Type your answer…" />
+            <TextAreaField id="ap-use-case-evidence" label="What did you make or test?" help="Say what you did yourself, what happened, and how you checked it." value={value.experience.evidence} onChange={evidence => onChange({ ...value, experience: { ...value.experience, evidence } })} rows={3} placeholder="Type your answer…" inputAccessory={inputAccessory} />
             <label className="ap-ds-simpleField" htmlFor="ap-use-case-artifact"><span>Artifact link <small>Optional</small></span><input id="ap-use-case-artifact" type="url" maxLength={500} value={value.experience.artifactUrl} onChange={event => onChange({ ...value, experience: { ...value.experience, artifactUrl: event.target.value } })} placeholder="https://…" /></label>
           </div>
         ) : null}
@@ -552,6 +559,7 @@ function CapabilityForm({
   readiness,
   presentations,
   activeSection,
+  inputAccessory,
   onActivate,
   onChange,
 }: {
@@ -559,6 +567,7 @@ function CapabilityForm({
   readiness: ReturnType<typeof validateCapabilityIntake>
   presentations: PresentationMap
   activeSection: string
+  inputAccessory?: React.ReactNode
   onActivate(id: string): void
   onChange(value: CapabilityIntake): void
 }) {
@@ -615,14 +624,14 @@ function CapabilityForm({
       </Section>
 
       <Section {...common('evidence', 2)}>
-        <TextAreaField id="ap-capability-evidence" label={adaptive('evidence').prompt} help={adaptive('evidence').context ?? 'What did you do yourself? What was difficult? How did you check the result? “I haven’t built anything yet” is a valid answer.'} value={value.evidence.description} onChange={description => onChange({ ...value, evidence: { ...value.evidence, description } })} rows={5} placeholder="Type your answer…" />
+        <TextAreaField id="ap-capability-evidence" label={adaptive('evidence').prompt} help={adaptive('evidence').context ?? 'What did you do yourself? What was difficult? How did you check the result? “I haven’t built anything yet” is a valid answer.'} value={value.evidence.description} onChange={description => onChange({ ...value, evidence: { ...value.evidence, description } })} rows={5} placeholder="Type your answer…" inputAccessory={inputAccessory} />
         {claimedDomains.length ? <MultiChoice label="Which parts of this example did you personally work on?" values={value.evidence.supportedDomains.map(domain => capabilityLabels[domain])} options={claimedDomains.map(domain => capabilityLabels[domain])} onChange={selectedLabels => onChange({ ...value, evidence: { ...value.evidence, supportedDomains: claimedDomains.filter(domain => selectedLabels.includes(capabilityLabels[domain])) } })} /> : null}
         <label className="ap-ds-simpleField" htmlFor="ap-capability-artifact"><span>Artifact link <small>Optional</small></span><input id="ap-capability-artifact" type="url" maxLength={500} value={value.evidence.artifactUrl} onChange={event => onChange({ ...value, evidence: { ...value.evidence, artifactUrl: event.target.value } })} placeholder="https://…" /></label>
       </Section>
 
       <Section {...common('reasoning', 3)}>
         <div className="ap-ds-scenario"><span>{reasoningPresentation.variantId.includes('clarifier') ? 'What to include' : 'Imagine this situation'}</span><p>{scenario}</p></div>
-        <TextAreaField id="ap-reasoning" label={reasoningPresentation.prompt} value={value.reasoning.response} onChange={response => onChange({ ...value, reasoning: { scenarioId: reasoningPresentation.variantId, response } })} rows={5} />
+        <TextAreaField id="ap-reasoning" label={reasoningPresentation.prompt} value={value.reasoning.response} onChange={response => onChange({ ...value, reasoning: { scenarioId: reasoningPresentation.variantId, response } })} rows={5} inputAccessory={inputAccessory} />
       </Section>
 
       <Section {...common('foundations', 4)}>
@@ -1046,6 +1055,18 @@ export function AdvisorApp({
   const startMicrophoneTest = () => {
     if (mic.phase !== 'ready' && mic.phase !== 'requesting') void microphone.start(mic.selectedDeviceId)
   }
+  const textInputAccessory = (
+    <button
+      type="button"
+      className="ap-ds-fieldMic"
+      onClick={startMicrophoneTest}
+      aria-label="Test microphone locally"
+      title={mic.phase === 'ready' ? 'Microphone detected' : 'Test microphone locally'}
+    >
+      <MicIcon />
+      <span>{mic.phase === 'requesting' ? 'Allowing...' : mic.phase === 'ready' ? 'Mic ready' : 'Mic'}</span>
+    </button>
+  )
 
   const continueQuestion = async () => {
     if (isAdapting) return
@@ -1222,9 +1243,9 @@ export function AdvisorApp({
               <QuestionProgress sections={sections} statuses={statuses} activeId={activeSection} onSelect={selectSection} />
               <div className="ap-ds-formColumn">
                 {path === 'use-case' ? (
-                  <UseCaseForm value={useCase} readiness={effectiveUseCaseReadiness} presentations={presentations} activeSection={activeSection} onActivate={setActiveSection} onChange={value => { if (isSubmitting) cancelSubmission(); setUseCase(value); invalidateFollowingPresentations('use-case', activeSection); setShowErrors(false) }} />
+                  <UseCaseForm value={useCase} readiness={effectiveUseCaseReadiness} presentations={presentations} activeSection={activeSection} inputAccessory={textInputAccessory} onActivate={setActiveSection} onChange={value => { if (isSubmitting) cancelSubmission(); setUseCase(value); invalidateFollowingPresentations('use-case', activeSection); setShowErrors(false) }} />
                 ) : (
-                  <CapabilityForm value={capability} readiness={effectiveCapabilityReadiness} presentations={presentations} activeSection={activeSection} onActivate={setActiveSection} onChange={value => { if (isSubmitting) cancelSubmission(); setCapability(value); invalidateFollowingPresentations('capability-growth', activeSection); setShowErrors(false) }} />
+                  <CapabilityForm value={capability} readiness={effectiveCapabilityReadiness} presentations={presentations} activeSection={activeSection} inputAccessory={textInputAccessory} onActivate={setActiveSection} onChange={value => { if (isSubmitting) cancelSubmission(); setCapability(value); invalidateFollowingPresentations('capability-growth', activeSection); setShowErrors(false) }} />
                 )}
 
                 {isLastQuestion && authenticatedExperienceEnabled ? (
@@ -1256,11 +1277,6 @@ export function AdvisorApp({
                 {showErrors && currentSection?.status !== 'complete' ? <p className="ap-ds-errorSummary" role="alert">Please finish this question to continue.</p> : null}
                 {submitError ? <p className="ap-ds-errorSummary" role="alert">{submitError}</p> : null}
                 <div className="ap-ds-sessionTools" aria-label="Input and privacy notes">
-                  <div className="ap-ds-micTool">
-                    <button type="button" onClick={startMicrophoneTest}><MicIcon />{mic.phase === 'requesting' ? 'Allowing…' : 'Test microphone locally'}</button>
-                    <span>{mic.phase === 'ready' ? 'Microphone detected.' : mic.error ?? 'Type your answers. Mic test is optional.'}</span>
-                    <div className="ap-ds-level" aria-label={`Local microphone level ${Math.round(mic.level * 100)} percent`}><i style={{ transform: `scaleX(${Math.max(.04, mic.level)})` }} /></div>
-                  </div>
                   <details className="ap-ds-privacyDetails">
                     <summary>Privacy and data use</summary>
                     <p><strong>Keep sensitive information out.</strong> Don’t enter passwords, API keys, financial or health information, or confidential customer or company data.</p>
