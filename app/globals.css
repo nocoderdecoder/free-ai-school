@@ -67,6 +67,46 @@ body {
   transform: scale(0.97);
 }
 
+.compass-result :focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compass-result *,
+  .compass-result *::before,
+  .compass-result *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  @page { margin: 14mm; }
+
+  .compass-result {
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  .compass-result button {
+    display: none !important;
+  }
+
+  .compass-result article,
+  .compass-result details {
+    break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  .compass-result * {
+    print-color-adjust: exact;
+  }
+}
+
 /* ── Link underline slide ── */
 .link-slide {
   position: relative;

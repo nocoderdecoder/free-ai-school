@@ -12,6 +12,7 @@ import {
   type CompassQuestion,
   type InterviewProfile,
 } from '../../lib/aiCompass'
+import { CompassResult } from './CompassResult'
 
 type SpeechResult = { readonly isFinal: boolean; readonly 0: { transcript: string } }
 type SpeechEvent = { resultIndex: number; results: { length: number; [index: number]: SpeechResult } }
@@ -38,7 +39,6 @@ const synthesisPhases = [
 ]
 
 const cardStyle: React.CSSProperties = { border: '1px solid var(--ed-border)', backgroundColor: 'var(--ed-card-warm)' }
-const innerCardStyle: React.CSSProperties = { border: '1px solid var(--ed-border)', backgroundColor: '#fff' }
 const ctaStyle: React.CSSProperties = { backgroundColor: 'var(--ed-cta)', color: 'var(--ed-bg)' }
 
 function recognitionConstructor(): RecognitionConstructor | undefined {
@@ -80,19 +80,6 @@ async function requestCompass(mode: 'next' | 'analysis', answers: CompassAnswer[
     throw new Error(message)
   }
   return data
-}
-
-function TaskCard({ task, number }: { task: { action: string; deliverable: string; successCheck: string; time: string }; number?: number }) {
-  return <div className="rounded-xl p-5" style={innerCardStyle}>
-    <div className="flex items-start justify-between gap-4">
-      <p className="text-sm font-semibold leading-relaxed" style={{ color: 'var(--ed-text-dark)' }}>{number ? `${number}. ` : ''}{task.action}</p>
-      <span className="shrink-0 rounded-full px-2.5 py-1 text-[10px]" style={{ backgroundColor: 'var(--ed-border)', color: 'var(--ed-text-muted)' }}>{task.time}</span>
-    </div>
-    <dl className="mt-4 grid gap-3 text-xs leading-relaxed sm:grid-cols-2">
-      <div><dt className="font-semibold text-emerald-700">Deliverable</dt><dd className="mt-1" style={{ color: 'var(--ed-text-muted)' }}>{task.deliverable}</dd></div>
-      <div><dt className="font-semibold text-blue-700">Done when</dt><dd className="mt-1" style={{ color: 'var(--ed-text-muted)' }}>{task.successCheck}</dd></div>
-    </dl>
-  </div>
 }
 
 export function CompassApp() {
@@ -190,6 +177,8 @@ export function CompassApp() {
       setView('result')
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (error) {
+      setAnswers(completedAnswers.slice(0, -1))
+      setAnswer(completedAnswers.at(-1)?.text ?? '')
       setView('questions')
       setQuestionIndex(questionCount - 1)
       flash(error instanceof Error ? error.message : 'I could not build the roadmap. Please try again.')
@@ -248,24 +237,40 @@ export function CompassApp() {
     setInterpretation('')
     setInterviewProfile(null)
     setAnalysis(null)
+    setSynthesisElapsed(0)
+    setNotice('')
     setView('questions')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const copyRoadmap = async () => {
     if (!analysis) return
-    await navigator.clipboard.writeText(serializeAnalysis(analysis))
-    flash('Roadmap copied')
+    try {
+      await navigator.clipboard.writeText(serializeAnalysis(analysis))
+      flash('Complete execution pack copied')
+    } catch {
+      flash('Copy was blocked. Use Save as PDF instead.')
+    }
   }
 
   const shareRoadmap = async () => {
     if (!analysis) return
-    const share = { title: 'My AI Learning Compass', text: `${analysis.headline}\n${analysis.subhead}`, url: window.location.href }
+    const completePlan = serializeAnalysis(analysis)
+    const share = { title: 'My AI Learning Compass', text: completePlan }
     if (navigator.share) {
-      try { await navigator.share(share) } catch { return }
+      try {
+        await navigator.share(share)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        flash('Sharing was blocked. Try Copy complete plan instead.')
+      }
     } else {
-      await navigator.clipboard.writeText(`${share.text}\n${share.url}`)
-      flash('Share text copied')
+      try {
+        await navigator.clipboard.writeText(completePlan)
+        flash('Complete plan copied for sharing')
+      } catch {
+        flash('Sharing was blocked. Try Save as PDF instead.')
+      }
     }
   }
 
@@ -278,7 +283,7 @@ export function CompassApp() {
           <div className="mb-8 flex items-center gap-3 text-sm font-medium" style={{ color: 'var(--ed-text-secondary)' }}><CompassMark /> AI Learning Compass</div>
           <p className="section-label mb-5" style={{ color: 'var(--ed-text-faint)' }}>An adaptive five-question voice assessment</p>
           <h1 className="max-w-4xl text-5xl font-bold leading-[.97] tracking-[-.055em] sm:text-7xl lg:text-[86px]" style={{ color: 'var(--ed-text-dark)' }}>Find the AI path that fits <span className="text-emerald-600">your work.</span></h1>
-          <p className="mt-7 max-w-2xl text-lg leading-relaxed sm:text-xl" style={{ color: 'var(--ed-text-secondary)' }}>Every question changes based on your answer. You will leave with exact capabilities to learn, tasks to complete, proof to produce, and a focused 30-day plan.</p>
+          <p className="mt-7 max-w-2xl text-lg leading-relaxed sm:text-xl" style={{ color: 'var(--ed-text-secondary)' }}>Every question changes based on your answer. You will leave with the exact tools, setup, steps, prompts, tests, fallbacks, and proof for your next 30-day capability jump.</p>
           <div className="mt-9 flex flex-wrap items-center gap-4">
             <button onClick={() => setView('questions')} className="btn-press inline-flex items-center gap-3 rounded-full px-6 py-3.5 text-sm font-semibold transition hover:opacity-90" style={ctaStyle}>Start your assessment <ArrowIcon /></button>
             <span className="text-xs" style={{ color: 'var(--ed-text-faint)' }}>About 7 minutes · Voice or text · No sign-up</span>
@@ -291,7 +296,7 @@ export function CompassApp() {
             {[
               ['1', 'Adaptive interview', 'The next question targets what is still unclear.'],
               ['2', 'Deep synthesis', 'Your goal, proof, constraints, and domain are analyzed together.'],
-              ['3', 'Inspectable plan', 'Every task has a deliverable and a definition of done.'],
+              ['3', 'Guided execution pack', 'Every step shows what to open, do, copy, expect, test, and save.'],
             ].map(([number, title, copy]) => <div key={number} className="grid grid-cols-[36px_1fr] gap-4 rounded-xl p-4" style={cardStyle}><span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-300 text-xs font-bold text-black">{number}</span><div><p className="text-sm font-semibold" style={{ color: 'var(--ed-text-dark)' }}>{title}</p><p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>{copy}</p></div></div>)}
           </div>
         </div>
@@ -360,48 +365,14 @@ export function CompassApp() {
   )
 
   if (!analysis) return null
-  return (
-    <section className="px-6 py-10 sm:px-8 sm:py-16">
-      <div className="mx-auto max-w-6xl">
-        <div className="relative overflow-hidden rounded-3xl border border-emerald-300/20 bg-emerald-300 p-7 text-black sm:p-12">
-          <div className="absolute -right-28 -top-32 h-80 w-80 rounded-full border-[60px] border-black/10" />
-          <div className="relative max-w-4xl"><p className="text-[11px] font-bold uppercase tracking-[.17em] text-black/55">Your AI Learning Prescription · {analysis.confidence} confidence</p><h1 className="mt-4 text-4xl font-bold leading-[.98] tracking-[-.05em] sm:text-7xl">{analysis.headline}</h1><p className="mt-6 max-w-3xl text-base leading-relaxed text-black/65 sm:text-lg">{analysis.subhead}</p></div>
-          <div className="relative mt-8 flex flex-wrap gap-2"><button onClick={copyRoadmap} className="rounded-full border border-black/20 px-4 py-2 text-sm font-medium hover:bg-black/5">Copy roadmap</button><button onClick={shareRoadmap} className="rounded-full border border-black/20 px-4 py-2 text-sm font-medium hover:bg-black/5">Share</button><button onClick={() => window.print()} className="rounded-full border border-black/20 px-4 py-2 text-sm font-medium hover:bg-black/5">Save as PDF</button></div>
-        </div>
-
-        <div className="mt-5 grid gap-5 lg:grid-cols-2">
-          <article className="rounded-2xl p-6 sm:p-8" style={cardStyle}><p className="section-label" style={{ color: 'var(--ed-text-faint)' }}>Where you are</p><p className="mt-4 text-sm leading-relaxed" style={{ color: 'var(--ed-text-secondary)' }}>{analysis.currentPosition}</p></article>
-          <article className="rounded-2xl border border-blue-200 bg-blue-50 p-6 sm:p-8"><p className="section-label" style={{ color: '#1d4ed8' }}>Your 30-day destination</p><p className="mt-4 text-sm leading-relaxed" style={{ color: 'var(--ed-text-secondary)' }}>{analysis.targetPosition}</p></article>
-        </div>
-
-        <article className="mt-5 rounded-2xl p-6 sm:p-9" style={cardStyle}>
-          <p className="section-label" style={{ color: 'var(--ed-text-faint)' }}>The evidence behind this plan</p><h2 className="mt-3 text-3xl font-semibold" style={{ color: 'var(--ed-text-dark)' }}>What your answers signal</h2>
-          <div className="mt-7 grid gap-3 md:grid-cols-3">{analysis.profileSignals.map(signal => <div key={`${signal.label}-${signal.finding}`} className="rounded-xl p-5" style={innerCardStyle}><p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">{signal.label}</p><p className="mt-3 text-sm font-medium leading-relaxed" style={{ color: 'var(--ed-text-dark)' }}>{signal.finding}</p><p className="mt-3 text-xs leading-relaxed" style={{ color: 'var(--ed-text-faint)' }}>Evidence: {signal.evidence}</p></div>)}</div>
-        </article>
-
-        <article className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-6 sm:p-9">
-          <p className="section-label" style={{ color: '#b45309' }}>Start here</p><h2 className="mt-3 text-3xl font-semibold" style={{ color: 'var(--ed-text-dark)' }}>Your first 72 hours</h2>
-          <div className="mt-7 grid gap-3">{analysis.first72Hours.map((task, index) => <TaskCard key={`${task.action}-${index}`} task={task} number={index + 1} />)}</div>
-        </article>
-
-        <article className="mt-5 rounded-2xl p-6 sm:p-9" style={cardStyle}>
-          <p className="section-label" style={{ color: 'var(--ed-text-faint)' }}>Learn these next—in this order</p><h2 className="mt-3 text-3xl font-semibold" style={{ color: 'var(--ed-text-dark)' }}>Your highest-leverage capabilities</h2>
-          <div className="mt-8 space-y-5">{analysis.priorities.map((priority, index) => <section key={priority.title} className="rounded-2xl p-5 sm:p-7" style={innerCardStyle}>
-            <div className="grid gap-4 sm:grid-cols-[48px_1fr]"><span className="grid h-12 w-12 place-items-center rounded-full bg-emerald-300 text-lg font-bold text-black">{index + 1}</span><div><h3 className="text-xl font-semibold" style={{ color: 'var(--ed-text-dark)' }}>{priority.title}</h3><p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>{priority.whyThisFits}</p></div></div>
-            <div className="mt-6 grid gap-6 lg:grid-cols-[.7fr_1.3fr]"><div><p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">Learn</p><ul className="mt-3 space-y-2">{priority.learn.map(item => <li key={item} className="flex gap-2 text-xs leading-relaxed" style={{ color: 'var(--ed-text-secondary)' }}><span className="text-emerald-600">→</span>{item}</li>)}</ul><p className="mt-5 border-t pt-4 text-xs leading-relaxed text-amber-700" style={{ borderColor: 'var(--ed-border)' }}><strong style={{ color: 'var(--ed-text-secondary)' }}>Avoid:</strong> {priority.skipTrap}</p></div><div className="space-y-3">{priority.tasks.map((task, taskIndex) => <TaskCard key={`${task.action}-${taskIndex}`} task={task} />)}</div></div>
-          </section>)}</div>
-        </article>
-
-        <article className="mt-5 rounded-2xl p-6 sm:p-9" style={cardStyle}><p className="section-label" style={{ color: 'var(--ed-text-faint)' }}>A realistic sequence</p><h2 className="mt-3 text-3xl font-semibold" style={{ color: 'var(--ed-text-dark)' }}>Your 30-day plan</h2><div className="mt-7 grid gap-3 sm:grid-cols-2">{analysis.weeks.map(week => <div key={week.week} className="rounded-xl p-5" style={innerCardStyle}><span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">{week.week}</span><h3 className="mt-2 text-lg font-semibold" style={{ color: 'var(--ed-text-dark)' }}>{week.objective}</h3><dl className="mt-4 space-y-3 text-xs leading-relaxed"><div><dt className="font-semibold" style={{ color: 'var(--ed-text-secondary)' }}>Learn</dt><dd className="mt-1" style={{ color: 'var(--ed-text-muted)' }}>{week.learn}</dd></div><div><dt className="font-semibold" style={{ color: 'var(--ed-text-secondary)' }}>Build</dt><dd className="mt-1" style={{ color: 'var(--ed-text-muted)' }}>{week.build}</dd></div><div><dt className="font-semibold text-blue-700">Evidence</dt><dd className="mt-1" style={{ color: 'var(--ed-text-muted)' }}>{week.evidence}</dd></div></dl></div>)}</div></article>
-
-        <article className="mt-5 rounded-2xl border border-blue-300/20 bg-blue-300 p-7 text-black sm:p-10"><p className="text-[10px] font-bold uppercase tracking-widest text-black/50">Build this, don’t just study</p><h2 className="mt-3 text-3xl font-bold sm:text-5xl">{analysis.capstone.title}</h2><p className="mt-5 max-w-4xl leading-relaxed text-black/65">{analysis.capstone.brief}</p><div className="mt-7 grid gap-6 border-t border-black/15 pt-6 md:grid-cols-2"><div><h3 className="text-sm font-bold">Non-negotiable requirements</h3><ul className="mt-3 space-y-2">{analysis.capstone.requirements.map(item => <li key={item} className="flex gap-2 text-sm leading-relaxed text-black/60"><span>→</span>{item}</li>)}</ul></div><div><h3 className="text-sm font-bold">Proof you can do it</h3><ul className="mt-3 space-y-2">{analysis.capstone.proof.map(item => <li key={item} className="flex gap-2 text-sm leading-relaxed text-black/60"><span>✓</span>{item}</li>)}</ul></div></div></article>
-
-        <div className="mt-5 grid gap-5 lg:grid-cols-[1.35fr_.65fr]">
-          <article className="rounded-2xl p-6 sm:p-9" style={cardStyle}><p className="section-label" style={{ color: 'var(--ed-text-faint)' }}>What to study</p><h2 className="mt-3 text-3xl font-semibold" style={{ color: 'var(--ed-text-dark)' }}>Targeted learning searches</h2><p className="mt-3 text-sm" style={{ color: 'var(--ed-text-muted)' }}>Specific search briefs beat a pile of generic course links—and remain useful as tools change.</p><div className="mt-6 divide-y divide-[var(--ed-border)]">{analysis.resources.map(resource => <div key={resource.topic} className="py-5"><h3 className="font-semibold" style={{ color: 'var(--ed-text-dark)' }}>{resource.topic}</h3><p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>{resource.why}</p><p className="mt-3 rounded-lg px-3 py-2 text-xs text-emerald-700" style={{ backgroundColor: 'var(--ed-card-hover)' }}>Search: “{resource.searchFor}”</p><p className="mt-2 text-[11px]" style={{ color: 'var(--ed-text-faint)' }}>Best format: {resource.format}</p></div>)}</div></article>
-          <aside className="space-y-5"><div className="rounded-2xl p-6" style={cardStyle}><p className="text-sm font-semibold" style={{ color: 'var(--ed-text-dark)' }}>Your useful advantages</p><ul className="mt-4 space-y-3">{analysis.strengths.map(item => <li key={item} className="flex gap-2 text-xs leading-relaxed" style={{ color: 'var(--ed-text-secondary)' }}><span className="text-emerald-600">✓</span>{item}</li>)}</ul></div><div className="rounded-2xl p-6" style={cardStyle}><p className="text-sm font-semibold" style={{ color: 'var(--ed-text-dark)' }}>Not now</p><ul className="mt-4 space-y-3">{analysis.notNow.map(item => <li key={item} className="flex gap-2 text-xs leading-relaxed" style={{ color: 'var(--ed-text-secondary)' }}><span className="text-amber-600">→</span>{item}</li>)}</ul></div>{analysis.assumptions.length > 0 && <div className="rounded-2xl p-6" style={cardStyle}><p className="text-sm font-semibold" style={{ color: 'var(--ed-text-dark)' }}>Assumptions to verify</p><ul className="mt-4 space-y-3">{analysis.assumptions.map(item => <li key={item} className="text-xs leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>{item}</li>)}</ul></div>}<button onClick={restart} className="w-full rounded-full border px-4 py-3 text-sm transition hover:bg-[var(--ed-card-warm)]" style={{ borderColor: 'var(--ed-border)', color: 'var(--ed-text-secondary)' }}>Start over</button></aside>
-        </div>
-      </div>
-      {notice && <div role="status" className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-full px-4 py-2 text-sm font-medium shadow-xl" style={ctaStyle}>{notice}</div>}
-    </section>
-  )
+  return <>
+    <CompassResult
+      analysis={analysis}
+      onCopyPlan={copyRoadmap}
+      onShare={shareRoadmap}
+      onRestart={restart}
+      onNotice={flash}
+    />
+    {notice && <div role="status" className="fixed bottom-6 left-1/2 z-[60] max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-full px-4 py-2 text-center text-sm font-medium shadow-xl" style={ctaStyle}>{notice}</div>}
+  </>
 }
