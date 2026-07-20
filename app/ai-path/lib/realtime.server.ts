@@ -8,7 +8,7 @@ import { AI_PATH_REALTIME_ADMISSION_PRODUCTION_LATCH } from './realtime-admissio
 import { deriveRealtimeSafetyIdentifier } from './realtime-safety'
 
 const OPENAI_REALTIME_CLIENT_SECRETS_URL = 'https://api.openai.com/v1/realtime/client_secrets'
-const DEFAULT_REALTIME_MODEL = 'gpt-realtime'
+const DEFAULT_REALTIME_MODEL = 'gpt-realtime-2.1'
 const SUPPORTED_INPUT_TRANSCRIPTION_MODELS = new Set(['gpt-4o-transcribe'])
 
 export type RealtimeCapability = {
@@ -85,7 +85,6 @@ function sessionConfiguration(model: string) {
     session: {
       type: 'realtime',
       model,
-      modalities: ['audio'],
       audio: {
         input: {
           transcription: { model: transcriptionModel },

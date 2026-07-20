@@ -6,6 +6,7 @@ import {
   consumerAuthBoundaryMode,
   isMissingConsumerAuthSessionError,
   isAIPathAuthPublicPath,
+  isAIPathLocalRealtimePreviewPublicPath,
   normalizeAIPathReturnPath,
 } from './app/ai-path/lib/consumer-auth'
 import {
@@ -51,6 +52,12 @@ function invalidAuthConfigurationResponse(request: NextRequest): NextResponse {
 export async function proxy(request: NextRequest) {
   const capability = getConsumerAuthCapability()
   if (isAIPathAuthPublicPath(request.nextUrl.pathname)) return NextResponse.next()
+  if (isAIPathLocalRealtimePreviewPublicPath(request.nextUrl.pathname, {
+    nodeEnv: process.env.NODE_ENV,
+    allowPaidApiCalls: process.env.AI_PATH_ALLOW_PAID_API_CALLS,
+    legacyAllowPaidApiCalls: process.env.ALLOW_PAID_API_CALLS,
+    localPreviewEnabled: process.env.AI_PATH_REALTIME_LOCAL_PREVIEW_ENABLED,
+  })) return NextResponse.next()
   const boundaryMode = consumerAuthBoundaryMode(
     process.env.NODE_ENV,
     process.env.AI_PATH_CONSUMER_AUTH_ENABLED,

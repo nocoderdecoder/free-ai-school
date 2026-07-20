@@ -5,6 +5,7 @@ import test from 'node:test'
 import {
   AI_PATH_AUTH_DEFAULT_RETURN,
   consumerAuthBoundaryMode,
+  isAIPathLocalRealtimePreviewPublicPath,
   isExactMutationOrigin,
   isMissingConsumerAuthSessionError,
   isValidConsumerEmail,
@@ -47,6 +48,33 @@ test('proxy boundary permits intentional preview but fails shut on broken activa
   assert.equal(consumerAuthBoundaryMode('production', 'TRUE', { available: false }), 'unavailable')
   assert.equal(consumerAuthBoundaryMode('production', 'false', { available: false }), 'unavailable')
   assert.equal(consumerAuthBoundaryMode('production', 'true', { available: true }), 'protect')
+})
+
+test('local Realtime preview can reach the bootstrap route without weakening production auth', () => {
+  assert.equal(isAIPathLocalRealtimePreviewPublicPath('/api/ai-path/realtime/session', {
+    nodeEnv: 'development',
+    allowPaidApiCalls: 'true',
+    localPreviewEnabled: 'true',
+  }), true)
+  assert.equal(isAIPathLocalRealtimePreviewPublicPath('/api/ai-path/realtime/session', {
+    nodeEnv: 'development',
+    legacyAllowPaidApiCalls: 'true',
+  }), true)
+  assert.equal(isAIPathLocalRealtimePreviewPublicPath('/api/ai-path/realtime/session', {
+    nodeEnv: 'production',
+    allowPaidApiCalls: 'true',
+    localPreviewEnabled: 'true',
+  }), false)
+  assert.equal(isAIPathLocalRealtimePreviewPublicPath('/api/ai-path/realtime/session', {
+    nodeEnv: 'development',
+    allowPaidApiCalls: 'true',
+    localPreviewEnabled: 'false',
+  }), false)
+  assert.equal(isAIPathLocalRealtimePreviewPublicPath('/api/ai-path/diagnostic', {
+    nodeEnv: 'development',
+    allowPaidApiCalls: 'true',
+    localPreviewEnabled: 'true',
+  }), false)
 })
 
 test('development permits only loopback HTTP origins', () => {
@@ -133,6 +161,7 @@ test('route and proxy boundaries use verified identity and mutation-safe verbs',
   assert.doesNotMatch(proxySource, /auth\.getSession\(\)/)
   assert.match(proxySource, /matcher: \['\/ai-path\/:path\*', '\/api\/ai-path\/:path\*'\]/)
   assert.match(proxySource, /consumerAuthBoundaryMode\([\s\S]*process\.env\.NODE_ENV,[\s\S]*process\.env\.AI_PATH_CONSUMER_AUTH_ENABLED/)
+  assert.match(proxySource, /isAIPathLocalRealtimePreviewPublicPath\([\s\S]*process\.env\.AI_PATH_ALLOW_PAID_API_CALLS[\s\S]*process\.env\.AI_PATH_REALTIME_LOCAL_PREVIEW_ENABLED/)
   assert.match(proxySource, /invalidAuthConfigurationResponse\(request\)/)
   assert.match(proxySource, /isMissingConsumerAuthSessionError\(error\)/)
   assert.match(diagnosticRouteSource, /isMissingConsumerAuthSessionError\(error\)/)

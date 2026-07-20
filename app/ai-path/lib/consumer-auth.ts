@@ -178,3 +178,21 @@ export function isAIPathAuthPublicPath(pathname: string): boolean {
     || pathname === AI_PATH_AUTH_CALLBACK
     || pathname.startsWith('/api/ai-path/auth/')
 }
+
+export function isAIPathLocalRealtimePreviewPublicPath(
+  pathname: string,
+  environment: {
+    nodeEnv?: string
+    allowPaidApiCalls?: string
+    legacyAllowPaidApiCalls?: string
+    localPreviewEnabled?: string
+  },
+): boolean {
+  return pathname === '/api/ai-path/realtime/session'
+    && environment.nodeEnv !== 'production'
+    && (
+      environment.allowPaidApiCalls === 'true'
+      || environment.legacyAllowPaidApiCalls === 'true'
+    )
+    && environment.localPreviewEnabled !== 'false'
+}

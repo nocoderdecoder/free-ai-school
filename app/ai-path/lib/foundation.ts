@@ -798,7 +798,7 @@ export function resolveRealtimeCapability(environment: RealtimeEnvironment): {
   reason: string
   model: string
 } {
-  const model = environment.model?.trim() || 'gpt-realtime'
+  const model = environment.model?.trim() || 'gpt-realtime-2.1'
   const paidApiCallsApproved = environment.allowPaidApiCalls === 'true'
     || environment.legacyAllowPaidApiCalls === 'true'
   const localPreview = environment.nodeEnv !== 'production'
