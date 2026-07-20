@@ -49,7 +49,7 @@ export function getAiPathRetentionHttpRuntime(
   const schemaVersion = process.env.AI_PATH_SUPABASE_RETENTION_SCHEMA_VERSION
   const credentialScope = process.env.AI_PATH_SUPABASE_RETENTION_CREDENTIAL_SCOPE
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY
   const secret = process.env.AI_PATH_RETENTION_JOB_SECRET
   if (
     enabled !== 'true'

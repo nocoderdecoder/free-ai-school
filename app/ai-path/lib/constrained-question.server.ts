@@ -17,6 +17,7 @@ export function getAdaptiveQuestionModelCapability() {
   const configuredModel = process.env.AI_PATH_ADAPTIVE_MODEL || AI_PATH_ADAPTIVE_MODEL_ID
   const costApprovedModel = configuredModel === AI_PATH_ADAPTIVE_MODEL_ID
   const paidApiCallsApproved = process.env.AI_PATH_ALLOW_PAID_API_CALLS === 'true'
+    || process.env.ALLOW_PAID_API_CALLS === 'true'
   const configured = process.env.AI_PATH_ADAPTIVE_MODEL_ENABLED === 'true'
     && Boolean(process.env.OPENAI_API_KEY)
     && costApprovedModel

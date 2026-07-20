@@ -292,6 +292,13 @@ test('Realtime remains inert until every server-side live and paid gate is expli
   assert.equal(resolveRealtimeCapability({
     ...base,
     enableLiveRealtime: 'true',
+    legacyAllowPaidApiCalls: 'true',
+    localPreviewEnabled: 'true',
+    nodeEnv: 'development',
+  }).liveEnabled, true)
+  assert.equal(resolveRealtimeCapability({
+    ...base,
+    enableLiveRealtime: 'true',
     allowPaidApiCalls: 'true',
     authReady: 'true',
     distributedRateLimitReady: 'true',

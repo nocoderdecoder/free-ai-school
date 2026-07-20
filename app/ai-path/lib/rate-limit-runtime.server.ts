@@ -25,7 +25,7 @@ export function getProductionRateLimitRuntime(): ProductionRateLimitRuntime | nu
   if (!AI_PATH_DISTRIBUTED_RATE_LIMIT_LATCH || !AI_PATH_SUPABASE_RATE_LIMIT_GATEWAY_LATCH) return null
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY
   const identitySalt = process.env.AI_PATH_RATE_LIMIT_IDENTITY_SALT
   if (!supabaseUrl || !isSafeSupabaseProjectUrl(supabaseUrl)
     || !serviceRoleKey || isSafeSupabasePublicKey(serviceRoleKey)

@@ -13,6 +13,7 @@ import { CONSTRAINED_QUESTION_VERSION } from './lib/constrained-question-routing
 test('live adaptive transport requires the explicit paid-call approval gate', async () => {
   const source = await readFile(new URL('./lib/constrained-question.server.ts', import.meta.url), 'utf8')
   assert.match(source, /process\.env\.AI_PATH_ALLOW_PAID_API_CALLS === 'true'/)
+  assert.match(source, /process\.env\.ALLOW_PAID_API_CALLS === 'true'/)
   assert.match(source, /configured[\s\S]*paidApiCallsApproved[\s\S]*liveEnabled/)
   assert.match(source, /paid API calls are not explicitly approved/)
 })

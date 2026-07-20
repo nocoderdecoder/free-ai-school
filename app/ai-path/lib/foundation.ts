@@ -768,6 +768,7 @@ export function validateEvidenceAgainstTranscript(
 export type RealtimeEnvironment = {
   enableLiveRealtime?: string
   allowPaidApiCalls?: string
+  legacyAllowPaidApiCalls?: string
   localPreviewEnabled?: string
   nodeEnv?: string
   authReady?: string
@@ -798,13 +799,15 @@ export function resolveRealtimeCapability(environment: RealtimeEnvironment): {
   model: string
 } {
   const model = environment.model?.trim() || 'gpt-realtime'
+  const paidApiCallsApproved = environment.allowPaidApiCalls === 'true'
+    || environment.legacyAllowPaidApiCalls === 'true'
   const localPreview = environment.nodeEnv !== 'production'
-    && environment.allowPaidApiCalls === 'true'
+    && paidApiCallsApproved
     && environment.localPreviewEnabled !== 'false'
   if (environment.enableLiveRealtime !== 'true' && !localPreview) {
     return { mode: 'mock', liveEnabled: false, reason: 'live mode is not enabled', model }
   }
-  if (environment.allowPaidApiCalls !== 'true') {
+  if (!paidApiCallsApproved) {
     return { mode: 'mock', liveEnabled: false, reason: 'paid API calls are not explicitly allowed', model }
   }
   if (localPreview) {

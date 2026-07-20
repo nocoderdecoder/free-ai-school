@@ -46,7 +46,7 @@ export function getConsumerDiagnosticPersistenceCapability(): ConsumerDiagnostic
     return { available: false, reason: 'consumer diagnostic persistence activation is incomplete' }
   }
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY
   if (!supabaseUrl || !isSafeSupabaseProjectUrl(supabaseUrl)
     || !serviceRoleKey || isSafeSupabasePublicKey(serviceRoleKey)
     || serviceRoleKey.length < 32) {
@@ -64,7 +64,7 @@ export function createConsumerDiagnosticPersistenceRuntime(): SupabaseConsumerDi
   if (!capability.available) return null
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY
   if (!supabaseUrl || !serviceRoleKey) return null
   const client = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false },

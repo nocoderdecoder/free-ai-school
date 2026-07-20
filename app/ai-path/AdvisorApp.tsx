@@ -49,9 +49,12 @@ import {
 import type { AiPathGoalType } from './lib/goal-type'
 
 type DiagnosticResult = UseCaseBlueprint | CapabilityPrescription
+type AdvisorScene = 'home' | 'diagnostic' | 'result'
+type ConsumerUser = Readonly<{ email: string | null }>
 type PresentationMap = Readonly<Partial<Record<DiagnosticSectionId, AdaptiveQuestionPresentation>>>
 type ClarifierAnswerBaselines = Readonly<Partial<Record<DiagnosticSectionId, string>>>
 const MINIMUM_ADAPTIVE_THINKING_MS = 1_200
+const SAVED_PLAN_STORAGE_KEY = 'ai-path.saved-next-step.v1'
 
 function wait(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -443,28 +446,145 @@ function CheckIcon() {
 
 function Header({
   scene,
-  onRestart,
+  onHome,
+  onCreatePlan,
   authenticatedExperienceEnabled,
+  user,
   busy,
 }: {
-  scene: 'diagnostic' | 'result'
-  onRestart(): void
+  scene: AdvisorScene
+  onHome(): void
+  onCreatePlan(): void
   authenticatedExperienceEnabled: boolean
+  user: ConsumerUser | null
   busy: boolean
 }) {
   return (
     <header className="ap-ds-header">
-      <button type="button" className="ap-ds-brand" onClick={onRestart} aria-label="AI Path home" disabled={busy}>
+      <button type="button" className="ap-ds-brand" onClick={onHome} aria-label="AI Path home" disabled={busy}>
         <span><PathMark /></span>
         <strong>AI Path</strong>
       </button>
-      <div className="ap-ds-headerMeta">
-        <span>{scene === 'diagnostic' ? 'Your questions' : 'Your plan'}</span>
+      <nav className="ap-ds-nav" aria-label="AI Path">
         {authenticatedExperienceEnabled ? (
-          <a className="ap-ds-accountLink" href="/ai-path/account">Account</a>
+          <button type="button" className={scene === 'home' ? 'is-active' : ''} onClick={onHome} disabled={busy} aria-current={scene === 'home' ? 'page' : undefined}>Dashboard</button>
+        ) : null}
+        <button type="button" className={scene === 'diagnostic' ? 'is-active' : ''} onClick={onCreatePlan} disabled={busy} aria-current={scene === 'diagnostic' ? 'page' : undefined}>Plan</button>
+      </nav>
+      <div className="ap-ds-headerMeta">
+        <span>{scene === 'home' ? 'Workspace' : scene === 'diagnostic' ? 'Questions' : 'Plan ready'}</span>
+        {authenticatedExperienceEnabled ? (
+          <AccountMenu user={user} />
         ) : <span className="ap-ds-preview">Preview</span>}
       </div>
     </header>
+  )
+}
+
+function AccountMenu({ user }: { user: ConsumerUser | null }) {
+  const email = user?.email ?? 'AI Path user'
+  const initial = email[0]?.toUpperCase() ?? 'A'
+
+  return (
+    <details className="ap-ds-accountMenu">
+      <summary aria-label={`Account menu for ${email}`}>
+        <span aria-hidden="true">{initial}</span>
+        <strong>{email}</strong>
+      </summary>
+      <div className="ap-ds-accountPanel">
+        <p>Signed in</p>
+        <strong>{email}</strong>
+        <a href="/ai-path/account">Account settings</a>
+        <a href="/ai-path/privacy">Privacy</a>
+        <a href="/ai-path/terms">Terms</a>
+        <form
+          method="post"
+          action="/api/ai-path/auth/sign-out"
+          onSubmit={() => localStorage.removeItem(SAVED_PLAN_STORAGE_KEY)}
+        >
+          <button type="submit" className="ap-ds-signOut">Sign out</button>
+        </form>
+      </div>
+    </details>
+  )
+}
+
+function DashboardHome({
+  storagePersistenceAvailable,
+  onCreatePlan,
+}: {
+  storagePersistenceAvailable: boolean
+  onCreatePlan(): void
+}) {
+  const [savedStep, setSavedStep] = useState<'loading' | 'saved' | 'empty'>('loading')
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem(SAVED_PLAN_STORAGE_KEY) ?? 'null') as { savedAt?: string; signature?: string } | null
+        const savedAt = saved?.savedAt ? Date.parse(saved.savedAt) : Number.NaN
+        const current = Boolean(saved?.signature)
+          && Number.isFinite(savedAt)
+          && Date.now() - savedAt <= 30 * 24 * 60 * 60_000
+        if (!current) localStorage.removeItem(SAVED_PLAN_STORAGE_KEY)
+        setSavedStep(current ? 'saved' : 'empty')
+      } catch {
+        setSavedStep('empty')
+      }
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  return (
+    <main className="ap-dashboard" aria-labelledby="ap-dashboard-title">
+      <section className="ap-dashboardHeader">
+        <div>
+          <p className="ap-ds-kicker">Workspace</p>
+          <h1 id="ap-dashboard-title" tabIndex={-1}>Your AI Path</h1>
+          <p>Start a plan, return to your browser-saved next step, or manage your account.</p>
+        </div>
+        <button type="button" onClick={onCreatePlan}>Create a plan <ArrowIcon /></button>
+      </section>
+
+      <section className="ap-dashboardGrid" aria-label="AI Path status">
+        <article className="ap-statusCard ap-nextActionCard">
+          <div className="ap-cardTopline"><span>Next action</span><strong>{savedStep === 'saved' ? 'Saved on this device' : 'Ready'}</strong></div>
+          <h2>{savedStep === 'saved' ? 'Continue from your saved next step' : 'Create your first plan'}</h2>
+          <p>{savedStep === 'loading'
+            ? 'Loading your workspace...'
+            : savedStep === 'saved'
+            ? 'A next step is saved in this browser. Open the planner to create or update your current path.'
+            : 'No saved plan yet. Answer six questions and get a practical project with a first step.'}</p>
+          <button type="button" onClick={onCreatePlan}>{savedStep === 'saved' ? 'Open planner' : 'Create a plan'} <ArrowIcon /></button>
+        </article>
+
+        <article className="ap-statusCard">
+          <div className="ap-cardTopline"><span>Plan storage</span><strong>{storagePersistenceAvailable ? 'Available' : 'Preview'}</strong></div>
+          <h2>{storagePersistenceAvailable ? 'Account saving is available' : 'Account plan storage is not enabled'}</h2>
+          <p>{storagePersistenceAvailable
+            ? 'You can save answers and plans to your account at the end of the diagnostic.'
+            : 'You can still create a plan. Account-level saved plan history will appear here after storage is enabled.'}</p>
+          <a href="/ai-path/account">Account settings</a>
+        </article>
+
+        <article className="ap-statusCard">
+          <div className="ap-cardTopline"><span>Progress</span><strong>0 of 4</strong></div>
+          <h2>Set up your first path</h2>
+          <ol className="ap-progressList">
+            <li className="is-complete"><CheckIcon />Signed in</li>
+            <li>Create a plan</li>
+            <li>Save a next step</li>
+            <li>Complete a weekly checkpoint</li>
+          </ol>
+        </article>
+
+        <article className="ap-statusCard ap-emptyPanel">
+          <div className="ap-cardTopline"><span>Saved plans</span><strong>Empty</strong></div>
+          <h2>No saved plan yet</h2>
+          <p>Your latest account-backed plan will appear here once plan storage is active for this preview.</p>
+        </article>
+      </section>
+    </main>
   )
 }
 
@@ -893,8 +1013,6 @@ function CapabilityForm({
   )
 }
 
-const SAVED_PLAN_STORAGE_KEY = 'ai-path.saved-next-step.v1'
-
 function resultSignature(result: DiagnosticResult): string {
   const value = `${result.version}|${result.policyVersion}|${result.kind}|${result.title}|${result.firstStep.task}`
   let hash = 2166136261
@@ -1151,14 +1269,16 @@ function ResultScene({
 
 export function AdvisorApp({
   authenticatedExperienceEnabled = false,
+  consumerUser = null,
   storagePersistenceAvailable = false,
   realtimeVoiceAvailable = false,
 }: {
   authenticatedExperienceEnabled?: boolean
+  consumerUser?: ConsumerUser | null
   storagePersistenceAvailable?: boolean
   realtimeVoiceAvailable?: boolean
 }) {
-  const [scene, setScene] = useState<'diagnostic' | 'result'>('diagnostic')
+  const [scene, setScene] = useState<AdvisorScene>(() => authenticatedExperienceEnabled ? 'home' : 'diagnostic')
   const [path, setPath] = useState<DiagnosticPath | null>(null)
   const [useCase, setUseCase] = useState<UseCaseIntake>(() => structuredClone(INITIAL_USE_CASE_INTAKE))
   const [capability, setCapability] = useState<CapabilityIntake>(() => structuredClone(INITIAL_CAPABILITY_INTAKE))
@@ -1595,6 +1715,13 @@ export function AdvisorApp({
     if (previousId) selectSection(previousId)
   }
 
+  const createPlan = () => {
+    if (scene !== 'diagnostic') setScene('diagnostic')
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('.ap-ds-intro h1')?.focus({ preventScroll: true })
+    })
+  }
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (isSubmitting || !path || !readiness.canSubmit) {
@@ -1649,7 +1776,7 @@ export function AdvisorApp({
     adaptationAbort.current?.abort()
     adaptationRevision.current += 1
     microphone.stop()
-    setScene('diagnostic')
+    setScene(authenticatedExperienceEnabled ? 'home' : 'diagnostic')
     setPath(null)
     setUseCase(structuredClone(INITIAL_USE_CASE_INTAKE))
     setCapability(structuredClone(INITIAL_CAPABILITY_INTAKE))
@@ -1667,7 +1794,28 @@ export function AdvisorApp({
     setIsAdapting(false)
     requestAnimationFrame(() => {
       window.scrollTo({ top: 0, behavior: 'auto' })
-      document.querySelector<HTMLElement>('.ap-ds-intro h1')?.focus({ preventScroll: true })
+      document.querySelector<HTMLElement>(authenticatedExperienceEnabled ? '.ap-dashboard h1' : '.ap-ds-intro h1')?.focus({ preventScroll: true })
+    })
+  }
+
+  const goHome = () => {
+    if (!authenticatedExperienceEnabled) {
+      restart()
+      return
+    }
+    submissionAbort.current?.abort()
+    submissionAbort.current = null
+    submissionRevision.current += 1
+    adaptationAbort.current?.abort()
+    adaptationRevision.current += 1
+    microphone.stop()
+    setScene('home')
+    setSubmitError('')
+    setIsSubmitting(false)
+    setIsAdapting(false)
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'auto' })
+      document.querySelector<HTMLElement>('.ap-dashboard h1')?.focus({ preventScroll: true })
     })
   }
 
@@ -1675,11 +1823,18 @@ export function AdvisorApp({
     <div className="ap-ds-shell">
       <Header
         scene={scene}
-        onRestart={restart}
+        onHome={goHome}
+        onCreatePlan={createPlan}
         authenticatedExperienceEnabled={authenticatedExperienceEnabled}
+        user={consumerUser}
         busy={isSubmitting}
       />
-      {scene === 'result' && result ? <ResultScene result={result} onEdit={() => setScene('diagnostic')} onRestart={restart} authenticatedExperienceEnabled={authenticatedExperienceEnabled} savedToAccount={savedToAccount} /> : (
+      {scene === 'home' && authenticatedExperienceEnabled ? (
+        <DashboardHome
+          storagePersistenceAvailable={storagePersistenceAvailable}
+          onCreatePlan={createPlan}
+        />
+      ) : scene === 'result' && result ? <ResultScene result={result} onEdit={() => setScene('diagnostic')} onRestart={restart} authenticatedExperienceEnabled={authenticatedExperienceEnabled} savedToAccount={savedToAccount} /> : (
         <main className={`ap-ds-main${path ? ' has-path' : ''}`}>
           <section className="ap-ds-intro" aria-labelledby="ap-ds-title">
             <div><p className="ap-ds-kicker">A practical AI plan</p><h1 id="ap-ds-title" tabIndex={-1}>What would you like help with?</h1></div>

@@ -2,10 +2,14 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-test('signed-in header exposes one compact account entry point', async () => {
+test('signed-in shell exposes dashboard navigation and an account menu', async () => {
   const source = await readFile(new URL('./AdvisorApp.tsx', import.meta.url), 'utf8')
-  assert.match(source, /authenticatedExperienceEnabled[\s\S]*href="\/ai-path\/account">Account<\/a>/)
-  assert.doesNotMatch(source, /className="ap-ds-signOut"/)
+  assert.match(source, /<DashboardHome[\s\S]*storagePersistenceAvailable=\{storagePersistenceAvailable\}/)
+  assert.match(source, /aria-current=\{scene === 'home' \? 'page' : undefined\}>Dashboard<\/button>/)
+  assert.match(source, /<AccountMenu user=\{user\} \/>/)
+  assert.match(source, /href="\/ai-path\/account">Account settings<\/a>/)
+  assert.match(source, /action="\/api\/ai-path\/auth\/sign-out"/)
+  assert.match(source, /localStorage\.removeItem\(SAVED_PLAN_STORAGE_KEY\)/)
 })
 
 test('account controls use safe verbs and keep destructive deletion disabled', async () => {
@@ -20,6 +24,7 @@ test('account controls use safe verbs and keep destructive deletion disabled', a
 
 test('account page honestly reflects closed export and auth gates', async () => {
   const source = await readFile(new URL('./account/page.tsx', import.meta.url), 'utf8')
+  const appPage = await readFile(new URL('./page.tsx', import.meta.url), 'utf8')
   assert.match(source, /AI_PATH_ACCOUNT_EXPORT_RUNTIME_LATCH/)
   assert.match(source, /getVerifiedConsumerUser\(\)/)
   assert.match(source, /isSignedIn \? \(/)
@@ -27,6 +32,8 @@ test('account page honestly reflects closed export and auth gates', async () => 
   assert.match(source, /user=\{user\}/)
   assert.match(source, /role="status"/)
   assert.match(source, /robots: \{ index: false, follow: false \}/)
+  assert.match(appPage, /const user = authConfigured \? await getVerifiedConsumerUser\(\) : null/)
+  assert.match(appPage, /consumerUser=\{user \? \{ email: user\.email \} : null\}/)
 })
 
 test('account controls have responsive, content-driven layout and visible focus', async () => {
@@ -53,4 +60,18 @@ test('auth page has compact SaaS copy and remember-me wiring', async () => {
   assert.match(rememberSource, /name="remember" value=\{value\}/)
   assert.match(rememberSource, /form=\{googleFormId\}/)
   assert.match(rememberSource, /form=\{emailFormId\}/)
+})
+
+test('dashboard home has honest empty, loading, progress, and storage-unavailable states', async () => {
+  const source = await readFile(new URL('./AdvisorApp.tsx', import.meta.url), 'utf8')
+  const css = await readFile(new URL('./ai-path.css', import.meta.url), 'utf8')
+  assert.match(source, /function DashboardHome/)
+  assert.match(source, /Loading your workspace\.\.\./)
+  assert.match(source, /No saved plan yet/)
+  assert.match(source, /Account plan storage is not enabled/)
+  assert.match(source, /Account-level saved plan history will appear here after storage is enabled/)
+  assert.match(source, /0 of 4/)
+  assert.match(css, /\.ap-dashboardGrid/)
+  assert.match(css, /grid-template-columns: minmax\(0, 1\.15fr\) minmax\(280px, \.85fr\)/)
+  assert.match(css, /@media \(max-width: 780px\)[\s\S]*\.ap-dashboardGrid \{[\s\S]*grid-template-columns: 1fr;/)
 })

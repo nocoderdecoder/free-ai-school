@@ -11,6 +11,7 @@ test('live Realtime requires an explicitly reviewed input transcription model', 
   assert.match(source, /capability\.liveEnabled && !SUPPORTED_INPUT_TRANSCRIPTION_MODELS\.has\(transcriptionModel\)/)
   assert.match(source, /transcription: \{ model: transcriptionModel \}/)
   assert.match(source, /process\.env\.NODE_ENV === 'production' \? '' : 'gpt-4o-transcribe'/)
+  assert.match(source, /process\.env\.AI_PATH_ALLOW_PAID_API_CALLS === 'true' \|\| process\.env\.ALLOW_PAID_API_CALLS === 'true'/)
 })
 
 test('provider transport mints ephemeral client secrets instead of exposing the durable key to the browser', async () => {

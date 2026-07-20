@@ -39,6 +39,7 @@ export function getRealtimeCapability(): RealtimeCapability {
   const capability = resolveRealtimeCapability({
     enableLiveRealtime: process.env.AI_PATH_ENABLE_LIVE_REALTIME,
     allowPaidApiCalls: process.env.AI_PATH_ALLOW_PAID_API_CALLS,
+    legacyAllowPaidApiCalls: process.env.ALLOW_PAID_API_CALLS,
     localPreviewEnabled: process.env.AI_PATH_REALTIME_LOCAL_PREVIEW_ENABLED,
     nodeEnv: process.env.NODE_ENV,
     authReady: process.env.AI_PATH_AUTH_READY,
@@ -124,7 +125,7 @@ export async function createRealtimeClientSecret(input: {
   verifiedUserId: string
 }): Promise<LiveRealtimeResult> {
   const localRealtimePreview = process.env.NODE_ENV !== 'production'
-    && process.env.AI_PATH_ALLOW_PAID_API_CALLS === 'true'
+    && (process.env.AI_PATH_ALLOW_PAID_API_CALLS === 'true' || process.env.ALLOW_PAID_API_CALLS === 'true')
     && process.env.AI_PATH_REALTIME_LOCAL_PREVIEW_ENABLED !== 'false'
   if (!AI_PATH_PUBLIC_REALTIME_BOOTSTRAP_READY) {
     if (!localRealtimePreview) {
