@@ -10,7 +10,7 @@ The project is also a deliberate technical exercise: every page, content pipelin
 - **CMS**: Sanity (embedded Studio at `/studio`, schemas in `sanity/schemaTypes`)
 - **Database/Auth**: Supabase
 - **Email**: Resend (contact form, subscriptions)
-- **AI**: Anthropic Claude API (`@anthropic-ai/sdk`) — powers interactive tools and content generation
+- **AI**: OpenAI Responses API powers the AI Learning Compass; Anthropic Claude continues to power the other interactive tools and content generation
 - **PDF generation**: `@react-pdf/renderer`
 - **Hosting**: Vercel
 - **Analytics**: Vercel Analytics
@@ -33,4 +33,17 @@ npm run start    # serve production build
 npm run lint     # eslint
 ```
 
-Requires environment variables for Sanity (project ID/dataset/write token), Supabase, Resend, and `ANTHROPIC_API_KEY` for the AI tools and content scripts to function.
+The AI Learning Compass requires an OpenAI API key in the ignored local environment file:
+
+```bash
+# .env.local — never commit this file
+OPENAI_API_KEY=your_key_here
+
+# Optional shared or Compass-specific overrides; the default is gpt-5.4-mini
+OPENAI_MODEL=gpt-5.4-mini
+AI_COMPASS_INTERVIEW_MODEL=gpt-5.4-mini
+AI_COMPASS_ANALYSIS_MODEL=gpt-5.4-mini
+AI_COMPASS_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
+```
+
+Restart `npm run dev` after adding or changing the key. API usage can incur charges; only configure a key with the account owner’s approval. Compass voice defaults to browser dictation with no OpenAI transcription call; users can explicitly select the higher-accuracy `gpt-4o-mini-transcribe` mode, which uses API credits. The other AI tools and content scripts still require `ANTHROPIC_API_KEY`. Sanity, Supabase, and Resend features require their corresponding environment variables.

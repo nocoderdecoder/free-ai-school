@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 import { NextResponse } from 'next/server'
 import {
   isCompassAnalysis,
@@ -13,9 +13,12 @@ import { checkRateLimit, rateLimitResponse } from '../../../lib/rateLimit'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-const interviewModel = process.env.AI_COMPASS_INTERVIEW_MODEL || 'claude-haiku-4-5-20251001'
-const analysisModel = process.env.AI_COMPASS_ANALYSIS_MODEL || 'claude-haiku-4-5-20251001'
+const interviewModel = process.env.AI_COMPASS_INTERVIEW_MODEL || process.env.OPENAI_MODEL || 'gpt-5.4-mini'
+const analysisModel = process.env.AI_COMPASS_ANALYSIS_MODEL || process.env.OPENAI_MODEL || 'gpt-5.4-mini'
+
+function openAIClient() {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+}
 
 const INTERVIEW_SYSTEM = `You are an expert AI learning diagnostician conducting a five-question adaptive interview.
 
@@ -102,8 +105,28 @@ function parseJson(text: string): unknown {
   }
 }
 
-function messageText(message: Anthropic.Message) {
-  return message.content.filter(block => block.type === 'text').map(block => block.text).join('')
+async function createJsonResponse({
+  model,
+  instructions,
+  input,
+  maxOutputTokens,
+}: {
+  model: string
+  instructions: string
+  input: string
+  maxOutputTokens: number
+}) {
+  const response = await openAIClient().responses.create({
+    model,
+    instructions,
+    input,
+    max_output_tokens: maxOutputTokens,
+    reasoning: { effort: 'low' },
+    store: false,
+    text: { format: { type: 'json_object' } },
+  })
+  if (!response.output_text) throw new Error('Model returned no text')
+  return parseJson(response.output_text)
 }
 
 async function nextQuestion(answers: CompassAnswer[]) {
@@ -131,14 +154,12 @@ Return exactly this JSON shape:
 
 The question must not repeat anything already answered.`
 
-  const result = await anthropic.messages.create({
+  const parsed = await createJsonResponse({
     model: interviewModel,
-    max_tokens: 1300,
-    temperature: 0.25,
-    system: INTERVIEW_SYSTEM,
-    messages: [{ role: 'user', content: prompt }],
+    maxOutputTokens: 1300,
+    instructions: INTERVIEW_SYSTEM,
+    input: prompt,
   })
-  const parsed = parseJson(messageText(result))
   if (!isInterviewTurn(parsed)) throw new Error('Interview response failed validation')
   return parsed
 }
@@ -279,21 +300,20 @@ Compression rules:
 
 Keep the entire JSON under 28,000 characters. Specificity comes from exact actions, prompts, artifacts, tests, and safe fallbacks—not long prose.`
 
-  const result = await anthropic.messages.create({
+  const modelOutput = await createJsonResponse({
     model: analysisModel,
-    max_tokens: 7800,
-    temperature: 0.2,
-    system: ANALYSIS_SYSTEM,
-    messages: [{ role: 'user', content: prompt }],
+    maxOutputTokens: 7800,
+    instructions: ANALYSIS_SYSTEM,
+    input: prompt,
   })
-  const parsed = normalizeCompassAnalysis(parseJson(messageText(result)))
+  const parsed = normalizeCompassAnalysis(modelOutput)
   if (!isCompassAnalysis(parsed)) throw new Error('Final analysis failed validation')
   return parsed
 }
 
 export async function POST(request: Request) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: 'The assessment service is not configured.' }, { status: 503 })
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json({ error: 'The assessment service is not configured.', code: 'ASSESSMENT_NOT_CONFIGURED' }, { status: 503 })
   }
 
   // A full interview can make up to six model calls, so allow enough request
@@ -319,4 +339,11 @@ export async function POST(request: Request) {
     console.error('AI Learning Compass error', error instanceof Error ? error.message : error)
     return NextResponse.json({ error: 'I could not complete that analysis. Please try again.' }, { status: 500 })
   }
+}
+
+export async function GET() {
+  return NextResponse.json(
+    { configured: Boolean(process.env.OPENAI_API_KEY), provider: 'openai' },
+    { headers: { 'Cache-Control': 'no-store' } },
+  )
 }
