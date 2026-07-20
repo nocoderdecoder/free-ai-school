@@ -66,7 +66,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${dmSans.variable} h-full antialiased`}>
         {children}
         <CustomCursor />
-        <Analytics />
+        {process.env.VERCEL === '1' ? <Analytics /> : null}
       </body>
     </html>
   );

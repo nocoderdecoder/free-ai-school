@@ -1,0 +1,708 @@
+:root {
+  --vx-paper: #f4f1e9;
+  --vx-surface: #fffefa;
+  --vx-ink: #122c29;
+  --vx-muted: #60706c;
+  --vx-teal: #123f3a;
+  --vx-teal-hover: #0c332f;
+  --vx-lime: #c9e56d;
+  --vx-blue: #dce8f8;
+  --vx-line: #d7ddd7;
+  --vx-error: #a23e36;
+  --vx-focus: #2563eb;
+}
+
+.vx-prepare,
+.vx-prepare * {
+  box-sizing: border-box;
+}
+
+.vx-prepare button,
+.vx-prepare select,
+.vx-prepare textarea {
+  font: inherit;
+}
+
+.vx-prepare button,
+.vx-prepare select {
+  cursor: pointer;
+}
+
+.vx-prepare button:disabled {
+  cursor: not-allowed;
+}
+
+.vx-prepare :focus-visible {
+  outline: 3px solid var(--vx-focus);
+  outline-offset: 3px;
+}
+
+.vx-prepare {
+  background: var(--vx-paper);
+  color: var(--vx-ink);
+  min-height: calc(100vh - 64px);
+  padding: 28px 24px 36px;
+}
+
+.vx-prepareIntro {
+  margin: 0 auto 20px;
+  max-width: 740px;
+  text-align: center;
+}
+
+.vx-kicker {
+  color: #2f6a61;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .07em;
+  margin: 0 0 9px;
+  text-transform: uppercase;
+}
+
+.vx-prepareIntro h1 {
+  color: var(--vx-ink);
+  font-size: clamp(34px, 4vw, 40px);
+  letter-spacing: -.025em;
+  line-height: 1.08;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.vx-prepareIntro > p:last-child {
+  color: var(--vx-muted);
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 10px auto 0;
+  max-width: 660px;
+}
+
+.vx-modeWorkspace {
+  background: var(--vx-surface);
+  border: 1px solid var(--vx-line);
+  border-radius: 18px;
+  box-shadow: 0 12px 36px rgba(18, 44, 41, .07);
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, .92fr);
+  margin: 0 auto;
+  max-width: 1040px;
+  overflow: hidden;
+}
+
+.vx-modePanel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 22px 26px 24px;
+}
+
+.vx-typePanel {
+  background: #f9f8f3;
+  border-left: 1px solid var(--vx-line);
+}
+
+.vx-modeHeading {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.vx-modeIcon {
+  align-items: center;
+  background: #e9efe9;
+  border-radius: 11px;
+  color: var(--vx-teal);
+  display: flex;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.vx-modeIcon svg,
+.vx-primaryAction svg {
+  fill: none;
+  height: 20px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 20px;
+}
+
+.vx-modeHeading h2 {
+  font-size: 19px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.vx-modeHeading p {
+  color: var(--vx-muted);
+  font-size: 13px;
+  line-height: 1.35;
+  margin: 3px 0 0;
+}
+
+.vx-modeBadge {
+  background: var(--vx-blue);
+  border-radius: 999px;
+  color: #294965;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+
+.vx-modeBadge.is-available {
+  background: #e5f0bf;
+  color: #345128;
+}
+
+.vx-modeDescription {
+  color: var(--vx-muted);
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 15px 0 8px;
+}
+
+.vx-liveStatus {
+  color: #526b65;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0 0 9px;
+}
+
+.vx-inlineMeter {
+  background: #f7f8f5;
+  border: 1px solid #e2e6e1;
+  border-radius: 12px;
+  margin: 0 0 13px;
+  padding: 0 14px 9px;
+}
+
+.vx-inlineMeter > p {
+  color: var(--vx-muted);
+  font-size: 13px;
+  line-height: 1.35;
+  margin: -5px 0 0;
+  min-height: 18px;
+  text-align: center;
+}
+
+.vx-voicePanel.is-listening .vx-inlineMeter > p {
+  color: var(--vx-teal);
+  font-weight: 750;
+}
+
+.vx-voicePanel.is-error .vx-inlineMeter > p {
+  color: var(--vx-error);
+}
+
+.vx-signalRibbon {
+  align-items: center;
+  color: var(--vx-teal);
+  display: flex;
+  height: 46px;
+  min-width: 0;
+  position: relative;
+  width: 100%;
+}
+
+.vx-signalRibbonLine {
+  background: currentColor;
+  height: 2px;
+  inset: auto 0;
+  opacity: .3;
+  position: absolute;
+}
+
+.vx-signalRibbonBars {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  height: 100%;
+  justify-content: center;
+  margin: 0 auto;
+  padding: 0 20px;
+  position: relative;
+}
+
+.vx-signalRibbonBars i {
+  background: currentColor;
+  border-radius: 999px;
+  display: block;
+  height: var(--vx-bar-height);
+  opacity: .9;
+  transition: height 80ms linear;
+  width: 3px;
+}
+
+.vx-signalRibbonDot {
+  background: var(--vx-lime);
+  border: 4px solid var(--vx-teal);
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px var(--vx-surface);
+  height: 14px;
+  position: absolute;
+  right: 0;
+  width: 14px;
+}
+
+.vx-signalRibbon.is-error {
+  color: var(--vx-error);
+}
+
+.vx-signalRibbon.is-requesting .vx-signalRibbonBars i,
+.vx-signalRibbon.is-thinking .vx-signalRibbonBars i,
+.vx-signalRibbon.is-speaking .vx-signalRibbonBars i {
+  animation: vx-signal-pulse 760ms ease-in-out infinite alternate;
+  animation-delay: var(--vx-bar-delay);
+}
+
+.vx-signalRibbon.is-compact {
+  height: 38px;
+}
+
+@keyframes vx-signal-pulse {
+  from { transform: scaleY(.55); }
+  to { transform: scaleY(1); }
+}
+
+.vx-conversation {
+  background:
+    radial-gradient(circle at 50% 12%, rgba(201, 229, 109, .16), transparent 34%),
+    linear-gradient(145deg, #fffefa, #f4f7f1);
+  border: 1px solid rgba(18, 63, 58, .16);
+  border-radius: 24px;
+  box-shadow: 0 30px 80px rgba(18, 44, 41, .12), inset 0 1px rgba(255, 255, 255, .9);
+  color: var(--vx-ink);
+  margin: 28px auto;
+  max-width: 880px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 22px clamp(18px, 4vw, 42px) 34px;
+}
+
+.vx-conversationTopline,
+.vx-reviewActions,
+.vx-conversationActions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.vx-conversationTopline {
+  justify-content: space-between;
+}
+
+.vx-conversationTopline p,
+.vx-conversationTopline span {
+  margin: 0;
+}
+
+.vx-conversationTopline p {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.vx-conversationTopline span {
+  color: var(--vx-muted);
+  font-size: 12px;
+}
+
+.vx-conversationTopline button,
+.vx-textLink {
+  background: transparent;
+  border: 0;
+  color: var(--vx-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.vx-conversationTopline button {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  min-height: 38px;
+  padding: 7px;
+}
+
+.vx-conversationTopline svg,
+.vx-conversationActions svg {
+  fill: none;
+  height: 18px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.8;
+  width: 18px;
+}
+
+.vx-progressTrack {
+  background: rgba(18, 63, 58, .1);
+  border-radius: 999px;
+  height: 4px;
+  margin: 18px 0 8px;
+  overflow: hidden;
+}
+
+.vx-progressTrack i {
+  background: linear-gradient(90deg, var(--vx-teal), #5f8665, var(--vx-lime));
+  display: block;
+  height: 100%;
+  transition: width 420ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.vx-conversationStage {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(24px, 6vw, 58px) 0 10px;
+  text-align: center;
+}
+
+.vx-voiceOrb {
+  align-items: center;
+  background: linear-gradient(145deg, #133f3a, #092c29);
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 50%;
+  box-shadow: 0 18px 46px rgba(18, 63, 58, .25), 0 0 0 12px rgba(18, 63, 58, .06);
+  color: #fff;
+  display: grid;
+  height: 112px;
+  place-items: center;
+  position: relative;
+  width: 112px;
+}
+
+.vx-voiceOrb span {
+  align-items: center;
+  background: rgba(255, 255, 255, .12);
+  border-radius: 50%;
+  display: flex;
+  height: 58px;
+  justify-content: center;
+  width: 58px;
+}
+
+.vx-voiceOrb svg {
+  fill: none;
+  height: 30px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.6;
+  width: 30px;
+}
+
+.vx-voiceOrb > i {
+  border: 1px solid rgba(18, 63, 58, .24);
+  border-radius: 50%;
+  inset: -10px;
+  opacity: 0;
+  position: absolute;
+}
+
+.vx-voiceOrb > i:nth-of-type(2) { inset: -22px; }
+.vx-voiceOrb > i:nth-of-type(3) { inset: -34px; }
+
+.vx-voiceOrb.is-listening > i,
+.vx-voiceOrb.is-speaking > i,
+.vx-voiceOrb.is-thinking > i {
+  animation: vx-orb-ring 1.8s ease-out infinite;
+}
+
+.vx-voiceOrb.is-listening > i:nth-of-type(2),
+.vx-voiceOrb.is-speaking > i:nth-of-type(2),
+.vx-voiceOrb.is-thinking > i:nth-of-type(2) { animation-delay: .32s; }
+.vx-voiceOrb.is-listening > i:nth-of-type(3),
+.vx-voiceOrb.is-speaking > i:nth-of-type(3),
+.vx-voiceOrb.is-thinking > i:nth-of-type(3) { animation-delay: .64s; }
+
+@keyframes vx-orb-ring {
+  0% { opacity: 0; transform: scale(.84); }
+  35% { opacity: .65; }
+  100% { opacity: 0; transform: scale(1.08); }
+}
+
+.vx-conversationStatus {
+  display: grid;
+  gap: 5px;
+  margin-top: 30px;
+}
+
+.vx-conversationStatus strong { font-size: 16px; }
+.vx-conversationStatus span { color: var(--vx-muted); font-size: 13px; }
+.vx-conversationStage > .vx-signalRibbon { max-width: 340px; }
+
+.vx-currentQuestion {
+  border-top: 1px solid var(--vx-line);
+  margin-top: 16px;
+  max-width: 690px;
+  padding-top: 28px;
+}
+
+.vx-currentQuestion h2,
+.vx-transcriptReview h2 {
+  font-size: clamp(25px, 4vw, 38px);
+  line-height: 1.15;
+  margin: 7px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.vx-conversationActions {
+  flex-direction: column;
+  margin-top: 28px;
+  max-width: 440px;
+  width: 100%;
+}
+
+.vx-conversationActions .vx-primaryAction { margin: 0; }
+.vx-conversationActions p { color: var(--vx-muted); font-size: 12px; line-height: 1.45; margin: 0; }
+.vx-textLink { min-height: 38px; }
+
+.vx-transcriptReview { padding: clamp(22px, 5vw, 44px) 0 4px; }
+.vx-transcriptReview > div:first-child { max-width: 650px; }
+.vx-transcriptReview > div:first-child > p:last-child { color: var(--vx-muted); line-height: 1.5; }
+.vx-transcriptTurns { display: grid; gap: 14px; margin-top: 24px; }
+.vx-transcriptTurns label { display: grid; gap: 7px; }
+.vx-transcriptTurns label > span { font-size: 13px; font-weight: 750; line-height: 1.4; }
+.vx-transcriptTurns textarea {
+  background: rgba(255, 255, 255, .82);
+  border: 1px solid #a9b6b0;
+  border-radius: 12px;
+  color: var(--vx-ink);
+  line-height: 1.5;
+  min-width: 0;
+  padding: 13px 14px;
+  resize: vertical;
+  width: 100%;
+}
+
+.vx-reviewActions { justify-content: flex-end; margin-top: 24px; }
+.vx-reviewActions .vx-primaryAction { margin: 0; width: auto; }
+.vx-secondaryAction {
+  background: #fff;
+  border: 1px solid #a9b6b0;
+  border-radius: 10px;
+  color: var(--vx-teal);
+  font-weight: 750;
+  min-height: 48px;
+  padding: 11px 16px;
+}
+
+@media (max-width: 600px) {
+  .vx-conversation { border-radius: 18px; margin: 12px; padding: 18px 16px 26px; }
+  .vx-conversationStage { padding-top: 34px; }
+  .vx-voiceOrb { height: 92px; width: 92px; }
+  .vx-currentQuestion h2 { font-size: 27px; }
+  .vx-reviewActions { align-items: stretch; flex-direction: column-reverse; }
+  .vx-reviewActions .vx-primaryAction { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vx-voiceOrb > i,
+  .vx-progressTrack i { animation: none !important; transition: none !important; }
+}
+
+.vx-devicePicker,
+.vx-typedPrompt {
+  display: grid;
+  gap: 7px;
+}
+
+.vx-devicePicker {
+  margin: 0 0 13px;
+}
+
+.vx-devicePicker > span,
+.vx-typedPrompt > span {
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.vx-devicePicker select,
+.vx-typedPrompt textarea {
+  background: #fff;
+  border: 1px solid #9eaca6;
+  border-radius: 10px;
+  color: var(--vx-ink);
+  min-width: 0;
+  width: 100%;
+}
+
+.vx-devicePicker select {
+  min-height: 46px;
+  padding: 9px 12px;
+}
+
+.vx-typedPrompt {
+  margin-top: 18px;
+}
+
+.vx-typedPrompt textarea {
+  line-height: 1.5;
+  min-height: 137px;
+  padding: 12px 13px;
+  resize: vertical;
+}
+
+.vx-typedPrompt textarea::placeholder {
+  color: #82908c;
+}
+
+.vx-primaryAction {
+  align-items: center;
+  background: var(--vx-teal);
+  border: 1px solid var(--vx-teal);
+  border-radius: 10px;
+  color: #fff;
+  display: inline-flex;
+  font-weight: 750;
+  gap: 9px;
+  justify-content: center;
+  margin-top: auto;
+  min-height: 48px;
+  padding: 11px 16px;
+  width: 100%;
+}
+
+.vx-primaryAction:hover:not(:disabled) {
+  background: var(--vx-teal-hover);
+}
+
+.vx-primaryAction:disabled {
+  background: #aeb8b4;
+  border-color: #aeb8b4;
+  color: #eef1ef;
+}
+
+.vx-providerNotice {
+  background: #eef1ed;
+  border-left: 3px solid #82918b;
+  color: var(--vx-muted);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: auto 0 0;
+  padding: 10px 12px;
+}
+
+.vx-localNote {
+  color: var(--vx-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 9px 0 0;
+  text-align: center;
+}
+
+.vx-typedError {
+  color: var(--vx-error);
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 7px 0;
+}
+
+.vx-trustRow {
+  color: var(--vx-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 8px 24px;
+  justify-content: center;
+  margin: 16px auto 0;
+}
+
+.vx-trustRow span::before {
+  color: #4f726b;
+  content: '✓';
+  font-weight: 800;
+  margin-right: 7px;
+}
+
+.vx-mobileOr {
+  display: none;
+}
+
+@media (max-width: 800px) {
+  .vx-prepare {
+    padding: 24px 16px 40px;
+  }
+
+  .vx-prepareIntro h1 {
+    font-size: clamp(30px, 7vw, 34px);
+  }
+
+  .vx-modeWorkspace {
+    display: block;
+  }
+
+  .vx-modePanel {
+    padding: 20px;
+  }
+
+  .vx-typePanel {
+    border-left: 0;
+    border-top: 1px solid var(--vx-line);
+  }
+
+  .vx-mobileOr {
+    display: block;
+    height: 0;
+    position: relative;
+    text-align: center;
+    z-index: 1;
+  }
+
+  .vx-mobileOr span {
+    background: var(--vx-paper);
+    border: 1px solid var(--vx-line);
+    border-radius: 999px;
+    color: var(--vx-muted);
+    display: inline-block;
+    font-size: 11px;
+    padding: 3px 8px;
+    position: relative;
+    top: -12px;
+  }
+
+  .vx-typedPrompt textarea {
+    min-height: 120px;
+  }
+}
+
+@media (max-width: 420px) {
+  .vx-prepare {
+    padding-top: 20px;
+  }
+
+  .vx-prepareIntro {
+    margin-bottom: 17px;
+  }
+
+  .vx-prepareIntro > p:last-child {
+    font-size: 15px;
+  }
+
+  .vx-modeHeading {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .vx-modeBadge {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .vx-signalRibbonBars {
+    gap: 3px;
+    padding: 0 12px;
+  }
+
+  .vx-trustRow {
+    gap: 7px 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vx-signalRibbonBars i {
+    animation: none !important;
+    transition: none;
+  }
+}

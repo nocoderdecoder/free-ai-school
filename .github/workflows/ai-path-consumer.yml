@@ -1,0 +1,69 @@
+name: AI Path consumer quality gate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ai-path-consumer.yml'
+      - 'app/ai-path/**'
+      - 'app/api/ai-path/**'
+      - 'proxy.ts'
+      - 'next.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'supabase/migrations/*_ai_path_*.sql'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ai-path-consumer.yml'
+      - 'app/ai-path/**'
+      - 'app/api/ai-path/**'
+      - 'proxy.ts'
+      - 'next.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'supabase/migrations/*_ai_path_*.sql'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-path-consumer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - name: Refuse committed runtime secrets
+        shell: bash
+        run: |
+          if git ls-files | grep -E '(^|/)\.env(\.|$)' | grep -Ev '(^|/)\.env\.example$'; then
+            echo 'A runtime environment file is tracked.' >&2
+            exit 1
+          fi
+          if git grep -Eq '(sk-(proj-)?[A-Za-z0-9_-]{20,}|sb_secret_[A-Za-z0-9_-]{20,})' -- ':!package-lock.json'; then
+            echo 'A probable provider secret is tracked.' >&2
+            exit 1
+          fi
+
+      - run: npm run lint:ai-path-consumer
+      - run: npx tsc --noEmit
+      - run: npm run test:ai-path-auth
+      - run: npm run test:ai-path-consumer
+      - run: npm run test:ai-path-security
+      - run: npm run test:ai-path-consumer-data
+      - run: npm run test:ai-path
+      - run: npm run build
+      - name: Block critical production dependency advisories
+        run: npm audit --omit=dev --audit-level=critical
+      - name: Record lower-severity dependency debt
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
