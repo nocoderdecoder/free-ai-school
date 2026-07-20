@@ -12,14 +12,23 @@ import {
   type CompassQuestion,
   type InterviewProfile,
 } from '../../lib/aiCompass'
+import {
+  cleanVoiceTranscript,
+  joinSpeechText,
+  resolvedSpeechLanguage,
+  speechLanguageOptions,
+  uniqueTranscriptAlternatives,
+} from '../../lib/speechTranscript'
 import { CompassResult } from './CompassResult'
 
-type SpeechResult = { readonly isFinal: boolean; readonly 0: { transcript: string } }
+type SpeechAlternative = { readonly transcript: string; readonly confidence?: number }
+type SpeechResult = { readonly isFinal: boolean; readonly length: number; readonly [index: number]: SpeechAlternative }
 type SpeechEvent = { resultIndex: number; results: { length: number; [index: number]: SpeechResult } }
 type SpeechError = { error: string }
 type Recognition = {
   continuous: boolean
   interimResults: boolean
+  maxAlternatives: number
   lang: string
   onresult: ((event: SpeechEvent) => void) | null
   onerror: ((event: SpeechError) => void) | null
@@ -29,6 +38,8 @@ type Recognition = {
 }
 type RecognitionConstructor = new () => Recognition
 type View = 'landing' | 'questions' | 'synthesis' | 'result'
+type ServiceStatus = 'checking' | 'ready' | 'unconfigured' | 'unreachable'
+type VoiceMode = 'browser' | 'openai'
 
 const synthesisPhases = [
   'Separating goals from assumptions',
@@ -93,23 +104,53 @@ export function CompassApp() {
   const [interviewProfile, setInterviewProfile] = useState<InterviewProfile | null>(null)
   const [analysis, setAnalysis] = useState<CompassAnalysis | null>(null)
   const [recording, setRecording] = useState(false)
+  const [transcribing, setTranscribing] = useState(false)
+  const [voiceMode, setVoiceMode] = useState<VoiceMode>('browser')
+  const [speechLanguage, setSpeechLanguage] = useState('auto')
+  const [speechAlternatives, setSpeechAlternatives] = useState<string[]>([])
+  const [serviceStatus, setServiceStatus] = useState<ServiceStatus>('checking')
   const [elapsed, setElapsed] = useState(0)
   const [synthesisElapsed, setSynthesisElapsed] = useState(0)
   const [loading, setLoading] = useState(false)
   const [notice, setNotice] = useState('')
   const recognitionRef = useRef<Recognition | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
   const wantsRecordingRef = useRef(false)
   const transcriptRef = useRef('')
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const synthesisTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const speechAvailable = useMemo(() => Boolean(recognitionConstructor()), [])
+  const browserSpeechAvailable = useMemo(() => Boolean(recognitionConstructor()), [])
+  const recordedSpeechAvailable = useMemo(() => typeof window !== 'undefined' && typeof window.MediaRecorder !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia), [])
+  const voiceAvailable = voiceMode === 'openai' ? recordedSpeechAvailable && serviceStatus === 'ready' : browserSpeechAvailable
   const words = answer.trim().split(/\s+/).filter(Boolean).length
 
   useEffect(() => () => {
     wantsRecordingRef.current = false
     recognitionRef.current?.stop()
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.ondataavailable = null
+      mediaRecorderRef.current.onstop = null
+      if (mediaRecorderRef.current.state === 'recording') mediaRecorderRef.current.stop()
+    }
+    mediaStreamRef.current?.getTracks().forEach(track => track.stop())
     if (timerRef.current) clearInterval(timerRef.current)
     if (synthesisTimerRef.current) clearInterval(synthesisTimerRef.current)
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch('/api/tools/ai-learning-compass', { cache: 'no-store', signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error('Readiness check failed')
+        const result = await response.json() as { configured?: unknown }
+        setServiceStatus(result.configured === true ? 'ready' : 'unconfigured')
+      })
+      .catch(error => {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) setServiceStatus('unreachable')
+      })
+    return () => controller.abort()
   }, [])
 
   const flash = (message: string) => {
@@ -117,13 +158,27 @@ export function CompassApp() {
     window.setTimeout(() => setNotice(''), 2600)
   }
 
+  const finishTranscript = () => {
+    const cleaned = cleanVoiceTranscript(transcriptRef.current)
+    transcriptRef.current = cleaned
+    setAnswer(cleaned)
+  }
+
   const stopRecording = () => {
     wantsRecordingRef.current = false
+    if (voiceMode === 'openai') {
+      if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
+      setRecording(false)
+      if (timerRef.current) clearInterval(timerRef.current)
+      timerRef.current = null
+      return
+    }
     recognitionRef.current?.stop()
     recognitionRef.current = null
     setRecording(false)
     if (timerRef.current) clearInterval(timerRef.current)
     timerRef.current = null
+    window.setTimeout(finishTranscript, 180)
   }
 
   const createRecognition = () => {
@@ -133,15 +188,23 @@ export function CompassApp() {
     recognitionRef.current = recognizer
     recognizer.continuous = true
     recognizer.interimResults = true
-    recognizer.lang = navigator.language || 'en-US'
+    recognizer.maxAlternatives = 3
+    recognizer.lang = resolvedSpeechLanguage(speechLanguage, navigator.language)
     recognizer.onresult = event => {
       let interim = ''
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        const text = event.results[index][0].transcript
-        if (event.results[index].isFinal) transcriptRef.current = `${transcriptRef.current} ${text}`.trim()
-        else interim += text
+        const result = event.results[index]
+        const text = result[0].transcript
+        if (result.isFinal) {
+          const prefix = transcriptRef.current
+          transcriptRef.current = joinSpeechText(prefix, cleanVoiceTranscript(text, false))
+          const alternativeAnswers = Array.from({ length: result.length }, (_, alternativeIndex) => result[alternativeIndex]?.transcript)
+            .filter((alternative): alternative is string => Boolean(alternative))
+            .map(alternative => joinSpeechText(prefix, alternative))
+          setSpeechAlternatives(uniqueTranscriptAlternatives(alternativeAnswers, transcriptRef.current))
+        } else interim += text
       }
-      setAnswer(`${transcriptRef.current}${interim ? ` ${interim}` : ''}`.trim())
+      setAnswer(joinSpeechText(transcriptRef.current, interim))
     }
     recognizer.onerror = event => {
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
@@ -155,9 +218,60 @@ export function CompassApp() {
     try { recognizer.start() } catch { stopRecording() }
   }
 
+  const startAccurateRecording = async () => {
+    if (!recordedSpeechAvailable || serviceStatus !== 'ready') return flash('Higher-accuracy transcription is unavailable here. Use browser dictation or type instead.')
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaStreamRef.current = stream
+      const recorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = recorder
+      audioChunksRef.current = []
+      recorder.ondataavailable = event => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data)
+      }
+      recorder.onstop = async () => {
+        mediaStreamRef.current?.getTracks().forEach(track => track.stop())
+        mediaStreamRef.current = null
+        mediaRecorderRef.current = null
+        const audio = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        audioChunksRef.current = []
+        if (!audio.size) return flash('No audio was captured. Please try again.')
+        setTranscribing(true)
+        try {
+          const form = new FormData()
+          form.append('audio', audio, 'compass-answer.webm')
+          form.append('language', speechLanguage)
+          const response = await fetch('/api/tools/ai-learning-compass/transcribe', { method: 'POST', body: form })
+          const result = await response.json() as { text?: unknown; error?: unknown }
+          if (!response.ok || typeof result.text !== 'string') throw new Error(typeof result.error === 'string' ? result.error : 'Transcription failed.')
+          const cleaned = cleanVoiceTranscript(joinSpeechText(transcriptRef.current, result.text))
+          transcriptRef.current = cleaned
+          setAnswer(cleaned)
+          setSpeechAlternatives([])
+          flash('Higher-accuracy transcript ready. Please review it.')
+        } catch (error) {
+          flash(error instanceof Error ? error.message : 'Transcription failed. Use browser dictation or type instead.')
+        } finally {
+          setTranscribing(false)
+        }
+      }
+      recorder.start(1000)
+      setRecording(true)
+      setElapsed(0)
+      timerRef.current = setInterval(() => setElapsed(value => value + 1), 1000)
+    } catch {
+      flash('Microphone access was not available. You can use browser dictation or type instead.')
+    }
+  }
+
   const startRecording = () => {
-    if (!speechAvailable) return flash('Voice transcription is unavailable here. You can type your answer.')
+    if (!voiceAvailable) return flash('Voice transcription is unavailable here. You can type your answer.')
     transcriptRef.current = answer.trim()
+    setSpeechAlternatives([])
+    if (voiceMode === 'openai') {
+      void startAccurateRecording()
+      return
+    }
     wantsRecordingRef.current = true
     setRecording(true)
     setElapsed(0)
@@ -239,8 +353,24 @@ export function CompassApp() {
     setAnalysis(null)
     setSynthesisElapsed(0)
     setNotice('')
+    setSpeechAlternatives([])
     setView('questions')
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const cleanTranscript = () => {
+    const cleaned = cleanVoiceTranscript(answer)
+    transcriptRef.current = cleaned
+    setAnswer(cleaned)
+    setSpeechAlternatives([])
+    flash('Punctuation cleaned. Please review any names or technical terms.')
+  }
+
+  const selectSpeechAlternative = (alternative: string) => {
+    transcriptRef.current = alternative
+    setAnswer(alternative)
+    setSpeechAlternatives([])
+    flash('Alternative transcript selected')
   }
 
   const copyRoadmap = async () => {
@@ -285,9 +415,11 @@ export function CompassApp() {
           <h1 className="max-w-4xl text-5xl font-bold leading-[.97] tracking-[-.055em] sm:text-7xl lg:text-[86px]" style={{ color: 'var(--ed-text-dark)' }}>Find the AI path that fits <span className="text-emerald-600">your work.</span></h1>
           <p className="mt-7 max-w-2xl text-lg leading-relaxed sm:text-xl" style={{ color: 'var(--ed-text-secondary)' }}>Every question changes based on your answer. You will leave with the exact tools, setup, steps, prompts, tests, fallbacks, and proof for your next 30-day capability jump.</p>
           <div className="mt-9 flex flex-wrap items-center gap-4">
-            <button onClick={() => setView('questions')} className="btn-press inline-flex items-center gap-3 rounded-full px-6 py-3.5 text-sm font-semibold transition hover:opacity-90" style={ctaStyle}>Start your assessment <ArrowIcon /></button>
-            <span className="text-xs" style={{ color: 'var(--ed-text-faint)' }}>About 7 minutes · Voice or text · No sign-up</span>
+            <button disabled={serviceStatus !== 'ready'} onClick={() => setView('questions')} className="btn-press inline-flex min-h-11 items-center gap-3 rounded-full px-6 py-3.5 text-sm font-semibold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40" style={ctaStyle}>{serviceStatus === 'checking' ? 'Checking assessment service…' : serviceStatus === 'ready' ? <>Start your assessment <ArrowIcon /></> : 'Assessment model setup needed'}</button>
+            <span className="text-xs" style={{ color: 'var(--ed-text-faint)' }}>About 7 minutes · Voice or text · Uses the configured OpenAI API</span>
           </div>
+          {serviceStatus === 'ready' && <p className="mt-4 max-w-2xl text-xs leading-relaxed" style={{ color: 'var(--ed-text-faint)' }}>Each Continue action generates the next adaptive question and may use paid API credits. Higher-accuracy voice transcription is separately labeled and opt-in.</p>}
+          {(serviceStatus === 'unconfigured' || serviceStatus === 'unreachable') && <div role="alert" className="mt-5 max-w-2xl rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900"><strong>{serviceStatus === 'unconfigured' ? 'The roadmap model is not configured on this server.' : 'The roadmap service could not be reached.'}</strong> The site owner must complete the server setup before the adaptive interview can run. Voice transcription can be tested after setup without saving your recording.</div>}
         </div>
         <div className="rotate-1 rounded-3xl p-7 shadow-2xl sm:p-9" style={{ border: '1px solid var(--ed-border)', backgroundColor: '#fff' }}>
           <p className="section-label" style={{ color: 'var(--ed-text-faint)' }}>Not a personality quiz</p>
@@ -343,21 +475,30 @@ export function CompassApp() {
           <p className="section-label mb-5" style={{ color: 'var(--ed-text-faint)' }}><span className="mr-2 inline-block h-2 w-2 rounded-full bg-emerald-500" />{question.eyebrow}</p>
           <h1 className="max-w-3xl text-4xl font-semibold leading-tight tracking-tight sm:text-6xl" style={{ color: 'var(--ed-text-dark)' }}>{question.prompt}</h1>
           <p className="mt-5 max-w-2xl text-base leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>{question.helper}</p>
+          {serviceStatus !== 'ready' && <div role="alert" className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900"><strong>{serviceStatus === 'checking' ? 'Checking the roadmap service.' : serviceStatus === 'unconfigured' ? 'The roadmap model is not configured on this server.' : 'The roadmap service could not be reached.'}</strong> Continue will become available only after the server is ready, so your answer is not lost to a failed submission.</div>}
           {acknowledgement && <div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
             <p className="text-sm leading-relaxed" style={{ color: 'var(--ed-text)' }}><span className="font-semibold text-emerald-700">What I heard: </span>{acknowledgement}</p>
             <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}><span className="font-semibold" style={{ color: 'var(--ed-text-secondary)' }}>Why I’m asking this next: </span>{interpretation}</p>
           </div>}
           <div className="mt-8 overflow-hidden rounded-2xl shadow-sm" style={cardStyle}>
-            <textarea aria-label="Your answer" disabled={loading} value={answer} onChange={event => setAnswer(event.target.value)} placeholder={question.placeholder} className="min-h-56 w-full resize-y bg-transparent p-6 text-base leading-relaxed outline-none placeholder:text-[var(--ed-text-light)] disabled:opacity-50" style={{ color: 'var(--ed-text)' }} />
-            <div className="flex flex-col gap-4 border-t p-4 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: 'var(--ed-border)', backgroundColor: 'var(--ed-card-hover)' }}>
-              <div className="flex items-center gap-3">
-                <button type="button" disabled={!speechAvailable || loading} onClick={recording ? stopRecording : startRecording} aria-label={recording ? 'Stop voice answer' : 'Start voice answer'} className={`grid h-12 w-12 place-items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-30 ${recording ? 'animate-pulse bg-red-400 text-black' : 'bg-emerald-300 text-black hover:bg-emerald-200'}`}><MicIcon stop={recording} /></button>
-                <div><p className="text-sm font-medium" style={{ color: 'var(--ed-text-dark)' }}>{recording ? 'Listening…' : speechAvailable ? 'Answer by voice' : 'Voice unavailable'}</p><p className="mt-0.5 text-[11px]" style={{ color: 'var(--ed-text-faint)' }}>{recording ? `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')} · tap stop when finished` : speechAvailable ? 'Speak as long as you like, then stop' : 'Type your answer in this browser'}</p></div>
+            <textarea aria-label="Your answer" disabled={loading} value={answer} onChange={event => { setAnswer(event.target.value); transcriptRef.current = event.target.value; setSpeechAlternatives([]) }} placeholder={question.placeholder} className="min-h-56 w-full resize-y bg-transparent p-6 text-base leading-relaxed outline-none placeholder:text-[var(--ed-text-light)] disabled:opacity-50" style={{ color: 'var(--ed-text)' }} />
+            <div className="border-t p-4" style={{ borderColor: 'var(--ed-border)', backgroundColor: 'var(--ed-card-hover)' }}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <button type="button" disabled={!voiceAvailable || loading || transcribing} onClick={recording ? stopRecording : startRecording} aria-label={recording ? 'Stop voice answer' : 'Start voice answer'} className={`grid h-12 w-12 shrink-0 place-items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-30 ${recording ? 'animate-pulse bg-red-400 text-black' : 'bg-emerald-300 text-black hover:bg-emerald-200'}`}><MicIcon stop={recording} /></button>
+                  <div><p className="text-sm font-medium" style={{ color: 'var(--ed-text-dark)' }}>{transcribing ? 'Creating the accurate transcript…' : recording ? 'Listening… tap stop when finished' : voiceAvailable ? 'Answer by voice' : 'Voice unavailable'}</p><p className="mt-0.5 text-[11px]" style={{ color: 'var(--ed-text-faint)' }}>{recording ? `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}${voiceMode === 'browser' ? ' · say “comma”, “full stop”, or “new paragraph”' : ' · audio uploads only after you tap stop'}` : voiceMode === 'openai' ? 'Better word accuracy and punctuation; uses OpenAI API credits' : browserSpeechAvailable ? 'Free browser dictation; choose your speech language below' : 'Type your answer in this browser'}</p></div>
+                </div>
+                <div className="flex items-center justify-between gap-4 sm:justify-end"><span className="text-[11px]" style={{ color: 'var(--ed-text-faint)' }}>{words} words</span><button type="button" disabled={answer.trim().length < 20 || loading || recording || transcribing || serviceStatus !== 'ready'} onClick={submitAnswer} className="btn-press inline-flex min-w-32 items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30" style={ctaStyle}>{loading ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />Thinking</> : questionIndex === questionCount - 1 ? <>Build my plan <ArrowIcon /></> : <>Continue <ArrowIcon /></>}</button></div>
               </div>
-              <div className="flex items-center justify-between gap-4 sm:justify-end"><span className="text-[11px]" style={{ color: 'var(--ed-text-faint)' }}>{words} words</span><button type="button" disabled={answer.trim().length < 20 || loading} onClick={submitAnswer} className="btn-press inline-flex min-w-32 items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30" style={ctaStyle}>{loading ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />Thinking</> : questionIndex === questionCount - 1 ? <>Build my plan <ArrowIcon /></> : <>Continue <ArrowIcon /></>}</button></div>
+              {(browserSpeechAvailable || recordedSpeechAvailable) && <div className="mt-4 flex flex-wrap items-end gap-3 border-t pt-4" style={{ borderColor: 'var(--ed-border)' }}>
+                <fieldset disabled={recording || loading || transcribing} className="min-w-0"><legend className="text-[11px] font-medium" style={{ color: 'var(--ed-text-secondary)' }}>Voice mode</legend><div className="mt-1 flex flex-wrap gap-2"><label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border bg-white px-3 text-xs" style={{ borderColor: voiceMode === 'browser' ? '#34d399' : 'var(--ed-border)', color: 'var(--ed-text-dark)' }}><input type="radio" name="voice-mode" value="browser" checked={voiceMode === 'browser'} onChange={() => setVoiceMode('browser')} /> Browser · no API cost</label><label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border bg-white px-3 text-xs" style={{ borderColor: voiceMode === 'openai' ? '#34d399' : 'var(--ed-border)', color: 'var(--ed-text-dark)' }}><input type="radio" name="voice-mode" value="openai" checked={voiceMode === 'openai'} onChange={() => setVoiceMode('openai')} /> Higher accuracy · uses API credits</label></div></fieldset>
+                <label className="text-[11px] font-medium" style={{ color: 'var(--ed-text-secondary)' }}>Speech language<span className="mt-1 block"><select aria-label="Speech language" disabled={recording || loading} value={speechLanguage} onChange={event => setSpeechLanguage(event.target.value)} className="min-h-11 rounded-lg border bg-white px-3 text-xs" style={{ borderColor: 'var(--ed-border)', color: 'var(--ed-text-dark)' }}>{speechLanguageOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></span></label>
+                {answer.trim() && !recording && <button type="button" onClick={cleanTranscript} disabled={loading} className="min-h-11 rounded-full border px-4 py-2 text-xs font-semibold hover:bg-white disabled:opacity-40" style={{ borderColor: 'var(--ed-border)', color: 'var(--ed-text-secondary)' }}>Clean punctuation</button>}
+              </div>}
+              {speechAlternatives.length > 0 && !recording && <div className="mt-4 border-t pt-4" style={{ borderColor: 'var(--ed-border)' }}><p className="text-[11px] font-semibold" style={{ color: 'var(--ed-text-secondary)' }}>Did Chrome mishear the last phrase? Try an alternative:</p><div className="mt-2 flex flex-wrap gap-2">{speechAlternatives.map((alternative, index) => <button type="button" key={alternative} onClick={() => selectSpeechAlternative(alternative)} className="min-h-11 max-w-full rounded-xl border bg-white px-3 py-2 text-left text-xs leading-relaxed [overflow-wrap:anywhere]" style={{ borderColor: 'var(--ed-border)', color: 'var(--ed-text-secondary)' }}>Alternative {index + 1}: {alternative}</button>)}</div></div>}
             </div>
           </div>
-          <p className="mt-3 text-[11px]" style={{ color: 'var(--ed-text-light)' }}>Long answers are welcome. You can edit the transcript before continuing.</p>
+          <p className="mt-3 text-[11px]" style={{ color: 'var(--ed-text-light)' }}>{voiceMode === 'openai' ? 'Higher-accuracy mode uploads this recording to OpenAI for transcription after you stop; the site does not save the audio.' : 'Browser mode uses your browser’s speech service and makes no OpenAI transcription call.'} Always review names and technical terms before continuing.</p>
         </div>
       </div>
       {notice && <div role="status" className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-full px-4 py-2 text-sm font-medium shadow-xl" style={ctaStyle}>{notice}</div>}
