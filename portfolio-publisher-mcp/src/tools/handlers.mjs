@@ -1199,6 +1199,132 @@ async function listStagedLabCardPatches(projects, source) {
   };
 }
 
+function parseStagedLabCard(handoffContent) {
+  const snippet = handoffContent.match(/## Lab card object\s+```ts\n([\s\S]*?)\n```/)?.[1];
+  if (!snippet) return null;
+
+  const stringValue = (property) => {
+    const match = snippet.match(new RegExp(`^\\s*${property}: ("(?:\\\\.|[^"\\\\])*")`, "m"));
+    if (!match) return "";
+    try {
+      return JSON.parse(match[1]);
+    } catch {
+      return "";
+    }
+  };
+  const icon = snippet.match(/^\s*Icon: ([A-Za-z_$][\w$]*),?$/m)?.[1] ?? "";
+
+  return {
+    name: stringValue("name"),
+    tagline: stringValue("tagline"),
+    image: stringValue("image"),
+    url: stringValue("url"),
+    status: stringValue("status"),
+    icon,
+  };
+}
+
+async function rehearseStagedLabCardPublish(projects, projectName, source) {
+  const validation = await validateStagedLabCardPatch(projects, projectName, source);
+  const base = {
+    generatedAt: new Date().toISOString(),
+    previewOnly: true,
+    sourceFilesChanged: false,
+    projectName: validation.projectName ?? normalizeDraftValue(projectName),
+    slug: validation.slug ?? slugifyProjectName(projectName),
+    stagedStatus: validation.status,
+    reviewReady: validation.reviewReady,
+    patchFile: validation.patchFile ?? null,
+    handoffFile: validation.handoffFile ?? null,
+    issues: validation.issues ?? [],
+    warnings: validation.warnings ?? [],
+  };
+
+  if (!validation.reviewReady) {
+    return {
+      ...base,
+      rehearsalStatus: validation.status,
+      publishReadyAfterApply: false,
+      readinessBlockers: [],
+      ownerNextStep: validation.ownerNextStep ?? "Stage and validate a fresh Lab card patch before rehearsing publish.",
+      sequence: [
+        `Stage a fresh patch for ${base.projectName || "this project"}.`,
+        "Run rehearse_staged_lab_card_publish again.",
+      ],
+    };
+  }
+
+  const handoffPath = path.join(paths.repoRoot, validation.handoffFile);
+  const handoffContent = await fs.readFile(assertSafeRead(handoffPath), "utf8");
+  const labCard = parseStagedLabCard(handoffContent);
+  if (!labCard?.name || !labCard.tagline) {
+    return {
+      ...base,
+      rehearsalStatus: "invalid",
+      reviewReady: false,
+      publishReadyAfterApply: false,
+      issues: [...base.issues, "Staged handoff Lab card could not be parsed for current readiness checks."],
+      readinessBlockers: [],
+      ownerNextStep: "Stage a fresh Lab card patch, then rehearse it again.",
+      sequence: ["Stage a fresh patch.", "Run rehearse_staged_lab_card_publish again."],
+    };
+  }
+
+  const [readinessResult, asset, iconInventory] = await Promise.all([
+    computeReadinessChecks([labCard]),
+    getProjectAssetStatus(labCard),
+    inspectLabThumbnailIcons([...projects, labCard], source),
+  ]);
+  const readiness = readinessResult.checks[0];
+  const iconBlockers = [];
+  if (!labCard.icon) iconBlockers.push("Missing Lab thumbnail icon component.");
+  else {
+    if (iconInventory.missingImports.includes(labCard.icon)) {
+      iconBlockers.push(`Lab thumbnail icon is not imported on the Lab page: ${labCard.icon}`);
+    }
+    if (iconInventory.missingExports.includes(labCard.icon)) {
+      iconBlockers.push(`Lab thumbnail icon is not exported from LabThumbnails.tsx: ${labCard.icon}`);
+    }
+  }
+  const readinessBlockers = [...readiness.blockers, ...iconBlockers];
+  const publishReadyAfterApply = readinessBlockers.length === 0;
+
+  return {
+    ...base,
+    rehearsalStatus: publishReadyAfterApply ? "ready" : "needs-prep",
+    publishReadyAfterApply,
+    labCard,
+    readiness: {
+      route: readiness.route,
+      asset,
+      icon: {
+        name: labCard.icon || null,
+        imported: Boolean(labCard.icon) && !iconInventory.missingImports.includes(labCard.icon),
+        exported: Boolean(labCard.icon) && !iconInventory.missingExports.includes(labCard.icon),
+      },
+    },
+    readinessBlockers,
+    reviewTokenIssued: false,
+    ownerNextStep: publishReadyAfterApply
+      ? "Review the staged files, validate once more for a fresh review token, then use controlled apply."
+      : "Complete the listed route, screenshot, or icon prep and stage a fresh publish-ready handoff.",
+    sequence: publishReadyAfterApply
+      ? [
+          `Call validate_staged_lab_card_patch with projectName: ${validation.projectName}.`,
+          "Review the returned checksums, staged handoff, and patch; keep the fresh reviewToken private to this apply step.",
+          `Call apply_staged_lab_card_patch with projectName: ${validation.projectName}, the fresh reviewToken, and confirm: true.`,
+          "Run: cd portfolio-publisher-mcp && npm run smoke",
+          "Review git status and the Lab page diff before committing.",
+        ]
+      : [
+          "Complete every readiness blocker listed by this rehearsal.",
+          `Stage a fresh publish-ready patch for ${validation.projectName}.`,
+          "Run rehearse_staged_lab_card_publish again.",
+        ],
+    verificationCommand: "cd portfolio-publisher-mcp && npm run smoke",
+  };
+}
+
 async function applyStagedLabCardPatch(projects, args, source) {
   if (args.confirm !== true) {
     return {
@@ -1971,6 +2097,11 @@ export async function callTool(name, args = {}) {
   if (name === "validate_staged_lab_card_patch") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await validateStagedLabCardPatch(projects, args.projectName, source));
+  }
+
+  if (name === "rehearse_staged_lab_card_publish") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await rehearseStagedLabCardPublish(projects, args.projectName, source));
   }
 
   if (name === "apply_staged_lab_card_patch") {

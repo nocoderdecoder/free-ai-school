@@ -281,6 +281,23 @@ export const tools = [
     },
   },
   {
+    name: "rehearse_staged_lab_card_publish",
+    title: "Rehearse Staged Lab Card Publish",
+    description:
+      "Run a read-only rehearsal for one staged Lab card using current patch, route, screenshot, and icon readiness.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "Project name used when the Lab card patch was staged.",
+        },
+      },
+      required: ["projectName"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "apply_staged_lab_card_patch",
     title: "Apply Staged Lab Card Patch",
     description:

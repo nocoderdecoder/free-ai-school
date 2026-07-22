@@ -290,6 +290,53 @@ try {
 } finally {
   await fs.rm(orphanInventoryPatchUrl, { force: true });
 }
+const readyPatchUrl = new URL("../generated/website-change-monitor-ready-lab-card.patch", import.meta.url);
+const readyHandoffUrl = new URL("../generated/website-change-monitor-ready-lab-card.md", import.meta.url);
+await fs.writeFile(readyScreenshotUrl, "smoke fixture", "utf8");
+const [labSourceBeforeRehearsal, patchBeforeRehearsal, handoffBeforeRehearsal] = await Promise.all([
+  fs.readFile(labPageUrl, "utf8"),
+  fs.readFile(readyPatchUrl, "utf8"),
+  fs.readFile(readyHandoffUrl, "utf8"),
+]);
+send(49, "tools/call", {
+  name: "rehearse_staged_lab_card_publish",
+  arguments: { projectName: "Website Change Monitor Ready" },
+});
+send(50, "tools/call", {
+  name: "rehearse_staged_lab_card_publish",
+  arguments: { projectName: "Never Staged Project" },
+});
+send(51, "tools/call", { name: "rehearse_staged_lab_card_publish", arguments: {} });
+await Promise.all([waitForResponse(49), waitForResponse(50), waitForResponse(51)]);
+send(52, "tools/call", {
+  name: "stage_lab_card_patch_artifact",
+  arguments: {
+    name: "Rehearsal Needs Prep",
+    tagline: "Smoke fixture for live rehearsal blockers",
+    allowNeedsPrep: true,
+  },
+});
+await waitForResponse(52);
+send(53, "tools/call", {
+  name: "rehearse_staged_lab_card_publish",
+  arguments: { projectName: "Rehearsal Needs Prep" },
+});
+await waitForResponse(53);
+send(54, "tools/call", {
+  name: "discard_staged_lab_card_patch",
+  arguments: { projectName: "Rehearsal Needs Prep", confirm: true },
+});
+await waitForResponse(54);
+const [labSourceAfterRehearsal, patchAfterRehearsal, handoffAfterRehearsal] = await Promise.all([
+  fs.readFile(labPageUrl, "utf8"),
+  fs.readFile(readyPatchUrl, "utf8"),
+  fs.readFile(readyHandoffUrl, "utf8"),
+]);
+const rehearsalReadOnlyOk =
+  labSourceAfterRehearsal === labSourceBeforeRehearsal &&
+  patchAfterRehearsal === patchBeforeRehearsal &&
+  handoffAfterRehearsal === handoffBeforeRehearsal;
+await fs.rm(readyScreenshotUrl, { force: true });
 server.kill();
 await once(server, "exit");
 
@@ -703,6 +750,53 @@ const stagedInventoryOk =
     item.handoffFile === null &&
     item.issues?.some((issue) => issue.includes("Markdown handoff"))
   );
+const readyRehearsal = JSON.parse(responseById.get(49)?.result?.content?.[0]?.text ?? "{}");
+const readyRehearsalOk =
+  readyRehearsal?.previewOnly === true &&
+  readyRehearsal?.sourceFilesChanged === false &&
+  readyRehearsal?.rehearsalStatus === "ready" &&
+  readyRehearsal?.stagedStatus === "ready" &&
+  readyRehearsal?.reviewReady === true &&
+  readyRehearsal?.publishReadyAfterApply === true &&
+  readyRehearsal?.projectName === "Website Change Monitor Ready" &&
+  readyRehearsal?.labCard?.icon === "PromptGradeIcon" &&
+  readyRehearsal?.readiness?.route?.status === "external-url-not-checked" &&
+  readyRehearsal?.readiness?.asset?.exists === true &&
+  readyRehearsal?.readiness?.icon?.imported === true &&
+  readyRehearsal?.readiness?.icon?.exported === true &&
+  readyRehearsal?.readinessBlockers?.length === 0 &&
+  readyRehearsal?.reviewTokenIssued === false &&
+  !("reviewToken" in readyRehearsal) &&
+  readyRehearsal?.sequence?.some((step) => step.includes("validate_staged_lab_card_patch")) &&
+  readyRehearsal?.sequence?.some((step) => step.includes("apply_staged_lab_card_patch")) &&
+  readyRehearsal?.verificationCommand === "cd portfolio-publisher-mcp && npm run smoke" &&
+  rehearsalReadOnlyOk;
+const missingRehearsal = JSON.parse(responseById.get(50)?.result?.content?.[0]?.text ?? "{}");
+const missingRehearsalOk =
+  missingRehearsal?.previewOnly === true &&
+  missingRehearsal?.sourceFilesChanged === false &&
+  missingRehearsal?.rehearsalStatus === "missing" &&
+  missingRehearsal?.reviewReady === false &&
+  missingRehearsal?.publishReadyAfterApply === false &&
+  missingRehearsal?.issues?.some((issue) => issue.includes("missing"));
+const rehearsalArgValidationOk = responseById.get(51)?.result?.isError === true;
+const needsPrepRehearsal = JSON.parse(responseById.get(53)?.result?.content?.[0]?.text ?? "{}");
+const needsPrepRehearsalCleanup = JSON.parse(responseById.get(54)?.result?.content?.[0]?.text ?? "{}");
+const needsPrepRehearsalOk =
+  needsPrepRehearsal?.previewOnly === true &&
+  needsPrepRehearsal?.sourceFilesChanged === false &&
+  needsPrepRehearsal?.rehearsalStatus === "needs-prep" &&
+  needsPrepRehearsal?.reviewReady === true &&
+  needsPrepRehearsal?.publishReadyAfterApply === false &&
+  needsPrepRehearsal?.readiness?.route?.status === "missing-route-file" &&
+  needsPrepRehearsal?.readiness?.asset?.exists === false &&
+  needsPrepRehearsal?.readiness?.icon?.imported === false &&
+  needsPrepRehearsal?.readiness?.icon?.exported === false &&
+  needsPrepRehearsal?.readinessBlockers?.some((blocker) => blocker.includes("Local route file not found")) &&
+  needsPrepRehearsal?.readinessBlockers?.some((blocker) => blocker.includes("Screenshot file not found")) &&
+  needsPrepRehearsal?.readinessBlockers?.some((blocker) => blocker.includes("not imported")) &&
+  needsPrepRehearsal?.readinessBlockers?.some((blocker) => blocker.includes("not exported")) &&
+  needsPrepRehearsalCleanup?.discarded === true;
 
 console.log(JSON.stringify({
   failed,
@@ -744,6 +838,11 @@ console.log(JSON.stringify({
   stagedDiscardOk,
   stagedInventoryOk,
   stagedInventoryArgValidationOk,
+  readyRehearsalOk,
+  missingRehearsalOk,
+  rehearsalArgValidationOk,
+  needsPrepRehearsalOk,
+  rehearsalReadOnlyOk,
 }, null, 2));
 
 if (
@@ -785,6 +884,11 @@ if (
   || !stagedDiscardOk
   || !stagedInventoryOk
   || !stagedInventoryArgValidationOk
+  || !readyRehearsalOk
+  || !missingRehearsalOk
+  || !rehearsalArgValidationOk
+  || !needsPrepRehearsalOk
+  || !rehearsalReadOnlyOk
 ) {
   process.exitCode = 1;
 }
