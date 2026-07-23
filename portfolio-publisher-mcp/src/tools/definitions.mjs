@@ -256,7 +256,7 @@ export const tools = [
     name: "list_staged_lab_card_patches",
     title: "List Staged Lab Card Patches",
     description:
-      "List staged Lab card patch artifacts, including review status, publish readiness, and incomplete file pairs.",
+      "List staged Lab card patch artifacts with current live route, screenshot, and icon readiness plus incomplete file pairs.",
     inputSchema: {
       type: "object",
       properties: {},

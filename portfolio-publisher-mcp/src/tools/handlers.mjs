@@ -1167,20 +1167,31 @@ async function listStagedLabCardPatches(projects, source) {
     }
 
     const validation = await validateStagedLabCardPatch(projects, projectName, source);
-    const publishReadyAfterApply = /- Publish ready after apply: Yes\s*$/m.test(handoffContent);
+    const handoffPublishReadyAfterApply = /- Publish ready after apply: Yes\s*$/m.test(handoffContent);
+    const labCard = validation.reviewReady ? parseStagedLabCard(handoffContent) : null;
+    const liveReadiness = labCard?.name && labCard.tagline
+      ? await inspectStagedLabCardReadiness(projects, labCard, source)
+      : null;
+    const publishReadyAfterApply = validation.reviewReady && liveReadiness?.publishReadyAfterApply === true;
+    const readinessBlockers = liveReadiness?.readinessBlockers ?? [];
     items.push({
       slug,
       projectName,
       status: validation.status,
       reviewReady: validation.reviewReady,
       publishReadyAfterApply,
+      handoffPublishReadyAfterApply,
+      readiness: liveReadiness?.readiness ?? null,
+      readinessBlockers,
       patchFile,
       handoffFile,
       issues: validation.issues,
       warnings: validation.warnings,
       ownerNextStep: publishReadyAfterApply && validation.reviewReady
-        ? "Review this publish-ready handoff and patch before controlled apply."
-        : validation.ownerNextStep,
+        ? "Review this currently publish-ready handoff and patch before controlled apply."
+        : validation.reviewReady && readinessBlockers.length > 0
+          ? "Complete the listed live readiness blockers, then review and validate this staged patch before controlled apply."
+          : validation.ownerNextStep,
     });
   }
 
@@ -1195,7 +1206,7 @@ async function listStagedLabCardPatches(projects, source) {
     items,
     ownerNextStep: items.length === 0
       ? "Stage a Lab card patch when a project is ready for owner review."
-      : "Review publish-ready items first; restage stale or invalid items and discard incomplete artifacts.",
+      : "Review currently publish-ready items first; complete live readiness blockers, restage stale or invalid items, and discard incomplete artifacts.",
   };
 }
 

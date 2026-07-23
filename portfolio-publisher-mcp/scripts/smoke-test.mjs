@@ -332,7 +332,8 @@ send(54, "tools/call", {
   name: "discard_staged_lab_card_patch",
   arguments: { projectName: "Rehearsal Needs Prep", confirm: true },
 });
-await waitForResponse(54);
+send(56, "tools/call", { name: "list_staged_lab_card_patches", arguments: {} });
+await Promise.all([waitForResponse(54), waitForResponse(56)]);
 const [labSourceAfterRehearsal, patchAfterRehearsal, handoffAfterRehearsal] = await Promise.all([
   fs.readFile(labPageUrl, "utf8"),
   fs.readFile(readyPatchUrl, "utf8"),
@@ -751,6 +752,9 @@ const stagedInventoryOk =
     item.status === "ready" &&
     item.reviewReady === true &&
     item.publishReadyAfterApply === false &&
+    item.handoffPublishReadyAfterApply === false &&
+    item.readiness?.asset?.exists === false &&
+    item.readinessBlockers?.some((blocker) => blocker.includes("Screenshot file not found")) &&
     item.patchFile === "portfolio-publisher-mcp/generated/website-change-monitor-ready-lab-card.patch" &&
     item.handoffFile === "portfolio-publisher-mcp/generated/website-change-monitor-ready-lab-card.md"
   ) &&
@@ -761,6 +765,22 @@ const stagedInventoryOk =
     item.patchFile === "portfolio-publisher-mcp/generated/inventory-orphan-lab-card.patch" &&
     item.handoffFile === null &&
     item.issues?.some((issue) => issue.includes("Markdown handoff"))
+  );
+const liveStagedInventory = JSON.parse(responseById.get(56)?.result?.content?.[0]?.text ?? "{}");
+const liveStagedInventoryOk =
+  liveStagedInventory?.publishReady === 1 &&
+  liveStagedInventory?.items?.some((item) =>
+    item.slug === "website-change-monitor-ready" &&
+    item.status === "ready" &&
+    item.reviewReady === true &&
+    item.publishReadyAfterApply === true &&
+    item.handoffPublishReadyAfterApply === false &&
+    item.readiness?.route?.status === "external-url-not-checked" &&
+    item.readiness?.asset?.exists === true &&
+    item.readiness?.icon?.imported === true &&
+    item.readiness?.icon?.exported === true &&
+    item.readinessBlockers?.length === 0 &&
+    item.ownerNextStep?.includes("currently publish-ready")
   );
 const readyRehearsal = JSON.parse(responseById.get(49)?.result?.content?.[0]?.text ?? "{}");
 const readyRehearsalOk =
@@ -849,6 +869,7 @@ console.log(JSON.stringify({
   controlledApplyOk,
   stagedDiscardOk,
   stagedInventoryOk,
+  liveStagedInventoryOk,
   stagedInventoryArgValidationOk,
   readyRehearsalOk,
   missingRehearsalOk,
@@ -895,6 +916,7 @@ if (
   || !controlledApplyOk
   || !stagedDiscardOk
   || !stagedInventoryOk
+  || !liveStagedInventoryOk
   || !stagedInventoryArgValidationOk
   || !readyRehearsalOk
   || !missingRehearsalOk
