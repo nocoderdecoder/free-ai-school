@@ -206,7 +206,6 @@ const originalLabSource = await fs.readFile(labPageUrl, "utf8");
 let restoredLabSource = false;
 try {
   await fs.mkdir(new URL("../../public/projects/", import.meta.url), { recursive: true });
-  await fs.writeFile(readyScreenshotUrl, "smoke fixture", "utf8");
   send(36, "tools/call", {
     name: "stage_lab_card_patch_artifact",
     arguments: {
@@ -215,6 +214,7 @@ try {
       url: "https://ratemyprompt.pro",
       image: "/projects/website-change-monitor-ready.png",
       icon: "PromptGradeIcon",
+      allowNeedsPrep: true,
     },
   });
   await waitForResponse(36);
@@ -242,6 +242,12 @@ try {
     arguments: { projectName: "Website Change Monitor Ready", reviewToken: readyValidation.reviewToken, confirm: true },
   });
   await waitForResponse(40);
+  await fs.writeFile(readyScreenshotUrl, "smoke fixture", "utf8");
+  send(55, "tools/call", {
+    name: "apply_staged_lab_card_patch",
+    arguments: { projectName: "Website Change Monitor Ready", reviewToken: readyValidation.reviewToken, confirm: true },
+  });
+  await waitForResponse(55);
   send(41, "tools/call", {
     name: "apply_staged_lab_card_patch",
     arguments: { projectName: "Website Change Monitor Ready", reviewToken: readyValidation.reviewToken, confirm: true },
@@ -688,18 +694,24 @@ const readyStage = JSON.parse(responseById.get(36)?.result?.content?.[0]?.text ?
 const readyValidation = JSON.parse(responseById.get(37)?.result?.content?.[0]?.text ?? "{}");
 const lockedApply = JSON.parse(responseById.get(38)?.result?.content?.[0]?.text ?? "{}");
 const tokenMismatchApply = JSON.parse(responseById.get(39)?.result?.content?.[0]?.text ?? "{}");
-const successfulApply = JSON.parse(responseById.get(40)?.result?.content?.[0]?.text ?? "{}");
+const prepRequiredApply = JSON.parse(responseById.get(40)?.result?.content?.[0]?.text ?? "{}");
+const successfulApply = JSON.parse(responseById.get(55)?.result?.content?.[0]?.text ?? "{}");
 const replayApply = JSON.parse(responseById.get(41)?.result?.content?.[0]?.text ?? "{}");
 const unconfirmedApply = JSON.parse(responseById.get(42)?.result?.content?.[0]?.text ?? "{}");
 const controlledApplyOk =
-  readyStage?.publishReadyAfterApply === true &&
+  readyStage?.publishReadyAfterApply === false &&
   readyValidation?.status === "ready" &&
   lockedApply?.applied === false &&
   lockedApply?.status === "apply-locked" &&
   tokenMismatchApply?.applied === false &&
   tokenMismatchApply?.status === "token-mismatch" &&
+  prepRequiredApply?.applied === false &&
+  prepRequiredApply?.status === "prep-required" &&
+  prepRequiredApply?.issues?.some((issue) => issue.includes("Screenshot file not found")) &&
+  prepRequiredApply?.readiness?.asset?.exists === false &&
   successfulApply?.applied === true &&
   successfulApply?.status === "applied" &&
+  successfulApply?.readinessVerifiedUnderLock === true &&
   successfulApply?.targetFile === "app/lab/page.tsx" &&
   /^[a-f0-9]{64}$/.test(successfulApply?.sourceSha256 ?? "") &&
   replayApply?.applied === false &&
@@ -728,7 +740,7 @@ const stagedInventoryOk =
   stagedInventory?.complete >= 1 &&
   stagedInventory?.incomplete >= 1 &&
   stagedInventory?.reviewReady >= 1 &&
-  stagedInventory?.publishReady >= 1 &&
+  stagedInventory?.publishReady === 0 &&
   Array.isArray(stagedInventory?.items) &&
   stagedInventory.items.every((item, index, items) =>
     index === 0 || items[index - 1].slug.localeCompare(item.slug) <= 0
@@ -738,7 +750,7 @@ const stagedInventoryOk =
     item.projectName === "Website Change Monitor Ready" &&
     item.status === "ready" &&
     item.reviewReady === true &&
-    item.publishReadyAfterApply === true &&
+    item.publishReadyAfterApply === false &&
     item.patchFile === "portfolio-publisher-mcp/generated/website-change-monitor-ready-lab-card.patch" &&
     item.handoffFile === "portfolio-publisher-mcp/generated/website-change-monitor-ready-lab-card.md"
   ) &&

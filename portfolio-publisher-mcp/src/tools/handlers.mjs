@@ -1224,6 +1224,40 @@ function parseStagedLabCard(handoffContent) {
   };
 }
 
+async function inspectStagedLabCardReadiness(projects, labCard, source) {
+  const [readinessResult, asset, iconInventory] = await Promise.all([
+    computeReadinessChecks([labCard]),
+    getProjectAssetStatus(labCard),
+    inspectLabThumbnailIcons([...projects, labCard], source),
+  ]);
+  const readiness = readinessResult.checks[0];
+  const iconBlockers = [];
+  if (!labCard.icon) iconBlockers.push("Missing Lab thumbnail icon component.");
+  else {
+    if (iconInventory.missingImports.includes(labCard.icon)) {
+      iconBlockers.push(`Lab thumbnail icon is not imported on the Lab page: ${labCard.icon}`);
+    }
+    if (iconInventory.missingExports.includes(labCard.icon)) {
+      iconBlockers.push(`Lab thumbnail icon is not exported from LabThumbnails.tsx: ${labCard.icon}`);
+    }
+  }
+
+  const readinessBlockers = [...readiness.blockers, ...iconBlockers];
+  return {
+    publishReadyAfterApply: readinessBlockers.length === 0,
+    readiness: {
+      route: readiness.route,
+      asset,
+      icon: {
+        name: labCard.icon || null,
+        imported: Boolean(labCard.icon) && !iconInventory.missingImports.includes(labCard.icon),
+        exported: Boolean(labCard.icon) && !iconInventory.missingExports.includes(labCard.icon),
+      },
+    },
+    readinessBlockers,
+  };
+}
+
 async function rehearseStagedLabCardPublish(projects, projectName, source) {
   const validation = await validateStagedLabCardPatch(projects, projectName, source);
   const base = {
@@ -1270,39 +1304,15 @@ async function rehearseStagedLabCardPublish(projects, projectName, source) {
     };
   }
 
-  const [readinessResult, asset, iconInventory] = await Promise.all([
-    computeReadinessChecks([labCard]),
-    getProjectAssetStatus(labCard),
-    inspectLabThumbnailIcons([...projects, labCard], source),
-  ]);
-  const readiness = readinessResult.checks[0];
-  const iconBlockers = [];
-  if (!labCard.icon) iconBlockers.push("Missing Lab thumbnail icon component.");
-  else {
-    if (iconInventory.missingImports.includes(labCard.icon)) {
-      iconBlockers.push(`Lab thumbnail icon is not imported on the Lab page: ${labCard.icon}`);
-    }
-    if (iconInventory.missingExports.includes(labCard.icon)) {
-      iconBlockers.push(`Lab thumbnail icon is not exported from LabThumbnails.tsx: ${labCard.icon}`);
-    }
-  }
-  const readinessBlockers = [...readiness.blockers, ...iconBlockers];
-  const publishReadyAfterApply = readinessBlockers.length === 0;
+  const liveReadiness = await inspectStagedLabCardReadiness(projects, labCard, source);
+  const { publishReadyAfterApply, readinessBlockers } = liveReadiness;
 
   return {
     ...base,
     rehearsalStatus: publishReadyAfterApply ? "ready" : "needs-prep",
     publishReadyAfterApply,
     labCard,
-    readiness: {
-      route: readiness.route,
-      asset,
-      icon: {
-        name: labCard.icon || null,
-        imported: Boolean(labCard.icon) && !iconInventory.missingImports.includes(labCard.icon),
-        exported: Boolean(labCard.icon) && !iconInventory.missingExports.includes(labCard.icon),
-      },
-    },
+    readiness: liveReadiness.readiness,
     readinessBlockers,
     reviewTokenIssued: false,
     ownerNextStep: publishReadyAfterApply
@@ -1318,8 +1328,8 @@ async function rehearseStagedLabCardPublish(projects, projectName, source) {
         ]
       : [
           "Complete every readiness blocker listed by this rehearsal.",
-          `Stage a fresh publish-ready patch for ${validation.projectName}.`,
           "Run rehearse_staged_lab_card_publish again.",
+          `Validate ${validation.projectName} again for a fresh review token, then use controlled apply.`,
         ],
     verificationCommand: "cd portfolio-publisher-mcp && npm run smoke",
   };
@@ -1359,20 +1369,6 @@ async function applyStagedLabCardPatch(projects, args, source) {
     };
   }
 
-  const handoffPath = path.join(paths.repoRoot, validation.handoffFile);
-  const handoffContent = await fs.readFile(assertSafeRead(handoffPath), "utf8");
-  if (!handoffContent.includes("- Publish ready after apply: Yes")) {
-    return {
-      applied: false,
-      status: "prep-required",
-      issues: ["Controlled apply only accepts patches with route, screenshot, and icon prep complete."],
-    };
-  }
-  const handoffCard = handoffContent.match(/## Lab card object\s+```ts\n([\s\S]*?)\n```/)?.[1];
-  if (!handoffCard) {
-    return { applied: false, status: "invalid", issues: ["Staged handoff is missing the Lab card object."] };
-  }
-
   const target = assertSafeLabPageWrite(paths.labPage);
   const lockPath = `${target}.portfolio-publisher.lock`;
   const tempPath = `${target}.portfolio-publisher-${process.pid}.tmp`;
@@ -1396,7 +1392,17 @@ async function applyStagedLabCardPatch(projects, args, source) {
     }
 
     latestSource = await readLabSource();
-    const patchPath = path.join(paths.repoRoot, validation.patchFile);
+    const latestProjects = await listLabProjects();
+    const lockedValidation = await validateStagedLabCardPatch(latestProjects, args.projectName, latestSource);
+    if (!lockedValidation.reviewReady || lockedValidation.status !== "ready") {
+      return {
+        applied: false,
+        status: lockedValidation.status,
+        issues: lockedValidation.issues,
+        warnings: lockedValidation.warnings,
+      };
+    }
+    const patchPath = path.join(paths.repoRoot, lockedValidation.patchFile);
     const patchContent = await fs.readFile(assertSafeRead(patchPath), "utf8");
     if (sha256(`${patchContent}\0${latestSource}`) !== args.reviewToken) {
       return {
@@ -1406,7 +1412,24 @@ async function applyStagedLabCardPatch(projects, args, source) {
       };
     }
 
-    const insertionLine = validation.insertionLine;
+    const handoffPath = path.join(paths.repoRoot, lockedValidation.handoffFile);
+    const handoffContent = await fs.readFile(assertSafeRead(handoffPath), "utf8");
+    const handoffCard = handoffContent.match(/## Lab card object\s+```ts\n([\s\S]*?)\n```/)?.[1];
+    const labCard = parseStagedLabCard(handoffContent);
+    if (!handoffCard || !labCard?.name || !labCard.tagline) {
+      return { applied: false, status: "invalid", issues: ["Staged handoff is missing a valid Lab card object."] };
+    }
+    const liveReadiness = await inspectStagedLabCardReadiness(latestProjects, labCard, latestSource);
+    if (!liveReadiness.publishReadyAfterApply) {
+      return {
+        applied: false,
+        status: "prep-required",
+        issues: liveReadiness.readinessBlockers,
+        readiness: liveReadiness.readiness,
+      };
+    }
+
+    const insertionLine = lockedValidation.insertionLine;
     const lines = latestSource.split("\n");
     if (!lines[insertionLine - 1]?.includes("const projects = [")) {
       return { applied: false, status: "stale", issues: ["The Lab insertion point changed after review."] };
@@ -1433,9 +1456,10 @@ async function applyStagedLabCardPatch(projects, args, source) {
     return {
       applied: true,
       status: "applied",
-      projectName: validation.projectName,
-      slug: validation.slug,
-      targetFile: validation.targetFile,
+      projectName: lockedValidation.projectName,
+      slug: lockedValidation.slug,
+      targetFile: lockedValidation.targetFile,
+      readinessVerifiedUnderLock: true,
       sourceSha256: sha256(nextSource),
       stagedArtifactsRetained: true,
       ownerNextStep: "Review the Lab page diff, run npm run smoke, then commit intentionally.",
