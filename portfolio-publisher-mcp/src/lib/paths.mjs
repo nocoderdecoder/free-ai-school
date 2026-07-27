@@ -3,10 +3,18 @@ import { fileURLToPath } from "node:url";
 
 const serverDir = path.dirname(fileURLToPath(import.meta.url));
 const projectDir = path.resolve(serverDir, "..", "..");
-const repoRoot = path.resolve(projectDir, "..");
+const configuredRepoRoot = process.env.NODE_ENV === "test"
+  ? process.env.PORTFOLIO_PUBLISHER_TEST_REPO_ROOT
+  : undefined;
+const repoRoot = configuredRepoRoot
+  ? path.resolve(configuredRepoRoot)
+  : path.resolve(projectDir, "..");
+const runtimeProjectDir = configuredRepoRoot
+  ? path.join(repoRoot, "portfolio-publisher-mcp")
+  : projectDir;
 
 export const paths = {
-  projectDir,
+  projectDir: runtimeProjectDir,
   repoRoot,
   appDir: path.join(repoRoot, "app"),
   labPage: path.join(repoRoot, "app", "lab", "page.tsx"),

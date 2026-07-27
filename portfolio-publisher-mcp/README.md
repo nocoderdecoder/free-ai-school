@@ -46,6 +46,8 @@ From this folder:
 npm run smoke
 ```
 
+The smoke command first runs focused tests against a disposable miniature repository, then runs the full MCP protocol smoke suite against the real local project. The temporary fixture verifies that controlled apply cleans up its lock and temporary file after both a prep-blocked attempt and a successful apply.
+
 To start the MCP server:
 
 ```bash
