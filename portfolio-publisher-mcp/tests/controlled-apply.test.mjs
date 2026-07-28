@@ -96,15 +96,20 @@ async function listApplyArtifacts(labPage) {
   return entries.filter((name) => name.includes(".portfolio-publisher"));
 }
 
-test("controlled apply cleans up after prep rejection and successful apply", async (t) => {
+async function createFixtureClient(t) {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "portfolio-publisher-mcp-"));
   const labPage = await writeFixture(repoRoot);
-  const originalSource = await fs.readFile(labPage, "utf8");
   const client = createClient(repoRoot);
   t.after(async () => {
     await client.close();
     await fs.rm(repoRoot, { recursive: true, force: true });
   });
+  return { repoRoot, labPage, client };
+}
+
+test("controlled apply cleans up after prep rejection and successful apply", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const originalSource = await fs.readFile(labPage, "utf8");
 
   const projectName = "Hermetic Fixture";
   const stage = await client.call("stage_lab_card_patch_artifact", {
@@ -144,4 +149,159 @@ test("controlled apply cleans up after prep rejection and successful apply", asy
   assert.equal(applied.readinessVerifiedUnderLock, true);
   assert.match(await fs.readFile(labPage, "utf8"), /name: "Hermetic Fixture"/);
   assert.deepEqual(await listApplyArtifacts(labPage), []);
+});
+
+test("staged validation rejects structural and content tampering", async (t) => {
+  const { repoRoot, client } = await createFixtureClient(t);
+  const projectName = "Tamper Fixture";
+  const stage = await client.call("stage_lab_card_patch_artifact", {
+    name: projectName,
+    tagline: "Original reviewed copy",
+    url: "https://example.com/tamper-fixture",
+    image: "/projects/tamper-fixture.png",
+    icon: "FixtureIcon",
+    allowNeedsPrep: true,
+  });
+  const patchPath = path.join(repoRoot, stage.patchFile);
+  const originalPatch = await fs.readFile(patchPath, "utf8");
+
+  await fs.writeFile(
+    patchPath,
+    `${originalPatch}@@ -1,1 +1,1 @@\n-import { FixtureIcon } from "../components/LabThumbnails";\n+import { CompromisedIcon } from "../components/LabThumbnails";\n`,
+    "utf8",
+  );
+  const structuralTamper = await client.call("validate_staged_lab_card_patch", { projectName });
+  assert.equal(structuralTamper.status, "invalid");
+  assert.equal(structuralTamper.reviewReady, false);
+  assert.ok(structuralTamper.issues.some((issue) => issue.includes("exactly one projects-array hunk")));
+  assert.ok(structuralTamper.issues.some((issue) => issue.includes("does not exactly match")));
+
+  await fs.writeFile(
+    patchPath,
+    originalPatch.replace("Original reviewed copy", "Unexpected altered copy"),
+    "utf8",
+  );
+  const contentTamper = await client.call("validate_staged_lab_card_patch", { projectName });
+  assert.equal(contentTamper.status, "invalid");
+  assert.equal(contentTamper.reviewReady, false);
+  assert.ok(contentTamper.issues.some((issue) => issue.includes("does not exactly match")));
+});
+
+test("controlled apply rejects contention, mismatched tokens, and replay", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const projectName = "Lock Fixture";
+  await client.call("stage_lab_card_patch_artifact", {
+    name: projectName,
+    tagline: "Proves the single-writer boundary",
+    url: "https://example.com/lock-fixture",
+    image: "/projects/lock-fixture.png",
+    icon: "FixtureIcon",
+    allowNeedsPrep: true,
+  });
+  const validation = await client.call("validate_staged_lab_card_patch", { projectName });
+  const lockPath = `${labPage}.portfolio-publisher.lock`;
+  await fs.writeFile(lockPath, "test lock", "utf8");
+
+  const locked = await client.call("apply_staged_lab_card_patch", {
+    projectName,
+    reviewToken: validation.reviewToken,
+    confirm: true,
+  });
+  assert.equal(locked.status, "apply-locked");
+  assert.equal(locked.applied, false);
+  await fs.rm(lockPath);
+
+  const mismatch = await client.call("apply_staged_lab_card_patch", {
+    projectName,
+    reviewToken: "0".repeat(64),
+    confirm: true,
+  });
+  assert.equal(mismatch.status, "token-mismatch");
+  assert.equal(mismatch.applied, false);
+
+  await fs.writeFile(path.join(repoRoot, "public", "projects", "lock-fixture.png"), "fixture", "utf8");
+  const applied = await client.call("apply_staged_lab_card_patch", {
+    projectName,
+    reviewToken: validation.reviewToken,
+    confirm: true,
+  });
+  assert.equal(applied.status, "applied");
+  assert.equal(applied.applied, true);
+
+  const replay = await client.call("apply_staged_lab_card_patch", {
+    projectName,
+    reviewToken: validation.reviewToken,
+    confirm: true,
+  });
+  assert.equal(replay.status, "stale");
+  assert.equal(replay.applied, false);
+  assert.deepEqual(await listApplyArtifacts(labPage), []);
+});
+
+test("rehearsal is read-only and discard only removes the staged pair", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const projectName = "Lifecycle Fixture";
+  const stage = await client.call("stage_lab_card_patch_artifact", {
+    name: projectName,
+    tagline: "Proves rehearsal and discard safety",
+    url: "https://example.com/lifecycle-fixture",
+    image: "/projects/lifecycle-fixture.png",
+    icon: "FixtureIcon",
+    allowNeedsPrep: true,
+  });
+  const patchPath = path.join(repoRoot, stage.patchFile);
+  const handoffPath = path.join(repoRoot, stage.handoffFile);
+  const before = await Promise.all([
+    fs.readFile(labPage, "utf8"),
+    fs.readFile(patchPath, "utf8"),
+    fs.readFile(handoffPath, "utf8"),
+  ]);
+
+  const needsPrep = await client.call("rehearse_staged_lab_card_publish", { projectName });
+  assert.equal(needsPrep.rehearsalStatus, "needs-prep");
+  assert.equal(needsPrep.previewOnly, true);
+  assert.equal(needsPrep.sourceFilesChanged, false);
+  assert.ok(needsPrep.readinessBlockers.some((blocker) => blocker.includes("Screenshot file not found")));
+
+  await fs.writeFile(
+    path.join(repoRoot, "public", "projects", "lifecycle-fixture.png"),
+    "fixture",
+    "utf8",
+  );
+  const ready = await client.call("rehearse_staged_lab_card_publish", { projectName });
+  assert.equal(ready.rehearsalStatus, "ready");
+  assert.equal(ready.publishReadyAfterApply, true);
+  assert.equal(ready.reviewTokenIssued, false);
+  assert.equal("reviewToken" in ready, false);
+  assert.deepEqual(await Promise.all([
+    fs.readFile(labPage, "utf8"),
+    fs.readFile(patchPath, "utf8"),
+    fs.readFile(handoffPath, "utf8"),
+  ]), before);
+
+  const unconfirmed = await client.call("discard_staged_lab_card_patch", {
+    projectName,
+    confirm: false,
+  });
+  assert.equal(unconfirmed.status, "confirmation-required");
+  assert.equal(await fs.readFile(labPage, "utf8"), before[0]);
+
+  const discarded = await client.call("discard_staged_lab_card_patch", {
+    projectName,
+    confirm: true,
+  });
+  assert.equal(discarded.status, "discarded");
+  assert.equal(discarded.discarded, true);
+  assert.equal(discarded.sourceFilesChanged, false);
+  assert.equal(discarded.filesDeleted.length, 2);
+  assert.equal(await fs.readFile(labPage, "utf8"), before[0]);
+  await assert.rejects(fs.access(patchPath), { code: "ENOENT" });
+  await assert.rejects(fs.access(handoffPath), { code: "ENOENT" });
+
+  const missing = await client.call("discard_staged_lab_card_patch", {
+    projectName,
+    confirm: true,
+  });
+  assert.equal(missing.status, "missing");
+  assert.equal(missing.discarded, false);
 });
