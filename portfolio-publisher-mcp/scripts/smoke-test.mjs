@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import fs from "node:fs/promises";
 import readline from "node:readline";
 
 const server = spawn(process.execPath, ["src/server.mjs"], {
@@ -128,14 +127,9 @@ send(29, "tools/call", {
   },
 });
 send(30, "tools/call", {
-  name: "stage_lab_card_patch_artifact",
-  arguments: {
-    name: "Website Change Monitor",
-    tagline: "Weekly website screenshot diff report",
-    allowNeedsPrep: true,
-  },
+  name: "validate_staged_lab_card_patch",
+  arguments: {},
 });
-
 await Promise.all([
   waitForResponse(7),
   waitForResponse(8),
@@ -164,186 +158,36 @@ await Promise.all([
 ]);
 send(31, "tools/call", {
   name: "validate_staged_lab_card_patch",
-  arguments: { projectName: "Website Change Monitor" },
-});
-send(32, "tools/call", { name: "validate_staged_lab_card_patch", arguments: {} });
-send(33, "tools/call", {
-  name: "validate_staged_lab_card_patch",
   arguments: { projectName: "Never Staged Project" },
 });
-await Promise.all([waitForResponse(31), waitForResponse(32), waitForResponse(33)]);
-const stagedPatchUrl = new URL("../generated/website-change-monitor-lab-card.patch", import.meta.url);
-const stagedHandoffUrl = new URL("../generated/website-change-monitor-lab-card.md", import.meta.url);
-const [originalStagedPatch, originalStagedHandoff] = await Promise.all([
-  fs.readFile(stagedPatchUrl, "utf8"),
-  fs.readFile(stagedHandoffUrl, "utf8"),
-]);
-await fs.writeFile(
-  stagedPatchUrl,
-  `${originalStagedPatch}@@ -40,1 +40,1 @@\n-export default function LabPage() {\n+export default function CompromisedLabPage() {\n`,
-  "utf8"
-);
-send(34, "tools/call", {
-  name: "validate_staged_lab_card_patch",
-  arguments: { projectName: "Website Change Monitor" },
-});
-await waitForResponse(34);
-await fs.writeFile(stagedPatchUrl, originalStagedPatch, "utf8");
-await fs.writeFile(
-  stagedPatchUrl,
-  originalStagedPatch.replace("Weekly website screenshot diff report", "Unexpected altered card copy"),
-  "utf8"
-);
-send(35, "tools/call", {
-  name: "validate_staged_lab_card_patch",
-  arguments: { projectName: "Website Change Monitor" },
-});
-await waitForResponse(35);
-await fs.writeFile(stagedPatchUrl, originalStagedPatch, "utf8");
-const labPageUrl = new URL("../../app/lab/page.tsx", import.meta.url);
-const readyScreenshotUrl = new URL("../../public/projects/website-change-monitor-ready.png", import.meta.url);
-const originalLabSource = await fs.readFile(labPageUrl, "utf8");
-let restoredLabSource = false;
-try {
-  await fs.mkdir(new URL("../../public/projects/", import.meta.url), { recursive: true });
-  send(36, "tools/call", {
-    name: "stage_lab_card_patch_artifact",
-    arguments: {
-      name: "Website Change Monitor Ready",
-      tagline: "Weekly website screenshot diff report",
-      url: "https://ratemyprompt.pro",
-      image: "/projects/website-change-monitor-ready.png",
-      icon: "PromptGradeIcon",
-      allowNeedsPrep: true,
-    },
-  });
-  await waitForResponse(36);
-  send(37, "tools/call", {
-    name: "validate_staged_lab_card_patch",
-    arguments: { projectName: "Website Change Monitor Ready" },
-  });
-  await waitForResponse(37);
-  const readyValidation = JSON.parse(responseById.get(37)?.result?.content?.[0]?.text ?? "{}");
-  const applyLockUrl = new URL("../../app/lab/page.tsx.portfolio-publisher.lock", import.meta.url);
-  await fs.writeFile(applyLockUrl, "smoke lock fixture", "utf8");
-  send(38, "tools/call", {
-    name: "apply_staged_lab_card_patch",
-    arguments: { projectName: "Website Change Monitor Ready", reviewToken: readyValidation.reviewToken, confirm: true },
-  });
-  await waitForResponse(38);
-  await fs.rm(applyLockUrl, { force: true });
-  send(39, "tools/call", {
-    name: "apply_staged_lab_card_patch",
-    arguments: { projectName: "Website Change Monitor Ready", reviewToken: "0".repeat(64), confirm: true },
-  });
-  await waitForResponse(39);
-  send(40, "tools/call", {
-    name: "apply_staged_lab_card_patch",
-    arguments: { projectName: "Website Change Monitor Ready", reviewToken: readyValidation.reviewToken, confirm: true },
-  });
-  await waitForResponse(40);
-  await fs.writeFile(readyScreenshotUrl, "smoke fixture", "utf8");
-  send(55, "tools/call", {
-    name: "apply_staged_lab_card_patch",
-    arguments: { projectName: "Website Change Monitor Ready", reviewToken: readyValidation.reviewToken, confirm: true },
-  });
-  await waitForResponse(55);
-  send(41, "tools/call", {
-    name: "apply_staged_lab_card_patch",
-    arguments: { projectName: "Website Change Monitor Ready", reviewToken: readyValidation.reviewToken, confirm: true },
-  });
-  await waitForResponse(41);
-} finally {
-  await fs.writeFile(labPageUrl, originalLabSource, "utf8");
-  await fs.rm(readyScreenshotUrl, { force: true });
-  await fs.rm(new URL("../../app/lab/page.tsx.portfolio-publisher.lock", import.meta.url), { force: true });
-  restoredLabSource = (await fs.readFile(labPageUrl, "utf8")) === originalLabSource;
-}
-const finalReadyValidation = JSON.parse(responseById.get(37)?.result?.content?.[0]?.text ?? "{}");
-send(42, "tools/call", {
+send(32, "tools/call", {
   name: "apply_staged_lab_card_patch",
   arguments: {
-    projectName: "Website Change Monitor Ready",
-    reviewToken: finalReadyValidation.reviewToken,
+    projectName: "Never Staged Project",
+    reviewToken: "0".repeat(64),
     confirm: false,
   },
 });
-await waitForResponse(42);
-send(43, "tools/call", {
+send(33, "tools/call", {
   name: "discard_staged_lab_card_patch",
-  arguments: { projectName: "Website Change Monitor", confirm: false },
+  arguments: { projectName: "Never Staged Project", confirm: false },
 });
-send(44, "tools/call", {
-  name: "discard_staged_lab_card_patch",
-  arguments: { projectName: "Never Staged Project", confirm: true },
-});
-send(45, "tools/call", {
-  name: "discard_staged_lab_card_patch",
-  arguments: { projectName: "Website Change Monitor", confirm: true },
-});
-await Promise.all([waitForResponse(43), waitForResponse(44), waitForResponse(45)]);
-send(46, "tools/call", {
-  name: "validate_staged_lab_card_patch",
-  arguments: { projectName: "Website Change Monitor" },
-});
-await waitForResponse(46);
-const orphanInventoryPatchUrl = new URL("../generated/inventory-orphan-lab-card.patch", import.meta.url);
-try {
-  await fs.writeFile(orphanInventoryPatchUrl, "smoke inventory orphan\n", "utf8");
-  send(47, "tools/call", { name: "list_staged_lab_card_patches", arguments: {} });
-  send(48, "tools/call", { name: "list_staged_lab_card_patches", arguments: { extra: true } });
-  await Promise.all([waitForResponse(47), waitForResponse(48)]);
-} finally {
-  await fs.rm(orphanInventoryPatchUrl, { force: true });
-}
-const readyPatchUrl = new URL("../generated/website-change-monitor-ready-lab-card.patch", import.meta.url);
-const readyHandoffUrl = new URL("../generated/website-change-monitor-ready-lab-card.md", import.meta.url);
-await fs.writeFile(readyScreenshotUrl, "smoke fixture", "utf8");
-const [labSourceBeforeRehearsal, patchBeforeRehearsal, handoffBeforeRehearsal] = await Promise.all([
-  fs.readFile(labPageUrl, "utf8"),
-  fs.readFile(readyPatchUrl, "utf8"),
-  fs.readFile(readyHandoffUrl, "utf8"),
-]);
-send(49, "tools/call", {
-  name: "rehearse_staged_lab_card_publish",
-  arguments: { projectName: "Website Change Monitor Ready" },
-});
-send(50, "tools/call", {
+send(34, "tools/call", { name: "list_staged_lab_card_patches", arguments: {} });
+send(35, "tools/call", { name: "list_staged_lab_card_patches", arguments: { extra: true } });
+send(36, "tools/call", {
   name: "rehearse_staged_lab_card_publish",
   arguments: { projectName: "Never Staged Project" },
 });
-send(51, "tools/call", { name: "rehearse_staged_lab_card_publish", arguments: {} });
-await Promise.all([waitForResponse(49), waitForResponse(50), waitForResponse(51)]);
-send(52, "tools/call", {
-  name: "stage_lab_card_patch_artifact",
-  arguments: {
-    name: "Rehearsal Needs Prep",
-    tagline: "Smoke fixture for live rehearsal blockers",
-    allowNeedsPrep: true,
-  },
-});
-await waitForResponse(52);
-send(53, "tools/call", {
-  name: "rehearse_staged_lab_card_publish",
-  arguments: { projectName: "Rehearsal Needs Prep" },
-});
-await waitForResponse(53);
-send(54, "tools/call", {
-  name: "discard_staged_lab_card_patch",
-  arguments: { projectName: "Rehearsal Needs Prep", confirm: true },
-});
-send(56, "tools/call", { name: "list_staged_lab_card_patches", arguments: {} });
-await Promise.all([waitForResponse(54), waitForResponse(56)]);
-const [labSourceAfterRehearsal, patchAfterRehearsal, handoffAfterRehearsal] = await Promise.all([
-  fs.readFile(labPageUrl, "utf8"),
-  fs.readFile(readyPatchUrl, "utf8"),
-  fs.readFile(readyHandoffUrl, "utf8"),
+send(37, "tools/call", { name: "rehearse_staged_lab_card_publish", arguments: {} });
+await Promise.all([
+  waitForResponse(31),
+  waitForResponse(32),
+  waitForResponse(33),
+  waitForResponse(34),
+  waitForResponse(35),
+  waitForResponse(36),
+  waitForResponse(37),
 ]);
-const rehearsalReadOnlyOk =
-  labSourceAfterRehearsal === labSourceBeforeRehearsal &&
-  patchAfterRehearsal === patchBeforeRehearsal &&
-  handoffAfterRehearsal === handoffBeforeRehearsal;
-await fs.rm(readyScreenshotUrl, { force: true });
 server.kill();
 await once(server, "exit");
 
@@ -627,183 +471,37 @@ const stagedPatchBlockedOk =
   stagedPatchBlocked?.readinessBlockers?.some((blocker) =>
     blocker.includes("Lab thumbnail icon is not currently imported")
   );
-const stagedPatchText = responseById.get(30)?.result?.content?.[0]?.text ?? "{}";
-const stagedPatch = JSON.parse(stagedPatchText);
-let stagedPatchFileOk = false;
-let stagedPatchHandoffOk = false;
-if (stagedPatch?.patchFile && stagedPatch?.handoffFile) {
-  stagedPatchFileOk =
-    originalStagedPatch.includes("--- a/app/lab/page.tsx") &&
-    originalStagedPatch.includes("+    Icon: WebsiteChangeMonitorIcon,");
-  stagedPatchHandoffOk =
-    originalStagedHandoff.includes("# Staged Lab card patch: Website Change Monitor") &&
-    originalStagedHandoff.includes("Patch file: portfolio-publisher-mcp/generated/website-change-monitor-lab-card.patch") &&
-    originalStagedHandoff.includes("Ready to apply: Yes") &&
-    originalStagedHandoff.includes("Lab thumbnail icon is not currently imported");
-}
-const stagedPatchOk =
-  stagedPatch?.staged === true &&
-  stagedPatch?.applyStatus === "needs-prep" &&
-  stagedPatch?.readyToApply === true &&
-  stagedPatch?.publishReadyAfterApply === false &&
-  stagedPatch?.patchFile === "portfolio-publisher-mcp/generated/website-change-monitor-lab-card.patch" &&
-  stagedPatch?.handoffFile === "portfolio-publisher-mcp/generated/website-change-monitor-lab-card.md" &&
-  stagedPatch?.filesWritten?.length === 2 &&
-  stagedPatch?.ownerNextStep?.includes("Complete the listed prep items") &&
-  stagedPatch?.verificationCommand === "cd portfolio-publisher-mcp && npm run smoke" &&
-  stagedPatchFileOk &&
-  stagedPatchHandoffOk;
-const stagedPatchValidationText = responseById.get(31)?.result?.content?.[0]?.text ?? "{}";
-const stagedPatchValidation = JSON.parse(stagedPatchValidationText);
-const stagedPatchValidationOk =
-  stagedPatchValidation?.status === "ready" &&
-  stagedPatchValidation?.reviewReady === true &&
-  stagedPatchValidation?.projectName === "Website Change Monitor" &&
-  stagedPatchValidation?.slug === "website-change-monitor" &&
-  stagedPatchValidation?.targetFile === "app/lab/page.tsx" &&
-  stagedPatchValidation?.patchFile === "portfolio-publisher-mcp/generated/website-change-monitor-lab-card.patch" &&
-  stagedPatchValidation?.handoffFile === "portfolio-publisher-mcp/generated/website-change-monitor-lab-card.md" &&
-  Number.isInteger(stagedPatchValidation?.insertionLine) &&
-  stagedPatchValidation?.issues?.length === 0 &&
-  stagedPatchValidation?.warnings?.length === 0 &&
-  /^[a-f0-9]{64}$/.test(stagedPatchValidation?.checksums?.patchSha256 ?? "") &&
-  /^[a-f0-9]{64}$/.test(stagedPatchValidation?.checksums?.handoffSha256 ?? "") &&
-  /^[a-f0-9]{64}$/.test(stagedPatchValidation?.reviewToken ?? "") &&
-  stagedPatchValidation?.ownerNextStep?.includes("Review the staged handoff");
-const stagedPatchValidationRequiredOk = responseById.get(32)?.result?.isError === true;
-const missingStagedPatchText = responseById.get(33)?.result?.content?.[0]?.text ?? "{}";
+const stagedPatchValidationRequiredOk = responseById.get(30)?.result?.isError === true;
+const missingStagedPatchText = responseById.get(31)?.result?.content?.[0]?.text ?? "{}";
 const missingStagedPatch = JSON.parse(missingStagedPatchText);
 const missingStagedPatchOk =
   missingStagedPatch?.status === "missing" &&
   missingStagedPatch?.reviewReady === false &&
   missingStagedPatch?.patchFile === "portfolio-publisher-mcp/generated/never-staged-project-lab-card.patch" &&
   missingStagedPatch?.issues?.some((issue) => issue.includes("missing"));
-const invalidStagedPatchText = responseById.get(34)?.result?.content?.[0]?.text ?? "{}";
-const invalidStagedPatch = JSON.parse(invalidStagedPatchText);
-const invalidStagedPatchOk =
-  invalidStagedPatch?.status === "invalid" &&
-  invalidStagedPatch?.reviewReady === false &&
-  invalidStagedPatch?.issues?.some((issue) => issue.includes("exactly one projects-array hunk")) &&
-  invalidStagedPatch?.issues?.some((issue) => issue.includes("does not exactly match"));
-const mismatchedStagedPatchText = responseById.get(35)?.result?.content?.[0]?.text ?? "{}";
-const mismatchedStagedPatch = JSON.parse(mismatchedStagedPatchText);
-const mismatchedStagedPatchOk =
-  mismatchedStagedPatch?.status === "invalid" &&
-  mismatchedStagedPatch?.reviewReady === false &&
-  mismatchedStagedPatch?.issues?.some((issue) => issue.includes("does not exactly match"));
-const readyStage = JSON.parse(responseById.get(36)?.result?.content?.[0]?.text ?? "{}");
-const readyValidation = JSON.parse(responseById.get(37)?.result?.content?.[0]?.text ?? "{}");
-const lockedApply = JSON.parse(responseById.get(38)?.result?.content?.[0]?.text ?? "{}");
-const tokenMismatchApply = JSON.parse(responseById.get(39)?.result?.content?.[0]?.text ?? "{}");
-const prepRequiredApply = JSON.parse(responseById.get(40)?.result?.content?.[0]?.text ?? "{}");
-const successfulApply = JSON.parse(responseById.get(55)?.result?.content?.[0]?.text ?? "{}");
-const replayApply = JSON.parse(responseById.get(41)?.result?.content?.[0]?.text ?? "{}");
-const unconfirmedApply = JSON.parse(responseById.get(42)?.result?.content?.[0]?.text ?? "{}");
-const controlledApplyOk =
-  readyStage?.publishReadyAfterApply === false &&
-  readyValidation?.status === "ready" &&
-  lockedApply?.applied === false &&
-  lockedApply?.status === "apply-locked" &&
-  tokenMismatchApply?.applied === false &&
-  tokenMismatchApply?.status === "token-mismatch" &&
-  prepRequiredApply?.applied === false &&
-  prepRequiredApply?.status === "prep-required" &&
-  prepRequiredApply?.issues?.some((issue) => issue.includes("Screenshot file not found")) &&
-  prepRequiredApply?.readiness?.asset?.exists === false &&
-  successfulApply?.applied === true &&
-  successfulApply?.status === "applied" &&
-  successfulApply?.readinessVerifiedUnderLock === true &&
-  successfulApply?.targetFile === "app/lab/page.tsx" &&
-  /^[a-f0-9]{64}$/.test(successfulApply?.sourceSha256 ?? "") &&
-  replayApply?.applied === false &&
-  replayApply?.status === "stale" &&
+const unconfirmedApply = JSON.parse(responseById.get(32)?.result?.content?.[0]?.text ?? "{}");
+const unconfirmedApplyOk =
   unconfirmedApply?.applied === false &&
-  unconfirmedApply?.status === "confirmation-required" &&
-  restoredLabSource;
-const unconfirmedDiscard = JSON.parse(responseById.get(43)?.result?.content?.[0]?.text ?? "{}");
-const missingDiscard = JSON.parse(responseById.get(44)?.result?.content?.[0]?.text ?? "{}");
-const successfulDiscard = JSON.parse(responseById.get(45)?.result?.content?.[0]?.text ?? "{}");
-const discardedValidation = JSON.parse(responseById.get(46)?.result?.content?.[0]?.text ?? "{}");
-const stagedDiscardOk =
+  unconfirmedApply?.status === "confirmation-required";
+const unconfirmedDiscard = JSON.parse(responseById.get(33)?.result?.content?.[0]?.text ?? "{}");
+const unconfirmedDiscardOk =
   unconfirmedDiscard?.discarded === false &&
-  unconfirmedDiscard?.status === "confirmation-required" &&
-  missingDiscard?.discarded === false &&
-  missingDiscard?.status === "missing" &&
-  successfulDiscard?.discarded === true &&
-  successfulDiscard?.status === "discarded" &&
-  successfulDiscard?.sourceFilesChanged === false &&
-  successfulDiscard?.filesDeleted?.length === 2 &&
-  discardedValidation?.status === "missing";
-const stagedInventory = JSON.parse(responseById.get(47)?.result?.content?.[0]?.text ?? "{}");
-const stagedInventoryArgValidationOk = responseById.get(48)?.result?.isError === true;
+  unconfirmedDiscard?.status === "confirmation-required";
+const stagedInventory = JSON.parse(responseById.get(34)?.result?.content?.[0]?.text ?? "{}");
+const stagedInventoryArgValidationOk = responseById.get(35)?.result?.isError === true;
 const stagedInventoryOk =
-  stagedInventory?.checked >= 2 &&
-  stagedInventory?.complete >= 1 &&
-  stagedInventory?.incomplete >= 1 &&
-  stagedInventory?.reviewReady >= 1 &&
-  stagedInventory?.publishReady === 0 &&
+  Number.isInteger(stagedInventory?.checked) &&
+  Number.isInteger(stagedInventory?.complete) &&
+  Number.isInteger(stagedInventory?.incomplete) &&
+  stagedInventory?.checked === stagedInventory?.complete + stagedInventory?.incomplete &&
+  Number.isInteger(stagedInventory?.reviewReady) &&
+  Number.isInteger(stagedInventory?.publishReady) &&
   Array.isArray(stagedInventory?.items) &&
+  stagedInventory.items.length === stagedInventory.checked &&
   stagedInventory.items.every((item, index, items) =>
     index === 0 || items[index - 1].slug.localeCompare(item.slug) <= 0
-  ) &&
-  stagedInventory.items.some((item) =>
-    item.slug === "website-change-monitor-ready" &&
-    item.projectName === "Website Change Monitor Ready" &&
-    item.status === "ready" &&
-    item.reviewReady === true &&
-    item.publishReadyAfterApply === false &&
-    item.handoffPublishReadyAfterApply === false &&
-    item.readiness?.asset?.exists === false &&
-    item.readinessBlockers?.some((blocker) => blocker.includes("Screenshot file not found")) &&
-    item.patchFile === "portfolio-publisher-mcp/generated/website-change-monitor-ready-lab-card.patch" &&
-    item.handoffFile === "portfolio-publisher-mcp/generated/website-change-monitor-ready-lab-card.md"
-  ) &&
-  stagedInventory.items.some((item) =>
-    item.slug === "inventory-orphan" &&
-    item.status === "incomplete" &&
-    item.reviewReady === false &&
-    item.patchFile === "portfolio-publisher-mcp/generated/inventory-orphan-lab-card.patch" &&
-    item.handoffFile === null &&
-    item.issues?.some((issue) => issue.includes("Markdown handoff"))
   );
-const liveStagedInventory = JSON.parse(responseById.get(56)?.result?.content?.[0]?.text ?? "{}");
-const liveStagedInventoryOk =
-  liveStagedInventory?.publishReady === 1 &&
-  liveStagedInventory?.items?.some((item) =>
-    item.slug === "website-change-monitor-ready" &&
-    item.status === "ready" &&
-    item.reviewReady === true &&
-    item.publishReadyAfterApply === true &&
-    item.handoffPublishReadyAfterApply === false &&
-    item.readiness?.route?.status === "external-url-not-checked" &&
-    item.readiness?.asset?.exists === true &&
-    item.readiness?.icon?.imported === true &&
-    item.readiness?.icon?.exported === true &&
-    item.readinessBlockers?.length === 0 &&
-    item.ownerNextStep?.includes("currently publish-ready")
-  );
-const readyRehearsal = JSON.parse(responseById.get(49)?.result?.content?.[0]?.text ?? "{}");
-const readyRehearsalOk =
-  readyRehearsal?.previewOnly === true &&
-  readyRehearsal?.sourceFilesChanged === false &&
-  readyRehearsal?.rehearsalStatus === "ready" &&
-  readyRehearsal?.stagedStatus === "ready" &&
-  readyRehearsal?.reviewReady === true &&
-  readyRehearsal?.publishReadyAfterApply === true &&
-  readyRehearsal?.projectName === "Website Change Monitor Ready" &&
-  readyRehearsal?.labCard?.icon === "PromptGradeIcon" &&
-  readyRehearsal?.readiness?.route?.status === "external-url-not-checked" &&
-  readyRehearsal?.readiness?.asset?.exists === true &&
-  readyRehearsal?.readiness?.icon?.imported === true &&
-  readyRehearsal?.readiness?.icon?.exported === true &&
-  readyRehearsal?.readinessBlockers?.length === 0 &&
-  readyRehearsal?.reviewTokenIssued === false &&
-  !("reviewToken" in readyRehearsal) &&
-  readyRehearsal?.sequence?.some((step) => step.includes("validate_staged_lab_card_patch")) &&
-  readyRehearsal?.sequence?.some((step) => step.includes("apply_staged_lab_card_patch")) &&
-  readyRehearsal?.verificationCommand === "cd portfolio-publisher-mcp && npm run smoke" &&
-  rehearsalReadOnlyOk;
-const missingRehearsal = JSON.parse(responseById.get(50)?.result?.content?.[0]?.text ?? "{}");
+const missingRehearsal = JSON.parse(responseById.get(36)?.result?.content?.[0]?.text ?? "{}");
 const missingRehearsalOk =
   missingRehearsal?.previewOnly === true &&
   missingRehearsal?.sourceFilesChanged === false &&
@@ -811,24 +509,7 @@ const missingRehearsalOk =
   missingRehearsal?.reviewReady === false &&
   missingRehearsal?.publishReadyAfterApply === false &&
   missingRehearsal?.issues?.some((issue) => issue.includes("missing"));
-const rehearsalArgValidationOk = responseById.get(51)?.result?.isError === true;
-const needsPrepRehearsal = JSON.parse(responseById.get(53)?.result?.content?.[0]?.text ?? "{}");
-const needsPrepRehearsalCleanup = JSON.parse(responseById.get(54)?.result?.content?.[0]?.text ?? "{}");
-const needsPrepRehearsalOk =
-  needsPrepRehearsal?.previewOnly === true &&
-  needsPrepRehearsal?.sourceFilesChanged === false &&
-  needsPrepRehearsal?.rehearsalStatus === "needs-prep" &&
-  needsPrepRehearsal?.reviewReady === true &&
-  needsPrepRehearsal?.publishReadyAfterApply === false &&
-  needsPrepRehearsal?.readiness?.route?.status === "missing-route-file" &&
-  needsPrepRehearsal?.readiness?.asset?.exists === false &&
-  needsPrepRehearsal?.readiness?.icon?.imported === false &&
-  needsPrepRehearsal?.readiness?.icon?.exported === false &&
-  needsPrepRehearsal?.readinessBlockers?.some((blocker) => blocker.includes("Local route file not found")) &&
-  needsPrepRehearsal?.readinessBlockers?.some((blocker) => blocker.includes("Screenshot file not found")) &&
-  needsPrepRehearsal?.readinessBlockers?.some((blocker) => blocker.includes("not imported")) &&
-  needsPrepRehearsal?.readinessBlockers?.some((blocker) => blocker.includes("not exported")) &&
-  needsPrepRehearsalCleanup?.discarded === true;
+const rehearsalArgValidationOk = responseById.get(37)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -860,22 +541,14 @@ console.log(JSON.stringify({
   iconInventoryOk,
   iconReportOk,
   stagedPatchBlockedOk,
-  stagedPatchOk,
-  stagedPatchValidationOk,
   stagedPatchValidationRequiredOk,
   missingStagedPatchOk,
-  invalidStagedPatchOk,
-  mismatchedStagedPatchOk,
-  controlledApplyOk,
-  stagedDiscardOk,
+  unconfirmedApplyOk,
+  unconfirmedDiscardOk,
   stagedInventoryOk,
-  liveStagedInventoryOk,
   stagedInventoryArgValidationOk,
-  readyRehearsalOk,
   missingRehearsalOk,
   rehearsalArgValidationOk,
-  needsPrepRehearsalOk,
-  rehearsalReadOnlyOk,
 }, null, 2));
 
 if (
@@ -907,22 +580,14 @@ if (
   !iconInventoryOk ||
   !iconReportOk ||
   !stagedPatchBlockedOk ||
-  !stagedPatchOk ||
-  !stagedPatchValidationOk ||
   !stagedPatchValidationRequiredOk ||
-  !missingStagedPatchOk ||
-  !invalidStagedPatchOk ||
-  !mismatchedStagedPatchOk
-  || !controlledApplyOk
-  || !stagedDiscardOk
+  !missingStagedPatchOk
+  || !unconfirmedApplyOk
+  || !unconfirmedDiscardOk
   || !stagedInventoryOk
-  || !liveStagedInventoryOk
   || !stagedInventoryArgValidationOk
-  || !readyRehearsalOk
   || !missingRehearsalOk
   || !rehearsalArgValidationOk
-  || !needsPrepRehearsalOk
-  || !rehearsalReadOnlyOk
 ) {
   process.exitCode = 1;
 }

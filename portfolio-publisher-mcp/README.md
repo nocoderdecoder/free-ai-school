@@ -46,7 +46,7 @@ From this folder:
 npm run smoke
 ```
 
-The smoke command first runs focused tests against a disposable miniature repository, then runs the full MCP protocol smoke suite against the real local project. The temporary fixture verifies that controlled apply cleans up its lock and temporary file after both a prep-blocked attempt and a successful apply.
+The smoke command first runs focused lifecycle tests against disposable miniature repositories, then runs a non-mutating MCP protocol, schema, and readiness suite against the real local project. The disposable fixtures own staged tamper, lock contention, review-token mismatch, apply/replay, rehearsal, and discard safety coverage, so smoke verification never edits the real Lab source or creates real lock and screenshot fixtures.
 
 To start the MCP server:
 
