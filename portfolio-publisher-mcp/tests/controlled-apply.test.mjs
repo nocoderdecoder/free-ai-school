@@ -305,3 +305,97 @@ test("rehearsal is read-only and discard only removes the staged pair", async (t
   assert.equal(missing.status, "missing");
   assert.equal(missing.discarded, false);
 });
+
+test("staged inventory is ordered and recomputes live readiness", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const generatedDir = path.join(repoRoot, "portfolio-publisher-mcp", "generated");
+  const originalSource = await fs.readFile(labPage, "utf8");
+
+  await client.call("stage_lab_card_patch_artifact", {
+    name: "Zulu Fixture",
+    tagline: "Starts with a missing screenshot",
+    url: "https://example.com/zulu-fixture",
+    image: "/projects/zulu-fixture.png",
+    icon: "FixtureIcon",
+    allowNeedsPrep: true,
+  });
+  await client.call("stage_lab_card_patch_artifact", {
+    name: "Beta Fixture",
+    tagline: "Has all companion files ready",
+    url: "https://example.com/beta-fixture",
+    image: "/projects/beta-fixture.png",
+    icon: "FixtureIcon",
+    allowNeedsPrep: true,
+  });
+  await fs.writeFile(
+    path.join(repoRoot, "public", "projects", "beta-fixture.png"),
+    "fixture",
+    "utf8",
+  );
+  await Promise.all([
+    fs.writeFile(path.join(generatedDir, "alpha-orphan-lab-card.patch"), "orphan", "utf8"),
+    fs.writeFile(path.join(generatedDir, "gamma-orphan-lab-card.md"), "# Orphan\n", "utf8"),
+  ]);
+
+  const before = await client.call("list_staged_lab_card_patches", {});
+  assert.equal(await fs.readFile(labPage, "utf8"), originalSource);
+  assert.ok(before.items.every((item) => !("reviewToken" in item)));
+  assert.deepEqual(before.items.map((item) => item.slug), [
+    "alpha-orphan",
+    "beta-fixture",
+    "gamma-orphan",
+    "zulu-fixture",
+  ]);
+  assert.deepEqual(
+    {
+      checked: before.checked,
+      complete: before.complete,
+      incomplete: before.incomplete,
+      reviewReady: before.reviewReady,
+      publishReady: before.publishReady,
+      stale: before.stale,
+      invalid: before.invalid,
+    },
+    {
+      checked: 4,
+      complete: 2,
+      incomplete: 2,
+      reviewReady: 2,
+      publishReady: 1,
+      stale: 0,
+      invalid: 0,
+    },
+  );
+
+  const alphaOrphan = before.items[0];
+  assert.equal(alphaOrphan.status, "incomplete");
+  assert.equal(alphaOrphan.patchFile?.endsWith("alpha-orphan-lab-card.patch"), true);
+  assert.equal(alphaOrphan.handoffFile, null);
+  assert.ok(alphaOrphan.issues.some((issue) => issue.includes("Markdown handoff")));
+
+  const beta = before.items[1];
+  assert.equal(beta.reviewReady, true);
+  assert.equal(beta.publishReadyAfterApply, true);
+  assert.equal(beta.handoffPublishReadyAfterApply, false);
+  assert.deepEqual(beta.readinessBlockers, []);
+
+  const zuluBefore = before.items[3];
+  assert.equal(zuluBefore.reviewReady, true);
+  assert.equal(zuluBefore.publishReadyAfterApply, false);
+  assert.equal(zuluBefore.handoffPublishReadyAfterApply, false);
+  assert.ok(zuluBefore.readinessBlockers.some((blocker) => blocker.includes("Screenshot file not found")));
+
+  await fs.writeFile(
+    path.join(repoRoot, "public", "projects", "zulu-fixture.png"),
+    "fixture",
+    "utf8",
+  );
+  const after = await client.call("list_staged_lab_card_patches", {});
+  const zuluAfter = after.items.find((item) => item.slug === "zulu-fixture");
+  assert.equal(await fs.readFile(labPage, "utf8"), originalSource);
+  assert.ok(after.items.every((item) => !("reviewToken" in item)));
+  assert.equal(after.publishReady, 2);
+  assert.equal(zuluAfter.publishReadyAfterApply, true);
+  assert.equal(zuluAfter.handoffPublishReadyAfterApply, false);
+  assert.deepEqual(zuluAfter.readinessBlockers, []);
+});
