@@ -372,18 +372,34 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   assert.equal(alphaOrphan.patchFile?.endsWith("alpha-orphan-lab-card.patch"), true);
   assert.equal(alphaOrphan.handoffFile, null);
   assert.ok(alphaOrphan.issues.some((issue) => issue.includes("Markdown handoff")));
+  assert.equal(
+    alphaOrphan.ownerNextStep,
+    "Discard the incomplete artifact or stage this Lab card patch again.",
+  );
 
   const beta = before.items[1];
   assert.equal(beta.reviewReady, true);
   assert.equal(beta.publishReadyAfterApply, true);
   assert.equal(beta.handoffPublishReadyAfterApply, false);
   assert.deepEqual(beta.readinessBlockers, []);
+  assert.equal(
+    beta.ownerNextStep,
+    "Review this currently publish-ready handoff and patch before controlled apply.",
+  );
 
   const zuluBefore = before.items[3];
   assert.equal(zuluBefore.reviewReady, true);
   assert.equal(zuluBefore.publishReadyAfterApply, false);
   assert.equal(zuluBefore.handoffPublishReadyAfterApply, false);
   assert.ok(zuluBefore.readinessBlockers.some((blocker) => blocker.includes("Screenshot file not found")));
+  assert.equal(
+    zuluBefore.ownerNextStep,
+    "Complete the listed live readiness blockers, then review and validate this staged patch before controlled apply.",
+  );
+  assert.equal(
+    before.ownerNextStep,
+    "Review currently publish-ready items first; complete live readiness blockers, restage stale or invalid items, and discard incomplete artifacts.",
+  );
 
   await fs.writeFile(
     path.join(repoRoot, "public", "projects", "zulu-fixture.png"),
@@ -398,4 +414,97 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   assert.equal(zuluAfter.publishReadyAfterApply, true);
   assert.equal(zuluAfter.handoffPublishReadyAfterApply, false);
   assert.deepEqual(zuluAfter.readinessBlockers, []);
+});
+
+test("staged inventory classifies stale and invalid complete pairs", async (t) => {
+  const { repoRoot, client } = await createFixtureClient(t);
+
+  const invalidProjectName = "Invalid Inventory Fixture";
+  const invalidStage = await client.call("stage_lab_card_patch_artifact", {
+    name: invalidProjectName,
+    tagline: "Will be changed after staging",
+    url: "https://example.com/invalid-inventory-fixture",
+    image: "/projects/invalid-inventory-fixture.png",
+    icon: "FixtureIcon",
+    allowNeedsPrep: true,
+  });
+  const invalidPatchPath = path.join(repoRoot, invalidStage.patchFile);
+  const invalidPatch = await fs.readFile(invalidPatchPath, "utf8");
+  await fs.writeFile(
+    invalidPatchPath,
+    invalidPatch.replace("Will be changed after staging", "Unexpected altered copy"),
+    "utf8",
+  );
+
+  const staleProjectName = "Stale Inventory Fixture";
+  await client.call("stage_lab_card_patch_artifact", {
+    name: staleProjectName,
+    tagline: "Will already be present in the Lab",
+    url: "https://example.com/stale-inventory-fixture",
+    image: "/projects/stale-inventory-fixture.png",
+    icon: "FixtureIcon",
+    allowNeedsPrep: true,
+  });
+  await fs.writeFile(
+    path.join(repoRoot, "public", "projects", "stale-inventory-fixture.png"),
+    "fixture",
+    "utf8",
+  );
+  const staleValidation = await client.call("validate_staged_lab_card_patch", {
+    projectName: staleProjectName,
+  });
+  const applied = await client.call("apply_staged_lab_card_patch", {
+    projectName: staleProjectName,
+    reviewToken: staleValidation.reviewToken,
+    confirm: true,
+  });
+  assert.equal(applied.status, "applied");
+
+  const inventory = await client.call("list_staged_lab_card_patches", {});
+  assert.deepEqual(
+    {
+      checked: inventory.checked,
+      complete: inventory.complete,
+      incomplete: inventory.incomplete,
+      reviewReady: inventory.reviewReady,
+      publishReady: inventory.publishReady,
+      stale: inventory.stale,
+      invalid: inventory.invalid,
+    },
+    {
+      checked: 2,
+      complete: 2,
+      incomplete: 0,
+      reviewReady: 0,
+      publishReady: 0,
+      stale: 1,
+      invalid: 1,
+    },
+  );
+  assert.ok(inventory.items.every((item) => !("reviewToken" in item)));
+
+  const invalid = inventory.items.find((item) => item.projectName === invalidProjectName);
+  assert.equal(invalid.status, "invalid");
+  assert.equal(invalid.reviewReady, false);
+  assert.equal(invalid.publishReadyAfterApply, false);
+  assert.ok(invalid.issues.some((issue) => issue.includes("does not exactly match")));
+  assert.equal(
+    invalid.ownerNextStep,
+    "Stage a fresh Lab card patch, then validate it again before review.",
+  );
+
+  const stale = inventory.items.find((item) => item.projectName === staleProjectName);
+  assert.equal(stale.status, "stale");
+  assert.equal(stale.reviewReady, false);
+  assert.equal(stale.publishReadyAfterApply, false);
+  assert.deepEqual(stale.issues, []);
+  assert.ok(stale.warnings.some((warning) => warning.includes("already present")));
+  assert.equal(
+    stale.ownerNextStep,
+    "Confirm whether the Lab card was already applied; otherwise stage a fresh patch.",
+  );
+  assert.equal(
+    inventory.ownerNextStep,
+    "Review currently publish-ready items first; complete live readiness blockers, restage stale or invalid items, and discard incomplete artifacts.",
+  );
 });
