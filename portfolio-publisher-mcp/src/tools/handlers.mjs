@@ -1079,8 +1079,10 @@ async function validateStagedLabCardPatch(projects, projectName, source) {
     warnings.push("A Lab card with this project slug is already present; the staged patch may already be applied.");
   }
 
-  const stale = issues.some((issue) => issue.includes("no longer matches")) || alreadyListed;
-  const status = issues.length > 0 ? "invalid" : stale ? "stale" : "ready";
+  const sourceDriftOnly = issues.length > 0
+    && issues.every((issue) => issue.includes("no longer matches"));
+  const stale = sourceDriftOnly || (issues.length === 0 && alreadyListed);
+  const status = stale ? "stale" : issues.length > 0 ? "invalid" : "ready";
 
   return {
     status,

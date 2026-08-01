@@ -508,3 +508,66 @@ test("staged inventory classifies stale and invalid complete pairs", async (t) =
     "Review currently publish-ready items first; complete live readiness blockers, restage stale or invalid items, and discard incomplete artifacts.",
   );
 });
+
+test("staged inventory distinguishes source drift from malformed handoffs", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const generatedDir = path.join(repoRoot, "portfolio-publisher-mcp", "generated");
+
+  const driftedProjectName = "Source Drift Fixture";
+  await client.call("stage_lab_card_patch_artifact", {
+    name: driftedProjectName,
+    tagline: "Will become stale after unrelated source movement",
+    url: "https://example.com/source-drift-fixture",
+    image: "/projects/source-drift-fixture.png",
+    icon: "FixtureIcon",
+    allowNeedsPrep: true,
+  });
+  const source = await fs.readFile(labPage, "utf8");
+  await fs.writeFile(labPage, `// unrelated source movement\n${source}`, "utf8");
+
+  await Promise.all([
+    fs.writeFile(path.join(generatedDir, "malformed-fixture-lab-card.patch"), "not a patch\n", "utf8"),
+    fs.writeFile(path.join(generatedDir, "malformed-fixture-lab-card.md"), "# Missing staged title\n", "utf8"),
+  ]);
+
+  const inventory = await client.call("list_staged_lab_card_patches", {});
+  assert.deepEqual(
+    {
+      checked: inventory.checked,
+      complete: inventory.complete,
+      incomplete: inventory.incomplete,
+      reviewReady: inventory.reviewReady,
+      publishReady: inventory.publishReady,
+      stale: inventory.stale,
+      invalid: inventory.invalid,
+    },
+    {
+      checked: 2,
+      complete: 2,
+      incomplete: 0,
+      reviewReady: 0,
+      publishReady: 0,
+      stale: 1,
+      invalid: 1,
+    },
+  );
+  assert.ok(inventory.items.every((item) => !("reviewToken" in item)));
+
+  const drifted = inventory.items.find((item) => item.projectName === driftedProjectName);
+  assert.equal(drifted.status, "stale");
+  assert.equal(drifted.reviewReady, false);
+  assert.equal(drifted.publishReadyAfterApply, false);
+  assert.ok(drifted.issues.some((issue) => issue.includes("no longer matches")));
+  assert.equal(
+    drifted.ownerNextStep,
+    "Confirm whether the Lab card was already applied; otherwise stage a fresh patch.",
+  );
+
+  const malformed = inventory.items.find((item) => item.slug === "malformed-fixture");
+  assert.equal(malformed.projectName, null);
+  assert.equal(malformed.status, "invalid");
+  assert.equal(malformed.reviewReady, false);
+  assert.equal(malformed.publishReadyAfterApply, false);
+  assert.deepEqual(malformed.issues, ["Handoff is missing the staged project title."]);
+  assert.equal(malformed.ownerNextStep, "Stage a fresh Lab card patch before review.");
+});
