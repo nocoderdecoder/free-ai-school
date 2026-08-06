@@ -993,6 +993,8 @@ async function validateStagedLabCardPatch(projects, projectName, source) {
   if (!normalizedName || !slug) {
     return {
       status: "invalid-request",
+      staleReason: null,
+      invalidReason: "invalid-project-name",
       reviewReady: false,
       issues: ["Project name must contain letters or numbers."],
     };
@@ -1016,6 +1018,8 @@ async function validateStagedLabCardPatch(projects, projectName, source) {
     if (error?.code === "ENOENT") {
       return {
         status: "missing",
+        staleReason: null,
+        invalidReason: null,
         reviewReady: false,
         projectName: normalizedName,
         slug,
@@ -1083,9 +1087,15 @@ async function validateStagedLabCardPatch(projects, projectName, source) {
     && issues.every((issue) => issue.includes("no longer matches"));
   const stale = sourceDriftOnly || (issues.length === 0 && alreadyListed);
   const status = stale ? "stale" : issues.length > 0 ? "invalid" : "ready";
+  const staleReason = status === "stale"
+    ? sourceDriftOnly ? "source-drift" : "already-applied"
+    : null;
+  const invalidReason = status === "invalid" ? "artifact-integrity" : null;
 
   return {
     status,
+    staleReason,
+    invalidReason,
     reviewReady: status === "ready",
     projectName: normalizedName,
     slug,
@@ -1141,6 +1151,9 @@ async function listStagedLabCardPatches(projects, source) {
         slug,
         projectName: null,
         status: "incomplete",
+        staleReason: null,
+        invalidReason: null,
+        incompleteReason: record.patch ? "missing-handoff" : "missing-patch",
         reviewReady: false,
         publishReadyAfterApply: false,
         patchFile: record.patch ? patchFile : null,
@@ -1158,6 +1171,9 @@ async function listStagedLabCardPatches(projects, source) {
         slug,
         projectName: null,
         status: "invalid",
+        staleReason: null,
+        invalidReason: "missing-handoff-title",
+        incompleteReason: null,
         reviewReady: false,
         publishReadyAfterApply: false,
         patchFile,
@@ -1180,6 +1196,9 @@ async function listStagedLabCardPatches(projects, source) {
       slug,
       projectName,
       status: validation.status,
+      staleReason: validation.staleReason,
+      invalidReason: validation.invalidReason,
+      incompleteReason: null,
       reviewReady: validation.reviewReady,
       publishReadyAfterApply,
       handoffPublishReadyAfterApply,

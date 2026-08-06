@@ -124,6 +124,8 @@ test("controlled apply cleans up after prep rejection and successful apply", asy
 
   const validation = await client.call("validate_staged_lab_card_patch", { projectName });
   assert.equal(validation.status, "ready");
+  assert.equal(validation.staleReason, null);
+  assert.equal(validation.invalidReason, null);
   assert.match(validation.reviewToken, /^[a-f0-9]{64}$/);
 
   const blocked = await client.call("apply_staged_lab_card_patch", {
@@ -172,6 +174,8 @@ test("staged validation rejects structural and content tampering", async (t) => 
   );
   const structuralTamper = await client.call("validate_staged_lab_card_patch", { projectName });
   assert.equal(structuralTamper.status, "invalid");
+  assert.equal(structuralTamper.staleReason, null);
+  assert.equal(structuralTamper.invalidReason, "artifact-integrity");
   assert.equal(structuralTamper.reviewReady, false);
   assert.ok(structuralTamper.issues.some((issue) => issue.includes("exactly one projects-array hunk")));
   assert.ok(structuralTamper.issues.some((issue) => issue.includes("does not exactly match")));
@@ -183,6 +187,7 @@ test("staged validation rejects structural and content tampering", async (t) => 
   );
   const contentTamper = await client.call("validate_staged_lab_card_patch", { projectName });
   assert.equal(contentTamper.status, "invalid");
+  assert.equal(contentTamper.invalidReason, "artifact-integrity");
   assert.equal(contentTamper.reviewReady, false);
   assert.ok(contentTamper.issues.some((issue) => issue.includes("does not exactly match")));
 });
@@ -369,6 +374,9 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
 
   const alphaOrphan = before.items[0];
   assert.equal(alphaOrphan.status, "incomplete");
+  assert.equal(alphaOrphan.incompleteReason, "missing-handoff");
+  assert.equal(alphaOrphan.staleReason, null);
+  assert.equal(alphaOrphan.invalidReason, null);
   assert.equal(alphaOrphan.patchFile?.endsWith("alpha-orphan-lab-card.patch"), true);
   assert.equal(alphaOrphan.handoffFile, null);
   assert.ok(alphaOrphan.issues.some((issue) => issue.includes("Markdown handoff")));
@@ -485,6 +493,9 @@ test("staged inventory classifies stale and invalid complete pairs", async (t) =
 
   const invalid = inventory.items.find((item) => item.projectName === invalidProjectName);
   assert.equal(invalid.status, "invalid");
+  assert.equal(invalid.staleReason, null);
+  assert.equal(invalid.invalidReason, "artifact-integrity");
+  assert.equal(invalid.incompleteReason, null);
   assert.equal(invalid.reviewReady, false);
   assert.equal(invalid.publishReadyAfterApply, false);
   assert.ok(invalid.issues.some((issue) => issue.includes("does not exactly match")));
@@ -495,6 +506,9 @@ test("staged inventory classifies stale and invalid complete pairs", async (t) =
 
   const stale = inventory.items.find((item) => item.projectName === staleProjectName);
   assert.equal(stale.status, "stale");
+  assert.equal(stale.staleReason, "already-applied");
+  assert.equal(stale.invalidReason, null);
+  assert.equal(stale.incompleteReason, null);
   assert.equal(stale.reviewReady, false);
   assert.equal(stale.publishReadyAfterApply, false);
   assert.deepEqual(stale.issues, []);
@@ -555,6 +569,9 @@ test("staged inventory distinguishes source drift from malformed handoffs", asyn
 
   const drifted = inventory.items.find((item) => item.projectName === driftedProjectName);
   assert.equal(drifted.status, "stale");
+  assert.equal(drifted.staleReason, "source-drift");
+  assert.equal(drifted.invalidReason, null);
+  assert.equal(drifted.incompleteReason, null);
   assert.equal(drifted.reviewReady, false);
   assert.equal(drifted.publishReadyAfterApply, false);
   assert.ok(drifted.issues.some((issue) => issue.includes("no longer matches")));
@@ -566,6 +583,9 @@ test("staged inventory distinguishes source drift from malformed handoffs", asyn
   const malformed = inventory.items.find((item) => item.slug === "malformed-fixture");
   assert.equal(malformed.projectName, null);
   assert.equal(malformed.status, "invalid");
+  assert.equal(malformed.staleReason, null);
+  assert.equal(malformed.invalidReason, "missing-handoff-title");
+  assert.equal(malformed.incompleteReason, null);
   assert.equal(malformed.reviewReady, false);
   assert.equal(malformed.publishReadyAfterApply, false);
   assert.deepEqual(malformed.issues, ["Handoff is missing the staged project title."]);
