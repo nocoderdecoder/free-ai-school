@@ -1224,6 +1224,21 @@ async function listStagedLabCardPatches(projects, source) {
     publishReady: items.filter((item) => item.reviewReady && item.publishReadyAfterApply).length,
     stale: items.filter((item) => item.status === "stale").length,
     invalid: items.filter((item) => item.status === "invalid").length,
+    reasonCounts: {
+      stale: {
+        "source-drift": items.filter((item) => item.staleReason === "source-drift").length,
+        "already-applied": items.filter((item) => item.staleReason === "already-applied").length,
+      },
+      invalid: {
+        "artifact-integrity": items.filter((item) => item.invalidReason === "artifact-integrity").length,
+        "invalid-project-name": items.filter((item) => item.invalidReason === "invalid-project-name").length,
+        "missing-handoff-title": items.filter((item) => item.invalidReason === "missing-handoff-title").length,
+      },
+      incomplete: {
+        "missing-patch": items.filter((item) => item.incompleteReason === "missing-patch").length,
+        "missing-handoff": items.filter((item) => item.incompleteReason === "missing-handoff").length,
+      },
+    },
     items,
     ownerNextStep: items.length === 0
       ? "Stage a Lab card patch when a project is ready for owner review."

@@ -316,6 +316,14 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   const generatedDir = path.join(repoRoot, "portfolio-publisher-mcp", "generated");
   const originalSource = await fs.readFile(labPage, "utf8");
 
+  const empty = await client.call("list_staged_lab_card_patches", {});
+  assert.equal(empty.checked, 0);
+  assert.deepEqual(empty.reasonCounts, {
+    stale: { "source-drift": 0, "already-applied": 0 },
+    invalid: { "artifact-integrity": 0, "invalid-project-name": 0, "missing-handoff-title": 0 },
+    incomplete: { "missing-patch": 0, "missing-handoff": 0 },
+  });
+
   await client.call("stage_lab_card_patch_artifact", {
     name: "Zulu Fixture",
     tagline: "Starts with a missing screenshot",
@@ -371,6 +379,11 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
       invalid: 0,
     },
   );
+  assert.deepEqual(before.reasonCounts, {
+    stale: { "source-drift": 0, "already-applied": 0 },
+    invalid: { "artifact-integrity": 0, "invalid-project-name": 0, "missing-handoff-title": 0 },
+    incomplete: { "missing-patch": 1, "missing-handoff": 1 },
+  });
 
   const alphaOrphan = before.items[0];
   assert.equal(alphaOrphan.status, "incomplete");
@@ -489,6 +502,11 @@ test("staged inventory classifies stale and invalid complete pairs", async (t) =
       invalid: 1,
     },
   );
+  assert.deepEqual(inventory.reasonCounts, {
+    stale: { "source-drift": 0, "already-applied": 1 },
+    invalid: { "artifact-integrity": 1, "invalid-project-name": 0, "missing-handoff-title": 0 },
+    incomplete: { "missing-patch": 0, "missing-handoff": 0 },
+  });
   assert.ok(inventory.items.every((item) => !("reviewToken" in item)));
 
   const invalid = inventory.items.find((item) => item.projectName === invalidProjectName);
@@ -565,6 +583,11 @@ test("staged inventory distinguishes source drift from malformed handoffs", asyn
       invalid: 1,
     },
   );
+  assert.deepEqual(inventory.reasonCounts, {
+    stale: { "source-drift": 1, "already-applied": 0 },
+    invalid: { "artifact-integrity": 0, "invalid-project-name": 0, "missing-handoff-title": 1 },
+    incomplete: { "missing-patch": 0, "missing-handoff": 0 },
+  });
   assert.ok(inventory.items.every((item) => !("reviewToken" in item)));
 
   const drifted = inventory.items.find((item) => item.projectName === driftedProjectName);

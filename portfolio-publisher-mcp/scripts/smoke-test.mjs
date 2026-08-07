@@ -496,6 +496,15 @@ const stagedInventoryOk =
   stagedInventory?.checked === stagedInventory?.complete + stagedInventory?.incomplete &&
   Number.isInteger(stagedInventory?.reviewReady) &&
   Number.isInteger(stagedInventory?.publishReady) &&
+  ["source-drift", "already-applied"].every((reason) =>
+    Number.isInteger(stagedInventory?.reasonCounts?.stale?.[reason])
+  ) &&
+  ["artifact-integrity", "invalid-project-name", "missing-handoff-title"].every((reason) =>
+    Number.isInteger(stagedInventory?.reasonCounts?.invalid?.[reason])
+  ) &&
+  ["missing-patch", "missing-handoff"].every((reason) =>
+    Number.isInteger(stagedInventory?.reasonCounts?.incomplete?.[reason])
+  ) &&
   Array.isArray(stagedInventory?.items) &&
   stagedInventory.items.length === stagedInventory.checked &&
   stagedInventory.items.every((item, index, items) =>
