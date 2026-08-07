@@ -179,6 +179,14 @@ send(36, "tools/call", {
   arguments: { projectName: "Never Staged Project" },
 });
 send(37, "tools/call", { name: "rehearse_staged_lab_card_publish", arguments: {} });
+send(38, "tools/call", {
+  name: "list_staged_lab_card_patches",
+  arguments: { status: "stale", reason: "source-drift" },
+});
+send(39, "tools/call", {
+  name: "list_staged_lab_card_patches",
+  arguments: { status: "unknown" },
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -187,6 +195,8 @@ await Promise.all([
   waitForResponse(35),
   waitForResponse(36),
   waitForResponse(37),
+  waitForResponse(38),
+  waitForResponse(39),
 ]);
 server.kill();
 await once(server, "exit");
@@ -519,6 +529,16 @@ const missingRehearsalOk =
   missingRehearsal?.publishReadyAfterApply === false &&
   missingRehearsal?.issues?.some((issue) => issue.includes("missing"));
 const rehearsalArgValidationOk = responseById.get(37)?.result?.isError === true;
+const filteredStagedInventory = JSON.parse(responseById.get(38)?.result?.content?.[0]?.text ?? "{}");
+const filteredStagedInventoryOk =
+  filteredStagedInventory?.filters?.status === "stale" &&
+  filteredStagedInventory?.filters?.reason === "source-drift" &&
+  Number.isInteger(filteredStagedInventory?.totalChecked) &&
+  filteredStagedInventory?.checked === filteredStagedInventory?.items?.length &&
+  filteredStagedInventory?.items?.every((item) =>
+    item.status === "stale" && item.staleReason === "source-drift" && !("reviewToken" in item)
+  );
+const stagedInventoryEnumValidationOk = responseById.get(39)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -558,6 +578,8 @@ console.log(JSON.stringify({
   stagedInventoryArgValidationOk,
   missingRehearsalOk,
   rehearsalArgValidationOk,
+  filteredStagedInventoryOk,
+  stagedInventoryEnumValidationOk,
 }, null, 2));
 
 if (
@@ -597,6 +619,8 @@ if (
   || !stagedInventoryArgValidationOk
   || !missingRehearsalOk
   || !rehearsalArgValidationOk
+  || !filteredStagedInventoryOk
+  || !stagedInventoryEnumValidationOk
 ) {
   process.exitCode = 1;
 }

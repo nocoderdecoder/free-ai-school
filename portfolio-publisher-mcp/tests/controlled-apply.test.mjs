@@ -318,6 +318,8 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
 
   const empty = await client.call("list_staged_lab_card_patches", {});
   assert.equal(empty.checked, 0);
+  assert.equal(empty.totalChecked, 0);
+  assert.deepEqual(empty.filters, { status: null, reason: null });
   assert.deepEqual(empty.reasonCounts, {
     stale: { "source-drift": 0, "already-applied": 0 },
     invalid: { "artifact-integrity": 0, "invalid-project-name": 0, "missing-handoff-title": 0 },
@@ -384,6 +386,38 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
     invalid: { "artifact-integrity": 0, "invalid-project-name": 0, "missing-handoff-title": 0 },
     incomplete: { "missing-patch": 1, "missing-handoff": 1 },
   });
+  assert.equal(before.totalChecked, 4);
+  assert.deepEqual(before.filters, { status: null, reason: null });
+
+  const readyOnly = await client.call("list_staged_lab_card_patches", { status: "ready" });
+  assert.equal(readyOnly.totalChecked, 4);
+  assert.equal(readyOnly.checked, 2);
+  assert.deepEqual(readyOnly.filters, { status: "ready", reason: null });
+  assert.deepEqual(readyOnly.items.map((item) => item.slug), ["beta-fixture", "zulu-fixture"]);
+  assert.ok(readyOnly.items.every((item) => item.status === "ready" && !("reviewToken" in item)));
+
+  const missingPatchOnly = await client.call("list_staged_lab_card_patches", { reason: "missing-patch" });
+  assert.equal(missingPatchOnly.totalChecked, 4);
+  assert.equal(missingPatchOnly.checked, 1);
+  assert.deepEqual(missingPatchOnly.filters, { status: null, reason: "missing-patch" });
+  assert.deepEqual(missingPatchOnly.items.map((item) => item.slug), ["gamma-orphan"]);
+  assert.equal(missingPatchOnly.reasonCounts.incomplete["missing-patch"], 1);
+
+  const combined = await client.call("list_staged_lab_card_patches", {
+    status: "incomplete",
+    reason: "missing-handoff",
+  });
+  assert.equal(combined.checked, 1);
+  assert.deepEqual(combined.items.map((item) => item.slug), ["alpha-orphan"]);
+
+  const emptyIntersection = await client.call("list_staged_lab_card_patches", {
+    status: "ready",
+    reason: "missing-handoff",
+  });
+  assert.equal(emptyIntersection.totalChecked, 4);
+  assert.equal(emptyIntersection.checked, 0);
+  assert.deepEqual(emptyIntersection.items, []);
+  assert.match(emptyIntersection.ownerNextStep, /No staged artifacts match/);
 
   const alphaOrphan = before.items[0];
   assert.equal(alphaOrphan.status, "incomplete");
@@ -508,6 +542,17 @@ test("staged inventory classifies stale and invalid complete pairs", async (t) =
     incomplete: { "missing-patch": 0, "missing-handoff": 0 },
   });
   assert.ok(inventory.items.every((item) => !("reviewToken" in item)));
+
+  const staleOnly = await client.call("list_staged_lab_card_patches", { status: "stale" });
+  assert.equal(staleOnly.totalChecked, 2);
+  assert.equal(staleOnly.checked, 1);
+  assert.deepEqual(staleOnly.items.map((item) => item.projectName), [staleProjectName]);
+  assert.equal(staleOnly.reasonCounts.stale["already-applied"], 1);
+
+  const integrityOnly = await client.call("list_staged_lab_card_patches", { reason: "artifact-integrity" });
+  assert.equal(integrityOnly.checked, 1);
+  assert.deepEqual(integrityOnly.items.map((item) => item.projectName), [invalidProjectName]);
+  assert.equal(integrityOnly.invalid, 1);
 
   const invalid = inventory.items.find((item) => item.projectName === invalidProjectName);
   assert.equal(invalid.status, "invalid");

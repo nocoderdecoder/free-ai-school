@@ -63,11 +63,15 @@ function validateToolArguments(toolName, args) {
   }
 
   for (const [key, value] of Object.entries(args)) {
-    const expected = properties[key]?.type;
+    const property = properties[key];
+    const expected = property?.type;
     if (!expected) continue;
     if (expected === "string" && typeof value !== "string") issues.push(`${key} must be a string`);
     if (expected === "number" && typeof value !== "number") issues.push(`${key} must be a number`);
     if (expected === "boolean" && typeof value !== "boolean") issues.push(`${key} must be a boolean`);
+    if (property.enum && !property.enum.includes(value)) {
+      issues.push(`${key} must be one of: ${property.enum.join(", ")}`);
+    }
   }
 
   if (issues.length === 0) return null;
@@ -1118,7 +1122,7 @@ async function validateStagedLabCardPatch(projects, projectName, source) {
   };
 }
 
-async function listStagedLabCardPatches(projects, source) {
+async function listStagedLabCardPatches(projects, source, filters = {}) {
   const generatedDir = path.join(paths.projectDir, "generated");
   let entries;
 
@@ -1216,32 +1220,45 @@ async function listStagedLabCardPatches(projects, source) {
     });
   }
 
+  const filteredItems = items.filter((item) => {
+    const reason = item.staleReason ?? item.invalidReason ?? item.incompleteReason;
+    return (!filters.status || item.status === filters.status)
+      && (!filters.reason || reason === filters.reason);
+  });
+
   return {
-    checked: items.length,
-    complete: items.filter((item) => item.patchFile && item.handoffFile).length,
-    incomplete: items.filter((item) => item.status === "incomplete").length,
-    reviewReady: items.filter((item) => item.reviewReady).length,
-    publishReady: items.filter((item) => item.reviewReady && item.publishReadyAfterApply).length,
-    stale: items.filter((item) => item.status === "stale").length,
-    invalid: items.filter((item) => item.status === "invalid").length,
+    totalChecked: items.length,
+    checked: filteredItems.length,
+    complete: filteredItems.filter((item) => item.patchFile && item.handoffFile).length,
+    incomplete: filteredItems.filter((item) => item.status === "incomplete").length,
+    reviewReady: filteredItems.filter((item) => item.reviewReady).length,
+    publishReady: filteredItems.filter((item) => item.reviewReady && item.publishReadyAfterApply).length,
+    stale: filteredItems.filter((item) => item.status === "stale").length,
+    invalid: filteredItems.filter((item) => item.status === "invalid").length,
     reasonCounts: {
       stale: {
-        "source-drift": items.filter((item) => item.staleReason === "source-drift").length,
-        "already-applied": items.filter((item) => item.staleReason === "already-applied").length,
+        "source-drift": filteredItems.filter((item) => item.staleReason === "source-drift").length,
+        "already-applied": filteredItems.filter((item) => item.staleReason === "already-applied").length,
       },
       invalid: {
-        "artifact-integrity": items.filter((item) => item.invalidReason === "artifact-integrity").length,
-        "invalid-project-name": items.filter((item) => item.invalidReason === "invalid-project-name").length,
-        "missing-handoff-title": items.filter((item) => item.invalidReason === "missing-handoff-title").length,
+        "artifact-integrity": filteredItems.filter((item) => item.invalidReason === "artifact-integrity").length,
+        "invalid-project-name": filteredItems.filter((item) => item.invalidReason === "invalid-project-name").length,
+        "missing-handoff-title": filteredItems.filter((item) => item.invalidReason === "missing-handoff-title").length,
       },
       incomplete: {
-        "missing-patch": items.filter((item) => item.incompleteReason === "missing-patch").length,
-        "missing-handoff": items.filter((item) => item.incompleteReason === "missing-handoff").length,
+        "missing-patch": filteredItems.filter((item) => item.incompleteReason === "missing-patch").length,
+        "missing-handoff": filteredItems.filter((item) => item.incompleteReason === "missing-handoff").length,
       },
     },
-    items,
-    ownerNextStep: items.length === 0
-      ? "Stage a Lab card patch when a project is ready for owner review."
+    filters: {
+      status: filters.status ?? null,
+      reason: filters.reason ?? null,
+    },
+    items: filteredItems,
+    ownerNextStep: filteredItems.length === 0
+      ? items.length === 0
+        ? "Stage a Lab card patch when a project is ready for owner review."
+        : "No staged artifacts match these filters; change or clear the filters to inspect another recovery queue."
       : "Review currently publish-ready items first; complete live readiness blockers, restage stale or invalid items, and discard incomplete artifacts.",
   };
 }
@@ -2162,7 +2179,7 @@ export async function callTool(name, args = {}) {
 
   if (name === "list_staged_lab_card_patches") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
-    return textResult(await listStagedLabCardPatches(projects, source));
+    return textResult(await listStagedLabCardPatches(projects, source, args));
   }
 
   if (name === "validate_staged_lab_card_patch") {

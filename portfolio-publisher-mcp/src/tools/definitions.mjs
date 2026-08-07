@@ -256,10 +256,29 @@ export const tools = [
     name: "list_staged_lab_card_patches",
     title: "List Staged Lab Card Patches",
     description:
-      "List staged Lab card patch artifacts with current live route, screenshot, and icon readiness plus incomplete file pairs.",
+      "List staged Lab card patch artifacts with optional status and recovery-reason filters, current live route, screenshot, and icon readiness, plus incomplete file pairs.",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: {
+        status: {
+          type: "string",
+          enum: ["ready", "stale", "invalid", "incomplete"],
+          description: "Optional staged artifact status to return.",
+        },
+        reason: {
+          type: "string",
+          enum: [
+            "source-drift",
+            "already-applied",
+            "artifact-integrity",
+            "invalid-project-name",
+            "missing-handoff-title",
+            "missing-patch",
+            "missing-handoff",
+          ],
+          description: "Optional machine-readable recovery reason to return. Combines with status using AND semantics.",
+        },
+      },
       additionalProperties: false,
     },
   },
