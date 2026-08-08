@@ -319,7 +319,14 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   const empty = await client.call("list_staged_lab_card_patches", {});
   assert.equal(empty.checked, 0);
   assert.equal(empty.totalChecked, 0);
+  assert.equal(empty.returned, 0);
   assert.deepEqual(empty.filters, { status: null, reason: null });
+  assert.deepEqual(empty.pagination, {
+    limit: null,
+    cursor: null,
+    nextCursor: null,
+    hasMore: false,
+  });
   assert.deepEqual(empty.reasonCounts, {
     stale: { "source-drift": 0, "already-applied": 0 },
     invalid: { "artifact-integrity": 0, "invalid-project-name": 0, "missing-handoff-title": 0 },
@@ -388,10 +395,56 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   });
   assert.equal(before.totalChecked, 4);
   assert.deepEqual(before.filters, { status: null, reason: null });
+  assert.deepEqual(before.pagination, {
+    limit: null,
+    cursor: null,
+    nextCursor: null,
+    hasMore: false,
+  });
+
+  const firstPage = await client.call("list_staged_lab_card_patches", { limit: 2 });
+  assert.equal(firstPage.totalChecked, 4);
+  assert.equal(firstPage.checked, 4);
+  assert.equal(firstPage.returned, 2);
+  assert.equal(firstPage.complete, 2);
+  assert.equal(firstPage.incomplete, 2);
+  assert.deepEqual(firstPage.items.map((item) => item.slug), ["alpha-orphan", "beta-fixture"]);
+  assert.deepEqual(firstPage.pagination, {
+    limit: 2,
+    cursor: null,
+    nextCursor: "beta-fixture",
+    hasMore: true,
+  });
+  assert.ok(firstPage.items.every((item) => !("reviewToken" in item)));
+
+  const secondPage = await client.call("list_staged_lab_card_patches", {
+    limit: 2,
+    cursor: firstPage.pagination.nextCursor,
+  });
+  assert.equal(secondPage.checked, 4);
+  assert.equal(secondPage.returned, 2);
+  assert.deepEqual(secondPage.items.map((item) => item.slug), ["gamma-orphan", "zulu-fixture"]);
+  assert.deepEqual(secondPage.pagination, {
+    limit: 2,
+    cursor: "beta-fixture",
+    nextCursor: null,
+    hasMore: false,
+  });
+
+  const afterLastPage = await client.call("list_staged_lab_card_patches", {
+    limit: 2,
+    cursor: "zulu-fixture",
+  });
+  assert.equal(afterLastPage.checked, 4);
+  assert.equal(afterLastPage.returned, 0);
+  assert.deepEqual(afterLastPage.items, []);
+  assert.equal(afterLastPage.pagination.hasMore, false);
+  assert.match(afterLastPage.ownerNextStep, /after this cursor/);
 
   const readyOnly = await client.call("list_staged_lab_card_patches", { status: "ready" });
   assert.equal(readyOnly.totalChecked, 4);
   assert.equal(readyOnly.checked, 2);
+  assert.equal(readyOnly.returned, 2);
   assert.deepEqual(readyOnly.filters, { status: "ready", reason: null });
   assert.deepEqual(readyOnly.items.map((item) => item.slug), ["beta-fixture", "zulu-fixture"]);
   assert.ok(readyOnly.items.every((item) => item.status === "ready" && !("reviewToken" in item)));
@@ -399,6 +452,7 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   const missingPatchOnly = await client.call("list_staged_lab_card_patches", { reason: "missing-patch" });
   assert.equal(missingPatchOnly.totalChecked, 4);
   assert.equal(missingPatchOnly.checked, 1);
+  assert.equal(missingPatchOnly.returned, 1);
   assert.deepEqual(missingPatchOnly.filters, { status: null, reason: "missing-patch" });
   assert.deepEqual(missingPatchOnly.items.map((item) => item.slug), ["gamma-orphan"]);
   assert.equal(missingPatchOnly.reasonCounts.incomplete["missing-patch"], 1);
@@ -408,6 +462,7 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
     reason: "missing-handoff",
   });
   assert.equal(combined.checked, 1);
+  assert.equal(combined.returned, 1);
   assert.deepEqual(combined.items.map((item) => item.slug), ["alpha-orphan"]);
 
   const emptyIntersection = await client.call("list_staged_lab_card_patches", {

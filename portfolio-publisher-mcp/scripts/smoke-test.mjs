@@ -187,6 +187,14 @@ send(39, "tools/call", {
   name: "list_staged_lab_card_patches",
   arguments: { status: "unknown" },
 });
+send(40, "tools/call", {
+  name: "list_staged_lab_card_patches",
+  arguments: { limit: 1 },
+});
+send(41, "tools/call", {
+  name: "list_staged_lab_card_patches",
+  arguments: { limit: 0 },
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -197,6 +205,8 @@ await Promise.all([
   waitForResponse(37),
   waitForResponse(38),
   waitForResponse(39),
+  waitForResponse(40),
+  waitForResponse(41),
 ]);
 server.kill();
 await once(server, "exit");
@@ -501,9 +511,15 @@ const stagedInventory = JSON.parse(responseById.get(34)?.result?.content?.[0]?.t
 const stagedInventoryArgValidationOk = responseById.get(35)?.result?.isError === true;
 const stagedInventoryOk =
   Number.isInteger(stagedInventory?.checked) &&
+  Number.isInteger(stagedInventory?.returned) &&
   Number.isInteger(stagedInventory?.complete) &&
   Number.isInteger(stagedInventory?.incomplete) &&
   stagedInventory?.checked === stagedInventory?.complete + stagedInventory?.incomplete &&
+  stagedInventory?.returned === stagedInventory?.items?.length &&
+  stagedInventory?.pagination?.limit === null &&
+  stagedInventory?.pagination?.cursor === null &&
+  stagedInventory?.pagination?.nextCursor === null &&
+  stagedInventory?.pagination?.hasMore === false &&
   Number.isInteger(stagedInventory?.reviewReady) &&
   Number.isInteger(stagedInventory?.publishReady) &&
   ["source-drift", "already-applied"].every((reason) =>
@@ -534,11 +550,22 @@ const filteredStagedInventoryOk =
   filteredStagedInventory?.filters?.status === "stale" &&
   filteredStagedInventory?.filters?.reason === "source-drift" &&
   Number.isInteger(filteredStagedInventory?.totalChecked) &&
-  filteredStagedInventory?.checked === filteredStagedInventory?.items?.length &&
+  filteredStagedInventory?.returned === filteredStagedInventory?.items?.length &&
   filteredStagedInventory?.items?.every((item) =>
     item.status === "stale" && item.staleReason === "source-drift" && !("reviewToken" in item)
   );
 const stagedInventoryEnumValidationOk = responseById.get(39)?.result?.isError === true;
+const pagedStagedInventory = JSON.parse(responseById.get(40)?.result?.content?.[0]?.text ?? "{}");
+const pagedStagedInventoryOk =
+  pagedStagedInventory?.pagination?.limit === 1 &&
+  pagedStagedInventory?.pagination?.cursor === null &&
+  typeof pagedStagedInventory?.pagination?.hasMore === "boolean" &&
+  pagedStagedInventory?.returned === pagedStagedInventory?.items?.length &&
+  pagedStagedInventory?.items?.length <= 1 &&
+  (pagedStagedInventory?.pagination?.hasMore === false ||
+    pagedStagedInventory?.pagination?.nextCursor === pagedStagedInventory?.items?.at(-1)?.slug) &&
+  pagedStagedInventory?.items?.every((item) => !("reviewToken" in item));
+const stagedInventoryLimitValidationOk = responseById.get(41)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -580,6 +607,8 @@ console.log(JSON.stringify({
   rehearsalArgValidationOk,
   filteredStagedInventoryOk,
   stagedInventoryEnumValidationOk,
+  pagedStagedInventoryOk,
+  stagedInventoryLimitValidationOk,
 }, null, 2));
 
 if (
@@ -621,6 +650,8 @@ if (
   || !rehearsalArgValidationOk
   || !filteredStagedInventoryOk
   || !stagedInventoryEnumValidationOk
+  || !pagedStagedInventoryOk
+  || !stagedInventoryLimitValidationOk
 ) {
   process.exitCode = 1;
 }

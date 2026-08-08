@@ -7,6 +7,7 @@ import { paths, toRepoRelative } from "../lib/paths.mjs";
 import { tools as toolDefinitions } from "./definitions.mjs";
 
 const EXPECTED_LAB_STATUSES = new Set(["Built", "Demo", "Internal", "Live", "Running"]);
+const MAX_STAGED_INVENTORY_PAGE_LIMIT = 100;
 
 function textResult(value) {
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
@@ -68,7 +69,16 @@ function validateToolArguments(toolName, args) {
     if (!expected) continue;
     if (expected === "string" && typeof value !== "string") issues.push(`${key} must be a string`);
     if (expected === "number" && typeof value !== "number") issues.push(`${key} must be a number`);
+    if (expected === "integer" && !Number.isInteger(value)) issues.push(`${key} must be an integer`);
     if (expected === "boolean" && typeof value !== "boolean") issues.push(`${key} must be a boolean`);
+    if ((expected === "number" || expected === "integer") && typeof value === "number") {
+      if (typeof property.minimum === "number" && value < property.minimum) {
+        issues.push(`${key} must be at least ${property.minimum}`);
+      }
+      if (typeof property.maximum === "number" && value > property.maximum) {
+        issues.push(`${key} must be at most ${property.maximum}`);
+      }
+    }
     if (property.enum && !property.enum.includes(value)) {
       issues.push(`${key} must be one of: ${property.enum.join(", ")}`);
     }
@@ -1225,10 +1235,25 @@ async function listStagedLabCardPatches(projects, source, filters = {}) {
     return (!filters.status || item.status === filters.status)
       && (!filters.reason || reason === filters.reason);
   });
+  const cursor = typeof filters.cursor === "string" && filters.cursor.trim()
+    ? filters.cursor.trim()
+    : null;
+  const limit = Number.isInteger(filters.limit)
+    ? Math.min(Math.max(filters.limit, 1), MAX_STAGED_INVENTORY_PAGE_LIMIT)
+    : null;
+  const cursorStart = cursor
+    ? filteredItems.findIndex((item) => item.slug.localeCompare(cursor) > 0)
+    : 0;
+  const startIndex = cursorStart === -1 ? filteredItems.length : cursorStart;
+  const pagedItems = limit == null
+    ? filteredItems.slice(startIndex)
+    : filteredItems.slice(startIndex, startIndex + limit);
+  const hasMore = limit == null ? false : startIndex + limit < filteredItems.length;
 
   return {
     totalChecked: items.length,
     checked: filteredItems.length,
+    returned: pagedItems.length,
     complete: filteredItems.filter((item) => item.patchFile && item.handoffFile).length,
     incomplete: filteredItems.filter((item) => item.status === "incomplete").length,
     reviewReady: filteredItems.filter((item) => item.reviewReady).length,
@@ -1254,11 +1279,19 @@ async function listStagedLabCardPatches(projects, source, filters = {}) {
       status: filters.status ?? null,
       reason: filters.reason ?? null,
     },
-    items: filteredItems,
+    pagination: {
+      limit,
+      cursor,
+      nextCursor: hasMore ? pagedItems.at(-1)?.slug ?? null : null,
+      hasMore,
+    },
+    items: pagedItems,
     ownerNextStep: filteredItems.length === 0
       ? items.length === 0
         ? "Stage a Lab card patch when a project is ready for owner review."
         : "No staged artifacts match these filters; change or clear the filters to inspect another recovery queue."
+      : pagedItems.length === 0
+        ? "No staged artifacts appear after this cursor; clear or move the cursor to inspect the filtered queue."
       : "Review currently publish-ready items first; complete live readiness blockers, restage stale or invalid items, and discard incomplete artifacts.",
   };
 }

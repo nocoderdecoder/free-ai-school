@@ -278,6 +278,18 @@ export const tools = [
           ],
           description: "Optional machine-readable recovery reason to return. Combines with status using AND semantics.",
         },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
+          description:
+            "Optional maximum number of filtered artifacts to return. Defaults to all filtered artifacts.",
+        },
+        cursor: {
+          type: "string",
+          description:
+            "Optional slug cursor. Results start after this slug using the same deterministic ordering.",
+        },
       },
       additionalProperties: false,
     },
