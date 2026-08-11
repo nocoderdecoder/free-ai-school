@@ -195,6 +195,14 @@ send(41, "tools/call", {
   name: "list_staged_lab_card_patches",
   arguments: { limit: 0 },
 });
+send(42, "tools/call", {
+  name: "create_staged_lab_card_review_report",
+  arguments: { status: "ready", limit: 1 },
+});
+send(43, "tools/call", {
+  name: "create_staged_lab_card_review_report",
+  arguments: { limit: 0 },
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -207,6 +215,8 @@ await Promise.all([
   waitForResponse(39),
   waitForResponse(40),
   waitForResponse(41),
+  waitForResponse(42),
+  waitForResponse(43),
 ]);
 server.kill();
 await once(server, "exit");
@@ -566,6 +576,16 @@ const pagedStagedInventoryOk =
     pagedStagedInventory?.pagination?.nextCursor === pagedStagedInventory?.items?.at(-1)?.slug) &&
   pagedStagedInventory?.items?.every((item) => !("reviewToken" in item));
 const stagedInventoryLimitValidationOk = responseById.get(41)?.result?.isError === true;
+const stagedReviewReport = JSON.parse(responseById.get(42)?.result?.content?.[0]?.text ?? "{}");
+const stagedReviewReportOk =
+  stagedReviewReport?.format === "markdown" &&
+  stagedReviewReport?.sourceFilesChanged === false &&
+  stagedReviewReport?.filters?.status === "ready" &&
+  stagedReviewReport?.pagination?.limit === 1 &&
+  stagedReviewReport?.returned <= 1 &&
+  stagedReviewReport?.markdown?.startsWith("# Staged Lab card review report") &&
+  !stagedReviewReport?.markdown?.includes("reviewToken");
+const stagedReviewReportValidationOk = responseById.get(43)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -609,6 +629,8 @@ console.log(JSON.stringify({
   stagedInventoryEnumValidationOk,
   pagedStagedInventoryOk,
   stagedInventoryLimitValidationOk,
+  stagedReviewReportOk,
+  stagedReviewReportValidationOk,
 }, null, 2));
 
 if (
@@ -652,6 +674,8 @@ if (
   || !stagedInventoryEnumValidationOk
   || !pagedStagedInventoryOk
   || !stagedInventoryLimitValidationOk
+  || !stagedReviewReportOk
+  || !stagedReviewReportValidationOk
 ) {
   process.exitCode = 1;
 }

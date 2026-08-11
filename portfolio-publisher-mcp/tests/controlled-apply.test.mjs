@@ -417,6 +417,29 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   });
   assert.ok(firstPage.items.every((item) => !("reviewToken" in item)));
 
+  const reviewReport = await client.call("create_staged_lab_card_review_report", {
+    status: "incomplete",
+    limit: 1,
+  });
+  assert.equal(reviewReport.format, "markdown");
+  assert.equal(reviewReport.sourceFilesChanged, false);
+  assert.equal(reviewReport.totalChecked, 4);
+  assert.equal(reviewReport.checked, 2);
+  assert.equal(reviewReport.returned, 1);
+  assert.deepEqual(reviewReport.filters, { status: "incomplete", reason: null });
+  assert.deepEqual(reviewReport.pagination, {
+    limit: 1,
+    cursor: null,
+    nextCursor: "alpha-orphan",
+    hasMore: true,
+  });
+  assert.match(reviewReport.markdown, /^# Staged Lab card review report/m);
+  assert.match(reviewReport.markdown, /### alpha-orphan/);
+  assert.match(reviewReport.markdown, /`missing-handoff`/);
+  assert.match(reviewReport.markdown, /Next cursor: `alpha-orphan`/);
+  assert.doesNotMatch(reviewReport.markdown, /reviewToken|[a-f0-9]{64}/);
+  assert.equal(await fs.readFile(labPage, "utf8"), originalSource);
+
   const secondPage = await client.call("list_staged_lab_card_patches", {
     limit: 2,
     cursor: firstPage.pagination.nextCursor,

@@ -1296,6 +1296,47 @@ async function listStagedLabCardPatches(projects, source, filters = {}) {
   };
 }
 
+function formatStagedLabCardReviewReport(inventory) {
+  const lines = ["# Staged Lab card review report", ""];
+  const activeFilters = [
+    inventory.filters.status ? `status \`${inventory.filters.status}\`` : null,
+    inventory.filters.reason ? `reason \`${inventory.filters.reason}\`` : null,
+  ].filter(Boolean);
+
+  lines.push(`- Queue: ${activeFilters.length > 0 ? activeFilters.join(", ") : "all staged artifacts"}`);
+  lines.push(`- Inventory checked: ${inventory.totalChecked}`);
+  lines.push(`- Matching artifacts: ${inventory.checked}`);
+  lines.push(`- Included on this page: ${inventory.returned}`);
+  lines.push(`- Review ready: ${inventory.reviewReady}`);
+  lines.push(`- Publish ready now: ${inventory.publishReady}`);
+  lines.push(`- Stale / invalid / incomplete: ${inventory.stale} / ${inventory.invalid} / ${inventory.incomplete}`);
+  if (inventory.pagination.cursor) lines.push(`- Page starts after: \`${inventory.pagination.cursor}\``);
+  if (inventory.pagination.hasMore) lines.push(`- Next cursor: \`${inventory.pagination.nextCursor}\``);
+  lines.push("");
+
+  if (inventory.items.length === 0) {
+    lines.push("## No artifacts on this page", "", inventory.ownerNextStep, "");
+  } else {
+    lines.push("## Review queue", "");
+    for (const item of inventory.items) {
+      const reason = item.staleReason ?? item.invalidReason ?? item.incompleteReason;
+      lines.push(`### ${item.projectName || item.slug}`, "");
+      lines.push(`- Slug: \`${item.slug}\``);
+      lines.push(`- Status: **${item.status}**${reason ? ` (\`${reason}\`)` : ""}`);
+      lines.push(`- Review ready: ${item.reviewReady ? "Yes" : "No"}`);
+      lines.push(`- Publish ready after apply: ${item.publishReadyAfterApply ? "Yes" : "No"}`);
+      if (item.patchFile) lines.push(`- Patch: \`${item.patchFile}\``);
+      if (item.handoffFile) lines.push(`- Handoff: \`${item.handoffFile}\``);
+      for (const blocker of item.readinessBlockers ?? []) lines.push(`- Blocker: ${blocker}`);
+      for (const issue of item.issues ?? []) lines.push(`- Issue: ${issue}`);
+      lines.push(`- Next step: ${item.ownerNextStep}`, "");
+    }
+  }
+
+  lines.push("## Owner next step", "", inventory.ownerNextStep);
+  return lines.join("\n");
+}
+
 function parseStagedLabCard(handoffContent) {
   const snippet = handoffContent.match(/## Lab card object\s+```ts\n([\s\S]*?)\n```/)?.[1];
   if (!snippet) return null;
@@ -2213,6 +2254,21 @@ export async function callTool(name, args = {}) {
   if (name === "list_staged_lab_card_patches") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await listStagedLabCardPatches(projects, source, args));
+  }
+
+  if (name === "create_staged_lab_card_review_report") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    const inventory = await listStagedLabCardPatches(projects, source, args);
+    return textResult({
+      format: "markdown",
+      markdown: formatStagedLabCardReviewReport(inventory),
+      totalChecked: inventory.totalChecked,
+      checked: inventory.checked,
+      returned: inventory.returned,
+      filters: inventory.filters,
+      pagination: inventory.pagination,
+      sourceFilesChanged: false,
+    });
   }
 
   if (name === "validate_staged_lab_card_patch") {
