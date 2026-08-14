@@ -333,6 +333,16 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
     incomplete: { "missing-patch": 0, "missing-handoff": 0 },
   });
 
+  const emptySelection = await client.call("select_next_staged_lab_card_publish", {});
+  assert.equal(emptySelection.selectionStatus, "empty");
+  assert.equal(emptySelection.sourceFilesChanged, false);
+  assert.equal(emptySelection.totalChecked, 0);
+  assert.equal(emptySelection.publishReadyQueued, 0);
+  assert.equal(emptySelection.selected, null);
+  assert.equal(emptySelection.rehearsal, null);
+  assert.equal(emptySelection.reviewTokenIssued, false);
+  assert.doesNotMatch(JSON.stringify(emptySelection), /reviewToken\"\s*:/);
+
   await client.call("stage_lab_card_patch_artifact", {
     name: "Zulu Fixture",
     tagline: "Starts with a missing screenshot",
@@ -524,6 +534,19 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   assert.ok(publishReadyOnly.items.every((item) =>
     item.publishReadyAfterApply === true && !("reviewToken" in item)
   ));
+
+  const nextPublish = await client.call("select_next_staged_lab_card_publish", {});
+  assert.equal(nextPublish.selectionStatus, "ready");
+  assert.equal(nextPublish.sourceFilesChanged, false);
+  assert.equal(nextPublish.totalChecked, 4);
+  assert.equal(nextPublish.publishReadyQueued, 1);
+  assert.equal(nextPublish.selected.slug, "beta-fixture");
+  assert.equal(nextPublish.rehearsal.rehearsalStatus, "ready");
+  assert.equal(nextPublish.rehearsal.projectName, "Beta Fixture");
+  assert.equal(nextPublish.rehearsal.reviewTokenIssued, false);
+  assert.equal(nextPublish.reviewTokenIssued, false);
+  assert.doesNotMatch(JSON.stringify(nextPublish), /reviewToken\"\s*:/);
+  assert.equal(await fs.readFile(labPage, "utf8"), originalSource);
 
   const notPublishReady = await client.call("list_staged_lab_card_patches", {
     publishReadyAfterApply: false,

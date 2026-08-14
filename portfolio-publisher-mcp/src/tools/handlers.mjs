@@ -1345,6 +1345,44 @@ function formatStagedLabCardReviewReport(inventory) {
   return lines.join("\n");
 }
 
+async function selectNextStagedLabCardPublish(projects, source) {
+  const inventory = await listStagedLabCardPatches(projects, source, {
+    status: "ready",
+    publishReadyAfterApply: true,
+    limit: 1,
+  });
+  const selected = inventory.items[0] ?? null;
+
+  if (!selected?.projectName) {
+    return {
+      generatedAt: new Date().toISOString(),
+      selectionStatus: "empty",
+      sourceFilesChanged: false,
+      totalChecked: inventory.totalChecked,
+      publishReadyQueued: inventory.checked,
+      selected: null,
+      rehearsal: null,
+      reviewTokenIssued: false,
+      ownerNextStep:
+        "No currently publish-ready staged card is available. Inspect the staged inventory and complete readiness or recovery work first.",
+    };
+  }
+
+  const rehearsal = await rehearseStagedLabCardPublish(projects, selected.projectName, source);
+  return {
+    generatedAt: new Date().toISOString(),
+    selectionStatus: "ready",
+    sourceFilesChanged: false,
+    totalChecked: inventory.totalChecked,
+    publishReadyQueued: inventory.checked,
+    selected,
+    rehearsal,
+    reviewTokenIssued: false,
+    ownerNextStep:
+      "Review the selected handoff and patch, then follow the rehearsal sequence to validate and controlled-apply it.",
+  };
+}
+
 function parseStagedLabCard(handoffContent) {
   const snippet = handoffContent.match(/## Lab card object\s+```ts\n([\s\S]*?)\n```/)?.[1];
   if (!snippet) return null;
@@ -2277,6 +2315,11 @@ export async function callTool(name, args = {}) {
       pagination: inventory.pagination,
       sourceFilesChanged: false,
     });
+  }
+
+  if (name === "select_next_staged_lab_card_publish") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await selectNextStagedLabCardPublish(projects, source));
   }
 
   if (name === "validate_staged_lab_card_patch") {

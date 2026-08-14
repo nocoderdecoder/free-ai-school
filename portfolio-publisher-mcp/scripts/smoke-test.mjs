@@ -211,6 +211,14 @@ send(45, "tools/call", {
   name: "create_staged_lab_card_review_report",
   arguments: { publishReadyAfterApply: "true" },
 });
+send(46, "tools/call", {
+  name: "select_next_staged_lab_card_publish",
+  arguments: {},
+});
+send(47, "tools/call", {
+  name: "select_next_staged_lab_card_publish",
+  arguments: { extra: true },
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -227,6 +235,8 @@ await Promise.all([
   waitForResponse(43),
   waitForResponse(44),
   waitForResponse(45),
+  waitForResponse(46),
+  waitForResponse(47),
 ]);
 server.kill();
 await once(server, "exit");
@@ -604,6 +614,19 @@ const publishReadyStagedInventoryOk =
     item.publishReadyAfterApply === true && !("reviewToken" in item)
   );
 const stagedReviewReportReadinessValidationOk = responseById.get(45)?.result?.isError === true;
+const nextStagedPublish = JSON.parse(responseById.get(46)?.result?.content?.[0]?.text ?? "{}");
+const nextStagedPublishOk =
+  ["empty", "ready"].includes(nextStagedPublish?.selectionStatus) &&
+  nextStagedPublish?.sourceFilesChanged === false &&
+  nextStagedPublish?.reviewTokenIssued === false &&
+  Number.isInteger(nextStagedPublish?.totalChecked) &&
+  Number.isInteger(nextStagedPublish?.publishReadyQueued) &&
+  !/"reviewToken"\s*:/.test(JSON.stringify(nextStagedPublish)) &&
+  (nextStagedPublish.selectionStatus === "empty"
+    ? nextStagedPublish.selected === null && nextStagedPublish.rehearsal === null
+    : nextStagedPublish.selected?.publishReadyAfterApply === true &&
+      nextStagedPublish.rehearsal?.rehearsalStatus === "ready");
+const nextStagedPublishArgValidationOk = responseById.get(47)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -651,6 +674,8 @@ console.log(JSON.stringify({
   stagedReviewReportValidationOk,
   publishReadyStagedInventoryOk,
   stagedReviewReportReadinessValidationOk,
+  nextStagedPublishOk,
+  nextStagedPublishArgValidationOk,
 }, null, 2));
 
 if (
@@ -698,6 +723,8 @@ if (
   || !stagedReviewReportValidationOk
   || !publishReadyStagedInventoryOk
   || !stagedReviewReportReadinessValidationOk
+  || !nextStagedPublishOk
+  || !nextStagedPublishArgValidationOk
 ) {
   process.exitCode = 1;
 }

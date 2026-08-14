@@ -340,6 +340,17 @@ export const tools = [
     },
   },
   {
+    name: "select_next_staged_lab_card_publish",
+    title: "Select Next Staged Lab Card Publish",
+    description:
+      "Select the first currently publish-ready staged Lab card and return a read-only rehearsal with owner guidance, without issuing a review token.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "validate_staged_lab_card_patch",
     title: "Validate Staged Lab Card Patch",
     description:
