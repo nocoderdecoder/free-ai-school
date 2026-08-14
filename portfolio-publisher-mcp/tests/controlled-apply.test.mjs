@@ -320,7 +320,7 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   assert.equal(empty.checked, 0);
   assert.equal(empty.totalChecked, 0);
   assert.equal(empty.returned, 0);
-  assert.deepEqual(empty.filters, { status: null, reason: null });
+  assert.deepEqual(empty.filters, { status: null, reason: null, publishReadyAfterApply: null });
   assert.deepEqual(empty.pagination, {
     limit: null,
     cursor: null,
@@ -394,7 +394,7 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
     incomplete: { "missing-patch": 1, "missing-handoff": 1 },
   });
   assert.equal(before.totalChecked, 4);
-  assert.deepEqual(before.filters, { status: null, reason: null });
+  assert.deepEqual(before.filters, { status: null, reason: null, publishReadyAfterApply: null });
   assert.deepEqual(before.pagination, {
     limit: null,
     cursor: null,
@@ -426,7 +426,11 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   assert.equal(reviewReport.totalChecked, 4);
   assert.equal(reviewReport.checked, 2);
   assert.equal(reviewReport.returned, 1);
-  assert.deepEqual(reviewReport.filters, { status: "incomplete", reason: null });
+  assert.deepEqual(reviewReport.filters, {
+    status: "incomplete",
+    reason: null,
+    publishReadyAfterApply: null,
+  });
   assert.deepEqual(reviewReport.pagination, {
     limit: 1,
     cursor: null,
@@ -468,7 +472,11 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   assert.equal(readyOnly.totalChecked, 4);
   assert.equal(readyOnly.checked, 2);
   assert.equal(readyOnly.returned, 2);
-  assert.deepEqual(readyOnly.filters, { status: "ready", reason: null });
+  assert.deepEqual(readyOnly.filters, {
+    status: "ready",
+    reason: null,
+    publishReadyAfterApply: null,
+  });
   assert.deepEqual(readyOnly.items.map((item) => item.slug), ["beta-fixture", "zulu-fixture"]);
   assert.ok(readyOnly.items.every((item) => item.status === "ready" && !("reviewToken" in item)));
 
@@ -476,7 +484,11 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   assert.equal(missingPatchOnly.totalChecked, 4);
   assert.equal(missingPatchOnly.checked, 1);
   assert.equal(missingPatchOnly.returned, 1);
-  assert.deepEqual(missingPatchOnly.filters, { status: null, reason: "missing-patch" });
+  assert.deepEqual(missingPatchOnly.filters, {
+    status: null,
+    reason: "missing-patch",
+    publishReadyAfterApply: null,
+  });
   assert.deepEqual(missingPatchOnly.items.map((item) => item.slug), ["gamma-orphan"]);
   assert.equal(missingPatchOnly.reasonCounts.incomplete["missing-patch"], 1);
 
@@ -496,6 +508,55 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   assert.equal(emptyIntersection.checked, 0);
   assert.deepEqual(emptyIntersection.items, []);
   assert.match(emptyIntersection.ownerNextStep, /No staged artifacts match/);
+
+  const publishReadyOnly = await client.call("list_staged_lab_card_patches", {
+    publishReadyAfterApply: true,
+  });
+  assert.equal(publishReadyOnly.totalChecked, 4);
+  assert.equal(publishReadyOnly.checked, 1);
+  assert.equal(publishReadyOnly.publishReady, 1);
+  assert.deepEqual(publishReadyOnly.filters, {
+    status: null,
+    reason: null,
+    publishReadyAfterApply: true,
+  });
+  assert.deepEqual(publishReadyOnly.items.map((item) => item.slug), ["beta-fixture"]);
+  assert.ok(publishReadyOnly.items.every((item) =>
+    item.publishReadyAfterApply === true && !("reviewToken" in item)
+  ));
+
+  const notPublishReady = await client.call("list_staged_lab_card_patches", {
+    publishReadyAfterApply: false,
+  });
+  assert.equal(notPublishReady.checked, 3);
+  assert.equal(notPublishReady.publishReady, 0);
+  assert.deepEqual(notPublishReady.items.map((item) => item.slug), [
+    "alpha-orphan",
+    "gamma-orphan",
+    "zulu-fixture",
+  ]);
+
+  const needsPrepOnly = await client.call("list_staged_lab_card_patches", {
+    status: "ready",
+    publishReadyAfterApply: false,
+  });
+  assert.equal(needsPrepOnly.checked, 1);
+  assert.equal(needsPrepOnly.publishReady, 0);
+  assert.deepEqual(needsPrepOnly.items.map((item) => item.slug), ["zulu-fixture"]);
+
+  const publishReadyReport = await client.call("create_staged_lab_card_review_report", {
+    publishReadyAfterApply: true,
+  });
+  assert.equal(publishReadyReport.checked, 1);
+  assert.deepEqual(publishReadyReport.filters, {
+    status: null,
+    reason: null,
+    publishReadyAfterApply: true,
+  });
+  assert.match(publishReadyReport.markdown, /publish ready after apply `true`/);
+  assert.match(publishReadyReport.markdown, /### Beta Fixture/);
+  assert.doesNotMatch(publishReadyReport.markdown, /reviewToken|[a-f0-9]{64}/);
+  assert.equal(await fs.readFile(labPage, "utf8"), originalSource);
 
   const alphaOrphan = before.items[0];
   assert.equal(alphaOrphan.status, "incomplete");

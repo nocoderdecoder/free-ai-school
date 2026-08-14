@@ -1233,7 +1233,9 @@ async function listStagedLabCardPatches(projects, source, filters = {}) {
   const filteredItems = items.filter((item) => {
     const reason = item.staleReason ?? item.invalidReason ?? item.incompleteReason;
     return (!filters.status || item.status === filters.status)
-      && (!filters.reason || reason === filters.reason);
+      && (!filters.reason || reason === filters.reason)
+      && (typeof filters.publishReadyAfterApply !== "boolean"
+        || item.publishReadyAfterApply === filters.publishReadyAfterApply);
   });
   const cursor = typeof filters.cursor === "string" && filters.cursor.trim()
     ? filters.cursor.trim()
@@ -1278,6 +1280,9 @@ async function listStagedLabCardPatches(projects, source, filters = {}) {
     filters: {
       status: filters.status ?? null,
       reason: filters.reason ?? null,
+      publishReadyAfterApply: typeof filters.publishReadyAfterApply === "boolean"
+        ? filters.publishReadyAfterApply
+        : null,
     },
     pagination: {
       limit,
@@ -1301,6 +1306,9 @@ function formatStagedLabCardReviewReport(inventory) {
   const activeFilters = [
     inventory.filters.status ? `status \`${inventory.filters.status}\`` : null,
     inventory.filters.reason ? `reason \`${inventory.filters.reason}\`` : null,
+    typeof inventory.filters.publishReadyAfterApply === "boolean"
+      ? `publish ready after apply \`${inventory.filters.publishReadyAfterApply}\``
+      : null,
   ].filter(Boolean);
 
   lines.push(`- Queue: ${activeFilters.length > 0 ? activeFilters.join(", ") : "all staged artifacts"}`);

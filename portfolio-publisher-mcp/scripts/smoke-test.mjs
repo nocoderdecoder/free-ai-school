@@ -203,6 +203,14 @@ send(43, "tools/call", {
   name: "create_staged_lab_card_review_report",
   arguments: { limit: 0 },
 });
+send(44, "tools/call", {
+  name: "list_staged_lab_card_patches",
+  arguments: { publishReadyAfterApply: true, limit: 1 },
+});
+send(45, "tools/call", {
+  name: "create_staged_lab_card_review_report",
+  arguments: { publishReadyAfterApply: "true" },
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -217,6 +225,8 @@ await Promise.all([
   waitForResponse(41),
   waitForResponse(42),
   waitForResponse(43),
+  waitForResponse(44),
+  waitForResponse(45),
 ]);
 server.kill();
 await once(server, "exit");
@@ -586,6 +596,14 @@ const stagedReviewReportOk =
   stagedReviewReport?.markdown?.startsWith("# Staged Lab card review report") &&
   !stagedReviewReport?.markdown?.includes("reviewToken");
 const stagedReviewReportValidationOk = responseById.get(43)?.result?.isError === true;
+const publishReadyStagedInventory = JSON.parse(responseById.get(44)?.result?.content?.[0]?.text ?? "{}");
+const publishReadyStagedInventoryOk =
+  publishReadyStagedInventory?.filters?.publishReadyAfterApply === true &&
+  publishReadyStagedInventory?.pagination?.limit === 1 &&
+  publishReadyStagedInventory?.items?.every((item) =>
+    item.publishReadyAfterApply === true && !("reviewToken" in item)
+  );
+const stagedReviewReportReadinessValidationOk = responseById.get(45)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -631,6 +649,8 @@ console.log(JSON.stringify({
   stagedInventoryLimitValidationOk,
   stagedReviewReportOk,
   stagedReviewReportValidationOk,
+  publishReadyStagedInventoryOk,
+  stagedReviewReportReadinessValidationOk,
 }, null, 2));
 
 if (
@@ -676,6 +696,8 @@ if (
   || !stagedInventoryLimitValidationOk
   || !stagedReviewReportOk
   || !stagedReviewReportValidationOk
+  || !publishReadyStagedInventoryOk
+  || !stagedReviewReportReadinessValidationOk
 ) {
   process.exitCode = 1;
 }

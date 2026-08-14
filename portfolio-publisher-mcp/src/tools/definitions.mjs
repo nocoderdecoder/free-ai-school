@@ -256,7 +256,7 @@ export const tools = [
     name: "list_staged_lab_card_patches",
     title: "List Staged Lab Card Patches",
     description:
-      "List staged Lab card patch artifacts with optional status and recovery-reason filters, current live route, screenshot, and icon readiness, plus incomplete file pairs.",
+      "List staged Lab card patch artifacts with optional status, recovery-reason, and live publish-readiness filters, plus current route, screenshot, and icon readiness and incomplete file pairs.",
     inputSchema: {
       type: "object",
       properties: {
@@ -277,6 +277,11 @@ export const tools = [
             "missing-handoff",
           ],
           description: "Optional machine-readable recovery reason to return. Combines with status using AND semantics.",
+        },
+        publishReadyAfterApply: {
+          type: "boolean",
+          description:
+            "Optional exact live publish-readiness filter. Combines with status and reason using AND semantics.",
         },
         limit: {
           type: "integer",
@@ -314,6 +319,11 @@ export const tools = [
             "missing-handoff-title", "missing-patch", "missing-handoff",
           ],
           description: "Optional machine-readable recovery reason to include. Combines with status using AND semantics.",
+        },
+        publishReadyAfterApply: {
+          type: "boolean",
+          description:
+            "Optional exact live publish-readiness filter. Combines with status and reason using AND semantics.",
         },
         limit: {
           type: "integer",
