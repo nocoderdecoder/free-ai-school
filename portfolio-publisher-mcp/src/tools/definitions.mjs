@@ -354,7 +354,7 @@ export const tools = [
     name: "create_next_staged_lab_card_publish_packet",
     title: "Create Next Staged Lab Card Publish Packet",
     description:
-      "Create an owner-friendly Markdown packet for the next currently publish-ready staged Lab card, including its rehearsal and exact review checklist, without changing files or issuing a review token.",
+      "Create an owner-friendly Markdown packet for the first currently publish-ready staged Lab card without changing files or issuing a review token.",
     inputSchema: {
       type: "object",
       properties: {},

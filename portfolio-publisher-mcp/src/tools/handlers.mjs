@@ -1345,6 +1345,73 @@ function formatStagedLabCardReviewReport(inventory) {
   return lines.join("\n");
 }
 
+function formatNextStagedLabCardPublishPacket(selection) {
+  const lines = ["# Lab card publish packet", ""];
+  lines.push(`- Status: **${selection.selectionStatus}**`);
+  lines.push(`- Staged artifacts checked: ${selection.totalChecked}`);
+  lines.push(`- Publish-ready queue: ${selection.publishReadyQueued}`, "");
+
+  if (!selection.selected || !selection.rehearsal) {
+    lines.push(
+      "## No card selected",
+      "",
+      "No staged Lab card currently passes staged validation plus live route, screenshot, and icon readiness.",
+      "",
+      "## Owner next step",
+      "",
+      selection.ownerNextStep,
+    );
+    return lines.join("\n");
+  }
+
+  const { selected, rehearsal } = selection;
+  const card = rehearsal.labCard ?? {};
+  const routeFile = rehearsal.readiness?.route?.file ?? null;
+  const screenshotFile = rehearsal.readiness?.asset?.file ?? null;
+
+  lines.push("## Selected card", "");
+  lines.push(`- Project: **${selected.projectName}**`);
+  lines.push(`- Slug: \`${selected.slug}\``);
+  lines.push(`- Tagline: ${card.tagline || "Not available"}`);
+  lines.push(`- Status: ${card.status || "Not available"}`);
+  lines.push(`- URL: \`${card.url || "Not available"}\``);
+  lines.push(`- Screenshot: \`${card.image || "Not available"}\``);
+  lines.push(`- Icon: \`${card.icon || "Not available"}\``, "");
+
+  lines.push("## Current readiness", "");
+  lines.push(`- Rehearsal: **${rehearsal.rehearsalStatus}**`);
+  lines.push(`- Route: ${rehearsal.readiness?.route?.status ?? "Not available"}`);
+  lines.push(`- Screenshot: ${rehearsal.readiness?.asset?.exists ? "Ready" : "Missing"}`);
+  lines.push(`- Icon imported on Lab page: ${rehearsal.readiness?.icon?.imported ? "Yes" : "No"}`);
+  lines.push(`- Icon exported from thumbnails: ${rehearsal.readiness?.icon?.exported ? "Yes" : "No"}`, "");
+
+  lines.push("## Files for review", "");
+  lines.push(`- [ ] Staged patch: \`${selected.patchFile}\``);
+  lines.push(`- [ ] Staged handoff: \`${selected.handoffFile}\``);
+  lines.push("- [ ] Lab card destination: `app/lab/page.tsx`");
+  if (routeFile) lines.push(`- [ ] Project route: \`${routeFile}\``);
+  if (screenshotFile) lines.push(`- [ ] Screenshot asset: \`${screenshotFile}\``);
+  lines.push("- [ ] Icon definition: `app/components/LabThumbnails.tsx`", "");
+
+  lines.push("## Owner approval checklist", "");
+  lines.push("- [ ] The project name, tagline, status, URL, screenshot, and icon are correct.");
+  lines.push("- [ ] The patch adds exactly one intended Lab card and no unrelated changes.");
+  lines.push("- [ ] The route, screenshot, and icon checks above match the files reviewed.");
+  lines.push("- [ ] I approve moving from read-only review to controlled apply.", "");
+
+  lines.push("## Apply sequence", "");
+  lines.push(`1. Call \`validate_staged_lab_card_patch\` with project name \`${selected.projectName}\` to request fresh apply authorization.`);
+  lines.push("2. Review the returned checksums against the staged patch and handoff.");
+  lines.push(`3. Call \`apply_staged_lab_card_patch\` for \`${selected.projectName}\` with that fresh authorization and \`confirm: true\`.`);
+  lines.push("4. Stop if validation, readiness, or controlled apply reports any blocker.", "");
+
+  lines.push("## Verification", "");
+  lines.push("```bash", rehearsal.verificationCommand, "```");
+  lines.push("Review `git status --short --branch` and the Lab page diff before committing.", "");
+  lines.push("## Owner next step", "", selection.ownerNextStep);
+  return lines.join("\n");
+}
+
 async function selectNextStagedLabCardPublish(projects, source) {
   const inventory = await listStagedLabCardPatches(projects, source, {
     status: "ready",
@@ -1383,71 +1450,18 @@ async function selectNextStagedLabCardPublish(projects, source) {
   };
 }
 
-function formatNextStagedLabCardPublishPacket(selection) {
-  const lines = ["# Next staged Lab card publish packet", ""];
-  lines.push(`- Selection status: **${selection.selectionStatus}**`);
-  lines.push(`- Staged artifacts checked: ${selection.totalChecked}`);
-  lines.push(`- Currently publish-ready queue: ${selection.publishReadyQueued}`);
-  lines.push("- Source files changed: No");
-  lines.push("- Review token issued: No", "");
-
-  if (selection.selectionStatus !== "ready" || !selection.selected || !selection.rehearsal) {
-    lines.push("## No publish-ready card selected", "", selection.ownerNextStep, "");
-    lines.push("## Owner checklist", "");
-    lines.push("- Inspect the staged inventory and its live readiness blockers.");
-    lines.push("- Complete companion route, screenshot, or icon prep, or recover stale and invalid artifacts.");
-    lines.push("- Create this packet again; do not attempt controlled apply without a ready selection.");
-    return lines.join("\n");
-  }
-
-  const { selected, rehearsal } = selection;
-  lines.push(`## Selected card: ${selected.projectName}`, "");
-  lines.push(`- Slug: \`${selected.slug}\``);
-  lines.push(`- Status: **${selected.status}**`);
-  lines.push(`- Publish ready after apply: ${selected.publishReadyAfterApply ? "Yes" : "No"}`);
-  if (rehearsal.labCard?.tagline) lines.push(`- Tagline: ${rehearsal.labCard.tagline}`);
-  if (rehearsal.labCard?.url) lines.push(`- Route: \`${rehearsal.labCard.url}\``);
-  if (rehearsal.labCard?.image) lines.push(`- Screenshot: \`${rehearsal.labCard.image}\``);
-  if (rehearsal.labCard?.icon) lines.push(`- Icon: \`${rehearsal.labCard.icon}\``);
-  lines.push("");
-
-  lines.push("## Files to review", "");
-  lines.push(`- Handoff: \`${selected.handoffFile}\``);
-  lines.push(`- Patch: \`${selected.patchFile}\``);
-  lines.push("- Confirm the handoff card copy matches the patch exactly.");
-  lines.push("- Confirm the patch changes only the intended Lab card insertion.");
-  lines.push("- Confirm the route, screenshot, and icon evidence below belongs to this card.", "");
-
-  lines.push("## Live readiness", "");
-  lines.push(`- Rehearsal: **${rehearsal.rehearsalStatus}**`);
-  const routeStatus = rehearsal.readiness?.route?.status ?? "unknown";
-  lines.push(`- Route: ${routeStatus === "missing-route-file" ? "Blocked" : "Ready"} (\`${routeStatus}\`)`);
-  lines.push(`- Screenshot: ${rehearsal.readiness?.asset?.exists ? "Ready" : "Blocked"}`);
-  lines.push(`- Icon import: ${rehearsal.readiness?.icon?.imported ? "Ready" : "Blocked"}`);
-  lines.push(`- Icon export: ${rehearsal.readiness?.icon?.exported ? "Ready" : "Blocked"}`);
-  for (const blocker of rehearsal.readinessBlockers ?? []) lines.push(`- Blocker: ${blocker}`);
-  lines.push("");
-
-  lines.push("## Safe publish sequence", "");
-  for (const [index, step] of (rehearsal.sequence ?? []).entries()) {
-    lines.push(`${index + 1}. ${step}`);
-  }
-  lines.push("", "## Owner next step", "", selection.ownerNextStep);
-  return lines.join("\n");
-}
-
 async function createNextStagedLabCardPublishPacket(projects, source) {
   const selection = await selectNextStagedLabCardPublish(projects, source);
   return {
     format: "markdown",
-    markdown: formatNextStagedLabCardPublishPacket(selection),
     selectionStatus: selection.selectionStatus,
+    sourceFilesChanged: false,
     totalChecked: selection.totalChecked,
     publishReadyQueued: selection.publishReadyQueued,
     selected: selection.selected,
-    rehearsal: selection.rehearsal,
-    sourceFilesChanged: false,
+    markdown: formatNextStagedLabCardPublishPacket(selection),
     reviewTokenIssued: false,
+    ownerNextStep: selection.ownerNextStep,
   };
 }
 

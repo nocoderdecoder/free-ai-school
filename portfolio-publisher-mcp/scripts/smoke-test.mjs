@@ -645,9 +645,8 @@ const nextStagedPublishPacketOk =
   nextStagedPublishPacket?.reviewTokenIssued === false &&
   Number.isInteger(nextStagedPublishPacket?.totalChecked) &&
   Number.isInteger(nextStagedPublishPacket?.publishReadyQueued) &&
-  nextStagedPublishPacket?.markdown?.startsWith("# Next staged Lab card publish packet") &&
-  nextStagedPublishPacket?.markdown?.includes("## Owner checklist") ===
-    (nextStagedPublishPacket.selectionStatus === "empty") &&
+  nextStagedPublishPacket?.markdown?.includes("# Lab card publish packet") &&
+  !/reviewToken|[a-f0-9]{64}/.test(nextStagedPublishPacket?.markdown ?? "") &&
   !/"reviewToken"\s*:/.test(JSON.stringify(nextStagedPublishPacket));
 const nextStagedPublishPacketArgValidationOk = responseById.get(49)?.result?.isError === true;
 

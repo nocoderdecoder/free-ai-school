@@ -347,10 +347,14 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   assert.equal(emptyPacket.format, "markdown");
   assert.equal(emptyPacket.selectionStatus, "empty");
   assert.equal(emptyPacket.sourceFilesChanged, false);
+  assert.equal(emptyPacket.totalChecked, 0);
+  assert.equal(emptyPacket.publishReadyQueued, 0);
+  assert.equal(emptyPacket.selected, null);
   assert.equal(emptyPacket.reviewTokenIssued, false);
-  assert.match(emptyPacket.markdown, /# Next staged Lab card publish packet/);
-  assert.match(emptyPacket.markdown, /No publish-ready card selected/);
-  assert.doesNotMatch(JSON.stringify(emptyPacket), /reviewToken\"\s*:/);
+  assert.match(emptyPacket.markdown, /# Lab card publish packet/);
+  assert.match(emptyPacket.markdown, /## No card selected/);
+  assert.doesNotMatch(emptyPacket.markdown, /reviewToken|[a-f0-9]{64}/);
+  assert.equal(await fs.readFile(labPage, "utf8"), originalSource);
 
   await client.call("stage_lab_card_patch_artifact", {
     name: "Zulu Fixture",
@@ -560,21 +564,24 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   const publishPacket = await client.call("create_next_staged_lab_card_publish_packet", {});
   assert.equal(publishPacket.format, "markdown");
   assert.equal(publishPacket.selectionStatus, "ready");
+  assert.equal(publishPacket.sourceFilesChanged, false);
+  assert.equal(publishPacket.totalChecked, 4);
   assert.equal(publishPacket.publishReadyQueued, 1);
   assert.equal(publishPacket.selected.slug, "beta-fixture");
-  assert.equal(publishPacket.rehearsal.rehearsalStatus, "ready");
-  assert.equal(publishPacket.sourceFilesChanged, false);
   assert.equal(publishPacket.reviewTokenIssued, false);
-  assert.match(publishPacket.markdown, /## Selected card: Beta Fixture/);
-  assert.match(publishPacket.markdown, /## Files to review/);
-  assert.match(publishPacket.markdown, /beta-fixture-lab-card\.md/);
+  assert.match(publishPacket.markdown, /## Selected card/);
+  assert.match(publishPacket.markdown, /\*\*Beta Fixture\*\*/);
+  assert.match(publishPacket.markdown, /## Current readiness/);
+  assert.match(publishPacket.markdown, /## Files for review/);
   assert.match(publishPacket.markdown, /beta-fixture-lab-card\.patch/);
-  assert.match(publishPacket.markdown, /## Live readiness/);
-  assert.match(publishPacket.markdown, /Route: Ready/);
-  assert.match(publishPacket.markdown, /Screenshot: Ready/);
-  assert.match(publishPacket.markdown, /## Safe publish sequence/);
+  assert.match(publishPacket.markdown, /beta-fixture-lab-card\.md/);
+  assert.match(publishPacket.markdown, /app\/lab\/page\.tsx/);
+  assert.match(publishPacket.markdown, /app\/components\/LabThumbnails\.tsx/);
+  assert.match(publishPacket.markdown, /## Owner approval checklist/);
   assert.match(publishPacket.markdown, /validate_staged_lab_card_patch/);
-  assert.match(publishPacket.markdown, /npm run smoke/);
+  assert.match(publishPacket.markdown, /apply_staged_lab_card_patch/);
+  assert.match(publishPacket.markdown, /cd portfolio-publisher-mcp && npm run smoke/);
+  assert.doesNotMatch(publishPacket.markdown, /reviewToken|[a-f0-9]{64}/);
   assert.doesNotMatch(JSON.stringify(publishPacket), /reviewToken\"\s*:/);
   assert.equal(await fs.readFile(labPage, "utf8"), originalSource);
 
