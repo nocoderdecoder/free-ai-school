@@ -343,6 +343,15 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   assert.equal(emptySelection.reviewTokenIssued, false);
   assert.doesNotMatch(JSON.stringify(emptySelection), /reviewToken\"\s*:/);
 
+  const emptyPacket = await client.call("create_next_staged_lab_card_publish_packet", {});
+  assert.equal(emptyPacket.format, "markdown");
+  assert.equal(emptyPacket.selectionStatus, "empty");
+  assert.equal(emptyPacket.sourceFilesChanged, false);
+  assert.equal(emptyPacket.reviewTokenIssued, false);
+  assert.match(emptyPacket.markdown, /# Next staged Lab card publish packet/);
+  assert.match(emptyPacket.markdown, /No publish-ready card selected/);
+  assert.doesNotMatch(JSON.stringify(emptyPacket), /reviewToken\"\s*:/);
+
   await client.call("stage_lab_card_patch_artifact", {
     name: "Zulu Fixture",
     tagline: "Starts with a missing screenshot",
@@ -546,6 +555,27 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   assert.equal(nextPublish.rehearsal.reviewTokenIssued, false);
   assert.equal(nextPublish.reviewTokenIssued, false);
   assert.doesNotMatch(JSON.stringify(nextPublish), /reviewToken\"\s*:/);
+  assert.equal(await fs.readFile(labPage, "utf8"), originalSource);
+
+  const publishPacket = await client.call("create_next_staged_lab_card_publish_packet", {});
+  assert.equal(publishPacket.format, "markdown");
+  assert.equal(publishPacket.selectionStatus, "ready");
+  assert.equal(publishPacket.publishReadyQueued, 1);
+  assert.equal(publishPacket.selected.slug, "beta-fixture");
+  assert.equal(publishPacket.rehearsal.rehearsalStatus, "ready");
+  assert.equal(publishPacket.sourceFilesChanged, false);
+  assert.equal(publishPacket.reviewTokenIssued, false);
+  assert.match(publishPacket.markdown, /## Selected card: Beta Fixture/);
+  assert.match(publishPacket.markdown, /## Files to review/);
+  assert.match(publishPacket.markdown, /beta-fixture-lab-card\.md/);
+  assert.match(publishPacket.markdown, /beta-fixture-lab-card\.patch/);
+  assert.match(publishPacket.markdown, /## Live readiness/);
+  assert.match(publishPacket.markdown, /Route: Ready/);
+  assert.match(publishPacket.markdown, /Screenshot: Ready/);
+  assert.match(publishPacket.markdown, /## Safe publish sequence/);
+  assert.match(publishPacket.markdown, /validate_staged_lab_card_patch/);
+  assert.match(publishPacket.markdown, /npm run smoke/);
+  assert.doesNotMatch(JSON.stringify(publishPacket), /reviewToken\"\s*:/);
   assert.equal(await fs.readFile(labPage, "utf8"), originalSource);
 
   const notPublishReady = await client.call("list_staged_lab_card_patches", {

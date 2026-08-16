@@ -219,6 +219,14 @@ send(47, "tools/call", {
   name: "select_next_staged_lab_card_publish",
   arguments: { extra: true },
 });
+send(48, "tools/call", {
+  name: "create_next_staged_lab_card_publish_packet",
+  arguments: {},
+});
+send(49, "tools/call", {
+  name: "create_next_staged_lab_card_publish_packet",
+  arguments: { extra: true },
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -237,6 +245,8 @@ await Promise.all([
   waitForResponse(45),
   waitForResponse(46),
   waitForResponse(47),
+  waitForResponse(48),
+  waitForResponse(49),
 ]);
 server.kill();
 await once(server, "exit");
@@ -627,6 +637,19 @@ const nextStagedPublishOk =
     : nextStagedPublish.selected?.publishReadyAfterApply === true &&
       nextStagedPublish.rehearsal?.rehearsalStatus === "ready");
 const nextStagedPublishArgValidationOk = responseById.get(47)?.result?.isError === true;
+const nextStagedPublishPacket = JSON.parse(responseById.get(48)?.result?.content?.[0]?.text ?? "{}");
+const nextStagedPublishPacketOk =
+  nextStagedPublishPacket?.format === "markdown" &&
+  ["empty", "ready"].includes(nextStagedPublishPacket?.selectionStatus) &&
+  nextStagedPublishPacket?.sourceFilesChanged === false &&
+  nextStagedPublishPacket?.reviewTokenIssued === false &&
+  Number.isInteger(nextStagedPublishPacket?.totalChecked) &&
+  Number.isInteger(nextStagedPublishPacket?.publishReadyQueued) &&
+  nextStagedPublishPacket?.markdown?.startsWith("# Next staged Lab card publish packet") &&
+  nextStagedPublishPacket?.markdown?.includes("## Owner checklist") ===
+    (nextStagedPublishPacket.selectionStatus === "empty") &&
+  !/"reviewToken"\s*:/.test(JSON.stringify(nextStagedPublishPacket));
+const nextStagedPublishPacketArgValidationOk = responseById.get(49)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -676,6 +699,8 @@ console.log(JSON.stringify({
   stagedReviewReportReadinessValidationOk,
   nextStagedPublishOk,
   nextStagedPublishArgValidationOk,
+  nextStagedPublishPacketOk,
+  nextStagedPublishPacketArgValidationOk,
 }, null, 2));
 
 if (
@@ -725,6 +750,8 @@ if (
   || !stagedReviewReportReadinessValidationOk
   || !nextStagedPublishOk
   || !nextStagedPublishArgValidationOk
+  || !nextStagedPublishPacketOk
+  || !nextStagedPublishPacketArgValidationOk
 ) {
   process.exitCode = 1;
 }

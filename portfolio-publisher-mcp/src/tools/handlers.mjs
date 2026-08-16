@@ -1383,6 +1383,74 @@ async function selectNextStagedLabCardPublish(projects, source) {
   };
 }
 
+function formatNextStagedLabCardPublishPacket(selection) {
+  const lines = ["# Next staged Lab card publish packet", ""];
+  lines.push(`- Selection status: **${selection.selectionStatus}**`);
+  lines.push(`- Staged artifacts checked: ${selection.totalChecked}`);
+  lines.push(`- Currently publish-ready queue: ${selection.publishReadyQueued}`);
+  lines.push("- Source files changed: No");
+  lines.push("- Review token issued: No", "");
+
+  if (selection.selectionStatus !== "ready" || !selection.selected || !selection.rehearsal) {
+    lines.push("## No publish-ready card selected", "", selection.ownerNextStep, "");
+    lines.push("## Owner checklist", "");
+    lines.push("- Inspect the staged inventory and its live readiness blockers.");
+    lines.push("- Complete companion route, screenshot, or icon prep, or recover stale and invalid artifacts.");
+    lines.push("- Create this packet again; do not attempt controlled apply without a ready selection.");
+    return lines.join("\n");
+  }
+
+  const { selected, rehearsal } = selection;
+  lines.push(`## Selected card: ${selected.projectName}`, "");
+  lines.push(`- Slug: \`${selected.slug}\``);
+  lines.push(`- Status: **${selected.status}**`);
+  lines.push(`- Publish ready after apply: ${selected.publishReadyAfterApply ? "Yes" : "No"}`);
+  if (rehearsal.labCard?.tagline) lines.push(`- Tagline: ${rehearsal.labCard.tagline}`);
+  if (rehearsal.labCard?.url) lines.push(`- Route: \`${rehearsal.labCard.url}\``);
+  if (rehearsal.labCard?.image) lines.push(`- Screenshot: \`${rehearsal.labCard.image}\``);
+  if (rehearsal.labCard?.icon) lines.push(`- Icon: \`${rehearsal.labCard.icon}\``);
+  lines.push("");
+
+  lines.push("## Files to review", "");
+  lines.push(`- Handoff: \`${selected.handoffFile}\``);
+  lines.push(`- Patch: \`${selected.patchFile}\``);
+  lines.push("- Confirm the handoff card copy matches the patch exactly.");
+  lines.push("- Confirm the patch changes only the intended Lab card insertion.");
+  lines.push("- Confirm the route, screenshot, and icon evidence below belongs to this card.", "");
+
+  lines.push("## Live readiness", "");
+  lines.push(`- Rehearsal: **${rehearsal.rehearsalStatus}**`);
+  const routeStatus = rehearsal.readiness?.route?.status ?? "unknown";
+  lines.push(`- Route: ${routeStatus === "missing-route-file" ? "Blocked" : "Ready"} (\`${routeStatus}\`)`);
+  lines.push(`- Screenshot: ${rehearsal.readiness?.asset?.exists ? "Ready" : "Blocked"}`);
+  lines.push(`- Icon import: ${rehearsal.readiness?.icon?.imported ? "Ready" : "Blocked"}`);
+  lines.push(`- Icon export: ${rehearsal.readiness?.icon?.exported ? "Ready" : "Blocked"}`);
+  for (const blocker of rehearsal.readinessBlockers ?? []) lines.push(`- Blocker: ${blocker}`);
+  lines.push("");
+
+  lines.push("## Safe publish sequence", "");
+  for (const [index, step] of (rehearsal.sequence ?? []).entries()) {
+    lines.push(`${index + 1}. ${step}`);
+  }
+  lines.push("", "## Owner next step", "", selection.ownerNextStep);
+  return lines.join("\n");
+}
+
+async function createNextStagedLabCardPublishPacket(projects, source) {
+  const selection = await selectNextStagedLabCardPublish(projects, source);
+  return {
+    format: "markdown",
+    markdown: formatNextStagedLabCardPublishPacket(selection),
+    selectionStatus: selection.selectionStatus,
+    totalChecked: selection.totalChecked,
+    publishReadyQueued: selection.publishReadyQueued,
+    selected: selection.selected,
+    rehearsal: selection.rehearsal,
+    sourceFilesChanged: false,
+    reviewTokenIssued: false,
+  };
+}
+
 function parseStagedLabCard(handoffContent) {
   const snippet = handoffContent.match(/## Lab card object\s+```ts\n([\s\S]*?)\n```/)?.[1];
   if (!snippet) return null;
@@ -2320,6 +2388,11 @@ export async function callTool(name, args = {}) {
   if (name === "select_next_staged_lab_card_publish") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await selectNextStagedLabCardPublish(projects, source));
+  }
+
+  if (name === "create_next_staged_lab_card_publish_packet") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await createNextStagedLabCardPublishPacket(projects, source));
   }
 
   if (name === "validate_staged_lab_card_patch") {
