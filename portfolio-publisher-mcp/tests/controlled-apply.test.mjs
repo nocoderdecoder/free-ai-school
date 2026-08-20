@@ -153,6 +153,46 @@ test("controlled apply cleans up after prep rejection and successful apply", asy
   assert.deepEqual(await listApplyArtifacts(labPage), []);
 });
 
+test("public screenshot paths cannot escape the public directory", async (t) => {
+  const { labPage, client } = await createFixtureClient(t);
+  const projectName = "Traversal Fixture";
+  const card = {
+    name: projectName,
+    tagline: "Must not treat a source file as a screenshot",
+    url: "https://example.com/traversal-fixture",
+    image: "/../app/lab/page.tsx",
+    icon: "FixtureIcon",
+  };
+
+  const validation = await client.call("validate_lab_card_patch_artifact", card);
+  assert.equal(validation.applyStatus, "needs-prep");
+  assert.equal(validation.asset.status, "invalid-image-path");
+  assert.equal(validation.asset.exists, false);
+  assert.equal(validation.asset.file, null);
+  assert.match(validation.asset.issue, /inside the public directory/);
+  assert.ok(validation.readinessBlockers.some((blocker) => blocker.includes("inside the public directory")));
+
+  const stage = await client.call("stage_lab_card_patch_artifact", {
+    ...card,
+    allowNeedsPrep: true,
+  });
+  assert.equal(stage.staged, true);
+
+  const inventory = await client.call("list_staged_lab_card_patches", {});
+  assert.equal(inventory.items[0].publishReadyAfterApply, false);
+  assert.equal(inventory.items[0].readiness.asset.status, "invalid-image-path");
+  assert.ok(inventory.items[0].readinessBlockers.some((blocker) => blocker.includes("inside the public directory")));
+
+  const rehearsal = await client.call("rehearse_staged_lab_card_publish", { projectName });
+  assert.equal(rehearsal.rehearsalStatus, "needs-prep");
+  assert.equal(rehearsal.readiness.asset.status, "invalid-image-path");
+
+  const publishPacket = await client.call("create_next_staged_lab_card_publish_packet", {});
+  assert.equal(publishPacket.selectionStatus, "empty");
+  assert.doesNotMatch(JSON.stringify(publishPacket), /reviewToken\"\s*:/);
+  assert.equal((await fs.readFile(labPage, "utf8")).includes(projectName), false);
+});
+
 test("staged validation rejects structural and content tampering", async (t) => {
   const { repoRoot, client } = await createFixtureClient(t);
   const projectName = "Tamper Fixture";

@@ -68,8 +68,22 @@ export async function getProjectAssetStatus(project) {
     };
   }
 
-  const normalized = project.image.replace(/^\//, "");
-  const absolute = path.join(paths.publicDir, normalized);
+  const normalized = project.image.replace(/^\/+/, "");
+  const absolute = path.resolve(paths.publicDir, normalized);
+  const relativeToPublic = path.relative(paths.publicDir, absolute);
+  const escapesPublic = relativeToPublic === ".." || relativeToPublic.startsWith(`..${path.sep}`);
+  const hasUnsupportedUrlSyntax = project.image.includes("\\") || /[?#\0]/.test(project.image);
+
+  if (escapesPublic || hasUnsupportedUrlSyntax) {
+    return {
+      project: project.name,
+      image: project.image,
+      status: "invalid-image-path",
+      exists: false,
+      file: null,
+      issue: "Screenshot image paths must resolve to a file inside the public directory.",
+    };
+  }
 
   try {
     await fs.access(assertSafeRead(absolute));

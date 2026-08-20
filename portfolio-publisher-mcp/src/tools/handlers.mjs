@@ -299,7 +299,9 @@ function getScreenshotCapture(project, asset) {
     : "unavailable";
   const reason = asset.status === "missing-file"
     ? `Image path is set, but the file does not exist: ${asset.file}`
-    : "Project has no screenshot image path.";
+    : asset.status === "invalid-image-path"
+      ? asset.issue
+      : "Project has no screenshot image path.";
   const suggestedImage = project.image || suggestedScreenshotPath(project.name);
   const captureReady = Boolean(captureTarget);
 
@@ -814,6 +816,8 @@ async function validateLabCardPatchArtifact(projects, draft, source) {
   }
   if (!card.image) {
     readinessBlockers.push("Missing screenshot image path.");
+  } else if (asset.status === "invalid-image-path") {
+    readinessBlockers.push(asset.issue);
   } else if (!asset.exists) {
     readinessBlockers.push(`Screenshot file not found: ${asset.file ?? card.image}`);
   }
@@ -1873,7 +1877,9 @@ async function computeReadinessChecks(projects) {
       blockers.push(`Local route file not found: ${route.file}`);
     }
     if (!project.image) blockers.push("Missing screenshot image path.");
-    if (project.image && !asset.exists) {
+    if (asset.status === "invalid-image-path") {
+      blockers.push(asset.issue);
+    } else if (project.image && !asset.exists) {
       blockers.push(`Screenshot file not found: ${asset.file ?? project.image}`);
     }
 
