@@ -1345,7 +1345,7 @@ function formatStagedLabCardReviewReport(inventory) {
   return lines.join("\n");
 }
 
-function formatNextStagedLabCardPublishPacket(selection) {
+function formatNextStagedLabCardPublishPacket(selection, reviewFiles = []) {
   const lines = ["# Lab card publish packet", ""];
   lines.push(`- Status: **${selection.selectionStatus}**`);
   lines.push(`- Staged artifacts checked: ${selection.totalChecked}`);
@@ -1366,8 +1366,6 @@ function formatNextStagedLabCardPublishPacket(selection) {
 
   const { selected, rehearsal } = selection;
   const card = rehearsal.labCard ?? {};
-  const routeFile = rehearsal.readiness?.route?.file ?? null;
-  const screenshotFile = rehearsal.readiness?.asset?.file ?? null;
 
   lines.push("## Selected card", "");
   lines.push(`- Project: **${selected.projectName}**`);
@@ -1386,12 +1384,10 @@ function formatNextStagedLabCardPublishPacket(selection) {
   lines.push(`- Icon exported from thumbnails: ${rehearsal.readiness?.icon?.exported ? "Yes" : "No"}`, "");
 
   lines.push("## Files for review", "");
-  lines.push(`- [ ] Staged patch: \`${selected.patchFile}\``);
-  lines.push(`- [ ] Staged handoff: \`${selected.handoffFile}\``);
-  lines.push("- [ ] Lab card destination: `app/lab/page.tsx`");
-  if (routeFile) lines.push(`- [ ] Project route: \`${routeFile}\``);
-  if (screenshotFile) lines.push(`- [ ] Screenshot asset: \`${screenshotFile}\``);
-  lines.push("- [ ] Icon definition: `app/components/LabThumbnails.tsx`", "");
+  for (const file of reviewFiles) {
+    lines.push(`- [ ] ${file.label}: \`${file.file}\` — ${file.exists ? "Verified" : "Missing"}`);
+  }
+  lines.push("");
 
   lines.push("## Owner approval checklist", "");
   lines.push("- [ ] The project name, tagline, status, URL, screenshot, and icon are correct.");
@@ -1452,6 +1448,31 @@ async function selectNextStagedLabCardPublish(projects, source) {
 
 async function createNextStagedLabCardPublishPacket(projects, source) {
   const selection = await selectNextStagedLabCardPublish(projects, source);
+  const rehearsal = selection.rehearsal;
+  const reviewFiles = selection.selected && rehearsal
+    ? [
+        { type: "patch", label: "Staged patch", file: selection.selected.patchFile },
+        { type: "handoff", label: "Staged handoff", file: selection.selected.handoffFile },
+        { type: "lab-page", label: "Lab card destination", file: "app/lab/page.tsx" },
+        rehearsal.readiness?.route?.file
+          ? { type: "route", label: "Project route", file: rehearsal.readiness.route.file }
+          : null,
+        rehearsal.readiness?.asset?.file
+          ? { type: "screenshot", label: "Screenshot asset", file: rehearsal.readiness.asset.file }
+          : null,
+        { type: "icon-definition", label: "Icon definition", file: "app/components/LabThumbnails.tsx" },
+      ].filter(Boolean)
+    : [];
+
+  const checkedReviewFiles = await Promise.all(reviewFiles.map(async (file) => {
+    try {
+      await fs.access(path.join(paths.repoRoot, file.file));
+      return { ...file, exists: true };
+    } catch {
+      return { ...file, exists: false };
+    }
+  }));
+
   return {
     format: "markdown",
     selectionStatus: selection.selectionStatus,
@@ -1459,7 +1480,9 @@ async function createNextStagedLabCardPublishPacket(projects, source) {
     totalChecked: selection.totalChecked,
     publishReadyQueued: selection.publishReadyQueued,
     selected: selection.selected,
-    markdown: formatNextStagedLabCardPublishPacket(selection),
+    reviewFiles: checkedReviewFiles,
+    allReviewFilesExist: checkedReviewFiles.length > 0 && checkedReviewFiles.every((file) => file.exists),
+    markdown: formatNextStagedLabCardPublishPacket(selection, checkedReviewFiles),
     reviewTokenIssued: false,
     ownerNextStep: selection.ownerNextStep,
   };

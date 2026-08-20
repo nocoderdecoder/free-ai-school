@@ -645,6 +645,12 @@ const nextStagedPublishPacketOk =
   nextStagedPublishPacket?.reviewTokenIssued === false &&
   Number.isInteger(nextStagedPublishPacket?.totalChecked) &&
   Number.isInteger(nextStagedPublishPacket?.publishReadyQueued) &&
+  Array.isArray(nextStagedPublishPacket?.reviewFiles) &&
+  (nextStagedPublishPacket.selectionStatus === "empty"
+    ? nextStagedPublishPacket.reviewFiles.length === 0 && nextStagedPublishPacket.allReviewFilesExist === false
+    : nextStagedPublishPacket.reviewFiles.length >= 5 &&
+      nextStagedPublishPacket.reviewFiles.every((file) => file.exists === true) &&
+      nextStagedPublishPacket.allReviewFilesExist === true) &&
   nextStagedPublishPacket?.markdown?.includes("# Lab card publish packet") &&
   !/reviewToken|[a-f0-9]{64}/.test(nextStagedPublishPacket?.markdown ?? "") &&
   !/"reviewToken"\s*:/.test(JSON.stringify(nextStagedPublishPacket));

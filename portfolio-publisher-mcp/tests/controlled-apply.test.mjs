@@ -350,6 +350,8 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   assert.equal(emptyPacket.totalChecked, 0);
   assert.equal(emptyPacket.publishReadyQueued, 0);
   assert.equal(emptyPacket.selected, null);
+  assert.deepEqual(emptyPacket.reviewFiles, []);
+  assert.equal(emptyPacket.allReviewFilesExist, false);
   assert.equal(emptyPacket.reviewTokenIssued, false);
   assert.match(emptyPacket.markdown, /# Lab card publish packet/);
   assert.match(emptyPacket.markdown, /## No card selected/);
@@ -367,16 +369,17 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   await client.call("stage_lab_card_patch_artifact", {
     name: "Beta Fixture",
     tagline: "Has all companion files ready",
-    url: "https://example.com/beta-fixture",
+    url: "/tools/beta-fixture",
     image: "/projects/beta-fixture.png",
     icon: "FixtureIcon",
     allowNeedsPrep: true,
   });
-  await fs.writeFile(
-    path.join(repoRoot, "public", "projects", "beta-fixture.png"),
-    "fixture",
-    "utf8",
-  );
+  const betaRoute = path.join(repoRoot, "app", "tools", "beta-fixture", "page.tsx");
+  await fs.mkdir(path.dirname(betaRoute), { recursive: true });
+  await Promise.all([
+    fs.writeFile(path.join(repoRoot, "public", "projects", "beta-fixture.png"), "fixture", "utf8"),
+    fs.writeFile(betaRoute, "export default function Page() { return null; }\n", "utf8"),
+  ]);
   await Promise.all([
     fs.writeFile(path.join(generatedDir, "alpha-orphan-lab-card.patch"), "orphan", "utf8"),
     fs.writeFile(path.join(generatedDir, "gamma-orphan-lab-card.md"), "# Orphan\n", "utf8"),
@@ -568,6 +571,18 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   assert.equal(publishPacket.totalChecked, 4);
   assert.equal(publishPacket.publishReadyQueued, 1);
   assert.equal(publishPacket.selected.slug, "beta-fixture");
+  assert.equal(publishPacket.allReviewFilesExist, true);
+  assert.deepEqual(publishPacket.reviewFiles.map(({ type, exists }) => ({ type, exists })), [
+    { type: "patch", exists: true },
+    { type: "handoff", exists: true },
+    { type: "lab-page", exists: true },
+    { type: "route", exists: true },
+    { type: "screenshot", exists: true },
+    { type: "icon-definition", exists: true },
+  ]);
+  for (const reviewFile of publishPacket.reviewFiles) {
+    await fs.access(path.join(repoRoot, reviewFile.file));
+  }
   assert.equal(publishPacket.reviewTokenIssued, false);
   assert.match(publishPacket.markdown, /## Selected card/);
   assert.match(publishPacket.markdown, /\*\*Beta Fixture\*\*/);
@@ -577,6 +592,8 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   assert.match(publishPacket.markdown, /beta-fixture-lab-card\.md/);
   assert.match(publishPacket.markdown, /app\/lab\/page\.tsx/);
   assert.match(publishPacket.markdown, /app\/components\/LabThumbnails\.tsx/);
+  assert.match(publishPacket.markdown, /Project route: `app\/tools\/beta-fixture\/page\.tsx` — Verified/);
+  assert.match(publishPacket.markdown, /Screenshot asset: `public\/projects\/beta-fixture\.png` — Verified/);
   assert.match(publishPacket.markdown, /## Owner approval checklist/);
   assert.match(publishPacket.markdown, /validate_staged_lab_card_patch/);
   assert.match(publishPacket.markdown, /apply_staged_lab_card_patch/);
