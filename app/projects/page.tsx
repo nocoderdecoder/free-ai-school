@@ -34,13 +34,12 @@ type Project = {
   featured?: boolean
 }
 
+const HIDDEN_PROJECTS = new Set([
+  "anshul.ai Platform",
+  "Daily AI News Pipeline",
+])
+
 const STATIC_PROJECTS: Project[] = [
-  {
-    name: "anshul.ai Platform",
-    tagline: "Full-stack AI education platform with automated content pipelines",
-    status: "Live",
-    impact: "94 articles automated, 0 manual hours per publish",
-  },
   {
     name: "PromptGrade",
     tagline: "AI prompt scoring and rewriting",
@@ -83,40 +82,22 @@ const statusColor: Record<string, string> = {
   Built:    "var(--ed-text-light)",
 }
 
-function initials(name: string) {
-  return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-}
-
 function ProjectCard({ project }: { project: Project }) {
   const isExternalUrl = project.url?.startsWith('http')
   const hasDetailPage = !!project.slug
   const href = hasDetailPage ? `/projects/${project.slug}` : (project.url ?? '')
+  const dot = <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ background: statusColor[project.status] ?? 'var(--ed-text-light)' }} />
 
-  const inner = (
+  const inner = project.image ? (
     <>
       <div className="relative w-full aspect-video overflow-hidden" style={{ background: 'var(--ed-card-hover)' }}>
-        {project.image ? (
-          <img
-            src={project.image}
-            alt={project.name}
-            className="w-full h-full object-cover object-top group-hover:scale-[1.03] transition duration-500"
-          />
-        ) : (
-          <div
-            className="w-full h-full flex items-center justify-center"
-            style={{
-              backgroundImage:
-                'repeating-linear-gradient(0deg,transparent,transparent 23px,rgba(0,0,0,0.04) 24px),' +
-                'repeating-linear-gradient(90deg,transparent,transparent 23px,rgba(0,0,0,0.04) 24px)',
-            }}
-          >
-            <span className="text-3xl font-bold tracking-widest select-none" style={{ color: 'var(--ed-text-light)' }}>
-              {initials(project.name)}
-            </span>
-          </div>
-        )}
+        <img
+          src={project.image}
+          alt={project.name}
+          className="w-full h-full object-cover object-top group-hover:scale-[1.03] transition duration-500"
+        />
         <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 backdrop-blur-sm px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.85)' }}>
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusColor[project.status] ?? 'var(--ed-text-light)' }} />
+          {dot}
           <span className="text-[10px]" style={{ color: 'var(--ed-text-muted)' }}>{project.status}</span>
         </div>
       </div>
@@ -128,6 +109,20 @@ function ProjectCard({ project }: { project: Project }) {
         )}
       </div>
     </>
+  ) : (
+    <div className="p-5 flex flex-col h-full" style={{ minHeight: '140px' }}>
+      <div className="flex items-center gap-1.5 mb-auto">
+        {dot}
+        <span className="text-[10px] font-medium" style={{ color: 'var(--ed-text-light)' }}>{project.status}</span>
+      </div>
+      <div className="mt-4">
+        <h2 className="font-semibold text-sm mb-1.5 leading-snug" style={{ color: 'var(--ed-text)' }}>{project.name}</h2>
+        <p className="text-xs leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>{project.tagline}</p>
+        {project.impact && (
+          <p className="text-xs mt-2 font-medium" style={{ color: '#2E7D4F' }}>{project.impact}</p>
+        )}
+      </div>
+    </div>
   )
 
   const shared = "block rounded-xl overflow-hidden transition group ed-list-card card-hover"
@@ -169,9 +164,10 @@ export default async function Projects() {
         "image": coverImage.asset->url,
       }`
     )
-    projects = sanityProjects?.length > 0 ? sanityProjects : STATIC_PROJECTS
+    const raw = sanityProjects?.length > 0 ? sanityProjects : STATIC_PROJECTS
+    projects = raw.filter((p: Project) => !HIDDEN_PROJECTS.has(p.name))
   } catch {
-    projects = STATIC_PROJECTS
+    projects = STATIC_PROJECTS.filter((p) => !HIDDEN_PROJECTS.has(p.name))
   }
 
   return (
