@@ -4,11 +4,9 @@ import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 
 const LIGHT_NAV_LINKS = [
-  { label: 'AI School', href: '/learn' },
-  { label: 'Projects',  href: '/projects' },
-  { label: 'Trending',  href: '/trending' },
-  { label: 'Writing',   href: '/writing' },
-  { label: 'About',     href: '/about' },
+  { label: 'Projects', href: '/projects' },
+  { label: 'Writing',  href: '/writing' },
+  { label: 'About',    href: '/about' },
 ]
 
 // Light editorial theme is the site's single canonical theme. The `variant` prop
