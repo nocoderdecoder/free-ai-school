@@ -50,6 +50,15 @@ const CARDS = [
     passive: false,
   },
   {
+    tag: 'Courses',
+    title: 'Short AI Courses',
+    desc: 'Free, practical AI courses for business professionals. Finish a full course in under 40 minutes. No coding, no signup.',
+    cta: 'shortaicourses.com →',
+    href: 'https://shortaicourses.com',
+    passive: false,
+    external: true,
+  },
+  {
     tag: 'Products',
     title: 'AI Tools',
     desc: 'GTM Playbook, AI Readiness Assessment, ROI Calculator — practical tools built on Claude and shipped solo.',
@@ -180,7 +189,7 @@ export default async function Home() {
           </a>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }} className="home-cards">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }} className="home-cards">
           {CARDS.map((card) => {
             const inner = (
               <>
@@ -226,6 +235,8 @@ export default async function Home() {
                 key={card.title}
                 href={card.href}
                 className="ed-list-card"
+                target={'external' in card && card.external ? '_blank' : undefined}
+                rel={'external' in card && card.external ? 'noopener noreferrer' : undefined}
                 style={{ ...sharedStyle, textDecoration: 'none', color: 'inherit' }}
               >
                 {inner}
