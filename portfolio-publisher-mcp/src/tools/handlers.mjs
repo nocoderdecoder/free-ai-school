@@ -432,6 +432,10 @@ function localRouteFile(url) {
   return route ? `app/${route}/page.tsx` : null;
 }
 
+function hasInvalidLocalRouteSyntax(url) {
+  return url.includes("\\") || /[?#\0]/.test(url);
+}
+
 async function getProjectRouteStatus(project) {
   if (!project.url) {
     return {
@@ -456,7 +460,21 @@ async function getProjectRouteStatus(project) {
   }
 
   const routeFile = localRouteFile(project.url);
-  const absolute = routeFile ? path.join(paths.repoRoot, routeFile) : null;
+  const absolute = routeFile ? path.resolve(paths.repoRoot, routeFile) : null;
+  const relativeToApp = absolute ? path.relative(paths.appDir, absolute) : null;
+  const escapesApp = relativeToApp === ".." || relativeToApp?.startsWith(`..${path.sep}`);
+
+  if (!routeFile || escapesApp || hasInvalidLocalRouteSyntax(project.url)) {
+    return {
+      project: project.name,
+      url: project.url,
+      type: "local-route",
+      status: "invalid-route-path",
+      exists: false,
+      file: null,
+      issue: "Local routes must resolve to a page file inside the app directory.",
+    };
+  }
 
   try {
     await fs.access(assertSafeRead(absolute));
@@ -811,6 +829,8 @@ async function validateLabCardPatchArtifact(projects, draft, source) {
 
   if (!card.url) {
     readinessBlockers.push("Missing URL or route.");
+  } else if (route.status === "invalid-route-path") {
+    readinessBlockers.push(route.issue);
   } else if (route.status === "missing-route-file") {
     readinessBlockers.push(`Local route file not found: ${route.file}`);
   }
@@ -1873,7 +1893,9 @@ async function computeReadinessChecks(projects) {
     if (!project.tagline) blockers.push("Missing tagline.");
     if (!project.status) blockers.push("Missing status.");
     if (!project.url) blockers.push("Missing URL or route.");
-    if (route.status === "missing-route-file") {
+    if (route.status === "invalid-route-path") {
+      blockers.push(route.issue);
+    } else if (route.status === "missing-route-file") {
       blockers.push(`Local route file not found: ${route.file}`);
     }
     if (!project.image) blockers.push("Missing screenshot image path.");
@@ -2126,7 +2148,9 @@ function formatLabPublishDigest({ projects, readiness, routes, priorities }) {
     blocker.startsWith("Missing screenshot") || blocker.startsWith("Screenshot file not found")
   ));
   const routeIssues = routes.filter((route) =>
-    route.status === "missing-url" || route.status === "missing-route-file"
+    route.status === "missing-url" ||
+    route.status === "missing-route-file" ||
+    route.status === "invalid-route-path"
   );
   const topTask = priorities.tasks.find((task) => !task.ready) ?? priorities.tasks[0] ?? null;
 
@@ -2358,7 +2382,11 @@ export async function callTool(name, args = {}) {
       checked: routes.length,
       local: routes.filter((route) => route.type === "local-route").length,
       external: routes.filter((route) => route.type === "external-url").length,
-      missing: routes.filter((route) => route.status === "missing-url" || route.status === "missing-route-file").length,
+      missing: routes.filter((route) =>
+        route.status === "missing-url" ||
+        route.status === "missing-route-file" ||
+        route.status === "invalid-route-path"
+      ).length,
       routes,
     });
   }

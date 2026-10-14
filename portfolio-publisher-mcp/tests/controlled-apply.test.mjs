@@ -193,6 +193,63 @@ test("public screenshot paths cannot escape the public directory", async (t) => 
   assert.equal((await fs.readFile(labPage, "utf8")).includes(projectName), false);
 });
 
+test("local route paths cannot escape the app directory", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const projectName = "Route Traversal Fixture";
+  const card = {
+    name: projectName,
+    tagline: "Must not treat a repository file as a route",
+    url: "/../portfolio-publisher-mcp/generated",
+    image: "/projects/route-traversal-fixture.png",
+    icon: "FixtureIcon",
+  };
+  await fs.writeFile(
+    path.join(repoRoot, "public", "projects", "route-traversal-fixture.png"),
+    "fixture",
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "portfolio-publisher-mcp", "generated", "page.tsx"),
+    "export default function NotARoute() { return null; }\n",
+    "utf8",
+  );
+
+  const validation = await client.call("validate_lab_card_patch_artifact", card);
+  assert.equal(validation.applyStatus, "needs-prep");
+  assert.equal(validation.route.status, "invalid-route-path");
+  assert.equal(validation.route.exists, false);
+  assert.equal(validation.route.file, null);
+  assert.match(validation.route.issue, /inside the app directory/);
+  assert.ok(validation.readinessBlockers.some((blocker) => blocker.includes("inside the app directory")));
+
+  const stage = await client.call("stage_lab_card_patch_artifact", {
+    ...card,
+    allowNeedsPrep: true,
+  });
+  assert.equal(stage.staged, true);
+
+  const inventory = await client.call("list_staged_lab_card_patches", {});
+  assert.equal(inventory.items[0].publishReadyAfterApply, false);
+  assert.equal(inventory.items[0].readiness.route.status, "invalid-route-path");
+
+  const rehearsal = await client.call("rehearse_staged_lab_card_publish", { projectName });
+  assert.equal(rehearsal.rehearsalStatus, "needs-prep");
+  assert.equal(rehearsal.readiness.route.status, "invalid-route-path");
+
+  const stagedValidation = await client.call("validate_staged_lab_card_patch", { projectName });
+  const apply = await client.call("apply_staged_lab_card_patch", {
+    projectName,
+    reviewToken: stagedValidation.reviewToken,
+    confirm: true,
+  });
+  assert.equal(apply.status, "prep-required");
+
+  const publishPacket = await client.call("create_next_staged_lab_card_publish_packet", {});
+  assert.equal(publishPacket.selectionStatus, "empty");
+  assert.doesNotMatch(JSON.stringify(publishPacket), /reviewToken\"\s*:/);
+  assert.equal((await fs.readFile(labPage, "utf8")).includes(projectName), false);
+});
+
 test("staged validation rejects structural and content tampering", async (t) => {
   const { repoRoot, client } = await createFixtureClient(t);
   const projectName = "Tamper Fixture";

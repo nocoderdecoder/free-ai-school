@@ -13,7 +13,7 @@ This version is mostly read-only. It can inspect the Lab page, validate screensh
 - `list_lab_projects`: lists the projects currently shown on `/lab`.
 - `inspect_lab_format`: explains the current Lab card format and conventions.
 - `validate_lab_assets`: checks whether screenshot paths point to real files inside `public/`; traversal and unsupported URL-style path syntax are reported as `invalid-image-path` rather than treated as publish-ready assets.
-- `validate_lab_routes`: checks local Lab project routes without contacting external URLs.
+- `validate_lab_routes`: checks local Lab project routes without contacting external URLs; traversal and unsupported URL-style path syntax are reported as `invalid-route-path` rather than treated as publish-ready routes.
 - `list_screenshot_queue`: lists projects that need screenshots, capture targets, suggested image paths, and blockers.
 - `create_screenshot_capture_plan`: creates an owner-friendly Markdown checklist for missing Lab screenshots, grouped by ready and blocked captures.
 - `draft_lab_project_card`: creates a read-only Lab card draft with a slug, suggested screenshot path, route, icon component, and copy-pasteable project object.
