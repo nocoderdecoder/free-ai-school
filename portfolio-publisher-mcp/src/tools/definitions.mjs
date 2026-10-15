@@ -362,6 +362,27 @@ export const tools = [
     },
   },
   {
+    name: "verify_lab_card_publish_closeout",
+    title: "Verify Lab Card Publish Closeout",
+    description:
+      "Verify that one applied Lab card, its local readiness, and repository change scope are ready for owner closeout, with an optional run of the non-mutating smoke suite.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "Exact name, slug, or unambiguous partial name of the applied Lab project.",
+        },
+        runSmoke: {
+          type: "boolean",
+          description: "When true, run npm run smoke before reporting closeout status. Defaults to false.",
+        },
+      },
+      required: ["projectName"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "validate_staged_lab_card_patch",
     title: "Validate Staged Lab Card Patch",
     description:

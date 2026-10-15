@@ -227,6 +227,14 @@ send(49, "tools/call", {
   name: "create_next_staged_lab_card_publish_packet",
   arguments: { extra: true },
 });
+send(50, "tools/call", {
+  name: "verify_lab_card_publish_closeout",
+  arguments: { projectName: firstProjectSlug, runSmoke: false },
+});
+send(51, "tools/call", {
+  name: "verify_lab_card_publish_closeout",
+  arguments: {},
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -247,6 +255,8 @@ await Promise.all([
   waitForResponse(47),
   waitForResponse(48),
   waitForResponse(49),
+  waitForResponse(50),
+  waitForResponse(51),
 ]);
 server.kill();
 await once(server, "exit");
@@ -655,6 +665,17 @@ const nextStagedPublishPacketOk =
   !/reviewToken|[a-f0-9]{64}/.test(nextStagedPublishPacket?.markdown ?? "") &&
   !/"reviewToken"\s*:/.test(JSON.stringify(nextStagedPublishPacket));
 const nextStagedPublishPacketArgValidationOk = responseById.get(49)?.result?.isError === true;
+const publishCloseout = JSON.parse(responseById.get(50)?.result?.content?.[0]?.text ?? "{}");
+const publishCloseoutOk =
+  publishCloseout?.format === "markdown" &&
+  publishCloseout?.sourceFilesChanged === false &&
+  publishCloseout?.project?.name === firstProjectName &&
+  publishCloseout?.cardCount === 1 &&
+  publishCloseout?.smoke?.ran === false &&
+  Array.isArray(publishCloseout?.repository?.changedFiles) &&
+  publishCloseout?.markdown?.startsWith("# Lab card publish closeout") &&
+  publishCloseout?.blockers?.some((blocker) => blocker.includes("Smoke verification was not run"));
+const publishCloseoutArgValidationOk = responseById.get(51)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -706,6 +727,8 @@ console.log(JSON.stringify({
   nextStagedPublishArgValidationOk,
   nextStagedPublishPacketOk,
   nextStagedPublishPacketArgValidationOk,
+  publishCloseoutOk,
+  publishCloseoutArgValidationOk,
 }, null, 2));
 
 if (
@@ -757,6 +780,8 @@ if (
   || !nextStagedPublishArgValidationOk
   || !nextStagedPublishPacketOk
   || !nextStagedPublishPacketArgValidationOk
+  || !publishCloseoutOk
+  || !publishCloseoutArgValidationOk
 ) {
   process.exitCode = 1;
 }

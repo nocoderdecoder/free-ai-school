@@ -151,6 +151,19 @@ test("controlled apply cleans up after prep rejection and successful apply", asy
   assert.equal(applied.readinessVerifiedUnderLock, true);
   assert.match(await fs.readFile(labPage, "utf8"), /name: "Hermetic Fixture"/);
   assert.deepEqual(await listApplyArtifacts(labPage), []);
+
+  const closeout = await client.call("verify_lab_card_publish_closeout", {
+    projectName,
+    runSmoke: false,
+  });
+  assert.equal(closeout.closeoutStatus, "needs-attention");
+  assert.equal(closeout.sourceFilesChanged, false);
+  assert.equal(closeout.project.name, projectName);
+  assert.equal(closeout.cardCount, 1);
+  assert.equal(closeout.localReadinessReady, true);
+  assert.equal(closeout.smoke.ran, false);
+  assert.match(closeout.markdown, /# Lab card publish closeout/);
+  assert.ok(closeout.blockers.some((blocker) => blocker.includes("Smoke verification was not run")));
 });
 
 test("public screenshot paths cannot escape the public directory", async (t) => {

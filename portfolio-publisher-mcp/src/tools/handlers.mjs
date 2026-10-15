@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { listLabProjects, getProjectAssetStatus, readLabSource } from "../lib/labParser.mjs";
 import { assertSafeLabPageWrite, assertSafeRead } from "../lib/fileSafety.mjs";
 import { paths, toRepoRelative } from "../lib/paths.mjs";
@@ -8,6 +10,7 @@ import { tools as toolDefinitions } from "./definitions.mjs";
 
 const EXPECTED_LAB_STATUSES = new Set(["Built", "Demo", "Internal", "Live", "Running"]);
 const MAX_STAGED_INVENTORY_PAGE_LIMIT = 100;
+const execFileAsync = promisify(execFile);
 
 function textResult(value) {
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
@@ -1512,6 +1515,111 @@ async function createNextStagedLabCardPublishPacket(projects, source) {
   };
 }
 
+async function runCloseoutCommand(command, args, options = {}) {
+  try {
+    const { stdout = "", stderr = "" } = await execFileAsync(command, args, {
+      encoding: "utf8",
+      maxBuffer: 2 * 1024 * 1024,
+      timeout: 120_000,
+      ...options,
+    });
+    return { ran: true, passed: true, exitCode: 0, stdout: stdout.trim(), stderr: stderr.trim() };
+  } catch (error) {
+    return {
+      ran: true,
+      passed: false,
+      exitCode: Number.isInteger(error.code) ? error.code : null,
+      stdout: String(error.stdout ?? "").trim(),
+      stderr: String(error.stderr ?? error.message ?? "").trim(),
+    };
+  }
+}
+
+function formatLabCardPublishCloseout(result) {
+  const lines = ["# Lab card publish closeout", ""];
+  lines.push(`- Status: **${result.closeoutStatus}**`);
+  lines.push(`- Project: ${result.project?.name ? `**${result.project.name}**` : "Not found"}`);
+  lines.push(`- Card count: ${result.cardCount}`);
+  lines.push(`- Local readiness: ${result.localReadinessReady ? "Ready" : "Blocked"}`);
+  lines.push(`- Repository scope: ${result.repository.acceptableChangeScope ? "Expected" : "Needs review"}`);
+  lines.push(`- Smoke: ${result.smoke.ran ? (result.smoke.passed ? "Passed" : "Failed") : "Not run"}`, "");
+  if (result.blockers.length > 0) {
+    lines.push("## Blockers", "");
+    for (const blocker of result.blockers) lines.push(`- ${blocker}`);
+    lines.push("");
+  }
+  lines.push("## Repository", "", "```text", result.repository.output || "No local changes.", "```", "");
+  lines.push("## Owner next step", "", result.ownerNextStep);
+  return lines.join("\n");
+}
+
+async function verifyLabCardPublishCloseout(projects, source, args) {
+  const requestedProjectName = normalizeProjectQuery(args.projectName);
+  const match = findMatchingProjects(projects, requestedProjectName);
+  const project = match.matches.length === 1 ? match.matches[0] : null;
+  const cardCount = project
+    ? projects.filter((item) => slugifyProjectName(item.name) === slugifyProjectName(project.name)).length
+    : 0;
+  const liveReadiness = project ? await inspectStagedLabCardReadiness(projects, project, source) : null;
+  const git = await runCloseoutCommand(
+    "git",
+    ["status", "--short", "--branch", "--untracked-files=all"],
+    { cwd: paths.repoRoot },
+  );
+  const statusLines = git.passed ? git.stdout.split("\n").filter(Boolean) : [];
+  const changedFiles = statusLines
+    .filter((line) => !line.startsWith("## "))
+    .map((line) => line.slice(3).trim())
+    .map((file) => file.includes(" -> ") ? file.split(" -> ").at(-1) : file);
+  const unrelatedChanges = changedFiles.filter((file) => file !== "app/lab/page.tsx");
+  const repository = {
+    inspected: git.passed,
+    clean: git.passed && changedFiles.length === 0,
+    onlyLabPageChanged: git.passed && changedFiles.length === 1 && changedFiles[0] === "app/lab/page.tsx",
+    acceptableChangeScope: git.passed && unrelatedChanges.length === 0,
+    changedFiles,
+    unrelatedChanges,
+    output: git.passed ? git.stdout : git.stderr,
+  };
+  const smoke = args.runSmoke === true
+    ? await runCloseoutCommand("npm", ["run", "smoke"], { cwd: path.join(paths.repoRoot, "portfolio-publisher-mcp") })
+    : {
+        ran: false,
+        passed: false,
+        exitCode: null,
+        stdout: "",
+        stderr: "",
+        command: "cd portfolio-publisher-mcp && npm run smoke",
+      };
+  const blockers = [];
+  if (!project) blockers.push(match.issue ?? "Project is not listed on the Lab page.");
+  if (project && cardCount !== 1) blockers.push(`Expected exactly one Lab card, found ${cardCount}.`);
+  for (const blocker of liveReadiness?.readinessBlockers ?? []) blockers.push(blocker);
+  if (!repository.inspected) blockers.push("Git status could not be inspected.");
+  else if (!repository.acceptableChangeScope) blockers.push(`Unrelated repository changes: ${unrelatedChanges.join(", ")}`);
+  if (!smoke.ran) blockers.push("Smoke verification was not run; call again with runSmoke: true.");
+  else if (!smoke.passed) blockers.push("The Portfolio Publisher MCP smoke suite failed.");
+  const closeoutReady = Boolean(project) && cardCount === 1 && liveReadiness?.publishReadyAfterApply === true
+    && repository.acceptableChangeScope && smoke.passed;
+  const result = {
+    generatedAt: new Date().toISOString(),
+    closeoutStatus: closeoutReady ? "ready" : "needs-attention",
+    sourceFilesChanged: false,
+    requestedProjectName,
+    project,
+    cardCount,
+    localReadinessReady: liveReadiness?.publishReadyAfterApply ?? false,
+    readiness: liveReadiness?.readiness ?? null,
+    repository,
+    smoke,
+    blockers,
+    ownerNextStep: closeoutReady
+      ? "The local closeout checks passed. Review the reported Git scope, then commit and push intentionally."
+      : "Resolve every blocker, then rerun this closeout with runSmoke: true before committing or pushing.",
+  };
+  return { ...result, format: "markdown", markdown: formatLabCardPublishCloseout(result) };
+}
+
 function parseStagedLabCard(handoffContent) {
   const snippet = handoffContent.match(/## Lab card object\s+```ts\n([\s\S]*?)\n```/)?.[1];
   if (!snippet) return null;
@@ -2464,6 +2572,11 @@ export async function callTool(name, args = {}) {
   if (name === "create_next_staged_lab_card_publish_packet") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await createNextStagedLabCardPublishPacket(projects, source));
+  }
+
+  if (name === "verify_lab_card_publish_closeout") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await verifyLabCardPublishCloseout(projects, source, args));
   }
 
   if (name === "validate_staged_lab_card_patch") {
