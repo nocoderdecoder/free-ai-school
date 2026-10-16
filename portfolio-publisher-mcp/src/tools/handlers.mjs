@@ -881,6 +881,99 @@ async function validateLabCardPatchArtifact(projects, draft, source) {
   };
 }
 
+async function previewLabCardUpdate(projects, args, source) {
+  const projectName = normalizeDraftValue(args.projectName);
+  const exactMatches = projects.filter((project) => project.name === projectName);
+  const requestedFields = ["url", "image"].filter((field) => Object.hasOwn(args, field));
+  const base = {
+    generatedAt: new Date().toISOString(),
+    previewOnly: true,
+    sourceFilesChanged: false,
+    targetFile: "app/lab/page.tsx",
+    projectName,
+    allowedFields: ["url", "image"],
+    requestedFields,
+  };
+
+  if (exactMatches.length !== 1) {
+    return {
+      ...base,
+      status: exactMatches.length === 0 ? "not-found" : "ambiguous",
+      readyToStage: false,
+      issues: [exactMatches.length === 0
+        ? `No exact Lab project match was found: ${projectName || "(blank)"}`
+        : `Expected one exact Lab project match, found ${exactMatches.length}.`],
+    };
+  }
+  if (requestedFields.length === 0) {
+    return { ...base, status: "invalid-request", readyToStage: false, issues: ["Provide url and/or image to update."] };
+  }
+
+  const currentCard = exactMatches[0];
+  const proposedCard = {
+    ...currentCard,
+    ...(Object.hasOwn(args, "url") ? { url: normalizeDraftValue(args.url) } : {}),
+    ...(Object.hasOwn(args, "image") ? { image: normalizeDraftValue(args.image) } : {}),
+  };
+  const changedFields = requestedFields.filter((field) => proposedCard[field] !== currentCard[field]);
+  if (changedFields.length === 0) {
+    return {
+      ...base,
+      status: "no-change",
+      readyToStage: false,
+      currentCard,
+      proposedCard,
+      changedFields,
+      issues: ["The requested URL and screenshot values already match the Lab card."],
+    };
+  }
+
+  const currentBlock = formatProjectObject(currentCard);
+  const proposedBlock = formatProjectObject(proposedCard);
+  const blockStart = source.indexOf(currentBlock);
+  if (blockStart === -1 || source.indexOf(currentBlock, blockStart + 1) !== -1) {
+    return {
+      ...base,
+      status: "source-mismatch",
+      readyToStage: false,
+      currentCard,
+      proposedCard,
+      changedFields,
+      issues: ["The exact current Lab card block could not be located uniquely in the source."],
+    };
+  }
+
+  const lineNumber = source.slice(0, blockStart).split("\n").length;
+  const currentLines = currentBlock.split("\n");
+  const proposedLines = proposedBlock.split("\n");
+  const liveReadiness = await inspectStagedLabCardReadiness(
+    projects.filter((project) => project !== currentCard),
+    proposedCard,
+    source,
+  );
+  return {
+    ...base,
+    status: liveReadiness.publishReadyAfterApply ? "ready" : "needs-prep",
+    readyToStage: true,
+    publishReadyAfterApply: liveReadiness.publishReadyAfterApply,
+    currentCard,
+    proposedCard,
+    changedFields,
+    readiness: liveReadiness.readiness,
+    readinessBlockers: liveReadiness.readinessBlockers,
+    unifiedDiff: [
+      "--- a/app/lab/page.tsx",
+      "+++ b/app/lab/page.tsx",
+      `@@ -${lineNumber},${currentLines.length} +${lineNumber},${proposedLines.length} @@`,
+      ...currentLines.map((line) => `-${line}`),
+      ...proposedLines.map((line) => `+${line}`),
+    ].join("\n"),
+    ownerNextStep: liveReadiness.publishReadyAfterApply
+      ? "Review this exact one-card diff before a future staged update workflow writes any artifact."
+      : "Complete the listed route or screenshot prep, then regenerate this preview before staging.",
+  };
+}
+
 function formatStagedLabCardPatchMarkdown(validation, patchFile) {
   const lines = [];
 
@@ -2537,6 +2630,11 @@ export async function callTool(name, args = {}) {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     const draft = draftLabProjectCard(projects, args);
     return textResult(await validateLabCardPatchArtifact(projects, draft, source));
+  }
+
+  if (name === "preview_lab_card_update") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await previewLabCardUpdate(projects, args, source));
   }
 
   if (name === "stage_lab_card_patch_artifact") {

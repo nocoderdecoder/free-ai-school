@@ -107,6 +107,72 @@ async function createFixtureClient(t) {
   return { repoRoot, labPage, client };
 }
 
+test("Lab card update preview is exact, read-only, and readiness checked", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const existingCard = [
+    "  {",
+    '    name: "Existing Fixture",',
+    '    tagline: "Existing copy stays unchanged",',
+    '    image: "",',
+    '    url: "",',
+    '    status: "Built",',
+    "    Icon: FixtureIcon,",
+    "  },",
+  ].join("\n");
+  const emptySource = await fs.readFile(labPage, "utf8");
+  const source = emptySource.replace("const projects = [\n];", `const projects = [\n${existingCard}\n];`);
+  await fs.writeFile(labPage, source, "utf8");
+  await fs.writeFile(path.join(repoRoot, "public", "projects", "existing-fixture.png"), "fixture", "utf8");
+
+  const preview = await client.call("preview_lab_card_update", {
+    projectName: "Existing Fixture",
+    url: "https://example.com/existing-fixture",
+    image: "/projects/existing-fixture.png",
+  });
+  assert.equal(preview.status, "ready");
+  assert.equal(preview.readyToStage, true);
+  assert.equal(preview.publishReadyAfterApply, true);
+  assert.deepEqual(preview.changedFields, ["url", "image"]);
+  assert.equal(preview.currentCard.tagline, preview.proposedCard.tagline);
+  assert.match(preview.unifiedDiff, /^--- a\/app\/lab\/page\.tsx/m);
+  assert.match(preview.unifiedDiff, /^-    url: "",$/m);
+  assert.match(preview.unifiedDiff, /^\+    url: "https:\/\/example\.com\/existing-fixture",$/m);
+  assert.equal(await fs.readFile(labPage, "utf8"), source);
+
+  const noChange = await client.call("preview_lab_card_update", {
+    projectName: "Existing Fixture",
+    url: "",
+  });
+  assert.equal(noChange.status, "no-change");
+  assert.equal(noChange.readyToStage, false);
+
+  const missing = await client.call("preview_lab_card_update", {
+    projectName: "Missing Fixture",
+    image: "/projects/missing.png",
+  });
+  assert.equal(missing.status, "not-found");
+  assert.equal(missing.sourceFilesChanged, false);
+
+  const needsPrep = await client.call("preview_lab_card_update", {
+    projectName: "Existing Fixture",
+    image: "/projects/not-created.png",
+  });
+  assert.equal(needsPrep.status, "needs-prep");
+  assert.equal(needsPrep.readyToStage, true);
+  assert.ok(needsPrep.readinessBlockers.some((blocker) => blocker.includes("Screenshot file not found")));
+  assert.equal(await fs.readFile(labPage, "utf8"), source);
+
+  const confined = await client.call("preview_lab_card_update", {
+    projectName: "Existing Fixture",
+    url: "/../outside",
+    image: "/../app/lab/page.tsx",
+  });
+  assert.equal(confined.status, "needs-prep");
+  assert.ok(confined.readinessBlockers.some((blocker) => blocker.includes("inside the app directory")));
+  assert.ok(confined.readinessBlockers.some((blocker) => blocker.includes("inside the public directory")));
+  assert.equal(await fs.readFile(labPage, "utf8"), source);
+});
+
 test("controlled apply cleans up after prep rejection and successful apply", async (t) => {
   const { repoRoot, labPage, client } = await createFixtureClient(t);
   const originalSource = await fs.readFile(labPage, "utf8");

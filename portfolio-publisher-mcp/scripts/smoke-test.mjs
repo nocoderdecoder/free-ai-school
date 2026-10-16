@@ -235,6 +235,14 @@ send(51, "tools/call", {
   name: "verify_lab_card_publish_closeout",
   arguments: {},
 });
+send(52, "tools/call", {
+  name: "preview_lab_card_update",
+  arguments: { projectName: firstProjectName, url: "https://example.com/preview-only" },
+});
+send(53, "tools/call", {
+  name: "preview_lab_card_update",
+  arguments: { projectName: firstProjectName, tagline: "Not allowed" },
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -257,6 +265,8 @@ await Promise.all([
   waitForResponse(49),
   waitForResponse(50),
   waitForResponse(51),
+  waitForResponse(52),
+  waitForResponse(53),
 ]);
 server.kill();
 await once(server, "exit");
@@ -676,6 +686,16 @@ const publishCloseoutOk =
   publishCloseout?.markdown?.startsWith("# Lab card publish closeout") &&
   publishCloseout?.blockers?.some((blocker) => blocker.includes("Smoke verification was not run"));
 const publishCloseoutArgValidationOk = responseById.get(51)?.result?.isError === true;
+const updatePreview = JSON.parse(responseById.get(52)?.result?.content?.[0]?.text ?? "{}");
+const updatePreviewOk =
+  updatePreview?.previewOnly === true &&
+  updatePreview?.sourceFilesChanged === false &&
+  updatePreview?.projectName === firstProjectName &&
+  updatePreview?.readyToStage === true &&
+  updatePreview?.changedFields?.includes("url") &&
+  updatePreview?.unifiedDiff?.includes("--- a/app/lab/page.tsx") &&
+  updatePreview?.unifiedDiff?.includes("https://example.com/preview-only");
+const updatePreviewArgValidationOk = responseById.get(53)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -729,6 +749,8 @@ console.log(JSON.stringify({
   nextStagedPublishPacketArgValidationOk,
   publishCloseoutOk,
   publishCloseoutArgValidationOk,
+  updatePreviewOk,
+  updatePreviewArgValidationOk,
 }, null, 2));
 
 if (
@@ -782,6 +804,8 @@ if (
   || !nextStagedPublishPacketArgValidationOk
   || !publishCloseoutOk
   || !publishCloseoutArgValidationOk
+  || !updatePreviewOk
+  || !updatePreviewArgValidationOk
 ) {
   process.exitCode = 1;
 }
