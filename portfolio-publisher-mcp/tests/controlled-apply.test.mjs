@@ -139,6 +139,26 @@ test("Lab card update preview is exact, read-only, and readiness checked", async
   assert.match(preview.unifiedDiff, /^\+    url: "https:\/\/example\.com\/existing-fixture",$/m);
   assert.equal(await fs.readFile(labPage, "utf8"), source);
 
+  const stagedUpdate = await client.call("stage_lab_card_update_artifact", {
+    projectName: "Existing Fixture",
+    url: "https://example.com/existing-fixture",
+    image: "/projects/existing-fixture.png",
+  });
+  assert.equal(stagedUpdate.staged, true);
+  assert.equal(stagedUpdate.applyAvailable, false);
+  assert.equal(stagedUpdate.sourceFilesChanged, false);
+  assert.deepEqual(stagedUpdate.changedFields, ["url", "image"]);
+  assert.equal(stagedUpdate.filesWritten.length, 3);
+  const manifest = JSON.parse(await fs.readFile(path.join(repoRoot, stagedUpdate.manifestFile), "utf8"));
+  assert.equal(manifest.kind, "lab-card-update-review");
+  assert.equal(manifest.applyAvailable, false);
+  assert.equal(manifest.targetFile, "app/lab/page.tsx");
+  assert.equal(manifest.checksums.sourceSha256.length, 64);
+  assert.equal(manifest.checksums.patchSha256.length, 64);
+  assert.equal(manifest.checksums.handoffSha256.length, 64);
+  assert.match(await fs.readFile(path.join(repoRoot, stagedUpdate.handoffFile), "utf8"), /review-only/);
+  assert.equal(await fs.readFile(labPage, "utf8"), source);
+
   const noChange = await client.call("preview_lab_card_update", {
     projectName: "Existing Fixture",
     url: "",
@@ -160,6 +180,14 @@ test("Lab card update preview is exact, read-only, and readiness checked", async
   assert.equal(needsPrep.status, "needs-prep");
   assert.equal(needsPrep.readyToStage, true);
   assert.ok(needsPrep.readinessBlockers.some((blocker) => blocker.includes("Screenshot file not found")));
+  assert.equal(await fs.readFile(labPage, "utf8"), source);
+
+  const blockedStage = await client.call("stage_lab_card_update_artifact", {
+    projectName: "Existing Fixture",
+    image: "/projects/not-created.png",
+  });
+  assert.equal(blockedStage.staged, false);
+  assert.equal(blockedStage.status, "needs-prep");
   assert.equal(await fs.readFile(labPage, "utf8"), source);
 
   const confined = await client.call("preview_lab_card_update", {

@@ -236,6 +236,31 @@ export const tools = [
     },
   },
   {
+    name: "stage_lab_card_update_artifact",
+    title: "Stage Lab Card Update Artifact",
+    description:
+      "Write a publish-ready existing-card update preview, patch, and source-bound manifest into portfolio-publisher-mcp/generated for owner review. This does not edit the Lab page.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "Exact existing Lab project name.",
+        },
+        url: {
+          type: "string",
+          description: "Optional replacement external URL or local route. Empty strings are allowed.",
+        },
+        image: {
+          type: "string",
+          description: "Optional replacement screenshot path. Empty strings are allowed.",
+        },
+      },
+      required: ["projectName"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "stage_lab_card_patch_artifact",
     title: "Stage Lab Card Patch Artifact",
     description:

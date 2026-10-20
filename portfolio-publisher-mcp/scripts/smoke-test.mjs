@@ -243,6 +243,14 @@ send(53, "tools/call", {
   name: "preview_lab_card_update",
   arguments: { projectName: firstProjectName, tagline: "Not allowed" },
 });
+send(54, "tools/call", {
+  name: "stage_lab_card_update_artifact",
+  arguments: { projectName: firstProjectName, url: "https://example.com/update-review" },
+});
+send(55, "tools/call", {
+  name: "stage_lab_card_update_artifact",
+  arguments: { projectName: firstProjectName, tagline: "Not allowed" },
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -267,6 +275,8 @@ await Promise.all([
   waitForResponse(51),
   waitForResponse(52),
   waitForResponse(53),
+  waitForResponse(54),
+  waitForResponse(55),
 ]);
 server.kill();
 await once(server, "exit");
@@ -696,6 +706,17 @@ const updatePreviewOk =
   updatePreview?.unifiedDiff?.includes("--- a/app/lab/page.tsx") &&
   updatePreview?.unifiedDiff?.includes("https://example.com/preview-only");
 const updatePreviewArgValidationOk = responseById.get(53)?.result?.isError === true;
+const stagedUpdate = JSON.parse(responseById.get(54)?.result?.content?.[0]?.text ?? "{}");
+const stagedUpdateOk =
+  stagedUpdate?.sourceFilesChanged === false &&
+  stagedUpdate?.applyAvailable === false &&
+  typeof stagedUpdate?.staged === "boolean" &&
+  (stagedUpdate.staged === false ||
+    (stagedUpdate.status === "ready" &&
+      Array.isArray(stagedUpdate.filesWritten) &&
+      stagedUpdate.filesWritten.length === 3 &&
+      /^[a-f0-9]{64}$/.test(stagedUpdate?.checksums?.sourceSha256 ?? "")));
+const stagedUpdateArgValidationOk = responseById.get(55)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -751,6 +772,8 @@ console.log(JSON.stringify({
   publishCloseoutArgValidationOk,
   updatePreviewOk,
   updatePreviewArgValidationOk,
+  stagedUpdateOk,
+  stagedUpdateArgValidationOk,
 }, null, 2));
 
 if (
@@ -806,6 +829,8 @@ if (
   || !publishCloseoutArgValidationOk
   || !updatePreviewOk
   || !updatePreviewArgValidationOk
+  || !stagedUpdateOk
+  || !stagedUpdateArgValidationOk
 ) {
   process.exitCode = 1;
 }

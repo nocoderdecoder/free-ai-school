@@ -974,6 +974,121 @@ async function previewLabCardUpdate(projects, args, source) {
   };
 }
 
+function formatStagedLabCardUpdateMarkdown(preview, files, sourceChecksum) {
+  const lines = [];
+  lines.push(`# Staged Lab card update: ${preview.projectName}`);
+  lines.push("");
+  lines.push(`Generated: ${preview.generatedAt}`);
+  lines.push("");
+  lines.push("## Scope");
+  lines.push("");
+  lines.push(`- Target file: ${preview.targetFile}`);
+  lines.push(`- Changed fields: ${preview.changedFields.join(", ")}`);
+  lines.push(`- Source SHA-256: ${sourceChecksum}`);
+  lines.push("- This artifact is review-only; no update apply tool is available yet.");
+  lines.push("");
+  lines.push("## Current card");
+  lines.push("");
+  lines.push("```ts");
+  lines.push(formatProjectObject(preview.currentCard));
+  lines.push("```");
+  lines.push("");
+  lines.push("## Proposed card");
+  lines.push("");
+  lines.push("```ts");
+  lines.push(formatProjectObject(preview.proposedCard));
+  lines.push("```");
+  lines.push("");
+  lines.push("## Review files");
+  lines.push("");
+  lines.push(`- Patch: ${files.patchFile}`);
+  lines.push(`- Manifest: ${files.manifestFile}`);
+  lines.push("");
+  lines.push("## Owner next step");
+  lines.push("");
+  lines.push("- Review the one-card patch and manifest. Regenerate this artifact if app/lab/page.tsx changes before future update validation is added.");
+  lines.push("");
+  lines.push("## Verification");
+  lines.push("");
+  lines.push("```bash");
+  lines.push("cd portfolio-publisher-mcp");
+  lines.push("npm run smoke");
+  lines.push("```");
+  lines.push("");
+  return lines.join("\n");
+}
+
+async function stageLabCardUpdateArtifact(projects, args, source) {
+  const preview = await previewLabCardUpdate(projects, args, source);
+  if (preview.status !== "ready") {
+    return {
+      staged: false,
+      status: preview.status,
+      sourceFilesChanged: false,
+      applyAvailable: false,
+      projectName: preview.projectName,
+      changedFields: preview.changedFields ?? [],
+      issues: preview.issues ?? preview.readinessBlockers ?? [],
+      ownerNextStep: preview.status === "needs-prep"
+        ? "Complete the listed route or screenshot prep, then stage a fresh update artifact."
+        : "Resolve the preview issues, then stage a fresh update artifact.",
+    };
+  }
+
+  const slug = slugifyProjectName(preview.projectName);
+  const generatedDir = path.join(paths.projectDir, "generated");
+  const baseName = `${slug}-lab-card-update`;
+  const patchPath = path.join(generatedDir, `${baseName}.patch`);
+  const markdownPath = path.join(generatedDir, `${baseName}.md`);
+  const manifestPath = path.join(generatedDir, `${baseName}.json`);
+  const files = {
+    patchFile: toRepoRelative(patchPath),
+    handoffFile: toRepoRelative(markdownPath),
+    manifestFile: toRepoRelative(manifestPath),
+  };
+  const sourceChecksum = sha256(source);
+  const patchContent = `${preview.unifiedDiff}\n`;
+  const handoffContent = formatStagedLabCardUpdateMarkdown(preview, files, sourceChecksum);
+  const manifest = {
+    version: 1,
+    kind: "lab-card-update-review",
+    generatedAt: preview.generatedAt,
+    targetFile: preview.targetFile,
+    projectName: preview.projectName,
+    changedFields: preview.changedFields,
+    currentCard: preview.currentCard,
+    proposedCard: preview.proposedCard,
+    files,
+    checksums: {
+      sourceSha256: sourceChecksum,
+      patchSha256: sha256(patchContent),
+      handoffSha256: sha256(handoffContent),
+    },
+    applyAvailable: false,
+  };
+
+  await fs.mkdir(generatedDir, { recursive: true });
+  await Promise.all([
+    fs.writeFile(patchPath, patchContent, "utf8"),
+    fs.writeFile(markdownPath, handoffContent, "utf8"),
+    fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8"),
+  ]);
+
+  return {
+    staged: true,
+    status: "ready",
+    sourceFilesChanged: false,
+    targetFile: preview.targetFile,
+    projectName: preview.projectName,
+    changedFields: preview.changedFields,
+    filesWritten: [files.patchFile, files.handoffFile, files.manifestFile],
+    ...files,
+    checksums: manifest.checksums,
+    applyAvailable: false,
+    ownerNextStep: "Review the patch, handoff, and source-bound manifest. Regenerate if the Lab page changes; controlled update application is intentionally unavailable.",
+  };
+}
+
 function formatStagedLabCardPatchMarkdown(validation, patchFile) {
   const lines = [];
 
@@ -2635,6 +2750,11 @@ export async function callTool(name, args = {}) {
   if (name === "preview_lab_card_update") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await previewLabCardUpdate(projects, args, source));
+  }
+
+  if (name === "stage_lab_card_update_artifact") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await stageLabCardUpdateArtifact(projects, args, source));
   }
 
   if (name === "stage_lab_card_patch_artifact") {
