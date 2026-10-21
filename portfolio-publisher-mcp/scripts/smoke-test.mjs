@@ -259,6 +259,14 @@ send(57, "tools/call", {
   name: "validate_staged_lab_card_update",
   arguments: {},
 });
+send(58, "tools/call", {
+  name: "apply_staged_lab_card_update",
+  arguments: { projectName: firstProjectName, reviewToken: "0".repeat(64), confirm: false },
+});
+send(59, "tools/call", {
+  name: "apply_staged_lab_card_update",
+  arguments: { projectName: firstProjectName, reviewToken: "not-a-token", confirm: true },
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -287,6 +295,8 @@ await Promise.all([
   waitForResponse(55),
   waitForResponse(56),
   waitForResponse(57),
+  waitForResponse(58),
+  waitForResponse(59),
 ]);
 server.kill();
 await once(server, "exit");
@@ -730,11 +740,13 @@ const stagedUpdateArgValidationOk = responseById.get(55)?.result?.isError === tr
 const stagedUpdateValidation = JSON.parse(responseById.get(56)?.result?.content?.[0]?.text ?? "{}");
 const stagedUpdateValidationOk =
   stagedUpdateValidation?.sourceFilesChanged === false &&
-  stagedUpdateValidation?.applyAvailable === false &&
+  stagedUpdateValidation?.applyAvailable === true &&
   typeof stagedUpdateValidation?.valid === "boolean" &&
   ["ready", "missing"].includes(stagedUpdateValidation?.status) &&
-  !/reviewToken/.test(JSON.stringify(stagedUpdateValidation));
+  (stagedUpdateValidation?.status !== "ready" || /^[a-f0-9]{64}$/.test(stagedUpdateValidation?.reviewToken ?? ""));
 const stagedUpdateValidationArgValidationOk = responseById.get(57)?.result?.isError === true;
+const stagedUpdateApplyConfirmationOk = JSON.parse(responseById.get(58)?.result?.content?.[0]?.text ?? "{}")?.status === "confirmation-required";
+const stagedUpdateApplyTokenValidationOk = JSON.parse(responseById.get(59)?.result?.content?.[0]?.text ?? "{}")?.status === "invalid-token";
 
 console.log(JSON.stringify({
   failed,
@@ -794,6 +806,8 @@ console.log(JSON.stringify({
   stagedUpdateArgValidationOk,
   stagedUpdateValidationOk,
   stagedUpdateValidationArgValidationOk,
+  stagedUpdateApplyConfirmationOk,
+  stagedUpdateApplyTokenValidationOk,
 }, null, 2));
 
 if (
@@ -853,6 +867,8 @@ if (
   || !stagedUpdateArgValidationOk
   || !stagedUpdateValidationOk
   || !stagedUpdateValidationArgValidationOk
+  || !stagedUpdateApplyConfirmationOk
+  || !stagedUpdateApplyTokenValidationOk
 ) {
   process.exitCode = 1;
 }

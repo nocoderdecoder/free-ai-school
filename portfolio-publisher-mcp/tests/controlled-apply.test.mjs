@@ -165,8 +165,57 @@ test("Lab card update preview is exact, read-only, and readiness checked", async
   assert.equal(updateValidation.status, "ready");
   assert.equal(updateValidation.valid, true);
   assert.equal(updateValidation.integrity, "verified");
-  assert.equal(updateValidation.applyAvailable, false);
+  assert.equal(updateValidation.applyAvailable, true);
+  assert.match(updateValidation.reviewToken, /^[a-f0-9]{64}$/);
   assert.equal(await fs.readFile(labPage, "utf8"), source);
+
+  const confirmationRequired = await client.call("apply_staged_lab_card_update", {
+    projectName: "Existing Fixture",
+    reviewToken: updateValidation.reviewToken,
+    confirm: false,
+  });
+  assert.equal(confirmationRequired.status, "confirmation-required");
+  assert.equal(await fs.readFile(labPage, "utf8"), source);
+
+  const lockPath = `${labPage}.portfolio-publisher-update.lock`;
+  await fs.writeFile(lockPath, "locked", "utf8");
+  const locked = await client.call("apply_staged_lab_card_update", {
+    projectName: "Existing Fixture",
+    reviewToken: updateValidation.reviewToken,
+    confirm: true,
+  });
+  assert.equal(locked.status, "apply-locked");
+  assert.equal(await fs.readFile(labPage, "utf8"), source);
+  await fs.rm(lockPath);
+
+  const tokenMismatch = await client.call("apply_staged_lab_card_update", {
+    projectName: "Existing Fixture",
+    reviewToken: "0".repeat(64),
+    confirm: true,
+  });
+  assert.equal(tokenMismatch.status, "token-mismatch");
+  assert.equal(await fs.readFile(labPage, "utf8"), source);
+
+  const appliedUpdate = await client.call("apply_staged_lab_card_update", {
+    projectName: "Existing Fixture",
+    reviewToken: updateValidation.reviewToken,
+    confirm: true,
+  });
+  assert.equal(appliedUpdate.status, "applied");
+  assert.equal(appliedUpdate.applied, true);
+  assert.deepEqual(appliedUpdate.changedFields, ["url", "image"]);
+  const updatedSource = await fs.readFile(labPage, "utf8");
+  assert.match(updatedSource, /url: "https:\/\/example\.com\/existing-fixture"/);
+  assert.match(updatedSource, /image: "\/projects\/existing-fixture\.png"/);
+  assert.deepEqual(await listApplyArtifacts(labPage), []);
+  const replay = await client.call("apply_staged_lab_card_update", {
+    projectName: "Existing Fixture",
+    reviewToken: updateValidation.reviewToken,
+    confirm: true,
+  });
+  assert.equal(replay.applied, false);
+  assert.equal(replay.status, "stale");
+  await fs.writeFile(labPage, source, "utf8");
 
   await fs.appendFile(path.join(repoRoot, stagedUpdate.patchFile), "# tampered\n", "utf8");
   const tamperedUpdate = await client.call("validate_staged_lab_card_update", {

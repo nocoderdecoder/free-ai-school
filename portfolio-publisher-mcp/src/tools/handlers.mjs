@@ -1085,7 +1085,7 @@ async function stageLabCardUpdateArtifact(projects, args, source) {
     ...files,
     checksums: manifest.checksums,
     applyAvailable: false,
-    ownerNextStep: "Review the patch, handoff, and source-bound manifest. Regenerate if the Lab page changes; controlled update application is intentionally unavailable.",
+    ownerNextStep: "Review the patch, handoff, and source-bound manifest. Validate immediately before controlled apply to receive a fresh review token.",
   };
 }
 
@@ -1106,7 +1106,7 @@ async function validateStagedLabCardUpdate(projects, args, source) {
   const base = {
     generatedAt: new Date().toISOString(),
     sourceFilesChanged: false,
-    applyAvailable: false,
+    applyAvailable: true,
     projectName,
     ...files,
   };
@@ -1198,12 +1198,78 @@ async function validateStagedLabCardUpdate(projects, args, source) {
     valid: integrityIssues.length === 0,
     integrity: integrityIssues.length === 0 ? "verified" : "artifact-integrity",
     changedFields: manifest?.changedFields ?? [],
+    currentCard: manifest?.currentCard ?? null,
+    proposedCard: manifest?.proposedCard ?? null,
     checksums: manifest?.checksums ?? null,
     issues: integrityIssues,
+    reviewToken: integrityIssues.length === 0
+      ? sha256(`${manifestContent}\0${patchContent}\0${handoffContent}\0${source}`)
+      : null,
     ownerNextStep: integrityIssues.length === 0
-      ? "The staged update matches the current Lab page and its review files. Review it manually; controlled update application remains intentionally unavailable."
+      ? "Review the staged update files, then use this fresh review token with explicit confirmation for controlled apply."
       : "Regenerate the staged update artifact before reviewing it further.",
   };
+}
+
+async function applyStagedLabCardUpdate(projects, args, source) {
+  if (args.confirm !== true) return { applied: false, status: "confirmation-required", issues: ["Set confirm to true only after reviewing the staged update files."] };
+  if (!/^[a-f0-9]{64}$/.test(args.reviewToken)) return { applied: false, status: "invalid-token", issues: ["reviewToken must be the 64-character token from staged update validation."] };
+
+  const validation = await validateStagedLabCardUpdate(projects, args, source);
+  if (!validation.valid || validation.status !== "ready") return { applied: false, status: validation.status, issues: validation.issues, integrity: validation.integrity };
+  if (validation.reviewToken !== args.reviewToken) return { applied: false, status: "token-mismatch", issues: ["The review token does not match the current staged update and Lab source."] };
+
+  const target = assertSafeLabPageWrite(paths.labPage);
+  const lockPath = `${target}.portfolio-publisher-update.lock`;
+  const tempPath = `${target}.portfolio-publisher-update-${process.pid}.tmp`;
+  let lockHandle;
+  let latestSource;
+  let originalStat;
+  let sourceReplaced = false;
+  try {
+    try {
+      lockHandle = await fs.open(lockPath, "wx");
+    } catch (error) {
+      if (error.code === "EEXIST") return { applied: false, status: "apply-locked", issues: ["Another controlled Lab card update apply is in progress; retry after it finishes."] };
+      throw error;
+    }
+    latestSource = await readLabSource();
+    const latestProjects = await listLabProjects();
+    const lockedValidation = await validateStagedLabCardUpdate(latestProjects, args, latestSource);
+    if (!lockedValidation.valid || lockedValidation.status !== "ready") return { applied: false, status: lockedValidation.status, issues: lockedValidation.issues, integrity: lockedValidation.integrity };
+    if (lockedValidation.reviewToken !== args.reviewToken) return { applied: false, status: "stale", issues: ["The Lab source or staged update changed after review; validate again."] };
+
+    const currentBlock = formatProjectObject(lockedValidation.currentCard);
+    const proposedBlock = formatProjectObject(lockedValidation.proposedCard);
+    const blockStart = latestSource.indexOf(currentBlock);
+    if (blockStart === -1 || latestSource.indexOf(currentBlock, blockStart + 1) !== -1) return { applied: false, status: "stale", issues: ["The exact current Lab card changed after review; validate again."] };
+    const liveReadiness = await inspectStagedLabCardReadiness(latestProjects.filter((project) => project.name !== lockedValidation.currentCard.name), lockedValidation.proposedCard, latestSource);
+    if (!liveReadiness.publishReadyAfterApply) return { applied: false, status: "prep-required", issues: liveReadiness.readinessBlockers, readiness: liveReadiness.readiness };
+
+    const nextSource = `${latestSource.slice(0, blockStart)}${proposedBlock}${latestSource.slice(blockStart + currentBlock.length)}`;
+    originalStat = await fs.stat(target);
+    await fs.writeFile(tempPath, nextSource, { encoding: "utf8", mode: originalStat.mode });
+    await fs.rename(tempPath, target);
+    sourceReplaced = true;
+    const updatedProjects = await listLabProjects();
+    const matches = updatedProjects.filter((project) => project.name === lockedValidation.projectName);
+    const updated = matches.length === 1 && lockedValidation.changedFields.every((field) => matches[0][field] === lockedValidation.proposedCard[field]);
+    if (!updated) {
+      await fs.writeFile(target, latestSource, { encoding: "utf8", mode: originalStat.mode });
+      sourceReplaced = false;
+      return { applied: false, status: "verification-failed", issues: ["Post-apply verification did not find exactly one updated Lab card."] };
+    }
+    return { applied: true, status: "applied", projectName: lockedValidation.projectName, changedFields: lockedValidation.changedFields, targetFile: "app/lab/page.tsx", readinessVerifiedUnderLock: true, sourceSha256: sha256(nextSource), stagedArtifactsRetained: true, ownerNextStep: "Review the Lab page diff, run npm run smoke, then commit intentionally.", verificationCommand: "cd portfolio-publisher-mcp && npm run smoke" };
+  } catch (error) {
+    if (sourceReplaced && latestSource && originalStat) await fs.writeFile(target, latestSource, { encoding: "utf8", mode: originalStat.mode });
+    return { applied: false, status: "apply-failed", issues: [error.message] };
+  } finally {
+    await fs.rm(tempPath, { force: true });
+    if (lockHandle) {
+      await lockHandle.close();
+      await fs.rm(lockPath, { force: true });
+    }
+  }
 }
 
 function formatStagedLabCardPatchMarkdown(validation, patchFile) {
@@ -2877,6 +2943,11 @@ export async function callTool(name, args = {}) {
   if (name === "validate_staged_lab_card_update") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await validateStagedLabCardUpdate(projects, args, source));
+  }
+
+  if (name === "apply_staged_lab_card_update") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await applyStagedLabCardUpdate(projects, args, source));
   }
 
   if (name === "stage_lab_card_patch_artifact") {

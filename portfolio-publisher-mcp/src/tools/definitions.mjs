@@ -278,6 +278,31 @@ export const tools = [
     },
   },
   {
+    name: "apply_staged_lab_card_update",
+    title: "Apply Staged Lab Card Update",
+    description:
+      "Apply exactly one validated, publish-ready existing Lab card URL and/or screenshot update after explicit confirmation and a fresh source-bound review token.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "Exact existing Lab project name used to stage and validate the update artifact.",
+        },
+        reviewToken: {
+          type: "string",
+          description: "Fresh 64-character token returned by validate_staged_lab_card_update.",
+        },
+        confirm: {
+          type: "boolean",
+          description: "Must be true after reviewing the staged patch, handoff, and validation result.",
+        },
+      },
+      required: ["projectName", "reviewToken", "confirm"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "stage_lab_card_patch_artifact",
     title: "Stage Lab Card Patch Artifact",
     description:
