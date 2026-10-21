@@ -261,6 +261,23 @@ export const tools = [
     },
   },
   {
+    name: "validate_staged_lab_card_update",
+    title: "Validate Staged Lab Card Update",
+    description:
+      "Read-only validation for one staged Lab card update artifact. Checks source drift and the manifest, patch, and handoff integrity without applying the update.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "Exact existing Lab project name used to stage the update artifact.",
+        },
+      },
+      required: ["projectName"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "stage_lab_card_patch_artifact",
     title: "Stage Lab Card Patch Artifact",
     description:

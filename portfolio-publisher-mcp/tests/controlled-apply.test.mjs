@@ -159,6 +159,32 @@ test("Lab card update preview is exact, read-only, and readiness checked", async
   assert.match(await fs.readFile(path.join(repoRoot, stagedUpdate.handoffFile), "utf8"), /review-only/);
   assert.equal(await fs.readFile(labPage, "utf8"), source);
 
+  const updateValidation = await client.call("validate_staged_lab_card_update", {
+    projectName: "Existing Fixture",
+  });
+  assert.equal(updateValidation.status, "ready");
+  assert.equal(updateValidation.valid, true);
+  assert.equal(updateValidation.integrity, "verified");
+  assert.equal(updateValidation.applyAvailable, false);
+  assert.equal(await fs.readFile(labPage, "utf8"), source);
+
+  await fs.appendFile(path.join(repoRoot, stagedUpdate.patchFile), "# tampered\n", "utf8");
+  const tamperedUpdate = await client.call("validate_staged_lab_card_update", {
+    projectName: "Existing Fixture",
+  });
+  assert.equal(tamperedUpdate.status, "invalid");
+  assert.equal(tamperedUpdate.integrity, "artifact-integrity");
+  assert.ok(tamperedUpdate.issues.some((issue) => issue.includes("patch checksum")));
+  await fs.writeFile(path.join(repoRoot, stagedUpdate.patchFile), `${preview.unifiedDiff}\n`, "utf8");
+
+  await fs.appendFile(labPage, "\n// source drift\n", "utf8");
+  const staleUpdate = await client.call("validate_staged_lab_card_update", {
+    projectName: "Existing Fixture",
+  });
+  assert.equal(staleUpdate.status, "stale");
+  assert.equal(staleUpdate.integrity, "source-drift");
+  await fs.writeFile(labPage, source, "utf8");
+
   const noChange = await client.call("preview_lab_card_update", {
     projectName: "Existing Fixture",
     url: "",

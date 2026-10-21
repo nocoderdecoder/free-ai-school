@@ -1089,6 +1089,123 @@ async function stageLabCardUpdateArtifact(projects, args, source) {
   };
 }
 
+function sameJsonValue(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+async function validateStagedLabCardUpdate(projects, args, source) {
+  const projectName = normalizeDraftValue(args.projectName);
+  const slug = slugifyProjectName(projectName);
+  const generatedDir = path.join(paths.projectDir, "generated");
+  const baseName = `${slug}-lab-card-update`;
+  const files = {
+    patchFile: toRepoRelative(path.join(generatedDir, `${baseName}.patch`)),
+    handoffFile: toRepoRelative(path.join(generatedDir, `${baseName}.md`)),
+    manifestFile: toRepoRelative(path.join(generatedDir, `${baseName}.json`)),
+  };
+  const base = {
+    generatedAt: new Date().toISOString(),
+    sourceFilesChanged: false,
+    applyAvailable: false,
+    projectName,
+    ...files,
+  };
+  if (!slug) {
+    return {
+      ...base,
+      status: "missing",
+      valid: false,
+      integrity: "missing-artifact",
+      issues: ["A project name is required to locate a staged update artifact."],
+      ownerNextStep: "Provide the exact project name used to stage the update artifact.",
+    };
+  }
+
+  let manifestContent;
+  let patchContent;
+  let handoffContent;
+  try {
+    [manifestContent, patchContent, handoffContent] = await Promise.all([
+      fs.readFile(assertSafeRead(path.join(paths.repoRoot, files.manifestFile)), "utf8"),
+      fs.readFile(assertSafeRead(path.join(paths.repoRoot, files.patchFile)), "utf8"),
+      fs.readFile(assertSafeRead(path.join(paths.repoRoot, files.handoffFile)), "utf8"),
+    ]);
+  } catch {
+    return {
+      ...base,
+      status: "missing",
+      valid: false,
+      integrity: "missing-artifact",
+      issues: ["The staged update manifest, patch, and handoff must all exist."],
+      ownerNextStep: "Stage a fresh publish-ready update artifact, then validate it again.",
+    };
+  }
+
+  let manifest;
+  try {
+    manifest = JSON.parse(manifestContent);
+  } catch {
+    return {
+      ...base,
+      status: "invalid",
+      valid: false,
+      integrity: "artifact-integrity",
+      issues: ["The staged update manifest is not valid JSON."],
+      ownerNextStep: "Regenerate the staged update artifact before reviewing it.",
+    };
+  }
+
+  const integrityIssues = [];
+  if (manifest?.version !== 1 || manifest?.kind !== "lab-card-update-review") {
+    integrityIssues.push("The manifest does not describe a supported Lab card update artifact.");
+  }
+  if (manifest?.projectName !== projectName) integrityIssues.push("The manifest project name does not match the requested project.");
+  if (!sameJsonValue(manifest?.files, files)) integrityIssues.push("The manifest review file paths do not match the expected update artifact paths.");
+  if (sha256(patchContent) !== manifest?.checksums?.patchSha256) integrityIssues.push("The staged update patch checksum does not match the manifest.");
+  if (sha256(handoffContent) !== manifest?.checksums?.handoffSha256) integrityIssues.push("The staged update handoff checksum does not match the manifest.");
+  if (manifest?.checksums?.sourceSha256 !== sha256(source)) {
+    return {
+      ...base,
+      status: "stale",
+      valid: false,
+      integrity: "source-drift",
+      changedFields: manifest?.changedFields ?? [],
+      issues: integrityIssues,
+      ownerNextStep: "The Lab page changed after this update was staged. Regenerate the preview and staged update artifact before any future apply workflow.",
+    };
+  }
+
+  const preview = await previewLabCardUpdate(projects, {
+    projectName,
+    url: manifest?.proposedCard?.url,
+    image: manifest?.proposedCard?.image,
+  }, source);
+  const expectedPreview = { ...preview, generatedAt: manifest?.generatedAt };
+  const expectedPatch = preview.unifiedDiff ? `${preview.unifiedDiff}\n` : null;
+  const expectedHandoff = expectedPatch
+    ? formatStagedLabCardUpdateMarkdown(expectedPreview, files, manifest.checksums.sourceSha256)
+    : null;
+  if (preview.status !== "ready") integrityIssues.push("The staged update no longer recreates a publish-ready exact card preview.");
+  if (!sameJsonValue(manifest?.currentCard, preview.currentCard)) integrityIssues.push("The manifest current card does not match the current Lab card.");
+  if (!sameJsonValue(manifest?.proposedCard, preview.proposedCard)) integrityIssues.push("The manifest proposed card does not match the update preview.");
+  if (!sameJsonValue(manifest?.changedFields, preview.changedFields)) integrityIssues.push("The manifest changed fields do not match the update preview.");
+  if (patchContent !== expectedPatch) integrityIssues.push("The staged update patch does not match the exact one-card preview.");
+  if (handoffContent !== expectedHandoff) integrityIssues.push("The staged update handoff does not match the manifest and preview.");
+
+  return {
+    ...base,
+    status: integrityIssues.length === 0 ? "ready" : "invalid",
+    valid: integrityIssues.length === 0,
+    integrity: integrityIssues.length === 0 ? "verified" : "artifact-integrity",
+    changedFields: manifest?.changedFields ?? [],
+    checksums: manifest?.checksums ?? null,
+    issues: integrityIssues,
+    ownerNextStep: integrityIssues.length === 0
+      ? "The staged update matches the current Lab page and its review files. Review it manually; controlled update application remains intentionally unavailable."
+      : "Regenerate the staged update artifact before reviewing it further.",
+  };
+}
+
 function formatStagedLabCardPatchMarkdown(validation, patchFile) {
   const lines = [];
 
@@ -2755,6 +2872,11 @@ export async function callTool(name, args = {}) {
   if (name === "stage_lab_card_update_artifact") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await stageLabCardUpdateArtifact(projects, args, source));
+  }
+
+  if (name === "validate_staged_lab_card_update") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await validateStagedLabCardUpdate(projects, args, source));
   }
 
   if (name === "stage_lab_card_patch_artifact") {

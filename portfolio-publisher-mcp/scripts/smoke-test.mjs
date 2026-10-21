@@ -251,6 +251,14 @@ send(55, "tools/call", {
   name: "stage_lab_card_update_artifact",
   arguments: { projectName: firstProjectName, tagline: "Not allowed" },
 });
+send(56, "tools/call", {
+  name: "validate_staged_lab_card_update",
+  arguments: { projectName: firstProjectName },
+});
+send(57, "tools/call", {
+  name: "validate_staged_lab_card_update",
+  arguments: {},
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -277,6 +285,8 @@ await Promise.all([
   waitForResponse(53),
   waitForResponse(54),
   waitForResponse(55),
+  waitForResponse(56),
+  waitForResponse(57),
 ]);
 server.kill();
 await once(server, "exit");
@@ -717,6 +727,14 @@ const stagedUpdateOk =
       stagedUpdate.filesWritten.length === 3 &&
       /^[a-f0-9]{64}$/.test(stagedUpdate?.checksums?.sourceSha256 ?? "")));
 const stagedUpdateArgValidationOk = responseById.get(55)?.result?.isError === true;
+const stagedUpdateValidation = JSON.parse(responseById.get(56)?.result?.content?.[0]?.text ?? "{}");
+const stagedUpdateValidationOk =
+  stagedUpdateValidation?.sourceFilesChanged === false &&
+  stagedUpdateValidation?.applyAvailable === false &&
+  typeof stagedUpdateValidation?.valid === "boolean" &&
+  ["ready", "missing"].includes(stagedUpdateValidation?.status) &&
+  !/reviewToken/.test(JSON.stringify(stagedUpdateValidation));
+const stagedUpdateValidationArgValidationOk = responseById.get(57)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -774,6 +792,8 @@ console.log(JSON.stringify({
   updatePreviewArgValidationOk,
   stagedUpdateOk,
   stagedUpdateArgValidationOk,
+  stagedUpdateValidationOk,
+  stagedUpdateValidationArgValidationOk,
 }, null, 2));
 
 if (
@@ -831,6 +851,8 @@ if (
   || !updatePreviewArgValidationOk
   || !stagedUpdateOk
   || !stagedUpdateArgValidationOk
+  || !stagedUpdateValidationOk
+  || !stagedUpdateValidationArgValidationOk
 ) {
   process.exitCode = 1;
 }
