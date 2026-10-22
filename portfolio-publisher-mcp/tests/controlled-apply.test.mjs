@@ -274,6 +274,38 @@ test("Lab card update preview is exact, read-only, and readiness checked", async
   assert.ok(confined.readinessBlockers.some((blocker) => blocker.includes("inside the app directory")));
   assert.ok(confined.readinessBlockers.some((blocker) => blocker.includes("inside the public directory")));
   assert.equal(await fs.readFile(labPage, "utf8"), source);
+
+  const restagedUpdate = await client.call("stage_lab_card_update_artifact", {
+    projectName: "Existing Fixture",
+    url: "https://example.com/discarded-update",
+    image: "/projects/existing-fixture.png",
+  });
+  assert.equal(restagedUpdate.staged, true);
+  const unconfirmedDiscard = await client.call("discard_staged_lab_card_update", {
+    projectName: "Existing Fixture",
+    confirm: false,
+  });
+  assert.equal(unconfirmedDiscard.status, "confirmation-required");
+  assert.match(
+    await fs.readFile(path.join(repoRoot, restagedUpdate.patchFile), "utf8"),
+    /\+    url: "https:\/\/example\.com\/discarded-update",/,
+  );
+
+  const discardedUpdate = await client.call("discard_staged_lab_card_update", {
+    projectName: "Existing Fixture",
+    confirm: true,
+  });
+  assert.equal(discardedUpdate.status, "discarded");
+  assert.equal(discardedUpdate.sourceFilesChanged, false);
+  await assert.rejects(fs.access(path.join(repoRoot, restagedUpdate.patchFile)));
+  await assert.rejects(fs.access(path.join(repoRoot, restagedUpdate.handoffFile)));
+  await assert.rejects(fs.access(path.join(repoRoot, restagedUpdate.manifestFile)));
+
+  const missingDiscard = await client.call("discard_staged_lab_card_update", {
+    projectName: "Existing Fixture",
+    confirm: true,
+  });
+  assert.equal(missingDiscard.status, "missing");
 });
 
 test("controlled apply cleans up after prep rejection and successful apply", async (t) => {

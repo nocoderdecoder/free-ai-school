@@ -985,7 +985,7 @@ function formatStagedLabCardUpdateMarkdown(preview, files, sourceChecksum) {
   lines.push(`- Target file: ${preview.targetFile}`);
   lines.push(`- Changed fields: ${preview.changedFields.join(", ")}`);
   lines.push(`- Source SHA-256: ${sourceChecksum}`);
-  lines.push("- This artifact is review-only; no update apply tool is available yet.");
+  lines.push("- This artifact is review-only until it is freshly validated and explicitly confirmed for controlled apply.");
   lines.push("");
   lines.push("## Current card");
   lines.push("");
@@ -1270,6 +1270,62 @@ async function applyStagedLabCardUpdate(projects, args, source) {
       await fs.rm(lockPath, { force: true });
     }
   }
+}
+
+async function discardStagedLabCardUpdate(args) {
+  if (args.confirm !== true) {
+    return {
+      discarded: false,
+      status: "confirmation-required",
+      issues: ["Set confirm to true only after deciding the staged update artifacts are no longer needed."],
+    };
+  }
+
+  const projectName = normalizeDraftValue(args.projectName);
+  const slug = slugifyProjectName(projectName);
+  if (!projectName || !slug) {
+    return {
+      discarded: false,
+      status: "invalid-request",
+      issues: ["Project name must contain letters or numbers."],
+    };
+  }
+
+  const generatedDir = path.join(paths.projectDir, "generated");
+  const baseName = `${slug}-lab-card-update`;
+  const artifactPaths = [
+    path.join(generatedDir, `${baseName}.patch`),
+    path.join(generatedDir, `${baseName}.md`),
+    path.join(generatedDir, `${baseName}.json`),
+  ];
+  const files = artifactPaths.map(toRepoRelative);
+
+  try {
+    await Promise.all(artifactPaths.map((artifactPath) => fs.access(assertSafeRead(artifactPath))));
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return {
+        discarded: false,
+        status: "missing",
+        projectName,
+        slug,
+        files,
+        issues: ["The staged update patch, handoff, or manifest is missing; no files were deleted."],
+      };
+    }
+    throw error;
+  }
+
+  await Promise.all(artifactPaths.map((artifactPath) => fs.rm(artifactPath)));
+  return {
+    discarded: true,
+    status: "discarded",
+    projectName,
+    slug,
+    filesDeleted: files,
+    sourceFilesChanged: false,
+    ownerNextStep: "Stage a fresh update artifact if this Lab card still needs a URL or screenshot update.",
+  };
 }
 
 function formatStagedLabCardPatchMarkdown(validation, patchFile) {
@@ -2948,6 +3004,10 @@ export async function callTool(name, args = {}) {
   if (name === "apply_staged_lab_card_update") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await applyStagedLabCardUpdate(projects, args, source));
+  }
+
+  if (name === "discard_staged_lab_card_update") {
+    return textResult(await discardStagedLabCardUpdate(args));
   }
 
   if (name === "stage_lab_card_patch_artifact") {

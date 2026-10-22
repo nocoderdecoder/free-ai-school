@@ -303,6 +303,27 @@ export const tools = [
     },
   },
   {
+    name: "discard_staged_lab_card_update",
+    title: "Discard Staged Lab Card Update",
+    description:
+      "Delete one existing-card update artifact's exact patch, handoff, and manifest after explicit confirmation. This never edits the Lab page.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "Exact existing Lab project name used to stage the update artifact.",
+        },
+        confirm: {
+          type: "boolean",
+          description: "Must be true only after deciding the staged update artifacts are no longer needed.",
+        },
+      },
+      required: ["projectName", "confirm"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "stage_lab_card_patch_artifact",
     title: "Stage Lab Card Patch Artifact",
     description:

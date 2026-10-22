@@ -267,6 +267,14 @@ send(59, "tools/call", {
   name: "apply_staged_lab_card_update",
   arguments: { projectName: firstProjectName, reviewToken: "not-a-token", confirm: true },
 });
+send(60, "tools/call", {
+  name: "discard_staged_lab_card_update",
+  arguments: { projectName: firstProjectName, confirm: false },
+});
+send(61, "tools/call", {
+  name: "discard_staged_lab_card_update",
+  arguments: { projectName: "", confirm: true },
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -297,6 +305,8 @@ await Promise.all([
   waitForResponse(57),
   waitForResponse(58),
   waitForResponse(59),
+  waitForResponse(60),
+  waitForResponse(61),
 ]);
 server.kill();
 await once(server, "exit");
@@ -747,6 +757,8 @@ const stagedUpdateValidationOk =
 const stagedUpdateValidationArgValidationOk = responseById.get(57)?.result?.isError === true;
 const stagedUpdateApplyConfirmationOk = JSON.parse(responseById.get(58)?.result?.content?.[0]?.text ?? "{}")?.status === "confirmation-required";
 const stagedUpdateApplyTokenValidationOk = JSON.parse(responseById.get(59)?.result?.content?.[0]?.text ?? "{}")?.status === "invalid-token";
+const stagedUpdateDiscardConfirmationOk = JSON.parse(responseById.get(60)?.result?.content?.[0]?.text ?? "{}")?.status === "confirmation-required";
+const stagedUpdateDiscardValidationOk = JSON.parse(responseById.get(61)?.result?.content?.[0]?.text ?? "{}")?.status === "invalid-request";
 
 console.log(JSON.stringify({
   failed,
@@ -808,6 +820,8 @@ console.log(JSON.stringify({
   stagedUpdateValidationArgValidationOk,
   stagedUpdateApplyConfirmationOk,
   stagedUpdateApplyTokenValidationOk,
+  stagedUpdateDiscardConfirmationOk,
+  stagedUpdateDiscardValidationOk,
 }, null, 2));
 
 if (
@@ -869,6 +883,8 @@ if (
   || !stagedUpdateValidationArgValidationOk
   || !stagedUpdateApplyConfirmationOk
   || !stagedUpdateApplyTokenValidationOk
+  || !stagedUpdateDiscardConfirmationOk
+  || !stagedUpdateDiscardValidationOk
 ) {
   process.exitCode = 1;
 }
