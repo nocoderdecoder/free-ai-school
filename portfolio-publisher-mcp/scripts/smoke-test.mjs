@@ -275,6 +275,14 @@ send(61, "tools/call", {
   name: "discard_staged_lab_card_update",
   arguments: { projectName: "", confirm: true },
 });
+send(62, "tools/call", {
+  name: "list_staged_lab_card_updates",
+  arguments: { limit: 1 },
+});
+send(63, "tools/call", {
+  name: "list_staged_lab_card_updates",
+  arguments: { status: "unknown" },
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -307,6 +315,8 @@ await Promise.all([
   waitForResponse(59),
   waitForResponse(60),
   waitForResponse(61),
+  waitForResponse(62),
+  waitForResponse(63),
 ]);
 server.kill();
 await once(server, "exit");
@@ -759,6 +769,14 @@ const stagedUpdateApplyConfirmationOk = JSON.parse(responseById.get(58)?.result?
 const stagedUpdateApplyTokenValidationOk = JSON.parse(responseById.get(59)?.result?.content?.[0]?.text ?? "{}")?.status === "invalid-token";
 const stagedUpdateDiscardConfirmationOk = JSON.parse(responseById.get(60)?.result?.content?.[0]?.text ?? "{}")?.status === "confirmation-required";
 const stagedUpdateDiscardValidationOk = JSON.parse(responseById.get(61)?.result?.content?.[0]?.text ?? "{}")?.status === "invalid-request";
+const stagedUpdateInventory = JSON.parse(responseById.get(62)?.result?.content?.[0]?.text ?? "{}");
+const stagedUpdateInventoryOk =
+  stagedUpdateInventory?.returned <= 1 &&
+  typeof stagedUpdateInventory?.totalChecked === "number" &&
+  typeof stagedUpdateInventory?.reasonCounts?.["artifact-integrity"] === "number" &&
+  stagedUpdateInventory?.items?.every((item) => !("reviewToken" in item)) &&
+  stagedUpdateInventory?.pagination?.limit === 1;
+const stagedUpdateInventoryArgValidationOk = responseById.get(63)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -822,6 +840,8 @@ console.log(JSON.stringify({
   stagedUpdateApplyTokenValidationOk,
   stagedUpdateDiscardConfirmationOk,
   stagedUpdateDiscardValidationOk,
+  stagedUpdateInventoryOk,
+  stagedUpdateInventoryArgValidationOk,
 }, null, 2));
 
 if (
@@ -885,6 +905,8 @@ if (
   || !stagedUpdateApplyTokenValidationOk
   || !stagedUpdateDiscardConfirmationOk
   || !stagedUpdateDiscardValidationOk
+  || !stagedUpdateInventoryOk
+  || !stagedUpdateInventoryArgValidationOk
 ) {
   process.exitCode = 1;
 }

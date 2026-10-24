@@ -324,6 +324,38 @@ export const tools = [
     },
   },
   {
+    name: "list_staged_lab_card_updates",
+    title: "List Staged Lab Card Updates",
+    description:
+      "List staged existing-card update artifacts with optional status and recovery-reason filters. Recomputes each artifact's current validation state without changing files or issuing review tokens.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          enum: ["ready", "stale", "invalid", "incomplete"],
+          description: "Optional current artifact status to return.",
+        },
+        reason: {
+          type: "string",
+          enum: ["source-drift", "artifact-integrity", "missing-patch", "missing-handoff", "missing-manifest"],
+          description: "Optional machine-readable recovery reason. Combines with status using AND semantics.",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
+          description: "Optional maximum number of filtered artifacts to return. Defaults to all filtered artifacts.",
+        },
+        cursor: {
+          type: "string",
+          description: "Optional slug cursor. Results start after this slug in deterministic order.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: "stage_lab_card_patch_artifact",
     title: "Stage Lab Card Patch Artifact",
     description:

@@ -308,6 +308,62 @@ test("Lab card update preview is exact, read-only, and readiness checked", async
   assert.equal(missingDiscard.status, "missing");
 });
 
+test("staged update inventory is read-only, ordered, filterable, and never returns review tokens", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const generatedDir = path.join(repoRoot, "portfolio-publisher-mcp", "generated");
+  const source = await fs.readFile(labPage, "utf8");
+  const existingCard = [
+    "  {",
+    '    name: "Existing Fixture",',
+    '    tagline: "Existing copy stays unchanged",',
+    '    image: "/projects/existing-fixture.png",',
+    '    url: "https://example.com/existing",',
+    '    status: "Built",',
+    "    Icon: FixtureIcon,",
+    "  },",
+  ].join("\n");
+  await fs.writeFile(labPage, source.replace("];", `${existingCard}\n];`), "utf8");
+  await fs.writeFile(path.join(repoRoot, "public", "projects", "existing-fixture.png"), "fixture", "utf8");
+
+  await client.call("stage_lab_card_update_artifact", {
+    projectName: "Existing Fixture",
+    url: "https://example.com/updated",
+  });
+  await Promise.all([
+    fs.writeFile(path.join(generatedDir, "alpha-orphan-lab-card-update.patch"), "orphan", "utf8"),
+    fs.writeFile(path.join(generatedDir, "alpha-orphan-lab-card-update.md"), "orphan", "utf8"),
+    fs.writeFile(path.join(generatedDir, "beta-orphan-lab-card-update.md"), "orphan", "utf8"),
+    fs.writeFile(path.join(generatedDir, "beta-orphan-lab-card-update.json"), "{}", "utf8"),
+    fs.writeFile(path.join(generatedDir, "gamma-orphan-lab-card-update.patch"), "orphan", "utf8"),
+    fs.writeFile(path.join(generatedDir, "gamma-orphan-lab-card-update.json"), "{}", "utf8"),
+  ]);
+
+  const inventory = await client.call("list_staged_lab_card_updates", {});
+  assert.equal(await fs.readFile(labPage, "utf8"), source.replace("];", `${existingCard}\n];`));
+  assert.deepEqual(inventory.items.map((item) => item.slug), [
+    "alpha-orphan", "beta-orphan", "existing-fixture", "gamma-orphan",
+  ]);
+  assert.equal(inventory.ready, 1);
+  assert.equal(inventory.incomplete, 3);
+  assert.equal(inventory.totalChecked, 4);
+  assert.ok(inventory.items.every((item) => !("reviewToken" in item)));
+  assert.deepEqual(inventory.reasonCounts, {
+    "source-drift": 0,
+    "artifact-integrity": 0,
+    "missing-patch": 1,
+    "missing-handoff": 1,
+    "missing-manifest": 1,
+  });
+
+  const firstPage = await client.call("list_staged_lab_card_updates", { limit: 2 });
+  assert.deepEqual(firstPage.items.map((item) => item.slug), ["alpha-orphan", "beta-orphan"]);
+  assert.deepEqual(firstPage.pagination, { limit: 2, cursor: null, nextCursor: "beta-orphan", hasMore: true });
+
+  const incomplete = await client.call("list_staged_lab_card_updates", { status: "incomplete", reason: "missing-manifest" });
+  assert.equal(incomplete.checked, 1);
+  assert.equal(incomplete.items[0].slug, "alpha-orphan");
+});
+
 test("controlled apply cleans up after prep rejection and successful apply", async (t) => {
   const { repoRoot, labPage, client } = await createFixtureClient(t);
   const originalSource = await fs.readFile(labPage, "utf8");

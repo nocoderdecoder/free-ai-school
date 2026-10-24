@@ -1328,6 +1328,150 @@ async function discardStagedLabCardUpdate(args) {
   };
 }
 
+async function listStagedLabCardUpdates(projects, source, filters = {}) {
+  const generatedDir = path.join(paths.projectDir, "generated");
+  let entries;
+
+  try {
+    entries = await fs.readdir(assertSafeRead(generatedDir), { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") entries = [];
+    else throw error;
+  }
+
+  const artifacts = new Map();
+  const suffixPattern = /^(.*-lab-card-update)\.(patch|md|json)$/;
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const match = entry.name.match(suffixPattern);
+    if (!match) continue;
+    const record = artifacts.get(match[1]) ?? { baseName: match[1], patch: false, handoff: false, manifest: false };
+    record[{ patch: "patch", md: "handoff", json: "manifest" }[match[2]]] = true;
+    artifacts.set(match[1], record);
+  }
+
+  const items = [];
+  for (const record of [...artifacts.values()].sort((left, right) => left.baseName.localeCompare(right.baseName))) {
+    const slug = record.baseName.slice(0, -"-lab-card-update".length);
+    const files = {
+      patchFile: record.patch ? `portfolio-publisher-mcp/generated/${record.baseName}.patch` : null,
+      handoffFile: record.handoff ? `portfolio-publisher-mcp/generated/${record.baseName}.md` : null,
+      manifestFile: record.manifest ? `portfolio-publisher-mcp/generated/${record.baseName}.json` : null,
+    };
+    const missing = [
+      !record.patch ? "missing-patch" : null,
+      !record.handoff ? "missing-handoff" : null,
+      !record.manifest ? "missing-manifest" : null,
+    ].filter(Boolean);
+
+    if (missing.length > 0) {
+      items.push({
+        slug,
+        projectName: null,
+        status: "incomplete",
+        reason: missing[0],
+        valid: false,
+        changedFields: [],
+        ...files,
+        issues: missing.map((reason) => `Missing staged update ${reason.slice("missing-".length)} file.`),
+        ownerNextStep: "Discard the incomplete update artifact or stage a fresh existing-card update.",
+      });
+      continue;
+    }
+
+    const manifestPath = path.join(generatedDir, `${record.baseName}.json`);
+    let manifest;
+    try {
+      manifest = JSON.parse(await fs.readFile(assertSafeRead(manifestPath), "utf8"));
+    } catch {
+      items.push({
+        slug,
+        projectName: null,
+        status: "invalid",
+        reason: "artifact-integrity",
+        valid: false,
+        changedFields: [],
+        ...files,
+        issues: ["The staged update manifest is not valid JSON."],
+        ownerNextStep: "Regenerate this staged update artifact before review.",
+      });
+      continue;
+    }
+
+    const projectName = normalizeDraftValue(manifest?.projectName);
+    if (!projectName) {
+      items.push({
+        slug,
+        projectName: null,
+        status: "invalid",
+        reason: "artifact-integrity",
+        valid: false,
+        changedFields: [],
+        ...files,
+        issues: ["The staged update manifest is missing its project name."],
+        ownerNextStep: "Regenerate this staged update artifact before review.",
+      });
+      continue;
+    }
+
+    const validation = await validateStagedLabCardUpdate(projects, { projectName }, source);
+    const { reviewToken: _reviewToken, ...safeValidation } = validation;
+    items.push({
+      slug,
+      ...safeValidation,
+      reason: validation.integrity === "verified" ? null : validation.integrity,
+      files,
+      patchFile: files.patchFile,
+      handoffFile: files.handoffFile,
+      manifestFile: files.manifestFile,
+    });
+  }
+
+  const filteredItems = items.filter((item) => (
+    (!filters.status || item.status === filters.status)
+    && (!filters.reason || item.reason === filters.reason)
+  ));
+  const cursor = typeof filters.cursor === "string" && filters.cursor.trim() ? filters.cursor.trim() : null;
+  const limit = Number.isInteger(filters.limit)
+    ? Math.min(Math.max(filters.limit, 1), MAX_STAGED_INVENTORY_PAGE_LIMIT)
+    : null;
+  const cursorStart = cursor ? filteredItems.findIndex((item) => item.slug.localeCompare(cursor) > 0) : 0;
+  const startIndex = cursorStart === -1 ? filteredItems.length : cursorStart;
+  const pagedItems = limit == null ? filteredItems.slice(startIndex) : filteredItems.slice(startIndex, startIndex + limit);
+  const hasMore = limit != null && startIndex + limit < filteredItems.length;
+
+  return {
+    totalChecked: items.length,
+    checked: filteredItems.length,
+    returned: pagedItems.length,
+    complete: filteredItems.filter((item) => item.status !== "incomplete").length,
+    ready: filteredItems.filter((item) => item.status === "ready").length,
+    stale: filteredItems.filter((item) => item.status === "stale").length,
+    invalid: filteredItems.filter((item) => item.status === "invalid").length,
+    incomplete: filteredItems.filter((item) => item.status === "incomplete").length,
+    reasonCounts: {
+      "source-drift": filteredItems.filter((item) => item.reason === "source-drift").length,
+      "artifact-integrity": filteredItems.filter((item) => item.reason === "artifact-integrity").length,
+      "missing-patch": filteredItems.filter((item) => item.reason === "missing-patch").length,
+      "missing-handoff": filteredItems.filter((item) => item.reason === "missing-handoff").length,
+      "missing-manifest": filteredItems.filter((item) => item.reason === "missing-manifest").length,
+    },
+    filters: { status: filters.status ?? null, reason: filters.reason ?? null },
+    pagination: {
+      limit,
+      cursor,
+      nextCursor: hasMore ? pagedItems.at(-1)?.slug ?? null : null,
+      hasMore,
+    },
+    items: pagedItems,
+    ownerNextStep: filteredItems.length === 0
+      ? items.length === 0
+        ? "Stage an existing-card update when a Lab URL or screenshot needs review."
+        : "No staged updates match these filters; change or clear the filters to inspect another recovery queue."
+      : "Review ready updates first; regenerate stale or invalid artifacts and discard incomplete ones when they are no longer needed.",
+  };
+}
+
 function formatStagedLabCardPatchMarkdown(validation, patchFile) {
   const lines = [];
 
@@ -3008,6 +3152,11 @@ export async function callTool(name, args = {}) {
 
   if (name === "discard_staged_lab_card_update") {
     return textResult(await discardStagedLabCardUpdate(args));
+  }
+
+  if (name === "list_staged_lab_card_updates") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await listStagedLabCardUpdates(projects, source, args));
   }
 
   if (name === "stage_lab_card_patch_artifact") {
