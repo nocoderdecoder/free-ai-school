@@ -1472,6 +1472,43 @@ async function listStagedLabCardUpdates(projects, source, filters = {}) {
   };
 }
 
+function formatStagedLabCardUpdateReviewReport(inventory) {
+  const lines = ["# Staged Lab card update review report", ""];
+  const activeFilters = [
+    inventory.filters.status ? `status \`${inventory.filters.status}\`` : null,
+    inventory.filters.reason ? `reason \`${inventory.filters.reason}\`` : null,
+  ].filter(Boolean);
+
+  lines.push(`- Queue: ${activeFilters.length > 0 ? activeFilters.join(", ") : "all staged updates"}`);
+  lines.push(`- Inventory checked: ${inventory.totalChecked}`);
+  lines.push(`- Matching updates: ${inventory.checked}`);
+  lines.push(`- Included on this page: ${inventory.returned}`);
+  lines.push(`- Ready / stale / invalid / incomplete: ${inventory.ready} / ${inventory.stale} / ${inventory.invalid} / ${inventory.incomplete}`);
+  if (inventory.pagination.cursor) lines.push(`- Page starts after: \`${inventory.pagination.cursor}\``);
+  if (inventory.pagination.hasMore) lines.push(`- Next cursor: \`${inventory.pagination.nextCursor}\``);
+  lines.push("");
+
+  if (inventory.items.length === 0) {
+    lines.push("## No updates on this page", "", inventory.ownerNextStep, "");
+  } else {
+    lines.push("## Review queue", "");
+    for (const item of inventory.items) {
+      lines.push(`### ${item.projectName || item.slug}`, "");
+      lines.push(`- Slug: \`${item.slug}\``);
+      lines.push(`- Status: **${item.status}**${item.reason ? ` (\`${item.reason}\`)` : ""}`);
+      lines.push(`- Changed fields: ${item.changedFields.length > 0 ? item.changedFields.join(", ") : "Not available"}`);
+      if (item.patchFile) lines.push(`- Patch: \`${item.patchFile}\``);
+      if (item.handoffFile) lines.push(`- Handoff: \`${item.handoffFile}\``);
+      if (item.manifestFile) lines.push(`- Manifest: \`${item.manifestFile}\``);
+      for (const issue of item.issues ?? []) lines.push(`- Issue: ${issue}`);
+      lines.push(`- Next step: ${item.ownerNextStep}`, "");
+    }
+  }
+
+  lines.push("## Owner next step", "", inventory.ownerNextStep);
+  return lines.join("\n");
+}
+
 function formatStagedLabCardPatchMarkdown(validation, patchFile) {
   const lines = [];
 
@@ -3157,6 +3194,21 @@ export async function callTool(name, args = {}) {
   if (name === "list_staged_lab_card_updates") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await listStagedLabCardUpdates(projects, source, args));
+  }
+
+  if (name === "create_staged_lab_card_update_review_report") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    const inventory = await listStagedLabCardUpdates(projects, source, args);
+    return textResult({
+      format: "markdown",
+      markdown: formatStagedLabCardUpdateReviewReport(inventory),
+      totalChecked: inventory.totalChecked,
+      checked: inventory.checked,
+      returned: inventory.returned,
+      filters: inventory.filters,
+      pagination: inventory.pagination,
+      sourceFilesChanged: false,
+    });
   }
 
   if (name === "stage_lab_card_patch_artifact") {

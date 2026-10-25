@@ -356,6 +356,38 @@ export const tools = [
     },
   },
   {
+    name: "create_staged_lab_card_update_review_report",
+    title: "Create Staged Lab Card Update Review Report",
+    description:
+      "Create an owner-friendly Markdown review brief for a filtered, optionally paginated staged existing-card update queue without changing files or issuing review tokens.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          enum: ["ready", "stale", "invalid", "incomplete"],
+          description: "Optional current artifact status to include.",
+        },
+        reason: {
+          type: "string",
+          enum: ["source-drift", "artifact-integrity", "missing-patch", "missing-handoff", "missing-manifest"],
+          description: "Optional machine-readable recovery reason to include. Combines with status using AND semantics.",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
+          description: "Optional maximum number of filtered updates to include in this report page.",
+        },
+        cursor: {
+          type: "string",
+          description: "Optional slug cursor. The report starts after this slug in deterministic order.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: "stage_lab_card_patch_artifact",
     title: "Stage Lab Card Patch Artifact",
     description:

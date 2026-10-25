@@ -362,6 +362,21 @@ test("staged update inventory is read-only, ordered, filterable, and never retur
   const incomplete = await client.call("list_staged_lab_card_updates", { status: "incomplete", reason: "missing-manifest" });
   assert.equal(incomplete.checked, 1);
   assert.equal(incomplete.items[0].slug, "alpha-orphan");
+
+  const report = await client.call("create_staged_lab_card_update_review_report", {
+    status: "incomplete",
+    limit: 2,
+  });
+  assert.equal(report.format, "markdown");
+  assert.equal(report.sourceFilesChanged, false);
+  assert.equal(report.returned, 2);
+  assert.equal(report.pagination.nextCursor, "beta-orphan");
+  assert.match(report.markdown, /# Staged Lab card update review report/);
+  assert.match(report.markdown, /Queue: status `incomplete`/);
+  assert.match(report.markdown, /alpha-orphan/);
+  assert.match(report.markdown, /missing-manifest/);
+  assert.ok(!report.markdown.includes("reviewToken"));
+  assert.equal(await fs.readFile(labPage, "utf8"), source.replace("];", `${existingCard}\n];`));
 });
 
 test("controlled apply cleans up after prep rejection and successful apply", async (t) => {

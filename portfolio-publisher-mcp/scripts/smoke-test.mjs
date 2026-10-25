@@ -283,6 +283,14 @@ send(63, "tools/call", {
   name: "list_staged_lab_card_updates",
   arguments: { status: "unknown" },
 });
+send(64, "tools/call", {
+  name: "create_staged_lab_card_update_review_report",
+  arguments: { limit: 1 },
+});
+send(65, "tools/call", {
+  name: "create_staged_lab_card_update_review_report",
+  arguments: { reason: "unknown" },
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -317,6 +325,8 @@ await Promise.all([
   waitForResponse(61),
   waitForResponse(62),
   waitForResponse(63),
+  waitForResponse(64),
+  waitForResponse(65),
 ]);
 server.kill();
 await once(server, "exit");
@@ -777,6 +787,16 @@ const stagedUpdateInventoryOk =
   stagedUpdateInventory?.items?.every((item) => !("reviewToken" in item)) &&
   stagedUpdateInventory?.pagination?.limit === 1;
 const stagedUpdateInventoryArgValidationOk = responseById.get(63)?.result?.isError === true;
+const stagedUpdateReviewReport = JSON.parse(responseById.get(64)?.result?.content?.[0]?.text ?? "{}");
+const stagedUpdateReviewReportOk =
+  stagedUpdateReviewReport?.format === "markdown" &&
+  typeof stagedUpdateReviewReport?.markdown === "string" &&
+  stagedUpdateReviewReport.markdown.includes("# Staged Lab card update review report") &&
+  stagedUpdateReviewReport?.returned <= 1 &&
+  stagedUpdateReviewReport?.pagination?.limit === 1 &&
+  stagedUpdateReviewReport?.sourceFilesChanged === false &&
+  !stagedUpdateReviewReport.markdown.includes("reviewToken");
+const stagedUpdateReviewReportArgValidationOk = responseById.get(65)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -842,6 +862,8 @@ console.log(JSON.stringify({
   stagedUpdateDiscardValidationOk,
   stagedUpdateInventoryOk,
   stagedUpdateInventoryArgValidationOk,
+  stagedUpdateReviewReportOk,
+  stagedUpdateReviewReportArgValidationOk,
 }, null, 2));
 
 if (
@@ -907,6 +929,8 @@ if (
   || !stagedUpdateDiscardValidationOk
   || !stagedUpdateInventoryOk
   || !stagedUpdateInventoryArgValidationOk
+  || !stagedUpdateReviewReportOk
+  || !stagedUpdateReviewReportArgValidationOk
 ) {
   process.exitCode = 1;
 }
