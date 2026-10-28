@@ -399,6 +399,27 @@ export const tools = [
     },
   },
   {
+    name: "verify_lab_card_update_closeout",
+    title: "Verify Lab Card Update Closeout",
+    description:
+      "Verify that one applied existing-card URL or screenshot update, its local readiness, and repository change scope are ready for owner closeout, with an optional run of the non-mutating smoke suite.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "Exact name, slug, or unambiguous partial name of the updated Lab project.",
+        },
+        runSmoke: {
+          type: "boolean",
+          description: "When true, run npm run smoke before reporting closeout status. Defaults to false.",
+        },
+      },
+      required: ["projectName"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "stage_lab_card_patch_artifact",
     title: "Stage Lab Card Patch Artifact",
     description:

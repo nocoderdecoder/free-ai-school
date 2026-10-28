@@ -2214,7 +2214,8 @@ async function runCloseoutCommand(command, args, options = {}) {
 }
 
 function formatLabCardPublishCloseout(result) {
-  const lines = ["# Lab card publish closeout", ""];
+  const operation = result.closeoutKind === "update" ? "update" : "publish";
+  const lines = [`# Lab card ${operation} closeout`, ""];
   lines.push(`- Status: **${result.closeoutStatus}**`);
   lines.push(`- Project: ${result.project?.name ? `**${result.project.name}**` : "Not found"}`);
   lines.push(`- Card count: ${result.cardCount}`);
@@ -2231,7 +2232,7 @@ function formatLabCardPublishCloseout(result) {
   return lines.join("\n");
 }
 
-async function verifyLabCardPublishCloseout(projects, source, args) {
+async function verifyLabCardPublishCloseout(projects, source, args, closeoutKind = "publish") {
   const requestedProjectName = normalizeProjectQuery(args.projectName);
   const match = findMatchingProjects(projects, requestedProjectName);
   const project = match.matches.length === 1 ? match.matches[0] : null;
@@ -2281,6 +2282,7 @@ async function verifyLabCardPublishCloseout(projects, source, args) {
     && repository.acceptableChangeScope && smoke.passed;
   const result = {
     generatedAt: new Date().toISOString(),
+    closeoutKind,
     closeoutStatus: closeoutReady ? "ready" : "needs-attention",
     sourceFilesChanged: false,
     requestedProjectName,
@@ -2296,6 +2298,10 @@ async function verifyLabCardPublishCloseout(projects, source, args) {
       : "Resolve every blocker, then rerun this closeout with runSmoke: true before committing or pushing.",
   };
   return { ...result, format: "markdown", markdown: formatLabCardPublishCloseout(result) };
+}
+
+async function verifyLabCardUpdateCloseout(projects, source, args) {
+  return verifyLabCardPublishCloseout(projects, source, args, "update");
 }
 
 function parseStagedLabCard(handoffContent) {
@@ -3264,6 +3270,11 @@ export async function callTool(name, args = {}) {
   if (name === "create_next_staged_lab_card_update_packet") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await createNextStagedLabCardUpdatePacket(projects, source));
+  }
+
+  if (name === "verify_lab_card_update_closeout") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await verifyLabCardUpdateCloseout(projects, source, args));
   }
 
   if (name === "stage_lab_card_patch_artifact") {

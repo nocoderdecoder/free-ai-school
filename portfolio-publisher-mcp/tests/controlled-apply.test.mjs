@@ -208,6 +208,19 @@ test("Lab card update preview is exact, read-only, and readiness checked", async
   assert.match(updatedSource, /url: "https:\/\/example\.com\/existing-fixture"/);
   assert.match(updatedSource, /image: "\/projects\/existing-fixture\.png"/);
   assert.deepEqual(await listApplyArtifacts(labPage), []);
+  const updateCloseout = await client.call("verify_lab_card_update_closeout", {
+    projectName: "Existing Fixture",
+    runSmoke: false,
+  });
+  assert.equal(updateCloseout.closeoutKind, "update");
+  assert.equal(updateCloseout.closeoutStatus, "needs-attention");
+  assert.equal(updateCloseout.sourceFilesChanged, false);
+  assert.equal(updateCloseout.project.name, "Existing Fixture");
+  assert.equal(updateCloseout.cardCount, 1);
+  assert.equal(updateCloseout.localReadinessReady, true);
+  assert.equal(updateCloseout.smoke.ran, false);
+  assert.match(updateCloseout.markdown, /# Lab card update closeout/);
+  assert.ok(updateCloseout.blockers.some((blocker) => blocker.includes("Smoke verification was not run")));
   const replay = await client.call("apply_staged_lab_card_update", {
     projectName: "Existing Fixture",
     reviewToken: updateValidation.reviewToken,

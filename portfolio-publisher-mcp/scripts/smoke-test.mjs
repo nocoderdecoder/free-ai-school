@@ -299,6 +299,14 @@ send(67, "tools/call", {
   name: "create_next_staged_lab_card_update_packet",
   arguments: { extra: true },
 });
+send(68, "tools/call", {
+  name: "verify_lab_card_update_closeout",
+  arguments: { projectName: firstProjectSlug, runSmoke: false },
+});
+send(69, "tools/call", {
+  name: "verify_lab_card_update_closeout",
+  arguments: {},
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -337,6 +345,8 @@ await Promise.all([
   waitForResponse(65),
   waitForResponse(66),
   waitForResponse(67),
+  waitForResponse(68),
+  waitForResponse(69),
 ]);
 server.kill();
 await once(server, "exit");
@@ -814,6 +824,15 @@ const nextStagedUpdatePacketOk =
   typeof nextStagedUpdatePacket?.markdown === "string" &&
   nextStagedUpdatePacket.markdown.startsWith("# Lab card update packet") &&
   !nextStagedUpdatePacket.markdown.includes("reviewToken");
+const updateCloseoutText = responseById.get(68)?.result?.content?.[0]?.text ?? "{}";
+const updateCloseout = JSON.parse(updateCloseoutText);
+const updateCloseoutOk =
+  updateCloseout?.closeoutKind === "update" &&
+  updateCloseout?.sourceFilesChanged === false &&
+  updateCloseout?.smoke?.ran === false &&
+  typeof updateCloseout?.markdown === "string" &&
+  updateCloseout.markdown.includes("# Lab card update closeout");
+const updateCloseoutArgValidationOk = responseById.get(69)?.result?.isError === true;
 const nextStagedUpdatePacketArgValidationOk = responseById.get(67)?.result?.isError === true;
 
 console.log(JSON.stringify({
@@ -884,6 +903,8 @@ console.log(JSON.stringify({
   stagedUpdateReviewReportArgValidationOk,
   nextStagedUpdatePacketOk,
   nextStagedUpdatePacketArgValidationOk,
+  updateCloseoutOk,
+  updateCloseoutArgValidationOk,
 }, null, 2));
 
 if (
@@ -953,6 +974,8 @@ if (
   || !stagedUpdateReviewReportArgValidationOk
   || !nextStagedUpdatePacketOk
   || !nextStagedUpdatePacketArgValidationOk
+  || !updateCloseoutOk
+  || !updateCloseoutArgValidationOk
 ) {
   process.exitCode = 1;
 }
