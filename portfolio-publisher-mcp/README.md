@@ -114,6 +114,8 @@ For existing-card updates, start with `list_staged_lab_card_updates` to see ever
 
 For a non-technical owner, use `create_staged_lab_card_update_review_report` with the same `status`, `reason`, `limit`, and `cursor` inputs. It returns machine-readable filter and pagination metadata beside a copy-ready Markdown brief with changed fields, patch/handoff/manifest paths, issues, and next steps. It is read-only and does not expose a controlled-apply token.
 
+For the shortest owner handoff, use `create_next_staged_lab_card_update_packet`. It deterministically selects the first ready existing-card update and returns a copy-ready review packet with the current and proposed cards, exact review files, checklist, and smoke command. It is read-only and does not expose a controlled-apply token; validate the selected update only after the owner approves the reviewed files.
+
 ## Why This Exists
 
 The long-term goal is to make the portfolio easier to update every week. Future versions can add controlled tools for creating project briefs, adding Lab cards, checking screenshots, and preparing publish summaries.

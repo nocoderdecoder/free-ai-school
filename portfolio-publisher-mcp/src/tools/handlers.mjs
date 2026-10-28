@@ -1509,6 +1509,56 @@ function formatStagedLabCardUpdateReviewReport(inventory) {
   return lines.join("\n");
 }
 
+function formatNextStagedLabCardUpdatePacket(selection) {
+  const lines = ["# Lab card update packet", ""];
+  if (selection.selectionStatus === "empty") {
+    lines.push("## No ready staged update", "", selection.ownerNextStep, "");
+    return lines.join("\n");
+  }
+
+  const { update } = selection;
+  lines.push(`## Selected update: ${update.projectName}`, "");
+  lines.push(`- Deterministic slug: \`${update.slug}\``);
+  lines.push(`- Changed fields: ${update.changedFields.join(", ")}`);
+  lines.push(`- Patch: \`${update.patchFile}\``);
+  lines.push(`- Handoff: \`${update.handoffFile}\``);
+  lines.push(`- Manifest: \`${update.manifestFile}\``, "");
+  lines.push("## Current card", "", "```ts", formatProjectObject(update.currentCard), "```", "");
+  lines.push("## Proposed card", "", "```ts", formatProjectObject(update.proposedCard), "```", "");
+  lines.push("## Owner checklist", "");
+  lines.push("- Review the patch, handoff, and manifest above.");
+  lines.push("- Confirm the URL and screenshot change are intended.");
+  lines.push("- Immediately validate this exact update to obtain a fresh review token.");
+  lines.push("- Only then use controlled apply with explicit confirmation.", "");
+  lines.push("## Verification", "", "```bash", "cd portfolio-publisher-mcp", "npm run smoke", "```", "");
+  lines.push("## Owner next step", "", selection.ownerNextStep, "");
+  return lines.join("\n");
+}
+
+async function createNextStagedLabCardUpdatePacket(projects, source) {
+  const inventory = await listStagedLabCardUpdates(projects, source, { status: "ready" });
+  const update = inventory.items[0] ?? null;
+  const selection = update
+    ? {
+      selectionStatus: "ready",
+      sourceFilesChanged: false,
+      update,
+      ownerNextStep: "Review this update's three files, then validate it immediately before controlled apply to receive a fresh review token.",
+    }
+    : {
+      selectionStatus: "empty",
+      sourceFilesChanged: false,
+      ownerNextStep: inventory.totalChecked === 0
+        ? "Stage a publish-ready existing-card update before creating an owner packet."
+        : "No staged existing-card update is currently ready; inspect the update review report and resolve or discard its artifacts.",
+    };
+  return {
+    ...selection,
+    format: "markdown",
+    markdown: formatNextStagedLabCardUpdatePacket(selection),
+  };
+}
+
 function formatStagedLabCardPatchMarkdown(validation, patchFile) {
   const lines = [];
 
@@ -3209,6 +3259,11 @@ export async function callTool(name, args = {}) {
       pagination: inventory.pagination,
       sourceFilesChanged: false,
     });
+  }
+
+  if (name === "create_next_staged_lab_card_update_packet") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await createNextStagedLabCardUpdatePacket(projects, source));
   }
 
   if (name === "stage_lab_card_patch_artifact") {

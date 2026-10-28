@@ -377,6 +377,15 @@ test("staged update inventory is read-only, ordered, filterable, and never retur
   assert.match(report.markdown, /missing-manifest/);
   assert.ok(!report.markdown.includes("reviewToken"));
   assert.equal(await fs.readFile(labPage, "utf8"), source.replace("];", `${existingCard}\n];`));
+
+  const packet = await client.call("create_next_staged_lab_card_update_packet", {});
+  assert.equal(packet.selectionStatus, "ready");
+  assert.equal(packet.sourceFilesChanged, false);
+  assert.equal(packet.update.projectName, "Existing Fixture");
+  assert.match(packet.markdown, /# Lab card update packet/);
+  assert.match(packet.markdown, /https:\/\/example\.com\/updated/);
+  assert.ok(!packet.markdown.includes("reviewToken"));
+  assert.equal(await fs.readFile(labPage, "utf8"), source.replace("];", `${existingCard}\n];`));
 });
 
 test("controlled apply cleans up after prep rejection and successful apply", async (t) => {

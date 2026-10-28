@@ -291,6 +291,14 @@ send(65, "tools/call", {
   name: "create_staged_lab_card_update_review_report",
   arguments: { reason: "unknown" },
 });
+send(66, "tools/call", {
+  name: "create_next_staged_lab_card_update_packet",
+  arguments: {},
+});
+send(67, "tools/call", {
+  name: "create_next_staged_lab_card_update_packet",
+  arguments: { extra: true },
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -327,6 +335,8 @@ await Promise.all([
   waitForResponse(63),
   waitForResponse(64),
   waitForResponse(65),
+  waitForResponse(66),
+  waitForResponse(67),
 ]);
 server.kill();
 await once(server, "exit");
@@ -797,6 +807,14 @@ const stagedUpdateReviewReportOk =
   stagedUpdateReviewReport?.sourceFilesChanged === false &&
   !stagedUpdateReviewReport.markdown.includes("reviewToken");
 const stagedUpdateReviewReportArgValidationOk = responseById.get(65)?.result?.isError === true;
+const nextStagedUpdatePacket = JSON.parse(responseById.get(66)?.result?.content?.[0]?.text ?? "{}");
+const nextStagedUpdatePacketOk =
+  nextStagedUpdatePacket?.format === "markdown" &&
+  ["ready", "empty"].includes(nextStagedUpdatePacket?.selectionStatus) &&
+  typeof nextStagedUpdatePacket?.markdown === "string" &&
+  nextStagedUpdatePacket.markdown.startsWith("# Lab card update packet") &&
+  !nextStagedUpdatePacket.markdown.includes("reviewToken");
+const nextStagedUpdatePacketArgValidationOk = responseById.get(67)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -864,6 +882,8 @@ console.log(JSON.stringify({
   stagedUpdateInventoryArgValidationOk,
   stagedUpdateReviewReportOk,
   stagedUpdateReviewReportArgValidationOk,
+  nextStagedUpdatePacketOk,
+  nextStagedUpdatePacketArgValidationOk,
 }, null, 2));
 
 if (
@@ -931,6 +951,8 @@ if (
   || !stagedUpdateInventoryArgValidationOk
   || !stagedUpdateReviewReportOk
   || !stagedUpdateReviewReportArgValidationOk
+  || !nextStagedUpdatePacketOk
+  || !nextStagedUpdatePacketArgValidationOk
 ) {
   process.exitCode = 1;
 }

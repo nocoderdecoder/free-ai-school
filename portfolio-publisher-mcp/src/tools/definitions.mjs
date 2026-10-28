@@ -388,6 +388,17 @@ export const tools = [
     },
   },
   {
+    name: "create_next_staged_lab_card_update_packet",
+    title: "Create Next Staged Lab Card Update Packet",
+    description:
+      "Create an owner-friendly Markdown packet for the first currently ready staged existing-card update without changing files or issuing a review token.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "stage_lab_card_patch_artifact",
     title: "Stage Lab Card Patch Artifact",
     description:
