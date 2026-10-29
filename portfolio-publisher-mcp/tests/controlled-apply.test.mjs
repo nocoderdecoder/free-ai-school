@@ -169,6 +169,18 @@ test("Lab card update preview is exact, read-only, and readiness checked", async
   assert.match(updateValidation.reviewToken, /^[a-f0-9]{64}$/);
   assert.equal(await fs.readFile(labPage, "utf8"), source);
 
+  const rehearsal = await client.call("rehearse_staged_lab_card_update", {
+    projectName: "Existing Fixture",
+  });
+  assert.equal(rehearsal.status, "ready");
+  assert.equal(rehearsal.rehearsalOnly, true);
+  assert.equal(rehearsal.readyToApply, true);
+  assert.equal(rehearsal.applyAvailable, false);
+  assert.equal(rehearsal.validation.reviewToken, undefined);
+  assert.deepEqual(rehearsal.changedFields, ["url", "image"]);
+  assert.equal(rehearsal.reviewFiles.length, 3);
+  assert.equal(await fs.readFile(labPage, "utf8"), source);
+
   const confirmationRequired = await client.call("apply_staged_lab_card_update", {
     projectName: "Existing Fixture",
     reviewToken: updateValidation.reviewToken,
@@ -245,6 +257,12 @@ test("Lab card update preview is exact, read-only, and readiness checked", async
   });
   assert.equal(staleUpdate.status, "stale");
   assert.equal(staleUpdate.integrity, "source-drift");
+  const staleRehearsal = await client.call("rehearse_staged_lab_card_update", {
+    projectName: "Existing Fixture",
+  });
+  assert.equal(staleRehearsal.status, "stale");
+  assert.equal(staleRehearsal.readyToApply, false);
+  assert.equal(staleRehearsal.validation.reviewToken, undefined);
   await fs.writeFile(labPage, source, "utf8");
 
   const noChange = await client.call("preview_lab_card_update", {

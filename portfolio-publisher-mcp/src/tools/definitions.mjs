@@ -278,6 +278,23 @@ export const tools = [
     },
   },
   {
+    name: "rehearse_staged_lab_card_update",
+    title: "Rehearse Staged Lab Card Update",
+    description:
+      "Run a read-only, token-free go/no-go rehearsal for one staged existing-card update, including artifact integrity and current route, screenshot, and icon readiness.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "Exact existing Lab project name used to stage the update artifact.",
+        },
+      },
+      required: ["projectName"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "apply_staged_lab_card_update",
     title: "Apply Staged Lab Card Update",
     description:

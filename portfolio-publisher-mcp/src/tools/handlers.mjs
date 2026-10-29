@@ -1211,6 +1211,63 @@ async function validateStagedLabCardUpdate(projects, args, source) {
   };
 }
 
+async function rehearseStagedLabCardUpdate(projects, args, source) {
+  const validation = await validateStagedLabCardUpdate(projects, args, source);
+  const { reviewToken: _reviewToken, ...safeValidation } = validation;
+  const base = {
+    generatedAt: new Date().toISOString(),
+    rehearsalOnly: true,
+    sourceFilesChanged: false,
+    applyAvailable: false,
+    projectName: validation.projectName,
+    targetFile: "app/lab/page.tsx",
+  };
+
+  if (!validation.valid || validation.status !== "ready") {
+    return {
+      ...base,
+      status: validation.status,
+      readyToApply: false,
+      validation: safeValidation,
+      issues: validation.issues,
+      ownerNextStep: validation.status === "stale"
+        ? "Regenerate the update artifact from the current Lab source, then rehearse it again."
+        : "Resolve the staged update issues, then rehearse it again before requesting validation.",
+    };
+  }
+
+  const matchingCurrentCards = projects.filter((project) => project.name === validation.projectName);
+  const liveReadiness = await inspectStagedLabCardReadiness(
+    projects.filter((project) => project.name !== validation.projectName),
+    validation.proposedCard,
+    source,
+  );
+  const exactCardReady = matchingCurrentCards.length === 1;
+  const readyToApply = exactCardReady && liveReadiness.publishReadyAfterApply;
+  const issues = [
+    ...(exactCardReady ? [] : [`Expected one current Lab card named ${validation.projectName}, found ${matchingCurrentCards.length}.`]),
+    ...liveReadiness.readinessBlockers,
+  ];
+
+  return {
+    ...base,
+    status: readyToApply ? "ready" : "needs-prep",
+    readyToApply,
+    validation: safeValidation,
+    changedFields: validation.changedFields,
+    currentCard: validation.currentCard,
+    proposedCard: validation.proposedCard,
+    readiness: liveReadiness.readiness,
+    readinessBlockers: liveReadiness.readinessBlockers,
+    reviewFiles: [validation.patchFile, validation.handoffFile, validation.manifestFile],
+    issues,
+    ownerNextStep: readyToApply
+      ? "Review the listed staged files, then validate immediately before controlled apply to obtain a fresh review token."
+      : "Complete the listed readiness work or regenerate the artifact, then rehearse again.",
+    verificationCommand: "cd portfolio-publisher-mcp && npm run smoke",
+  };
+}
+
 async function applyStagedLabCardUpdate(projects, args, source) {
   if (args.confirm !== true) return { applied: false, status: "confirmation-required", issues: ["Set confirm to true only after reviewing the staged update files."] };
   if (!/^[a-f0-9]{64}$/.test(args.reviewToken)) return { applied: false, status: "invalid-token", issues: ["reviewToken must be the 64-character token from staged update validation."] };
@@ -3236,6 +3293,11 @@ export async function callTool(name, args = {}) {
   if (name === "validate_staged_lab_card_update") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await validateStagedLabCardUpdate(projects, args, source));
+  }
+
+  if (name === "rehearse_staged_lab_card_update") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await rehearseStagedLabCardUpdate(projects, args, source));
   }
 
   if (name === "apply_staged_lab_card_update") {

@@ -307,6 +307,14 @@ send(69, "tools/call", {
   name: "verify_lab_card_update_closeout",
   arguments: {},
 });
+send(70, "tools/call", {
+  name: "rehearse_staged_lab_card_update",
+  arguments: { projectName: firstProjectName },
+});
+send(71, "tools/call", {
+  name: "rehearse_staged_lab_card_update",
+  arguments: {},
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -347,6 +355,8 @@ await Promise.all([
   waitForResponse(67),
   waitForResponse(68),
   waitForResponse(69),
+  waitForResponse(70),
+  waitForResponse(71),
 ]);
 server.kill();
 await once(server, "exit");
@@ -834,6 +844,15 @@ const updateCloseoutOk =
   updateCloseout.markdown.includes("# Lab card update closeout");
 const updateCloseoutArgValidationOk = responseById.get(69)?.result?.isError === true;
 const nextStagedUpdatePacketArgValidationOk = responseById.get(67)?.result?.isError === true;
+const stagedUpdateRehearsal = JSON.parse(responseById.get(70)?.result?.content?.[0]?.text ?? "{}");
+const stagedUpdateRehearsalOk =
+  stagedUpdateRehearsal?.rehearsalOnly === true &&
+  stagedUpdateRehearsal?.sourceFilesChanged === false &&
+  stagedUpdateRehearsal?.applyAvailable === false &&
+  ["ready", "stale", "invalid", "missing", "needs-prep"].includes(stagedUpdateRehearsal?.status) &&
+  !("reviewToken" in stagedUpdateRehearsal) &&
+  !("reviewToken" in (stagedUpdateRehearsal?.validation ?? {}));
+const stagedUpdateRehearsalArgValidationOk = responseById.get(71)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -905,6 +924,8 @@ console.log(JSON.stringify({
   nextStagedUpdatePacketArgValidationOk,
   updateCloseoutOk,
   updateCloseoutArgValidationOk,
+  stagedUpdateRehearsalOk,
+  stagedUpdateRehearsalArgValidationOk,
 }, null, 2));
 
 if (
@@ -976,6 +997,8 @@ if (
   || !nextStagedUpdatePacketArgValidationOk
   || !updateCloseoutOk
   || !updateCloseoutArgValidationOk
+  || !stagedUpdateRehearsalOk
+  || !stagedUpdateRehearsalArgValidationOk
 ) {
   process.exitCode = 1;
 }
