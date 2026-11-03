@@ -428,6 +428,9 @@ test("staged update inventory is read-only, ordered, filterable, and never retur
   assert.equal(packet.update.projectName, "Existing Fixture");
   assert.match(packet.markdown, /# Lab card update packet/);
   assert.match(packet.markdown, /https:\/\/example\.com\/updated/);
+  assert.match(packet.markdown, /## Live readiness checked now/);
+  assert.match(packet.markdown, /Screenshot: ok/);
+  assert.match(packet.markdown, /Icon imported \/ exported: Yes \/ Yes/);
   assert.ok(!packet.markdown.includes("reviewToken"));
   assert.equal(await fs.readFile(labPage, "utf8"), source.replace("];", `${existingCard}\n];`));
 

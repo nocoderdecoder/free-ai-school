@@ -122,7 +122,7 @@ For a non-technical owner, use `create_staged_lab_card_update_review_report` wit
 
 For the shortest structured weekly handoff, use `select_next_staged_lab_card_update`. It uses the same deterministic slug order as the update inventory, selects the first ready artifact, and includes a token-free rehearsal of its current route, screenshot, and icon readiness. An `empty` result means no staged existing-card update is ready; inspect the update review report rather than applying anything. A `ready` result is still review-only: review its files and validate only after owner approval.
 
-For a copy-ready review document, use `create_next_staged_lab_card_update_packet`. It builds on that same selection and returns the current and proposed cards, review checklist, and smoke command. It is read-only and does not expose a controlled-apply token; validate the selected update only after the owner approves the reviewed files.
+For a copy-ready review document, use `create_next_staged_lab_card_update_packet`. It builds on that same selection and returns the current and proposed cards, a live route/screenshot/icon readiness summary, review checklist, and smoke command. It is read-only and does not expose a controlled-apply token; validate the selected update only after the owner approves the reviewed files.
 
 ## Why This Exists
 

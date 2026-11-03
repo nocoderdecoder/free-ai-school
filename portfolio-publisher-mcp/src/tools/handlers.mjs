@@ -1622,6 +1622,16 @@ function formatNextStagedLabCardUpdatePacket(selection) {
   lines.push(`- Manifest: \`${update.manifestFile}\``, "");
   lines.push("## Current card", "", "```ts", formatProjectObject(update.currentCard), "```", "");
   lines.push("## Proposed card", "", "```ts", formatProjectObject(update.proposedCard), "```", "");
+  const readiness = selection.rehearsal?.readiness;
+  lines.push("## Live readiness checked now", "");
+  lines.push(`- Ready for controlled apply: ${selection.rehearsal?.readyToApply ? "Yes" : "No"}`);
+  lines.push(`- Local route: ${readiness?.route?.status ?? "Not available"}`);
+  lines.push(`- Screenshot: ${readiness?.asset?.status ?? "Not available"}`);
+  lines.push(`- Icon imported / exported: ${readiness?.icon
+    ? `${readiness.icon.imported ? "Yes" : "No"} / ${readiness.icon.exported ? "Yes" : "No"}`
+    : "Not available"}`);
+  for (const blocker of selection.rehearsal?.readinessBlockers ?? []) lines.push(`- Blocker: ${blocker}`);
+  lines.push("");
   lines.push("## Owner checklist", "");
   lines.push("- Review the patch, handoff, and manifest above.");
   lines.push("- Confirm the URL and screenshot change are intended.");
