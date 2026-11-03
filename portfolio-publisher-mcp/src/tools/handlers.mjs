@@ -1428,6 +1428,9 @@ async function listStagedLabCardUpdates(projects, source, filters = {}) {
         status: "incomplete",
         reason: missing[0],
         valid: false,
+        publishReadyAfterApply: false,
+        readiness: null,
+        readinessBlockers: [],
         changedFields: [],
         ...files,
         issues: missing.map((reason) => `Missing staged update ${reason.slice("missing-".length)} file.`),
@@ -1447,6 +1450,9 @@ async function listStagedLabCardUpdates(projects, source, filters = {}) {
         status: "invalid",
         reason: "artifact-integrity",
         valid: false,
+        publishReadyAfterApply: false,
+        readiness: null,
+        readinessBlockers: [],
         changedFields: [],
         ...files,
         issues: ["The staged update manifest is not valid JSON."],
@@ -1463,6 +1469,9 @@ async function listStagedLabCardUpdates(projects, source, filters = {}) {
         status: "invalid",
         reason: "artifact-integrity",
         valid: false,
+        publishReadyAfterApply: false,
+        readiness: null,
+        readinessBlockers: [],
         changedFields: [],
         ...files,
         issues: ["The staged update manifest is missing its project name."],
@@ -1472,11 +1481,27 @@ async function listStagedLabCardUpdates(projects, source, filters = {}) {
     }
 
     const validation = await validateStagedLabCardUpdate(projects, { projectName }, source);
+    const matchingCurrentCards = projects.filter((project) => project.name === projectName);
+    const liveReadiness = validation.proposedCard
+      ? await inspectStagedLabCardReadiness(
+        projects.filter((project) => project.name !== projectName),
+        validation.proposedCard,
+        source,
+      )
+      : null;
+    const currentCardBlockers = matchingCurrentCards.length === 1
+      ? []
+      : [`Expected one current Lab card named ${projectName}, found ${matchingCurrentCards.length}.`];
+    const readinessBlockers = [...currentCardBlockers, ...(liveReadiness?.readinessBlockers ?? [])];
+    const publishReadyAfterApply = validation.status === "ready" && readinessBlockers.length === 0;
     const { reviewToken: _reviewToken, ...safeValidation } = validation;
     items.push({
       slug,
       ...safeValidation,
       reason: validation.integrity === "verified" ? null : validation.integrity,
+      publishReadyAfterApply,
+      readiness: liveReadiness?.readiness ?? null,
+      readinessBlockers,
       files,
       patchFile: files.patchFile,
       handoffFile: files.handoffFile,
@@ -1486,7 +1511,9 @@ async function listStagedLabCardUpdates(projects, source, filters = {}) {
 
   const filteredItems = items.filter((item) => (
     (!filters.status || item.status === filters.status)
-    && (!filters.reason || item.reason === filters.reason)
+      && (!filters.reason || item.reason === filters.reason)
+      && (typeof filters.publishReadyAfterApply !== "boolean"
+        || item.publishReadyAfterApply === filters.publishReadyAfterApply)
   ));
   const cursor = typeof filters.cursor === "string" && filters.cursor.trim() ? filters.cursor.trim() : null;
   const limit = Number.isInteger(filters.limit)
@@ -1506,6 +1533,7 @@ async function listStagedLabCardUpdates(projects, source, filters = {}) {
     stale: filteredItems.filter((item) => item.status === "stale").length,
     invalid: filteredItems.filter((item) => item.status === "invalid").length,
     incomplete: filteredItems.filter((item) => item.status === "incomplete").length,
+    publishReady: filteredItems.filter((item) => item.publishReadyAfterApply).length,
     reasonCounts: {
       "source-drift": filteredItems.filter((item) => item.reason === "source-drift").length,
       "artifact-integrity": filteredItems.filter((item) => item.reason === "artifact-integrity").length,
@@ -1513,7 +1541,13 @@ async function listStagedLabCardUpdates(projects, source, filters = {}) {
       "missing-handoff": filteredItems.filter((item) => item.reason === "missing-handoff").length,
       "missing-manifest": filteredItems.filter((item) => item.reason === "missing-manifest").length,
     },
-    filters: { status: filters.status ?? null, reason: filters.reason ?? null },
+    filters: {
+      status: filters.status ?? null,
+      reason: filters.reason ?? null,
+      publishReadyAfterApply: typeof filters.publishReadyAfterApply === "boolean"
+        ? filters.publishReadyAfterApply
+        : null,
+    },
     pagination: {
       limit,
       cursor,
@@ -1534,6 +1568,9 @@ function formatStagedLabCardUpdateReviewReport(inventory) {
   const activeFilters = [
     inventory.filters.status ? `status \`${inventory.filters.status}\`` : null,
     inventory.filters.reason ? `reason \`${inventory.filters.reason}\`` : null,
+    typeof inventory.filters.publishReadyAfterApply === "boolean"
+      ? `publish ready after apply \`${inventory.filters.publishReadyAfterApply}\``
+      : null,
   ].filter(Boolean);
 
   lines.push(`- Queue: ${activeFilters.length > 0 ? activeFilters.join(", ") : "all staged updates"}`);
@@ -1541,6 +1578,7 @@ function formatStagedLabCardUpdateReviewReport(inventory) {
   lines.push(`- Matching updates: ${inventory.checked}`);
   lines.push(`- Included on this page: ${inventory.returned}`);
   lines.push(`- Ready / stale / invalid / incomplete: ${inventory.ready} / ${inventory.stale} / ${inventory.invalid} / ${inventory.incomplete}`);
+  lines.push(`- Publish ready now: ${inventory.publishReady}`);
   if (inventory.pagination.cursor) lines.push(`- Page starts after: \`${inventory.pagination.cursor}\``);
   if (inventory.pagination.hasMore) lines.push(`- Next cursor: \`${inventory.pagination.nextCursor}\``);
   lines.push("");
@@ -1554,10 +1592,12 @@ function formatStagedLabCardUpdateReviewReport(inventory) {
       lines.push(`- Slug: \`${item.slug}\``);
       lines.push(`- Status: **${item.status}**${item.reason ? ` (\`${item.reason}\`)` : ""}`);
       lines.push(`- Changed fields: ${item.changedFields.length > 0 ? item.changedFields.join(", ") : "Not available"}`);
+      lines.push(`- Publish ready after apply: ${item.publishReadyAfterApply ? "Yes" : "No"}`);
       if (item.patchFile) lines.push(`- Patch: \`${item.patchFile}\``);
       if (item.handoffFile) lines.push(`- Handoff: \`${item.handoffFile}\``);
       if (item.manifestFile) lines.push(`- Manifest: \`${item.manifestFile}\``);
       for (const issue of item.issues ?? []) lines.push(`- Issue: ${issue}`);
+      for (const blocker of item.readinessBlockers ?? []) lines.push(`- Blocker: ${blocker}`);
       lines.push(`- Next step: ${item.ownerNextStep}`, "");
     }
   }

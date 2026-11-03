@@ -323,6 +323,14 @@ send(73, "tools/call", {
   name: "rehearse_staged_lab_card_update",
   arguments: {},
 });
+send(74, "tools/call", {
+  name: "list_staged_lab_card_updates",
+  arguments: { publishReadyAfterApply: true, limit: 1 },
+});
+send(75, "tools/call", {
+  name: "create_staged_lab_card_update_review_report",
+  arguments: { publishReadyAfterApply: "true" },
+});
 await Promise.all([
   waitForResponse(31),
   waitForResponse(32),
@@ -367,6 +375,8 @@ await Promise.all([
   waitForResponse(71),
   waitForResponse(72),
   waitForResponse(73),
+  waitForResponse(74),
+  waitForResponse(75),
 ]);
 server.kill();
 await once(server, "exit");
@@ -882,6 +892,15 @@ const stagedUpdateRehearsalOk =
   !("reviewToken" in stagedUpdateRehearsal) &&
   !("reviewToken" in (stagedUpdateRehearsal?.validation ?? {}));
 const stagedUpdateRehearsalArgValidationOk = responseById.get(73)?.result?.isError === true;
+const publishReadyUpdateInventory = JSON.parse(responseById.get(74)?.result?.content?.[0]?.text ?? "{}");
+const publishReadyUpdateInventoryOk =
+  publishReadyUpdateInventory?.filters?.publishReadyAfterApply === true &&
+  publishReadyUpdateInventory?.pagination?.limit === 1 &&
+  Number.isInteger(publishReadyUpdateInventory?.publishReady) &&
+  publishReadyUpdateInventory?.items?.every((item) =>
+    item.publishReadyAfterApply === true && !("reviewToken" in item)
+  );
+const publishReadyUpdateReportValidationOk = responseById.get(75)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -957,6 +976,8 @@ console.log(JSON.stringify({
   updateCloseoutArgValidationOk,
   stagedUpdateRehearsalOk,
   stagedUpdateRehearsalArgValidationOk,
+  publishReadyUpdateInventoryOk,
+  publishReadyUpdateReportValidationOk,
 }, null, 2));
 
 if (
@@ -1032,6 +1053,8 @@ if (
   || !updateCloseoutArgValidationOk
   || !stagedUpdateRehearsalOk
   || !stagedUpdateRehearsalArgValidationOk
+  || !publishReadyUpdateInventoryOk
+  || !publishReadyUpdateReportValidationOk
 ) {
   process.exitCode = 1;
 }

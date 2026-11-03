@@ -344,7 +344,7 @@ export const tools = [
     name: "list_staged_lab_card_updates",
     title: "List Staged Lab Card Updates",
     description:
-      "List staged existing-card update artifacts with optional status and recovery-reason filters. Recomputes each artifact's current validation state without changing files or issuing review tokens.",
+      "List staged existing-card update artifacts with optional status, recovery-reason, and live readiness filters. Recomputes each artifact's current validation and route, screenshot, and icon readiness without changing files or issuing review tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -357,6 +357,10 @@ export const tools = [
           type: "string",
           enum: ["source-drift", "artifact-integrity", "missing-patch", "missing-handoff", "missing-manifest"],
           description: "Optional machine-readable recovery reason. Combines with status using AND semantics.",
+        },
+        publishReadyAfterApply: {
+          type: "boolean",
+          description: "Optional live readiness filter. true returns only updates that are currently ready for controlled apply; false returns updates still blocked by readiness work. Combines with status and reason using AND semantics.",
         },
         limit: {
           type: "integer",
@@ -389,6 +393,10 @@ export const tools = [
           type: "string",
           enum: ["source-drift", "artifact-integrity", "missing-patch", "missing-handoff", "missing-manifest"],
           description: "Optional machine-readable recovery reason to include. Combines with status using AND semantics.",
+        },
+        publishReadyAfterApply: {
+          type: "boolean",
+          description: "Optional live readiness filter. true includes only updates currently ready for controlled apply; false includes updates needing readiness work. Combines with status and reason using AND semantics.",
         },
         limit: {
           type: "integer",

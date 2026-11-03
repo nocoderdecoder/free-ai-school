@@ -375,6 +375,7 @@ test("staged update inventory is read-only, ordered, filterable, and never retur
     "alpha-orphan", "beta-orphan", "existing-fixture", "gamma-orphan",
   ]);
   assert.equal(inventory.ready, 1);
+  assert.equal(inventory.publishReady, 1);
   assert.equal(inventory.incomplete, 3);
   assert.equal(inventory.totalChecked, 4);
   assert.ok(inventory.items.every((item) => !("reviewToken" in item)));
@@ -385,6 +386,18 @@ test("staged update inventory is read-only, ordered, filterable, and never retur
     "missing-handoff": 1,
     "missing-manifest": 1,
   });
+
+  const publishReady = await client.call("list_staged_lab_card_updates", { publishReadyAfterApply: true });
+  assert.equal(publishReady.checked, 1);
+  assert.equal(publishReady.items[0].projectName, "Existing Fixture");
+  assert.equal(publishReady.items[0].publishReadyAfterApply, true);
+  assert.equal(publishReady.items[0].readiness.route.status, "external-url-not-checked");
+
+  await fs.rm(path.join(repoRoot, "public", "projects", "existing-fixture.png"));
+  const blocked = await client.call("list_staged_lab_card_updates", { publishReadyAfterApply: false });
+  assert.equal(blocked.checked, 4);
+  assert.ok(blocked.items.some((item) => item.projectName === "Existing Fixture" && item.readinessBlockers.some((blocker) => blocker.includes("Screenshot file not found"))));
+  await fs.writeFile(path.join(repoRoot, "public", "projects", "existing-fixture.png"), "fixture", "utf8");
 
   const firstPage = await client.call("list_staged_lab_card_updates", { limit: 2 });
   assert.deepEqual(firstPage.items.map((item) => item.slug), ["alpha-orphan", "beta-orphan"]);
