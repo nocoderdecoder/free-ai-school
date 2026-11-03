@@ -405,6 +405,17 @@ export const tools = [
     },
   },
   {
+    name: "select_next_staged_lab_card_update",
+    title: "Select Next Staged Lab Card Update",
+    description:
+      "Select the first currently ready staged existing-card update and return a read-only rehearsal with owner guidance, without issuing a review token.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "create_next_staged_lab_card_update_packet",
     title: "Create Next Staged Lab Card Update Packet",
     description:

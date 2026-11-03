@@ -417,6 +417,30 @@ test("staged update inventory is read-only, ordered, filterable, and never retur
   assert.match(packet.markdown, /https:\/\/example\.com\/updated/);
   assert.ok(!packet.markdown.includes("reviewToken"));
   assert.equal(await fs.readFile(labPage, "utf8"), source.replace("];", `${existingCard}\n];`));
+
+  const selection = await client.call("select_next_staged_lab_card_update", {});
+  assert.equal(selection.selectionStatus, "ready");
+  assert.equal(selection.sourceFilesChanged, false);
+  assert.equal(selection.totalChecked, 4);
+  assert.equal(selection.reviewReadyQueued, 1);
+  assert.equal(selection.readyQueued, 1);
+  assert.equal(selection.selected.projectName, "Existing Fixture");
+  assert.equal(selection.rehearsal.status, "ready");
+  assert.equal(selection.rehearsal.readyToApply, true);
+  assert.equal(selection.reviewTokenIssued, false);
+  assert.doesNotMatch(JSON.stringify(selection), /reviewToken\"\s*:/);
+  assert.equal(await fs.readFile(labPage, "utf8"), source.replace("];", `${existingCard}\n];`));
+
+  await fs.rm(path.join(repoRoot, "public", "projects", "existing-fixture.png"));
+  const blockedSelection = await client.call("select_next_staged_lab_card_update", {});
+  assert.equal(blockedSelection.selectionStatus, "empty");
+  assert.equal(blockedSelection.reviewReadyQueued, 0);
+  assert.equal(blockedSelection.readyQueued, 0);
+  assert.equal(blockedSelection.selected, null);
+  assert.equal(blockedSelection.rehearsal, null);
+  assert.equal(blockedSelection.reviewTokenIssued, false);
+  assert.doesNotMatch(JSON.stringify(blockedSelection), /reviewToken\"\s*:/);
+  await fs.writeFile(path.join(repoRoot, "public", "projects", "existing-fixture.png"), "fixture", "utf8");
 });
 
 test("controlled apply cleans up after prep rejection and successful apply", async (t) => {

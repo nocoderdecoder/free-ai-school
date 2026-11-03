@@ -292,26 +292,34 @@ send(65, "tools/call", {
   arguments: { reason: "unknown" },
 });
 send(66, "tools/call", {
-  name: "create_next_staged_lab_card_update_packet",
+  name: "select_next_staged_lab_card_update",
   arguments: {},
 });
 send(67, "tools/call", {
-  name: "create_next_staged_lab_card_update_packet",
+  name: "select_next_staged_lab_card_update",
   arguments: { extra: true },
 });
 send(68, "tools/call", {
+  name: "create_next_staged_lab_card_update_packet",
+  arguments: {},
+});
+send(69, "tools/call", {
+  name: "create_next_staged_lab_card_update_packet",
+  arguments: { extra: true },
+});
+send(70, "tools/call", {
   name: "verify_lab_card_update_closeout",
   arguments: { projectName: firstProjectSlug, runSmoke: false },
 });
-send(69, "tools/call", {
+send(71, "tools/call", {
   name: "verify_lab_card_update_closeout",
   arguments: {},
 });
-send(70, "tools/call", {
+send(72, "tools/call", {
   name: "rehearse_staged_lab_card_update",
   arguments: { projectName: firstProjectName },
 });
-send(71, "tools/call", {
+send(73, "tools/call", {
   name: "rehearse_staged_lab_card_update",
   arguments: {},
 });
@@ -357,6 +365,8 @@ await Promise.all([
   waitForResponse(69),
   waitForResponse(70),
   waitForResponse(71),
+  waitForResponse(72),
+  waitForResponse(73),
 ]);
 server.kill();
 await once(server, "exit");
@@ -827,14 +837,34 @@ const stagedUpdateReviewReportOk =
   stagedUpdateReviewReport?.sourceFilesChanged === false &&
   !stagedUpdateReviewReport.markdown.includes("reviewToken");
 const stagedUpdateReviewReportArgValidationOk = responseById.get(65)?.result?.isError === true;
-const nextStagedUpdatePacket = JSON.parse(responseById.get(66)?.result?.content?.[0]?.text ?? "{}");
+const nextStagedUpdate = JSON.parse(responseById.get(66)?.result?.content?.[0]?.text ?? "{}");
+const nextStagedUpdateOk =
+  ["ready", "empty"].includes(nextStagedUpdate?.selectionStatus) &&
+  nextStagedUpdate?.sourceFilesChanged === false &&
+  nextStagedUpdate?.reviewTokenIssued === false &&
+  Number.isInteger(nextStagedUpdate?.totalChecked) &&
+  Number.isInteger(nextStagedUpdate?.reviewReadyQueued) &&
+  Number.isInteger(nextStagedUpdate?.readyQueued) &&
+  !/"reviewToken"\s*:/.test(JSON.stringify(nextStagedUpdate)) &&
+  (nextStagedUpdate.selectionStatus === "empty"
+    ? nextStagedUpdate.selected === null && nextStagedUpdate.rehearsal === null
+    : nextStagedUpdate.selected?.status === "ready" &&
+      nextStagedUpdate.rehearsal?.rehearsalOnly === true &&
+      nextStagedUpdate.rehearsal?.readyToApply === true);
+const nextStagedUpdateArgValidationOk = responseById.get(67)?.result?.isError === true;
+const nextStagedUpdatePacket = JSON.parse(responseById.get(68)?.result?.content?.[0]?.text ?? "{}");
 const nextStagedUpdatePacketOk =
   nextStagedUpdatePacket?.format === "markdown" &&
   ["ready", "empty"].includes(nextStagedUpdatePacket?.selectionStatus) &&
+  nextStagedUpdatePacket?.reviewTokenIssued === false &&
+  Number.isInteger(nextStagedUpdatePacket?.totalChecked) &&
+  Number.isInteger(nextStagedUpdatePacket?.reviewReadyQueued) &&
+  Number.isInteger(nextStagedUpdatePacket?.readyQueued) &&
   typeof nextStagedUpdatePacket?.markdown === "string" &&
   nextStagedUpdatePacket.markdown.startsWith("# Lab card update packet") &&
   !nextStagedUpdatePacket.markdown.includes("reviewToken");
-const updateCloseoutText = responseById.get(68)?.result?.content?.[0]?.text ?? "{}";
+const nextStagedUpdatePacketArgValidationOk = responseById.get(69)?.result?.isError === true;
+const updateCloseoutText = responseById.get(70)?.result?.content?.[0]?.text ?? "{}";
 const updateCloseout = JSON.parse(updateCloseoutText);
 const updateCloseoutOk =
   updateCloseout?.closeoutKind === "update" &&
@@ -842,9 +872,8 @@ const updateCloseoutOk =
   updateCloseout?.smoke?.ran === false &&
   typeof updateCloseout?.markdown === "string" &&
   updateCloseout.markdown.includes("# Lab card update closeout");
-const updateCloseoutArgValidationOk = responseById.get(69)?.result?.isError === true;
-const nextStagedUpdatePacketArgValidationOk = responseById.get(67)?.result?.isError === true;
-const stagedUpdateRehearsal = JSON.parse(responseById.get(70)?.result?.content?.[0]?.text ?? "{}");
+const updateCloseoutArgValidationOk = responseById.get(71)?.result?.isError === true;
+const stagedUpdateRehearsal = JSON.parse(responseById.get(72)?.result?.content?.[0]?.text ?? "{}");
 const stagedUpdateRehearsalOk =
   stagedUpdateRehearsal?.rehearsalOnly === true &&
   stagedUpdateRehearsal?.sourceFilesChanged === false &&
@@ -852,7 +881,7 @@ const stagedUpdateRehearsalOk =
   ["ready", "stale", "invalid", "missing", "needs-prep"].includes(stagedUpdateRehearsal?.status) &&
   !("reviewToken" in stagedUpdateRehearsal) &&
   !("reviewToken" in (stagedUpdateRehearsal?.validation ?? {}));
-const stagedUpdateRehearsalArgValidationOk = responseById.get(71)?.result?.isError === true;
+const stagedUpdateRehearsalArgValidationOk = responseById.get(73)?.result?.isError === true;
 
 console.log(JSON.stringify({
   failed,
@@ -920,6 +949,8 @@ console.log(JSON.stringify({
   stagedUpdateInventoryArgValidationOk,
   stagedUpdateReviewReportOk,
   stagedUpdateReviewReportArgValidationOk,
+  nextStagedUpdateOk,
+  nextStagedUpdateArgValidationOk,
   nextStagedUpdatePacketOk,
   nextStagedUpdatePacketArgValidationOk,
   updateCloseoutOk,
@@ -993,6 +1024,8 @@ if (
   || !stagedUpdateInventoryArgValidationOk
   || !stagedUpdateReviewReportOk
   || !stagedUpdateReviewReportArgValidationOk
+  || !nextStagedUpdateOk
+  || !nextStagedUpdateArgValidationOk
   || !nextStagedUpdatePacketOk
   || !nextStagedUpdatePacketArgValidationOk
   || !updateCloseoutOk

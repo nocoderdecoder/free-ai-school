@@ -1573,7 +1573,7 @@ function formatNextStagedLabCardUpdatePacket(selection) {
     return lines.join("\n");
   }
 
-  const { update } = selection;
+  const update = selection.selected;
   lines.push(`## Selected update: ${update.projectName}`, "");
   lines.push(`- Deterministic slug: \`${update.slug}\``);
   lines.push(`- Changed fields: ${update.changedFields.join(", ")}`);
@@ -1592,25 +1592,53 @@ function formatNextStagedLabCardUpdatePacket(selection) {
   return lines.join("\n");
 }
 
-async function createNextStagedLabCardUpdatePacket(projects, source) {
+async function selectNextStagedLabCardUpdate(projects, source) {
   const inventory = await listStagedLabCardUpdates(projects, source, { status: "ready" });
-  const update = inventory.items[0] ?? null;
-  const selection = update
-    ? {
-      selectionStatus: "ready",
-      sourceFilesChanged: false,
-      update,
-      ownerNextStep: "Review this update's three files, then validate it immediately before controlled apply to receive a fresh review token.",
-    }
-    : {
+  const candidates = await Promise.all(inventory.items.map(async (item) => ({
+    item,
+    rehearsal: await rehearseStagedLabCardUpdate(projects, { projectName: item.projectName }, source),
+  })));
+  const selectedCandidate = candidates.find(({ rehearsal }) => rehearsal.readyToApply === true) ?? null;
+  const selected = selectedCandidate?.item ?? null;
+  const rehearsal = selectedCandidate?.rehearsal ?? null;
+  const readyQueued = candidates.filter(({ rehearsal: candidateRehearsal }) => candidateRehearsal.readyToApply === true).length;
+
+  if (!selected?.projectName) {
+    return {
+      generatedAt: new Date().toISOString(),
       selectionStatus: "empty",
       sourceFilesChanged: false,
+      totalChecked: inventory.totalChecked,
+      reviewReadyQueued: inventory.checked,
+      readyQueued,
+      selected: null,
+      rehearsal: null,
+      reviewTokenIssued: false,
       ownerNextStep: inventory.totalChecked === 0
-        ? "Stage a publish-ready existing-card update before creating an owner packet."
-        : "No staged existing-card update is currently ready; inspect the update review report and resolve or discard its artifacts.",
+        ? "Stage a publish-ready existing-card update before selecting one for owner review."
+        : "No staged existing-card update currently passes its live rehearsal; inspect the update review report and resolve its readiness blockers or discard obsolete artifacts.",
     };
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    selectionStatus: "ready",
+    sourceFilesChanged: false,
+    totalChecked: inventory.totalChecked,
+    reviewReadyQueued: inventory.checked,
+    readyQueued,
+    selected,
+    rehearsal,
+    reviewTokenIssued: false,
+    ownerNextStep: "Review the selected update files and rehearsal, then validate it immediately before controlled apply to receive a fresh review token.",
+  };
+}
+
+async function createNextStagedLabCardUpdatePacket(projects, source) {
+  const selection = await selectNextStagedLabCardUpdate(projects, source);
   return {
     ...selection,
+    update: selection.selected,
     format: "markdown",
     markdown: formatNextStagedLabCardUpdatePacket(selection),
   };
@@ -3332,6 +3360,11 @@ export async function callTool(name, args = {}) {
   if (name === "create_next_staged_lab_card_update_packet") {
     const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
     return textResult(await createNextStagedLabCardUpdatePacket(projects, source));
+  }
+
+  if (name === "select_next_staged_lab_card_update") {
+    const [projects, source] = await Promise.all([listLabProjects(), readLabSource()]);
+    return textResult(await selectNextStagedLabCardUpdate(projects, source));
   }
 
   if (name === "verify_lab_card_update_closeout") {
