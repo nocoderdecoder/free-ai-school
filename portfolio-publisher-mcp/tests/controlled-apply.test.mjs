@@ -431,6 +431,17 @@ test("staged update inventory is read-only, ordered, filterable, and never retur
   assert.match(packet.markdown, /## Live readiness checked now/);
   assert.match(packet.markdown, /Screenshot: ok/);
   assert.match(packet.markdown, /Icon imported \/ exported: Yes \/ Yes/);
+  assert.equal(packet.allReviewFilesExist, true);
+  assert.deepEqual(packet.reviewFiles.map(({ type, exists }) => ({ type, exists })), [
+    { type: "patch", exists: true },
+    { type: "handoff", exists: true },
+    { type: "manifest", exists: true },
+    { type: "lab-page", exists: true },
+    { type: "screenshot", exists: true },
+    { type: "icon-definition", exists: true },
+  ]);
+  assert.match(packet.markdown, /## Files for review/);
+  assert.match(packet.markdown, /existing-fixture-lab-card-update\.json/);
   assert.ok(!packet.markdown.includes("reviewToken"));
   assert.equal(await fs.readFile(labPage, "utf8"), source.replace("];", `${existingCard}\n];`));
 
@@ -456,6 +467,12 @@ test("staged update inventory is read-only, ordered, filterable, and never retur
   assert.equal(blockedSelection.rehearsal, null);
   assert.equal(blockedSelection.reviewTokenIssued, false);
   assert.doesNotMatch(JSON.stringify(blockedSelection), /reviewToken\"\s*:/);
+
+  const blockedPacket = await client.call("create_next_staged_lab_card_update_packet", {});
+  assert.equal(blockedPacket.selectionStatus, "empty");
+  assert.deepEqual(blockedPacket.reviewFiles, []);
+  assert.equal(blockedPacket.allReviewFilesExist, false);
+  assert.match(blockedPacket.markdown, /## No ready staged update/);
   await fs.writeFile(path.join(repoRoot, "public", "projects", "existing-fixture.png"), "fixture", "utf8");
 });
 

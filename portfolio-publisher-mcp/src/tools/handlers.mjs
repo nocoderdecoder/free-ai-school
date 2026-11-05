@@ -1606,7 +1606,7 @@ function formatStagedLabCardUpdateReviewReport(inventory) {
   return lines.join("\n");
 }
 
-function formatNextStagedLabCardUpdatePacket(selection) {
+function formatNextStagedLabCardUpdatePacket(selection, reviewFiles = []) {
   const lines = ["# Lab card update packet", ""];
   if (selection.selectionStatus === "empty") {
     lines.push("## No ready staged update", "", selection.ownerNextStep, "");
@@ -1631,6 +1631,11 @@ function formatNextStagedLabCardUpdatePacket(selection) {
     ? `${readiness.icon.imported ? "Yes" : "No"} / ${readiness.icon.exported ? "Yes" : "No"}`
     : "Not available"}`);
   for (const blocker of selection.rehearsal?.readinessBlockers ?? []) lines.push(`- Blocker: ${blocker}`);
+  lines.push("");
+  lines.push("## Files for review", "");
+  for (const file of reviewFiles) {
+    lines.push(`- [ ] ${file.label}: \`${file.file}\` — ${file.exists ? "Verified" : "Missing"}`);
+  }
   lines.push("");
   lines.push("## Owner checklist", "");
   lines.push("- Review the patch, handoff, and manifest above.");
@@ -1686,11 +1691,37 @@ async function selectNextStagedLabCardUpdate(projects, source) {
 
 async function createNextStagedLabCardUpdatePacket(projects, source) {
   const selection = await selectNextStagedLabCardUpdate(projects, source);
+  const rehearsal = selection.rehearsal;
+  const reviewFiles = selection.selected && rehearsal
+    ? [
+        { type: "patch", label: "Staged patch", file: selection.selected.patchFile },
+        { type: "handoff", label: "Staged handoff", file: selection.selected.handoffFile },
+        { type: "manifest", label: "Staged manifest", file: selection.selected.manifestFile },
+        { type: "lab-page", label: "Lab card destination", file: "app/lab/page.tsx" },
+        rehearsal.readiness?.route?.file
+          ? { type: "route", label: "Project route", file: rehearsal.readiness.route.file }
+          : null,
+        rehearsal.readiness?.asset?.file
+          ? { type: "screenshot", label: "Screenshot asset", file: rehearsal.readiness.asset.file }
+          : null,
+        { type: "icon-definition", label: "Icon definition", file: "app/components/LabThumbnails.tsx" },
+      ].filter(Boolean)
+    : [];
+  const checkedReviewFiles = await Promise.all(reviewFiles.map(async (file) => {
+    try {
+      await fs.access(assertSafeRead(path.join(paths.repoRoot, file.file)));
+      return { ...file, exists: true };
+    } catch {
+      return { ...file, exists: false };
+    }
+  }));
   return {
     ...selection,
     update: selection.selected,
+    reviewFiles: checkedReviewFiles,
+    allReviewFilesExist: checkedReviewFiles.length > 0 && checkedReviewFiles.every((file) => file.exists),
     format: "markdown",
-    markdown: formatNextStagedLabCardUpdatePacket(selection),
+    markdown: formatNextStagedLabCardUpdatePacket(selection, checkedReviewFiles),
   };
 }
 
