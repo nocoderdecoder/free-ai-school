@@ -22,7 +22,7 @@ export const tools = [
   {
     name: "validate_lab_assets",
     title: "Validate Lab Assets",
-    description: "Check whether Lab project screenshot paths point to real files in public/.",
+    description: "Check whether Lab project screenshot paths point to non-empty regular files in public/.",
     inputSchema: {
       type: "object",
       properties: {},

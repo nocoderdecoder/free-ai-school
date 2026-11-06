@@ -339,6 +339,40 @@ test("Lab card update preview is exact, read-only, and readiness checked", async
   assert.equal(missingDiscard.status, "missing");
 });
 
+test("Lab screenshot readiness rejects empty files and directories", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const projects = [
+    ["Empty Screenshot", "/projects/empty.png"],
+    ["Directory Screenshot", "/projects/directory.png"],
+  ].map(([name, image]) => [
+    "  {",
+    `    name: \"${name}\",`,
+    '    tagline: "Fixture card",',
+    `    image: \"${image}\",`,
+    '    url: "https://example.com/fixture",',
+    '    status: "Built",',
+    "    Icon: FixtureIcon,",
+    "  },",
+  ].join("\n")).join("\n");
+  const source = (await fs.readFile(labPage, "utf8")).replace("const projects = [\n];", `const projects = [\n${projects}\n];`);
+  await fs.writeFile(labPage, source, "utf8");
+  await fs.writeFile(path.join(repoRoot, "public", "projects", "empty.png"), "", "utf8");
+  await fs.mkdir(path.join(repoRoot, "public", "projects", "directory.png"));
+
+  const assets = await client.call("validate_lab_assets", {});
+  assert.deepEqual(assets.assets.map(({ project, status, exists }) => ({ project, status, exists })), [
+    { project: "Empty Screenshot", status: "empty-file", exists: false },
+    { project: "Directory Screenshot", status: "not-a-file", exists: false },
+  ]);
+
+  const readiness = await client.call("publish_readiness_check", {});
+  assert.equal(readiness.ready, 0);
+  assert.ok(readiness.checks.find((check) => check.project === "Empty Screenshot")?.blockers
+    .some((blocker) => blocker.includes("Screenshot image file is empty")));
+  assert.ok(readiness.checks.find((check) => check.project === "Directory Screenshot")?.blockers
+    .some((blocker) => blocker.includes("regular file")));
+});
+
 test("staged update inventory is read-only, ordered, filterable, and never returns review tokens", async (t) => {
   const { repoRoot, labPage, client } = await createFixtureClient(t);
   const generatedDir = path.join(repoRoot, "portfolio-publisher-mcp", "generated");

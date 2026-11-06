@@ -302,7 +302,7 @@ function getScreenshotCapture(project, asset) {
     : "unavailable";
   const reason = asset.status === "missing-file"
     ? `Image path is set, but the file does not exist: ${asset.file}`
-    : asset.status === "invalid-image-path"
+    : asset.issue
       ? asset.issue
       : "Project has no screenshot image path.";
   const suggestedImage = project.image || suggestedScreenshotPath(project.name);
@@ -318,6 +318,10 @@ function getScreenshotCapture(project, asset) {
     captureReady,
     blocker: captureReady ? null : "Add a project URL or local route before capturing a screenshot.",
   };
+}
+
+function getAssetReadinessBlocker(asset, image) {
+  return asset.issue ?? `Screenshot file not found: ${asset.file ?? image}`;
 }
 
 async function buildScreenshotQueue(projects) {
@@ -840,9 +844,9 @@ async function validateLabCardPatchArtifact(projects, draft, source) {
   if (!card.image) {
     readinessBlockers.push("Missing screenshot image path.");
   } else if (asset.status === "invalid-image-path") {
-    readinessBlockers.push(asset.issue);
+    readinessBlockers.push(getAssetReadinessBlocker(asset, card.image));
   } else if (!asset.exists) {
-    readinessBlockers.push(`Screenshot file not found: ${asset.file ?? card.image}`);
+    readinessBlockers.push(getAssetReadinessBlocker(asset, card.image));
   }
 
   const uniqueWarnings = [...new Set(warnings)];
@@ -2858,9 +2862,9 @@ async function computeReadinessChecks(projects) {
     }
     if (!project.image) blockers.push("Missing screenshot image path.");
     if (asset.status === "invalid-image-path") {
-      blockers.push(asset.issue);
+      blockers.push(getAssetReadinessBlocker(asset, project.image));
     } else if (project.image && !asset.exists) {
-      blockers.push(`Screenshot file not found: ${asset.file ?? project.image}`);
+      blockers.push(getAssetReadinessBlocker(asset, project.image));
     }
 
     const screenshotSuggested =

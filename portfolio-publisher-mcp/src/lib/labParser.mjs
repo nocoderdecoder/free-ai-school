@@ -86,13 +86,34 @@ export async function getProjectAssetStatus(project) {
   }
 
   try {
-    await fs.access(assertSafeRead(absolute));
+    const metadata = await fs.stat(assertSafeRead(absolute));
+    if (!metadata.isFile()) {
+      return {
+        project: project.name,
+        image: project.image,
+        status: "not-a-file",
+        exists: false,
+        file: toRepoRelative(absolute),
+        issue: "Screenshot image paths must point to a regular file inside the public directory.",
+      };
+    }
+    if (metadata.size === 0) {
+      return {
+        project: project.name,
+        image: project.image,
+        status: "empty-file",
+        exists: false,
+        file: toRepoRelative(absolute),
+        issue: "Screenshot image file is empty; replace it with a rendered image before publishing.",
+      };
+    }
     return {
       project: project.name,
       image: project.image,
       status: "ok",
       exists: true,
       file: toRepoRelative(absolute),
+      size: metadata.size,
     };
   } catch {
     return {
