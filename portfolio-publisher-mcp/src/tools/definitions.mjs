@@ -438,7 +438,7 @@ export const tools = [
     name: "verify_lab_card_update_closeout",
     title: "Verify Lab Card Update Closeout",
     description:
-      "Verify that one applied existing-card URL or screenshot update, its local readiness, and repository change scope are ready for owner closeout, with an optional run of the non-mutating smoke suite.",
+      "Verify that one applied existing-card URL or screenshot update, its local readiness, repository change scope, and Git diff whitespace are ready for owner closeout, with an optional run of the non-mutating smoke suite.",
     inputSchema: {
       type: "object",
       properties: {
@@ -610,7 +610,7 @@ export const tools = [
     name: "verify_lab_card_publish_closeout",
     title: "Verify Lab Card Publish Closeout",
     description:
-      "Verify that one applied Lab card, its local readiness, and repository change scope are ready for owner closeout, with an optional run of the non-mutating smoke suite.",
+      "Verify that one applied Lab card, its local readiness, repository change scope, and Git diff whitespace are ready for owner closeout, with an optional run of the non-mutating smoke suite.",
     inputSchema: {
       type: "object",
       properties: {

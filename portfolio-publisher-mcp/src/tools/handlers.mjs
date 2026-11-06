@@ -2391,6 +2391,7 @@ function formatLabCardPublishCloseout(result) {
   lines.push(`- Card count: ${result.cardCount}`);
   lines.push(`- Local readiness: ${result.localReadinessReady ? "Ready" : "Blocked"}`);
   lines.push(`- Repository scope: ${result.repository.acceptableChangeScope ? "Expected" : "Needs review"}`);
+  lines.push(`- Diff whitespace: ${result.repository.whitespace.checked ? (result.repository.whitespace.passed ? "Passed" : "Failed") : "Not checked"}`);
   lines.push(`- Smoke: ${result.smoke.ran ? (result.smoke.passed ? "Passed" : "Failed") : "Not run"}`, "");
   if (result.blockers.length > 0) {
     lines.push("## Blockers", "");
@@ -2429,7 +2430,24 @@ async function verifyLabCardPublishCloseout(projects, source, args, closeoutKind
     changedFiles,
     unrelatedChanges,
     output: git.passed ? git.stdout : git.stderr,
+    whitespace: {
+      checked: false,
+      passed: false,
+      output: "",
+    },
   };
+  if (git.passed) {
+    const whitespace = await runCloseoutCommand(
+      "git",
+      ["diff", "--check", "HEAD", "--no-ext-diff"],
+      { cwd: paths.repoRoot },
+    );
+    repository.whitespace = {
+      checked: true,
+      passed: whitespace.passed,
+      output: whitespace.passed ? whitespace.stdout : whitespace.stderr || whitespace.stdout,
+    };
+  }
   const smoke = args.runSmoke === true
     ? await runCloseoutCommand("npm", ["run", "smoke"], { cwd: path.join(paths.repoRoot, "portfolio-publisher-mcp") })
     : {
@@ -2446,10 +2464,13 @@ async function verifyLabCardPublishCloseout(projects, source, args, closeoutKind
   for (const blocker of liveReadiness?.readinessBlockers ?? []) blockers.push(blocker);
   if (!repository.inspected) blockers.push("Git status could not be inspected.");
   else if (!repository.acceptableChangeScope) blockers.push(`Unrelated repository changes: ${unrelatedChanges.join(", ")}`);
+  if (repository.whitespace.checked && !repository.whitespace.passed) {
+    blockers.push("Git diff check found whitespace errors; fix them before committing or pushing.");
+  }
   if (!smoke.ran) blockers.push("Smoke verification was not run; call again with runSmoke: true.");
   else if (!smoke.passed) blockers.push("The Portfolio Publisher MCP smoke suite failed.");
   const closeoutReady = Boolean(project) && cardCount === 1 && liveReadiness?.publishReadyAfterApply === true
-    && repository.acceptableChangeScope && smoke.passed;
+    && repository.acceptableChangeScope && repository.whitespace.passed && smoke.passed;
   const result = {
     generatedAt: new Date().toISOString(),
     closeoutKind,

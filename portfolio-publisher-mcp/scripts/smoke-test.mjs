@@ -793,6 +793,8 @@ const publishCloseoutOk =
   publishCloseout?.cardCount === 1 &&
   publishCloseout?.smoke?.ran === false &&
   Array.isArray(publishCloseout?.repository?.changedFiles) &&
+  typeof publishCloseout?.repository?.whitespace?.checked === "boolean" &&
+  typeof publishCloseout?.repository?.whitespace?.passed === "boolean" &&
   publishCloseout?.markdown?.startsWith("# Lab card publish closeout") &&
   publishCloseout?.blockers?.some((blocker) => blocker.includes("Smoke verification was not run"));
 const publishCloseoutArgValidationOk = responseById.get(51)?.result?.isError === true;
@@ -880,6 +882,8 @@ const updateCloseoutOk =
   updateCloseout?.closeoutKind === "update" &&
   updateCloseout?.sourceFilesChanged === false &&
   updateCloseout?.smoke?.ran === false &&
+  typeof updateCloseout?.repository?.whitespace?.checked === "boolean" &&
+  typeof updateCloseout?.repository?.whitespace?.passed === "boolean" &&
   typeof updateCloseout?.markdown === "string" &&
   updateCloseout.markdown.includes("# Lab card update closeout");
 const updateCloseoutArgValidationOk = responseById.get(71)?.result?.isError === true;
