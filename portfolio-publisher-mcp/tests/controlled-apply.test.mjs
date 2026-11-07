@@ -39,6 +39,11 @@ async function writeFixture(repoRoot) {
     "export function FixtureIcon() { return null; }\n",
     "utf8",
   );
+  await fs.writeFile(
+    path.join(repoRoot, ".gitignore"),
+    "portfolio-publisher-mcp/generated/\n",
+    "utf8",
+  );
   return labPage;
 }
 
@@ -94,6 +99,27 @@ function createClient(repoRoot) {
 async function listApplyArtifacts(labPage) {
   const entries = await fs.readdir(path.dirname(labPage));
   return entries.filter((name) => name.includes(".portfolio-publisher"));
+}
+
+async function runGit(repoRoot, args) {
+  const child = spawn("git", args, { cwd: repoRoot, stdio: ["ignore", "pipe", "pipe"] });
+  const stdout = [];
+  const stderr = [];
+  child.stdout.on("data", (chunk) => stdout.push(chunk));
+  child.stderr.on("data", (chunk) => stderr.push(chunk));
+  const [exitCode] = await once(child, "exit");
+  assert.equal(exitCode, 0, Buffer.concat(stderr).toString("utf8"));
+  return Buffer.concat(stdout).toString("utf8");
+}
+
+async function initializeGitFixture(repoRoot) {
+  await runGit(repoRoot, ["init"]);
+  await runGit(repoRoot, ["add", "."]);
+  await runGit(repoRoot, [
+    "-c", "user.name=Portfolio Publisher Test",
+    "-c", "user.email=portfolio-publisher-test@example.com",
+    "commit", "-m", "fixture baseline",
+  ]);
 }
 
 async function createFixtureClient(t) {
@@ -545,6 +571,7 @@ test("controlled apply cleans up after prep rejection and successful apply", asy
     "fixture",
     "utf8",
   );
+  await initializeGitFixture(repoRoot);
   const applied = await client.call("apply_staged_lab_card_patch", {
     projectName,
     reviewToken: validation.reviewToken,
@@ -554,6 +581,8 @@ test("controlled apply cleans up after prep rejection and successful apply", asy
   assert.equal(applied.readinessVerifiedUnderLock, true);
   assert.match(await fs.readFile(labPage, "utf8"), /name: "Hermetic Fixture"/);
   assert.deepEqual(await listApplyArtifacts(labPage), []);
+
+  await fs.appendFile(labPage, "// intentional whitespace regression  \n", "utf8");
 
   const closeout = await client.call("verify_lab_card_publish_closeout", {
     projectName,
@@ -565,7 +594,15 @@ test("controlled apply cleans up after prep rejection and successful apply", asy
   assert.equal(closeout.cardCount, 1);
   assert.equal(closeout.localReadinessReady, true);
   assert.equal(closeout.smoke.ran, false);
+  assert.equal(closeout.repository.inspected, true);
+  assert.deepEqual(closeout.repository.changedFiles, ["app/lab/page.tsx"]);
+  assert.equal(closeout.repository.acceptableChangeScope, true);
+  assert.equal(closeout.repository.whitespace.checked, true);
+  assert.equal(closeout.repository.whitespace.passed, false);
+  assert.match(closeout.repository.whitespace.output, /trailing whitespace/);
   assert.match(closeout.markdown, /# Lab card publish closeout/);
+  assert.match(closeout.markdown, /Diff whitespace: Failed/);
+  assert.ok(closeout.blockers.some((blocker) => blocker.includes("Git diff check found whitespace errors")));
   assert.ok(closeout.blockers.some((blocker) => blocker.includes("Smoke verification was not run")));
 });
 
