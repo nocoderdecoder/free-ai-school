@@ -1,0 +1,445 @@
+{
+  "description": "Synthetic calculation-layer regression cases, not a model accuracy benchmark.",
+  "cases": [
+    {
+      "id": "All-revenue",
+      "query": {
+        "region": "All",
+        "intent": "revenue",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 155000,
+      "category": "Calculation"
+    },
+    {
+      "id": "All-target",
+      "query": {
+        "region": "All",
+        "intent": "target",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 96.875,
+      "category": "Calculation"
+    },
+    {
+      "id": "All-growth",
+      "query": {
+        "region": "All",
+        "intent": "growth",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 4.72972972972973,
+      "category": "Calculation"
+    },
+    {
+      "id": "All-stockouts",
+      "query": {
+        "region": "All",
+        "intent": "stockouts",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 10,
+      "category": "Calculation"
+    },
+    {
+      "id": "All-cause",
+      "query": {
+        "region": "All",
+        "intent": "cause",
+        "month": "2026-10"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Evidence boundary"
+    },
+    {
+      "id": "All-profit",
+      "query": {
+        "region": "All",
+        "intent": "profit",
+        "month": "2026-10"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Evidence boundary"
+    },
+    {
+      "id": "All-forecast",
+      "query": {
+        "region": "All",
+        "intent": "forecast",
+        "month": "2026-10"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Evidence boundary"
+    },
+    {
+      "id": "All-ambiguous",
+      "query": {
+        "region": "All",
+        "intent": "clarify",
+        "month": "2026-10"
+      },
+      "expectedStatus": "clarify",
+      "expectedValue": null,
+      "category": "Clarification"
+    },
+    {
+      "id": "All-missing",
+      "query": {
+        "region": "All",
+        "intent": "revenue",
+        "month": "2026-11"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Missing data"
+    },
+    {
+      "id": "All-no-baseline",
+      "query": {
+        "region": "All",
+        "intent": "growth",
+        "month": "2026-09"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Missing data"
+    },
+    {
+      "id": "North-revenue",
+      "query": {
+        "region": "North",
+        "intent": "revenue",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 44000,
+      "category": "Calculation"
+    },
+    {
+      "id": "North-target",
+      "query": {
+        "region": "North",
+        "intent": "target",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 88,
+      "category": "Calculation"
+    },
+    {
+      "id": "North-growth",
+      "query": {
+        "region": "North",
+        "intent": "growth",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": -12,
+      "category": "Calculation"
+    },
+    {
+      "id": "North-stockouts",
+      "query": {
+        "region": "North",
+        "intent": "stockouts",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 7,
+      "category": "Calculation"
+    },
+    {
+      "id": "North-cause",
+      "query": {
+        "region": "North",
+        "intent": "cause",
+        "month": "2026-10"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Evidence boundary"
+    },
+    {
+      "id": "North-profit",
+      "query": {
+        "region": "North",
+        "intent": "profit",
+        "month": "2026-10"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Evidence boundary"
+    },
+    {
+      "id": "North-forecast",
+      "query": {
+        "region": "North",
+        "intent": "forecast",
+        "month": "2026-10"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Evidence boundary"
+    },
+    {
+      "id": "North-ambiguous",
+      "query": {
+        "region": "North",
+        "intent": "clarify",
+        "month": "2026-10"
+      },
+      "expectedStatus": "clarify",
+      "expectedValue": null,
+      "category": "Clarification"
+    },
+    {
+      "id": "North-missing",
+      "query": {
+        "region": "North",
+        "intent": "revenue",
+        "month": "2026-11"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Missing data"
+    },
+    {
+      "id": "North-no-baseline",
+      "query": {
+        "region": "North",
+        "intent": "growth",
+        "month": "2026-09"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Missing data"
+    },
+    {
+      "id": "South-revenue",
+      "query": {
+        "region": "South",
+        "intent": "revenue",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 63000,
+      "category": "Calculation"
+    },
+    {
+      "id": "South-target",
+      "query": {
+        "region": "South",
+        "intent": "target",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 105,
+      "category": "Calculation"
+    },
+    {
+      "id": "South-growth",
+      "query": {
+        "region": "South",
+        "intent": "growth",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 12.5,
+      "category": "Calculation"
+    },
+    {
+      "id": "South-stockouts",
+      "query": {
+        "region": "South",
+        "intent": "stockouts",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 0,
+      "category": "Calculation"
+    },
+    {
+      "id": "South-cause",
+      "query": {
+        "region": "South",
+        "intent": "cause",
+        "month": "2026-10"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Evidence boundary"
+    },
+    {
+      "id": "South-profit",
+      "query": {
+        "region": "South",
+        "intent": "profit",
+        "month": "2026-10"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Evidence boundary"
+    },
+    {
+      "id": "South-forecast",
+      "query": {
+        "region": "South",
+        "intent": "forecast",
+        "month": "2026-10"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Evidence boundary"
+    },
+    {
+      "id": "South-ambiguous",
+      "query": {
+        "region": "South",
+        "intent": "clarify",
+        "month": "2026-10"
+      },
+      "expectedStatus": "clarify",
+      "expectedValue": null,
+      "category": "Clarification"
+    },
+    {
+      "id": "South-missing",
+      "query": {
+        "region": "South",
+        "intent": "revenue",
+        "month": "2026-11"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Missing data"
+    },
+    {
+      "id": "South-no-baseline",
+      "query": {
+        "region": "South",
+        "intent": "growth",
+        "month": "2026-09"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Missing data"
+    },
+    {
+      "id": "West-revenue",
+      "query": {
+        "region": "West",
+        "intent": "revenue",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 48000,
+      "category": "Calculation"
+    },
+    {
+      "id": "West-target",
+      "query": {
+        "region": "West",
+        "intent": "target",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 96,
+      "category": "Calculation"
+    },
+    {
+      "id": "West-growth",
+      "query": {
+        "region": "West",
+        "intent": "growth",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 14.285714285714285,
+      "category": "Calculation"
+    },
+    {
+      "id": "West-stockouts",
+      "query": {
+        "region": "West",
+        "intent": "stockouts",
+        "month": "2026-10"
+      },
+      "expectedStatus": "answered",
+      "expectedValue": 3,
+      "category": "Calculation"
+    },
+    {
+      "id": "West-cause",
+      "query": {
+        "region": "West",
+        "intent": "cause",
+        "month": "2026-10"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Evidence boundary"
+    },
+    {
+      "id": "West-profit",
+      "query": {
+        "region": "West",
+        "intent": "profit",
+        "month": "2026-10"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Evidence boundary"
+    },
+    {
+      "id": "West-forecast",
+      "query": {
+        "region": "West",
+        "intent": "forecast",
+        "month": "2026-10"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Evidence boundary"
+    },
+    {
+      "id": "West-ambiguous",
+      "query": {
+        "region": "West",
+        "intent": "clarify",
+        "month": "2026-10"
+      },
+      "expectedStatus": "clarify",
+      "expectedValue": null,
+      "category": "Clarification"
+    },
+    {
+      "id": "West-missing",
+      "query": {
+        "region": "West",
+        "intent": "revenue",
+        "month": "2026-11"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Missing data"
+    },
+    {
+      "id": "West-no-baseline",
+      "query": {
+        "region": "West",
+        "intent": "growth",
+        "month": "2026-09"
+      },
+      "expectedStatus": "insufficient",
+      "expectedValue": null,
+      "category": "Missing data"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
-@import './design/tokens.css';
-@import './design/grain.css';
+@import "./design/tokens.css";
+@import "./design/grain.css";
+@import "./design/portfolio.css";
 
 @tailwind base;
 @tailwind components;
@@ -12,18 +13,33 @@ body {
 
 /* ─── Page-load hero fade-up ─────────────────────────────────────── */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0);    }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.hero-label   { animation: fadeUp 0.6s ease 0.05s both; }
-.hero-heading { animation: fadeUp 0.7s ease 0.15s both; }
-.hero-sub     { animation: fadeUp 0.7s ease 0.30s both; }
-.hero-ctas    { animation: fadeUp 0.7s ease 0.45s both; }
+.hero-label {
+  animation: fadeUp 0.6s ease 0.05s both;
+}
+.hero-heading {
+  animation: fadeUp 0.7s ease 0.15s both;
+}
+.hero-sub {
+  animation: fadeUp 0.7s ease 0.3s both;
+}
+.hero-ctas {
+  animation: fadeUp 0.7s ease 0.45s both;
+}
 
 /* ─── Hero gradient glow ─────────────────────────────────────────── */
 @keyframes gradient-shift {
-  0%, 100% {
+  0%,
+  100% {
     background-position: 0% 50%;
   }
   50% {
@@ -47,9 +63,10 @@ body {
 
 /* ── Card hover lift ── */
 .card-hover {
-  transition: transform var(--duration-base) var(--ease-out-expo),
-              border-color var(--duration-base) var(--ease-in-out),
-              box-shadow var(--duration-base) var(--ease-in-out);
+  transition:
+    transform var(--duration-base) var(--ease-out-expo),
+    border-color var(--duration-base) var(--ease-in-out),
+    box-shadow var(--duration-base) var(--ease-in-out);
 }
 
 .card-hover:hover {
@@ -59,8 +76,9 @@ body {
 
 /* ── Button press ── */
 .btn-press {
-  transition: transform var(--duration-fast) var(--ease-out-expo),
-              background-color var(--duration-fast);
+  transition:
+    transform var(--duration-fast) var(--ease-out-expo),
+    background-color var(--duration-fast);
 }
 
 .btn-press:active {
@@ -84,7 +102,9 @@ body {
 }
 
 @media print {
-  @page { margin: 14mm; }
+  @page {
+    margin: 14mm;
+  }
 
   .compass-result {
     padding: 0 !important;
@@ -113,7 +133,7 @@ body {
 }
 
 .link-slide::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -2px;
   left: 0;
@@ -141,19 +161,31 @@ body {
 }
 
 @keyframes fade-out {
-  from { opacity: 1; }
-  to   { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* ─── Skeleton loading state ────────────────────────────────────────── */
 @keyframes skeleton-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .skeleton {
@@ -220,7 +252,7 @@ h3 {
 @media (max-width: 640px) {
   :root {
     --text-hero: 2.75rem;
-    --text-5xl:  2.25rem;
+    --text-5xl: 2.25rem;
     --space-section: 6rem;
     --space-block: 3rem;
   }
@@ -236,7 +268,8 @@ h3 {
 
 /* ── Touch-friendly tap targets ── */
 @media (pointer: coarse) {
-  a, button {
+  a,
+  button {
     min-height: 44px;
     min-width: 44px;
   }
@@ -244,8 +277,13 @@ h3 {
 
 /* ── Editorial homepage styles ── */
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 .ed-feat-card:hover {
@@ -317,7 +355,9 @@ h3 {
 
 /* ── Shared editorial list-card hover (used across list/article/static pages) ── */
 .ed-list-card {
-  transition: background 0.2s, transform 0.2s;
+  transition:
+    background 0.2s,
+    transform 0.2s;
 }
 
 .ed-list-card:hover {
@@ -326,9 +366,13 @@ h3 {
 }
 
 /* ── Homepage essay row hover ── */
-.essay-row:hover { opacity: 0.55; }
+.essay-row:hover {
+  opacity: 0.55;
+}
 
 /* ── Homepage cards: collapse to single column on small screens ── */
 @media (max-width: 680px) {
-  .home-cards { grid-template-columns: 1fr !important; }
+  .home-cards {
+    grid-template-columns: 1fr !important;
+  }
 }

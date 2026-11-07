@@ -2,8 +2,8 @@ name: Daily Deals & Events
 
 on:
   schedule:
-    - cron: '0 8 * * *'   # 8am UTC = ~1:30pm IST, 30 mins after trending
-  workflow_dispatch:        # also triggerable manually from GitHub Actions tab
+    - cron: "0 8 * * *" # 8am UTC = ~1:30pm IST, 30 mins after trending
+  workflow_dispatch: # also triggerable manually from GitHub Actions tab
 
 jobs:
   generate:
@@ -17,13 +17,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate and publish deals & events
+      - name: Generate draft for review of deals & events
         run: node scripts/generate-deals-events.mjs
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
