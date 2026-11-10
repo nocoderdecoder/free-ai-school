@@ -2398,6 +2398,23 @@ function formatLabCardPublishCloseout(result) {
     for (const blocker of result.blockers) lines.push(`- ${blocker}`);
     lines.push("");
   }
+  const diagnostics = [
+    !result.repository.whitespace.passed && result.repository.whitespace.output
+      ? { label: "Git diff --check", output: result.repository.whitespace.output }
+      : null,
+    result.smoke.ran && !result.smoke.passed
+      ? { label: "Smoke verification", output: result.smoke.stderr || result.smoke.stdout || "The smoke command failed without diagnostic output." }
+      : null,
+  ].filter(Boolean);
+  if (diagnostics.length > 0) {
+    lines.push("## Diagnostics", "");
+    for (const diagnostic of diagnostics) {
+      const output = diagnostic.output.length > 4_000
+        ? `${diagnostic.output.slice(0, 4_000)}\n…diagnostic output truncated`
+        : diagnostic.output;
+      lines.push(`### ${diagnostic.label}`, "", "```text", output, "```", "");
+    }
+  }
   lines.push("## Repository", "", "```text", result.repository.output || "No local changes.", "```", "");
   lines.push("## Owner next step", "", result.ownerNextStep);
   return lines.join("\n");

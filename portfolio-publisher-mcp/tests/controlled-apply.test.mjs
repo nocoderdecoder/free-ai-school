@@ -602,6 +602,9 @@ test("controlled apply cleans up after prep rejection and successful apply", asy
   assert.match(closeout.repository.whitespace.output, /trailing whitespace/);
   assert.match(closeout.markdown, /# Lab card publish closeout/);
   assert.match(closeout.markdown, /Diff whitespace: Failed/);
+  assert.match(closeout.markdown, /## Diagnostics/);
+  assert.match(closeout.markdown, /### Git diff --check/);
+  assert.match(closeout.markdown, /trailing whitespace/);
   assert.ok(closeout.blockers.some((blocker) => blocker.includes("Git diff check found whitespace errors")));
   assert.ok(closeout.blockers.some((blocker) => blocker.includes("Smoke verification was not run")));
 });
