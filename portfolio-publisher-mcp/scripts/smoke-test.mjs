@@ -52,6 +52,8 @@ send(3, "tools/call", { name: "list_lab_projects", arguments: {} });
 send(4, "tools/call", { name: "validate_lab_assets", arguments: {} });
 
 await waitForResponse(3);
+const initializeResponse = responseById.get(1)?.result ?? {};
+const initializeInstructions = initializeResponse.instructions ?? "";
 const listedProjectsText = responseById.get(3)?.result?.content?.[0]?.text ?? "{}";
 const firstProjectName = JSON.parse(listedProjectsText).projects?.[0]?.name ?? "";
 const firstProjectSlug = slugify(firstProjectName);
@@ -905,6 +907,11 @@ const publishReadyUpdateInventoryOk =
     item.publishReadyAfterApply === true && !("reviewToken" in item)
   );
 const publishReadyUpdateReportValidationOk = responseById.get(75)?.result?.isError === true;
+const initializeGuidanceOk =
+  initializeResponse?.serverInfo?.name === "portfolio-publisher-mcp" &&
+  initializeInstructions.includes("Most tools are read-only") &&
+  initializeInstructions.includes("confirm: true") &&
+  initializeInstructions.includes("app/lab/page.tsx");
 
 console.log(JSON.stringify({
   failed,
@@ -982,6 +989,7 @@ console.log(JSON.stringify({
   stagedUpdateRehearsalArgValidationOk,
   publishReadyUpdateInventoryOk,
   publishReadyUpdateReportValidationOk,
+  initializeGuidanceOk,
 }, null, 2));
 
 if (
@@ -1059,6 +1067,7 @@ if (
   || !stagedUpdateRehearsalArgValidationOk
   || !publishReadyUpdateInventoryOk
   || !publishReadyUpdateReportValidationOk
+  || !initializeGuidanceOk
 ) {
   process.exitCode = 1;
 }

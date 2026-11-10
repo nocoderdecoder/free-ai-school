@@ -32,7 +32,7 @@ async function handleRequest(message) {
         },
         serverInfo: SERVER_INFO,
         instructions:
-          "Use this server to inspect and safely prepare Anshul's portfolio Lab projects. This first version is read-only.",
+          "Use this server to inspect and safely prepare Anshul's portfolio Lab projects. Most tools are read-only; staged review artifacts are written only under portfolio-publisher-mcp/generated/, and controlled apply can change only app/lab/page.tsx after an exact fresh review token and confirm: true. Start with list_lab_projects or the staged queue tools, review artifacts before applying, then run the smoke suite and inspect the Git diff.",
       });
       return;
     }
