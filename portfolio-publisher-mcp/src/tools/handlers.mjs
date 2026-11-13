@@ -147,15 +147,15 @@ function extractLabThumbnailImports(source) {
 }
 
 function extractLabThumbnailExports(source) {
-  const exports = [];
-  const pattern = /export\s+function\s+([A-Za-z_$][\w$]*)\s*\(/g;
+  const exports = new Set();
+  const pattern = /export\s+(?:function\s+|(?:const|let|var)\s+)([A-Za-z_$][\w$]*)\b/g;
   let match;
 
   while ((match = pattern.exec(source)) !== null) {
-    exports.push(match[1]);
+    exports.add(match[1]);
   }
 
-  return exports.sort((left, right) => left.localeCompare(right));
+  return [...exports].sort((left, right) => left.localeCompare(right));
 }
 
 async function inspectLabThumbnailIcons(projects, labSource) {

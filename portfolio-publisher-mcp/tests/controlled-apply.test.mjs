@@ -438,6 +438,63 @@ test("publish readiness requires each Lab thumbnail icon to be present, imported
     .some((action) => action.includes("Import the Lab thumbnail icon")));
 });
 
+test("publish readiness accepts Lab thumbnail icons exported as constants", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const thumbnails = path.join(repoRoot, "app", "components", "LabThumbnails.tsx");
+  const source = await fs.readFile(labPage, "utf8");
+  await fs.writeFile(
+    labPage,
+    source
+      .replace("{ FixtureIcon }", "{ FixtureIcon, ConstantIcon }")
+      .replace(
+        "const projects = [\n];",
+        [
+          "const projects = [",
+          "  {",
+          '    name: "Constant Export Fixture",',
+          '    tagline: "Uses a const thumbnail export",',
+          '    image: "/projects/constant-export-fixture.png",',
+          '    url: "https://example.com/constant-export-fixture",',
+          '    status: "Built",',
+          "    Icon: ConstantIcon,",
+          "  },",
+          "];",
+        ].join("\n"),
+      ),
+    "utf8",
+  );
+  await fs.writeFile(
+    thumbnails,
+    [
+      "export function FixtureIcon() { return null; }",
+      "export const ConstantIcon = () => null;",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "public", "projects", "constant-export-fixture.png"),
+    "fixture",
+    "utf8",
+  );
+
+  const readiness = await client.call("publish_readiness_check", {
+    projectName: "Constant Export Fixture",
+  });
+  assert.equal(readiness.ready, 1);
+  assert.deepEqual(readiness.checks[0].icon, {
+    project: "Constant Export Fixture",
+    icon: "ConstantIcon",
+    imported: true,
+    exported: true,
+    status: "ok",
+  });
+
+  const inventory = await client.call("inspect_lab_thumbnail_icons", {});
+  assert.deepEqual(inventory.exportedIcons, ["ConstantIcon", "FixtureIcon"]);
+  assert.equal(inventory.ready, true);
+});
+
 test("staged update inventory is read-only, ordered, filterable, and never returns review tokens", async (t) => {
   const { repoRoot, labPage, client } = await createFixtureClient(t);
   const generatedDir = path.join(repoRoot, "portfolio-publisher-mcp", "generated");
