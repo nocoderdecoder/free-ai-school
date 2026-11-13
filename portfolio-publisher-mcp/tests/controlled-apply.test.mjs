@@ -399,6 +399,45 @@ test("Lab screenshot readiness rejects empty files and directories", async (t) =
     .some((blocker) => blocker.includes("regular file")));
 });
 
+test("publish readiness requires each Lab thumbnail icon to be present, imported, and exported", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const projects = [
+    ["Ready Icon", "FixtureIcon"],
+    ["Unavailable Icon", "MissingIcon"],
+    ["No Icon", ""],
+  ].map(([name, icon]) => [
+    "  {",
+    `    name: \"${name}\",`,
+    '    tagline: "Fixture card",',
+    `    image: \"/projects/${name.toLowerCase().replaceAll(" ", "-")}.png\",`,
+    '    url: "https://example.com/fixture",',
+    '    status: "Built",',
+    icon ? `    Icon: ${icon},` : "",
+    "  },",
+  ].filter(Boolean).join("\n")).join("\n");
+  const source = (await fs.readFile(labPage, "utf8")).replace("const projects = [\n];", `const projects = [\n${projects}\n];`);
+  await fs.writeFile(labPage, source, "utf8");
+  await Promise.all([
+    fs.writeFile(path.join(repoRoot, "public", "projects", "ready-icon.png"), "fixture", "utf8"),
+    fs.writeFile(path.join(repoRoot, "public", "projects", "unavailable-icon.png"), "fixture", "utf8"),
+    fs.writeFile(path.join(repoRoot, "public", "projects", "no-icon.png"), "fixture", "utf8"),
+  ]);
+
+  const readiness = await client.call("publish_readiness_check", {});
+  assert.equal(readiness.ready, 1);
+  const ready = readiness.checks.find((check) => check.project === "Ready Icon");
+  const unavailable = readiness.checks.find((check) => check.project === "Unavailable Icon");
+  const missing = readiness.checks.find((check) => check.project === "No Icon");
+  assert.deepEqual(ready.icon, { project: "Ready Icon", icon: "FixtureIcon", imported: true, exported: true, status: "ok" });
+  assert.ok(unavailable.blockers.some((blocker) => blocker.includes("not imported on the Lab page: MissingIcon")));
+  assert.ok(unavailable.blockers.some((blocker) => blocker.includes("not exported from LabThumbnails.tsx: MissingIcon")));
+  assert.ok(missing.blockers.includes("Missing Lab thumbnail icon component."));
+
+  const priorities = await client.call("prioritize_publish_tasks", {});
+  assert.ok(priorities.tasks.find((task) => task.project === "Unavailable Icon")?.nextActions
+    .some((action) => action.includes("Import the Lab thumbnail icon")));
+});
+
 test("staged update inventory is read-only, ordered, filterable, and never returns review tokens", async (t) => {
   const { repoRoot, labPage, client } = await createFixtureClient(t);
   const generatedDir = path.join(repoRoot, "portfolio-publisher-mcp", "generated");

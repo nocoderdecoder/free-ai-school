@@ -43,8 +43,8 @@ This version is mostly read-only. It can inspect the Lab page, validate screensh
 - `discard_staged_lab_card_patch`: deletes one project's exact staged `.patch` and Markdown handoff pair after `confirm: true`, without changing portfolio source files.
 - `inspect_lab_thumbnail_icons`: checks Lab card icon usage against Lab page imports and `LabThumbnails.tsx` exports.
 - `create_lab_thumbnail_icon_report`: creates an owner-friendly Markdown report for Lab thumbnail icon coverage, missing prep, and cleanup candidates.
-- `publish_readiness_check`: checks whether Lab projects have the basics needed for publishing (supports exact name, slug, or partial match via `projectName`).
-- `publish_readiness_report`: returns a human-readable Markdown publish-readiness report (supports exact name, slug, or partial match via `projectName`).
+- `publish_readiness_check`: checks whether Lab projects have the basics needed for publishing—including non-empty screenshots, routes, and thumbnail icon presence/import/export (supports exact name, slug, or partial match via `projectName`).
+- `publish_readiness_report`: returns a human-readable Markdown publish-readiness report with the same route, screenshot, and thumbnail icon checks (supports exact name, slug, or partial match via `projectName`).
 - `create_publish_handoff`: creates a copy-pasteable Markdown handoff with readiness status, screenshot tasks, and owner next actions.
 - `create_project_publish_brief`: creates a concise one-project Markdown brief with Lab card copy, blockers, files to check, and next actions. If `projectName` is omitted, it uses the current top-priority project.
 - `create_lab_publish_digest`: creates a short Markdown digest of the current Lab inventory, readiness totals, route coverage, screenshot coverage, and next owner action.

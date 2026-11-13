@@ -2538,33 +2538,21 @@ function parseStagedLabCard(handoffContent) {
 }
 
 async function inspectStagedLabCardReadiness(projects, labCard, source) {
-  const [readinessResult, asset, iconInventory] = await Promise.all([
-    computeReadinessChecks([labCard]),
+  const [readinessResult, asset] = await Promise.all([
+    computeReadinessChecks([labCard], source),
     getProjectAssetStatus(labCard),
-    inspectLabThumbnailIcons([...projects, labCard], source),
   ]);
   const readiness = readinessResult.checks[0];
-  const iconBlockers = [];
-  if (!labCard.icon) iconBlockers.push("Missing Lab thumbnail icon component.");
-  else {
-    if (iconInventory.missingImports.includes(labCard.icon)) {
-      iconBlockers.push(`Lab thumbnail icon is not imported on the Lab page: ${labCard.icon}`);
-    }
-    if (iconInventory.missingExports.includes(labCard.icon)) {
-      iconBlockers.push(`Lab thumbnail icon is not exported from LabThumbnails.tsx: ${labCard.icon}`);
-    }
-  }
-
-  const readinessBlockers = [...readiness.blockers, ...iconBlockers];
+  const readinessBlockers = readiness.blockers;
   return {
     publishReadyAfterApply: readinessBlockers.length === 0,
     readiness: {
       route: readiness.route,
       asset,
       icon: {
-        name: labCard.icon || null,
-        imported: Boolean(labCard.icon) && !iconInventory.missingImports.includes(labCard.icon),
-        exported: Boolean(labCard.icon) && !iconInventory.missingExports.includes(labCard.icon),
+        name: readiness.icon.icon,
+        imported: readiness.icon.imported,
+        exported: readiness.icon.exported,
       },
     },
     readinessBlockers,
@@ -2881,12 +2869,21 @@ function findMatchingProjects(projects, query) {
   return { matches: [], query: normalized, issue: "Project is not listed on the Lab page." };
 }
 
-async function computeReadinessChecks(projects) {
+async function computeReadinessChecks(projects, labSource) {
+  const source = labSource ?? await readLabSource();
+  const iconInventory = await inspectLabThumbnailIcons(projects, source);
+  const iconCards = new Map(iconInventory.cards.map((card) => [card.project, card]));
   const checks = await Promise.all(projects.map(async (project) => {
     const [asset, route] = await Promise.all([
       getProjectAssetStatus(project),
       getProjectRouteStatus(project),
     ]);
+    const icon = iconCards.get(project.name) ?? {
+      icon: project.icon || null,
+      imported: false,
+      exported: false,
+      status: "missing-icon",
+    };
     const blockers = [];
 
     if (!project.name) blockers.push("Missing project name.");
@@ -2904,6 +2901,12 @@ async function computeReadinessChecks(projects) {
     } else if (project.image && !asset.exists) {
       blockers.push(getAssetReadinessBlocker(asset, project.image));
     }
+    if (!project.icon) {
+      blockers.push("Missing Lab thumbnail icon component.");
+    } else {
+      if (!icon.imported) blockers.push(`Lab thumbnail icon is not imported on the Lab page: ${project.icon}`);
+      if (!icon.exported) blockers.push(`Lab thumbnail icon is not exported from LabThumbnails.tsx: ${project.icon}`);
+    }
 
     const screenshotSuggested =
       !project.image || (project.image && !asset.exists)
@@ -2917,6 +2920,7 @@ async function computeReadinessChecks(projects) {
       url: project.url,
       image: project.image,
       route,
+      icon,
       screenshotSuggested,
     };
   }));
@@ -2967,7 +2971,7 @@ function formatReadinessReport({ checked, ready, checks, projectName }) {
   lines.push("## Next actions");
   lines.push("");
   lines.push("- Capture missing screenshots and add them under `public/projects/`.");
-  lines.push("- Ensure each Lab project has: `name`, `tagline`, `status`, `url`, `image`.");
+  lines.push("- Ensure each Lab project has: `name`, `tagline`, `status`, `url`, `image`, and an imported/exported thumbnail `Icon`.");
   lines.push("");
 
   return lines.join("\n");
@@ -3016,6 +3020,7 @@ function formatPublishHandoff({ checks, projectName }) {
     lines.push(`- Status: ${check.ready ? "Ready" : "Needs work"}`);
     if (check.url) lines.push(`- URL: ${check.url}`);
     if (check.image) lines.push(`- Image: ${check.image}`);
+    if (check.icon?.icon) lines.push(`- Icon: ${check.icon.icon} (imported: ${check.icon.imported ? "Yes" : "No"}; exported: ${check.icon.exported ? "Yes" : "No"})`);
     if (check.screenshotSuggested) {
       lines.push(`- Suggested screenshot path: ${check.screenshotSuggested}`);
     }
@@ -3025,7 +3030,7 @@ function formatPublishHandoff({ checks, projectName }) {
         lines.push(`- [ ] ${blocker}`);
       }
     } else {
-      lines.push("- [x] Required Lab card fields and screenshot file are present.");
+      lines.push("- [x] Required Lab card fields, screenshot file, and thumbnail icon are present.");
     }
 
     lines.push("");
@@ -3069,6 +3074,9 @@ function classifyNextPublishTask(project, asset, readiness) {
     if (blocker.includes("Missing project name")) actions.push("Add the project name.");
     if (blocker.includes("Missing tagline")) actions.push("Add a one-line tagline.");
     if (blocker.includes("Missing status")) actions.push("Add a Lab status.");
+    if (blocker.includes("Missing Lab thumbnail icon")) actions.push("Add an Icon component to the Lab card, import it on the Lab page, and export it from LabThumbnails.tsx.");
+    if (blocker.includes("not imported on the Lab page")) actions.push("Import the Lab thumbnail icon on the Lab page.");
+    if (blocker.includes("not exported from LabThumbnails.tsx")) actions.push("Export the Lab thumbnail icon from app/components/LabThumbnails.tsx.");
   }
 
   if (readiness.ready) {
@@ -3147,6 +3155,9 @@ function formatLabPublishDigest({ projects, readiness, routes, priorities }) {
   const missingScreenshots = readiness.checks.filter((check) => check.blockers.some((blocker) =>
     blocker.startsWith("Missing screenshot") || blocker.startsWith("Screenshot file not found")
   ));
+  const iconIssues = readiness.checks.filter((check) => check.blockers.some((blocker) =>
+    blocker.includes("thumbnail icon") || blocker.includes("Lab thumbnail icon")
+  ));
   const routeIssues = routes.filter((route) =>
     route.status === "missing-url" ||
     route.status === "missing-route-file" ||
@@ -3172,6 +3183,7 @@ function formatLabPublishDigest({ projects, readiness, routes, priorities }) {
   lines.push(`- External URLs: ${routes.filter((route) => route.type === "external-url").length}`);
   lines.push(`- Missing URLs or route files: ${routeIssues.length}`);
   lines.push(`- Missing screenshots: ${missingScreenshots.length}`);
+  lines.push(`- Thumbnail icon issues: ${iconIssues.length}`);
   lines.push("");
 
   lines.push("## Current priority");
@@ -3194,6 +3206,8 @@ function formatLabPublishDigest({ projects, readiness, routes, priorities }) {
     lines.push("- Capture the highest-priority missing screenshot, then re-run `npm run smoke`.");
   } else if (routeIssues.length > 0) {
     lines.push("- Add URLs or route files for projects with route blockers, then re-run `npm run smoke`.");
+  } else if (iconIssues.length > 0) {
+    lines.push("- Fix the highest-priority thumbnail icon import/export issue, then re-run `npm run smoke`.");
   } else {
     lines.push("- Open the listed URLs/routes for visual review, then publish the Lab update.");
   }
@@ -3233,12 +3247,14 @@ function formatProjectPublishBrief({ project, readiness, asset, task, requestedP
   lines.push(`- Tagline: ${project.tagline || "Missing"}`);
   lines.push(`- URL: ${project.url || "Missing"}`);
   lines.push(`- Image: ${project.image || "Missing"}`);
+  lines.push(`- Icon: ${project.icon || "Missing"}`);
   lines.push("");
 
   lines.push("## Files to check");
   lines.push("");
   if (routeFile) lines.push(`- Route: ${routeFile}`);
   if (currentImageFile) lines.push(`- Current image file: ${currentImageFile}`);
+  lines.push("- Thumbnail component: app/components/LabThumbnails.tsx");
   if (suggestedImageFile && suggestedImageFile !== currentImageFile) {
     lines.push(`- Suggested image file: ${suggestedImageFile}`);
   }
