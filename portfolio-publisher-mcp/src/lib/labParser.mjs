@@ -5,6 +5,40 @@ import { assertSafeRead } from "./fileSafety.mjs";
 
 const FIELD_PATTERN = /(\w+):\s*["']([^"']*)["']/g;
 const ICON_PATTERN = /\bIcon:\s*([A-Za-z_$][\w$]*)/;
+const IMAGE_FORMATS = new Map([
+  [".png", { label: "PNG", matches: (header) => header.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) }],
+  [".jpg", { label: "JPEG", matches: (header) => header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff }],
+  [".jpeg", { label: "JPEG", matches: (header) => header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff }],
+  [".gif", { label: "GIF", matches: (header) => header.subarray(0, 6).toString("ascii") === "GIF87a" || header.subarray(0, 6).toString("ascii") === "GIF89a" }],
+  [".webp", { label: "WebP", matches: (header) => header.subarray(0, 4).toString("ascii") === "RIFF" && header.subarray(8, 12).toString("ascii") === "WEBP" }],
+  [".avif", { label: "AVIF", matches: (header) => header.subarray(4, 8).toString("ascii") === "ftyp" && header.subarray(8, 12).toString("ascii").startsWith("avi") }],
+]);
+
+async function getImageContentStatus(absolute, imagePath) {
+  const extension = path.extname(imagePath).toLowerCase();
+  const format = IMAGE_FORMATS.get(extension);
+
+  if (!format) {
+    return {
+      status: "unsupported-image-type",
+      issue: `Screenshot image paths must use a supported image extension (.png, .jpg, .jpeg, .gif, .webp, or .avif); received ${extension || "no extension"}.`,
+    };
+  }
+
+  const handle = await fs.open(assertSafeRead(absolute), "r");
+  try {
+    const header = Buffer.alloc(16);
+    const { bytesRead } = await handle.read(header, 0, header.length, 0);
+    if (format.matches(header.subarray(0, bytesRead))) return { status: "ok" };
+  } finally {
+    await handle.close();
+  }
+
+  return {
+    status: "invalid-image-content",
+    issue: `Screenshot image content does not match its ${format.label} file extension; replace it with a rendered ${format.label} image before publishing.`,
+  };
+}
 
 function parseProjectBlock(block) {
   const project = {};
@@ -105,6 +139,17 @@ export async function getProjectAssetStatus(project) {
         exists: false,
         file: toRepoRelative(absolute),
         issue: "Screenshot image file is empty; replace it with a rendered image before publishing.",
+      };
+    }
+    const content = await getImageContentStatus(absolute, project.image);
+    if (content.status !== "ok") {
+      return {
+        project: project.name,
+        image: project.image,
+        exists: false,
+        file: toRepoRelative(absolute),
+        size: metadata.size,
+        ...content,
       };
     }
     return {

@@ -9,6 +9,10 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const projectDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const TEST_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLqAQAAAABJRU5ErkJggg==",
+  "base64",
+);
 
 async function writeFixture(repoRoot) {
   const labPage = path.join(repoRoot, "app", "lab", "page.tsx");
@@ -148,7 +152,7 @@ test("Lab card update preview is exact, read-only, and readiness checked", async
   const emptySource = await fs.readFile(labPage, "utf8");
   const source = emptySource.replace("const projects = [\n];", `const projects = [\n${existingCard}\n];`);
   await fs.writeFile(labPage, source, "utf8");
-  await fs.writeFile(path.join(repoRoot, "public", "projects", "existing-fixture.png"), "fixture", "utf8");
+  await fs.writeFile(path.join(repoRoot, "public", "projects", "existing-fixture.png"), TEST_PNG);
 
   const preview = await client.call("preview_lab_card_update", {
     projectName: "Existing Fixture",
@@ -399,6 +403,33 @@ test("Lab screenshot readiness rejects empty files and directories", async (t) =
     .some((blocker) => blocker.includes("regular file")));
 });
 
+test("Lab screenshot readiness rejects non-image content behind a supported image path", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const source = (await fs.readFile(labPage, "utf8")).replace("const projects = [\n];", [
+    "const projects = [",
+    "  {",
+    '    name: "Invalid Screenshot Content",',
+    '    tagline: "A file that only looks like a screenshot",',
+    '    image: "/projects/invalid-content.png",',
+    '    url: "https://example.com/fixture",',
+    '    status: "Built",',
+    "    Icon: FixtureIcon,",
+    "  },",
+    "];",
+  ].join("\n"));
+  await fs.writeFile(labPage, source, "utf8");
+  await fs.writeFile(path.join(repoRoot, "public", "projects", "invalid-content.png"), "not an image", "utf8");
+
+  const assets = await client.call("validate_lab_assets", {});
+  assert.deepEqual(assets.assets.map(({ project, status, exists }) => ({ project, status, exists })), [
+    { project: "Invalid Screenshot Content", status: "invalid-image-content", exists: false },
+  ]);
+
+  const readiness = await client.call("publish_readiness_check", {});
+  assert.equal(readiness.ready, 0);
+  assert.ok(readiness.checks[0].blockers.some((blocker) => blocker.includes("does not match its PNG file extension")));
+});
+
 test("publish readiness requires each Lab thumbnail icon to be present, imported, and exported", async (t) => {
   const { repoRoot, labPage, client } = await createFixtureClient(t);
   const projects = [
@@ -418,9 +449,9 @@ test("publish readiness requires each Lab thumbnail icon to be present, imported
   const source = (await fs.readFile(labPage, "utf8")).replace("const projects = [\n];", `const projects = [\n${projects}\n];`);
   await fs.writeFile(labPage, source, "utf8");
   await Promise.all([
-    fs.writeFile(path.join(repoRoot, "public", "projects", "ready-icon.png"), "fixture", "utf8"),
-    fs.writeFile(path.join(repoRoot, "public", "projects", "unavailable-icon.png"), "fixture", "utf8"),
-    fs.writeFile(path.join(repoRoot, "public", "projects", "no-icon.png"), "fixture", "utf8"),
+    fs.writeFile(path.join(repoRoot, "public", "projects", "ready-icon.png"), TEST_PNG),
+    fs.writeFile(path.join(repoRoot, "public", "projects", "unavailable-icon.png"), TEST_PNG),
+    fs.writeFile(path.join(repoRoot, "public", "projects", "no-icon.png"), TEST_PNG),
   ]);
 
   const readiness = await client.call("publish_readiness_check", {});
@@ -474,8 +505,7 @@ test("publish readiness accepts Lab thumbnail icons exported as constants", asyn
   );
   await fs.writeFile(
     path.join(repoRoot, "public", "projects", "constant-export-fixture.png"),
-    "fixture",
-    "utf8",
+    TEST_PNG,
   );
 
   const readiness = await client.call("publish_readiness_check", {
@@ -510,7 +540,7 @@ test("staged update inventory is read-only, ordered, filterable, and never retur
     "  },",
   ].join("\n");
   await fs.writeFile(labPage, source.replace("];", `${existingCard}\n];`), "utf8");
-  await fs.writeFile(path.join(repoRoot, "public", "projects", "existing-fixture.png"), "fixture", "utf8");
+  await fs.writeFile(path.join(repoRoot, "public", "projects", "existing-fixture.png"), TEST_PNG);
 
   await client.call("stage_lab_card_update_artifact", {
     projectName: "Existing Fixture",
@@ -553,7 +583,7 @@ test("staged update inventory is read-only, ordered, filterable, and never retur
   const blocked = await client.call("list_staged_lab_card_updates", { publishReadyAfterApply: false });
   assert.equal(blocked.checked, 4);
   assert.ok(blocked.items.some((item) => item.projectName === "Existing Fixture" && item.readinessBlockers.some((blocker) => blocker.includes("Screenshot file not found"))));
-  await fs.writeFile(path.join(repoRoot, "public", "projects", "existing-fixture.png"), "fixture", "utf8");
+  await fs.writeFile(path.join(repoRoot, "public", "projects", "existing-fixture.png"), TEST_PNG);
 
   const firstPage = await client.call("list_staged_lab_card_updates", { limit: 2 });
   assert.deepEqual(firstPage.items.map((item) => item.slug), ["alpha-orphan", "beta-orphan"]);
@@ -629,7 +659,7 @@ test("staged update inventory is read-only, ordered, filterable, and never retur
   assert.deepEqual(blockedPacket.reviewFiles, []);
   assert.equal(blockedPacket.allReviewFilesExist, false);
   assert.match(blockedPacket.markdown, /## No ready staged update/);
-  await fs.writeFile(path.join(repoRoot, "public", "projects", "existing-fixture.png"), "fixture", "utf8");
+  await fs.writeFile(path.join(repoRoot, "public", "projects", "existing-fixture.png"), TEST_PNG);
 });
 
 test("controlled apply cleans up after prep rejection and successful apply", async (t) => {
@@ -664,8 +694,7 @@ test("controlled apply cleans up after prep rejection and successful apply", asy
 
   await fs.writeFile(
     path.join(repoRoot, "public", "projects", "hermetic-fixture.png"),
-    "fixture",
-    "utf8",
+    TEST_PNG,
   );
   await initializeGitFixture(repoRoot);
   const applied = await client.call("apply_staged_lab_card_patch", {
@@ -757,8 +786,7 @@ test("local route paths cannot escape the app directory", async (t) => {
   };
   await fs.writeFile(
     path.join(repoRoot, "public", "projects", "route-traversal-fixture.png"),
-    "fixture",
-    "utf8",
+    TEST_PNG,
   );
   await fs.writeFile(
     path.join(repoRoot, "portfolio-publisher-mcp", "generated", "page.tsx"),
@@ -873,7 +901,7 @@ test("controlled apply rejects contention, mismatched tokens, and replay", async
   assert.equal(mismatch.status, "token-mismatch");
   assert.equal(mismatch.applied, false);
 
-  await fs.writeFile(path.join(repoRoot, "public", "projects", "lock-fixture.png"), "fixture", "utf8");
+  await fs.writeFile(path.join(repoRoot, "public", "projects", "lock-fixture.png"), TEST_PNG);
   const applied = await client.call("apply_staged_lab_card_patch", {
     projectName,
     reviewToken: validation.reviewToken,
@@ -919,8 +947,7 @@ test("rehearsal is read-only and discard only removes the staged pair", async (t
 
   await fs.writeFile(
     path.join(repoRoot, "public", "projects", "lifecycle-fixture.png"),
-    "fixture",
-    "utf8",
+    TEST_PNG,
   );
   const ready = await client.call("rehearse_staged_lab_card_publish", { projectName });
   assert.equal(ready.rehearsalStatus, "ready");
@@ -1026,7 +1053,7 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
   const betaRoute = path.join(repoRoot, "app", "tools", "beta-fixture", "page.tsx");
   await fs.mkdir(path.dirname(betaRoute), { recursive: true });
   await Promise.all([
-    fs.writeFile(path.join(repoRoot, "public", "projects", "beta-fixture.png"), "fixture", "utf8"),
+    fs.writeFile(path.join(repoRoot, "public", "projects", "beta-fixture.png"), TEST_PNG),
     fs.writeFile(betaRoute, "export default function Page() { return null; }\n", "utf8"),
   ]);
   await Promise.all([
@@ -1323,8 +1350,7 @@ test("staged inventory is ordered and recomputes live readiness", async (t) => {
 
   await fs.writeFile(
     path.join(repoRoot, "public", "projects", "zulu-fixture.png"),
-    "fixture",
-    "utf8",
+    TEST_PNG,
   );
   const after = await client.call("list_staged_lab_card_patches", {});
   const zuluAfter = after.items.find((item) => item.slug === "zulu-fixture");
@@ -1367,8 +1393,7 @@ test("staged inventory classifies stale and invalid complete pairs", async (t) =
   });
   await fs.writeFile(
     path.join(repoRoot, "public", "projects", "stale-inventory-fixture.png"),
-    "fixture",
-    "utf8",
+    TEST_PNG,
   );
   const staleValidation = await client.call("validate_staged_lab_card_patch", {
     projectName: staleProjectName,
