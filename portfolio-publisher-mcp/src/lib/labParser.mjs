@@ -120,7 +120,17 @@ export async function getProjectAssetStatus(project) {
   }
 
   try {
-    const metadata = await fs.stat(assertSafeRead(absolute));
+    const metadata = await fs.lstat(assertSafeRead(absolute));
+    if (metadata.isSymbolicLink()) {
+      return {
+        project: project.name,
+        image: project.image,
+        status: "symlink-not-allowed",
+        exists: false,
+        file: toRepoRelative(absolute),
+        issue: "Screenshot image paths must point directly to a regular file inside the public directory; symbolic links are not allowed.",
+      };
+    }
     if (!metadata.isFile()) {
       return {
         project: project.name,

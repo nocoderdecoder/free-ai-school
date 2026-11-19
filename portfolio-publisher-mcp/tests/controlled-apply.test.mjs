@@ -369,11 +369,12 @@ test("Lab card update preview is exact, read-only, and readiness checked", async
   assert.equal(missingDiscard.status, "missing");
 });
 
-test("Lab screenshot readiness rejects empty files and directories", async (t) => {
+test("Lab screenshot readiness rejects empty files, directories, and symbolic links", async (t) => {
   const { repoRoot, labPage, client } = await createFixtureClient(t);
   const projects = [
     ["Empty Screenshot", "/projects/empty.png"],
     ["Directory Screenshot", "/projects/directory.png"],
+    ["Linked Screenshot", "/projects/linked.png"],
   ].map(([name, image]) => [
     "  {",
     `    name: \"${name}\",`,
@@ -388,11 +389,15 @@ test("Lab screenshot readiness rejects empty files and directories", async (t) =
   await fs.writeFile(labPage, source, "utf8");
   await fs.writeFile(path.join(repoRoot, "public", "projects", "empty.png"), "", "utf8");
   await fs.mkdir(path.join(repoRoot, "public", "projects", "directory.png"));
+  const outsideScreenshot = path.join(repoRoot, "outside-screenshot.png");
+  await fs.writeFile(outsideScreenshot, TEST_PNG);
+  await fs.symlink(outsideScreenshot, path.join(repoRoot, "public", "projects", "linked.png"));
 
   const assets = await client.call("validate_lab_assets", {});
   assert.deepEqual(assets.assets.map(({ project, status, exists }) => ({ project, status, exists })), [
     { project: "Empty Screenshot", status: "empty-file", exists: false },
     { project: "Directory Screenshot", status: "not-a-file", exists: false },
+    { project: "Linked Screenshot", status: "symlink-not-allowed", exists: false },
   ]);
 
   const readiness = await client.call("publish_readiness_check", {});
@@ -401,6 +406,8 @@ test("Lab screenshot readiness rejects empty files and directories", async (t) =
     .some((blocker) => blocker.includes("Screenshot image file is empty")));
   assert.ok(readiness.checks.find((check) => check.project === "Directory Screenshot")?.blockers
     .some((blocker) => blocker.includes("regular file")));
+  assert.ok(readiness.checks.find((check) => check.project === "Linked Screenshot")?.blockers
+    .some((blocker) => blocker.includes("symbolic links are not allowed")));
 });
 
 test("Lab screenshot readiness rejects non-image content behind a supported image path", async (t) => {
