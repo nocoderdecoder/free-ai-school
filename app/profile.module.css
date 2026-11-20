@@ -28,7 +28,7 @@
 .navLinks a[aria-current='page'] { font-weight: 600; }
 .main, .footer { width: min(100% - 48px, 1040px); margin: 0 auto; }
 .hero { display: grid; grid-template-columns: minmax(0, 1fr) 280px; align-items: center; gap: 72px; padding: 76px 0 64px; }
-.hero > *, .grid > *, .row > *, .background > *, .speakerProfile > * { min-width: 0; }
+.hero > *, .grid > *, .row > *, .background > * { min-width: 0; }
 .eyebrow { color: #4e6257; font-size: 1rem; font-weight: 500; }
 .title { font-size: clamp(2.25rem, 4.5vw, 3.5rem); font-weight: 500; line-height: 1.15; margin: 0 0 24px; max-width: 790px; }
 .lead { font-size: 1.125rem; line-height: 1.65; max-width: 720px; }
@@ -63,8 +63,6 @@
 .resource p { margin: 12px 0 0; }
 .muted { color: #5d685f; font-size: .875rem; }
 .bio { max-width: 760px; }
-.speakerProfile { display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 32px; align-items: start; }
-.smallPortrait { width: 128px; height: 128px; object-fit: cover; border-radius: 8px; }
 .bulletList { list-style: disc; padding-left: 20px; margin: 16px 0 0; }
 .bulletList li { padding-left: 3px; margin-bottom: 8px; }
 .footer { border-top: 1px solid #dfe4df; padding: 28px 0 36px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px 32px; }
@@ -93,8 +91,6 @@
   .rowMeta { display: flex; flex-wrap: wrap; gap: 4px 16px; }
   .rowMeta p { margin: 0; }
   .pageHeader { padding: 36px 0 28px; }
-  .speakerProfile { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-  .smallPortrait { width: 112px; height: 112px; }
   .contactSection { padding: 28px 0 32px; }
 }
 @media (max-width: 350px) {

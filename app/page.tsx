@@ -28,7 +28,6 @@ export default function Home() {
           </p>
           <div className={s.actions}>
             <a className={s.button} href="/work">View my work</a>
-            <a className={s.secondaryButton} href="/speaking">Speaking topics</a>
           </div>
           <ContactLinks />
         </div>
@@ -67,10 +66,10 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <section className={s.contactSection} aria-labelledby="get-in-touch">
+      <section id="contact" className={s.contactSection} aria-labelledby="get-in-touch">
         <div>
           <h2 id="get-in-touch" className={s.sectionHeading}>Get in touch</h2>
-          <p>For speaking invitations, professional discussions, or collaboration.</p>
+          <p>For professional discussions and collaboration.</p>
         </div>
         <a className={s.textLink} href={`mailto:${publicProfile.email}`}>{publicProfile.email}</a>
       </section>

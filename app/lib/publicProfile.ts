@@ -11,7 +11,6 @@ export const publicProfile = {
   siteUrl: 'https://www.anshul.ai',
   email: 'anshulgupta1512@gmail.com',
   headshot: '/images/anshul-gupta.jpg',
-  speakerBio: 'Anshul Gupta is a Senior Associate in Global Strategy and Operations at Google. His work covers go-to-market strategy, business analytics, and applied AI, from business requirements to delivery and adoption. He previously worked at Unilever and GSK. He holds an MBA from Northwestern University’s Kellogg School of Management, where he completed strategy consulting projects for Uber, MATTER, and early-stage startups. He speaks in a personal capacity.',
   linkedIn: 'https://www.linkedin.com/in/anshul-gupta1/',
 }
 export const careerTimeline = [

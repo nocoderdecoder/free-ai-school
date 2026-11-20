@@ -24,11 +24,6 @@ const experience = [
     title: 'Reporting that reflects the business',
     description: 'At Google, I define business metrics and reporting requirements, work with engineering on analytical tools, and help teams test and adopt the resulting workflows. This includes clarifying what a measure means and how it should be compared.',
   },
-  {
-    category: 'Applied AI',
-    title: 'From business need to a working tool',
-    description: 'I translate commercial questions into requirements for AI-assisted analysis. I work with engineering to develop the experience, assess the quality of its answers, and support its use in business workflows.',
-  },
 ]
 
 const consulting = [
@@ -74,6 +69,16 @@ export default function Work() {
             </article>
           ))}
         </div>
+      </section>
+
+      <section id="ai-for-gtm" className={s.section} aria-labelledby="ai-for-gtm-heading">
+        <h2 id="ai-for-gtm-heading" className={s.sectionHeading}>AI for GTM</h2>
+        <p className={s.bio}>
+          My focus is on practical uses of AI in commercial work, including business
+          analysis, reporting, and routine workflows. I define business needs, shape
+          requirements with engineering, test the resulting tools, and help teams
+          put them into use.
+        </p>
       </section>
 
       <section className={s.section} aria-labelledby="consulting-heading">

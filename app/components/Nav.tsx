@@ -6,7 +6,6 @@ import s from '../profile.module.css'
 const links = [
   { label: 'Home', href: '/' },
   { label: 'Work', href: '/work' },
-  { label: 'Speaking', href: '/speaking' },
 ]
 
 // Retain the prop for older resource pages that share this navigation.
