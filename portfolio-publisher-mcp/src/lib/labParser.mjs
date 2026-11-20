@@ -5,14 +5,94 @@ import { assertSafeRead } from "./fileSafety.mjs";
 
 const FIELD_PATTERN = /(\w+):\s*["']([^"']*)["']/g;
 const ICON_PATTERN = /\bIcon:\s*([A-Za-z_$][\w$]*)/;
+const MAX_VALIDATED_IMAGE_BYTES = 20 * 1024 * 1024;
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const IMAGE_FORMATS = new Map([
-  [".png", { label: "PNG", matches: (header) => header.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) }],
-  [".jpg", { label: "JPEG", matches: (header) => header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff }],
-  [".jpeg", { label: "JPEG", matches: (header) => header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff }],
-  [".gif", { label: "GIF", matches: (header) => header.subarray(0, 6).toString("ascii") === "GIF87a" || header.subarray(0, 6).toString("ascii") === "GIF89a" }],
-  [".webp", { label: "WebP", matches: (header) => header.subarray(0, 4).toString("ascii") === "RIFF" && header.subarray(8, 12).toString("ascii") === "WEBP" }],
-  [".avif", { label: "AVIF", matches: (header) => header.subarray(4, 8).toString("ascii") === "ftyp" && header.subarray(8, 12).toString("ascii").startsWith("avi") }],
+  [".png", { label: "PNG", matches: isValidPng }],
+  [".jpg", { label: "JPEG", matches: isValidJpeg }],
+  [".jpeg", { label: "JPEG", matches: isValidJpeg }],
+  [".gif", { label: "GIF", matches: isValidGif }],
+  [".webp", { label: "WebP", matches: isValidWebp }],
+  [".avif", { label: "AVIF", matches: isValidAvif }],
 ]);
+
+function isValidPng(buffer) {
+  if (buffer.length < 45 || !buffer.subarray(0, 8).equals(PNG_SIGNATURE)) return false;
+  let offset = 8;
+  let sawIhdr = false;
+  let sawIend = false;
+  while (offset + 12 <= buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const chunkEnd = offset + 12 + length;
+    if (chunkEnd > buffer.length) return false;
+    const type = buffer.subarray(offset + 4, offset + 8);
+    const data = buffer.subarray(offset + 8, offset + 8 + length);
+    const typeName = type.toString("ascii");
+    if (!sawIhdr) {
+      if (typeName !== "IHDR" || length !== 13 || data.readUInt32BE(0) === 0 || data.readUInt32BE(4) === 0) return false;
+      sawIhdr = true;
+    }
+    if (typeName === "IEND") {
+      if (length !== 0 || chunkEnd !== buffer.length) return false;
+      sawIend = true;
+      break;
+    }
+    offset = chunkEnd;
+  }
+  return sawIhdr && sawIend;
+}
+
+function isValidJpeg(buffer) {
+  if (buffer.length < 8 || buffer[0] !== 0xff || buffer[1] !== 0xd8 || buffer.at(-2) !== 0xff || buffer.at(-1) !== 0xd9) return false;
+  let offset = 2;
+  let sawFrame = false;
+  let sawScan = false;
+  while (offset + 4 <= buffer.length - 2) {
+    if (buffer[offset] !== 0xff) {
+      if (!sawScan) return false;
+      offset += 1;
+      continue;
+    }
+    while (buffer[offset] === 0xff) offset += 1;
+    const marker = buffer[offset++];
+    if (marker === 0x00 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+    if (marker === 0xd9) return sawFrame && sawScan;
+    if (offset + 2 > buffer.length) return false;
+    const length = buffer.readUInt16BE(offset);
+    if (length < 2 || offset + length > buffer.length) return false;
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+      if (length < 8 || buffer.readUInt16BE(offset + 3) === 0 || buffer.readUInt16BE(offset + 5) === 0) return false;
+      sawFrame = true;
+    }
+    if (marker === 0xda) sawScan = true;
+    offset += length;
+  }
+  return sawFrame && sawScan;
+}
+
+function isValidGif(buffer) {
+  return buffer.length >= 13
+    && (buffer.subarray(0, 6).toString("ascii") === "GIF87a" || buffer.subarray(0, 6).toString("ascii") === "GIF89a")
+    && buffer.readUInt16LE(6) > 0
+    && buffer.readUInt16LE(8) > 0
+    && buffer.at(-1) === 0x3b;
+}
+
+function isValidWebp(buffer) {
+  return buffer.length >= 12
+    && buffer.subarray(0, 4).toString("ascii") === "RIFF"
+    && buffer.subarray(8, 12).toString("ascii") === "WEBP"
+    && buffer.readUInt32LE(4) + 8 === buffer.length;
+}
+
+function isValidAvif(buffer) {
+  if (buffer.length < 16 || buffer.subarray(4, 8).toString("ascii") !== "ftyp") return false;
+  const boxLength = buffer.readUInt32BE(0);
+  if (boxLength < 16 || boxLength > buffer.length) return false;
+  const brands = [];
+  for (let offset = 8; offset + 4 <= boxLength; offset += 4) brands.push(buffer.subarray(offset, offset + 4).toString("ascii"));
+  return brands.some((brand) => brand === "avif" || brand === "avis");
+}
 
 async function getImageContentStatus(absolute, imagePath) {
   const extension = path.extname(imagePath).toLowerCase();
@@ -25,18 +105,19 @@ async function getImageContentStatus(absolute, imagePath) {
     };
   }
 
-  const handle = await fs.open(assertSafeRead(absolute), "r");
-  try {
-    const header = Buffer.alloc(16);
-    const { bytesRead } = await handle.read(header, 0, header.length, 0);
-    if (format.matches(header.subarray(0, bytesRead))) return { status: "ok" };
-  } finally {
-    await handle.close();
+  const info = await fs.stat(assertSafeRead(absolute));
+  if (info.size > MAX_VALIDATED_IMAGE_BYTES) {
+    return {
+      status: "image-too-large-to-validate",
+      issue: "Screenshot image exceeds the 20 MB local validation limit; optimize it before publishing.",
+    };
   }
+  const contents = await fs.readFile(assertSafeRead(absolute));
+  if (format.matches(contents)) return { status: "ok" };
 
   return {
     status: "invalid-image-content",
-    issue: `Screenshot image content does not match its ${format.label} file extension; replace it with a rendered ${format.label} image before publishing.`,
+    issue: `Screenshot image content does not match its ${format.label} file extension or valid container structure; replace it with a rendered ${format.label} image before publishing.`,
   };
 }
 

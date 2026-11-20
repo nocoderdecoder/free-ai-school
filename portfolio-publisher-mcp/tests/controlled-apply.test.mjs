@@ -437,6 +437,44 @@ test("Lab screenshot readiness rejects non-image content behind a supported imag
   assert.ok(readiness.checks[0].blockers.some((blocker) => blocker.includes("does not match its PNG file extension")));
 });
 
+test("Lab screenshot readiness rejects truncated images with a valid file signature", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const source = await fs.readFile(labPage, "utf8");
+  await fs.writeFile(
+    labPage,
+    source.replace("const projects = [\n];", [
+      "const projects = [",
+      "  {",
+      '    name: "Truncated Screenshot",',
+      '    tagline: "Has a PNG signature but no valid PNG structure",',
+      '    image: "/projects/truncated.png",',
+      '    url: "/tools/truncated",',
+      '    status: "Built",',
+      "    Icon: FixtureIcon,",
+      "  },",
+      "];",
+    ].join("\n")),
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "public", "projects", "truncated.png"),
+    Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]),
+  );
+
+  const assets = await client.call("validate_lab_assets", {});
+  assert.deepEqual(assets.assets, [
+    {
+      project: "Truncated Screenshot",
+      image: "/projects/truncated.png",
+      status: "invalid-image-content",
+      exists: false,
+      file: "public/projects/truncated.png",
+      size: 40,
+      issue: "Screenshot image content does not match its PNG file extension or valid container structure; replace it with a rendered PNG image before publishing.",
+    },
+  ]);
+});
+
 test("publish readiness requires each Lab thumbnail icon to be present, imported, and exported", async (t) => {
   const { repoRoot, labPage, client } = await createFixtureClient(t);
   const projects = [
