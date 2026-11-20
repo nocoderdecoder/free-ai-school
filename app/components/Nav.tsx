@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 
 const LIGHT_NAV_LINKS = [
+  { label: 'Work', href: '/work' },
   { label: 'Projects', href: '/projects' },
   { label: 'Writing',  href: '/writing' },
   { label: 'About',    href: '/about' },
@@ -92,6 +93,9 @@ export function Nav({ variant = 'light' }: { variant?: 'light' }) {
                 {link.label}
               </a>
             ))}
+            <a href="/contact" onClick={() => setMobileOpen(false)} className="py-3 text-xl font-medium border-b border-[#E8E5E0] text-[#222]">
+              Contact
+            </a>
           </div>
         </div>
       )}

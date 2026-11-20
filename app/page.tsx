@@ -1,21 +1,22 @@
 import type { Metadata } from 'next'
 import { createClient } from 'next-sanity'
 import { Nav } from './components/Nav'
+import { publicProfile } from './lib/publicProfile'
 import { JsonLd, personSchema, organizationSchema } from './components/JsonLd'
 
 export const metadata: Metadata = {
-  title: 'Anshul Gupta — AI Builder & GTM Strategist',
-  description: 'GTM Strategy at Google. Kellogg MBA. I build AI products without an engineering degree and teach what I learn — all of it, openly.',
+  title: { absolute: publicProfile.pageTitle },
+  description: publicProfile.shortBio,
   alternates: { canonical: 'https://anshul.ai' },
   openGraph: {
-    title: 'Anshul Gupta — AI Builder & GTM Strategist',
-    description: 'GTM Strategy at Google. Kellogg MBA. I build AI products and teach what I learn.',
+    title: publicProfile.pageTitle,
+    description: publicProfile.shortBio,
     url: 'https://anshul.ai',
     type: 'website',
   },
   twitter: {
-    title: 'Anshul Gupta — AI Builder & GTM Strategist',
-    description: 'GTM Strategy at Google. Kellogg MBA. I build AI products and teach what I learn.',
+    title: publicProfile.pageTitle,
+    description: publicProfile.shortBio,
   },
 }
 
@@ -37,14 +38,14 @@ function fmtDate(iso: string) {
 const CREDENTIALS = [
   { org: 'Google',      role: 'GTM Strategy & BI' },
   { org: 'Kellogg',     role: 'Northwestern MBA'  },
-  { org: 'Previously',  role: 'Uber · HUL'        },
+  { org: 'Previously',  role: 'HUL / GSK'         },
 ]
 
 const CARDS = [
   {
     tag: 'Education',
     title: 'Free AI School',
-    desc: '99 articles. 5 modules. A complete AI curriculum for business professionals — no prerequisites required.',
+    desc: 'Free guides to AI concepts, tools, and business applications for professionals without an engineering background.',
     cta: 'Start learning →',
     href: '/learn',
     passive: false,
@@ -61,18 +62,18 @@ const CARDS = [
   {
     tag: 'Products',
     title: 'AI Tools',
-    desc: 'GTM Playbook, AI Readiness Assessment, ROI Calculator — practical tools built on Claude and shipped solo.',
+    desc: 'GTM playbooks, AI readiness assessments, ROI estimates, and a personal learning compass.',
     cta: 'Try the tools →',
-    href: '/projects',
+    href: '/tools',
     passive: false,
   },
   {
     tag: 'Professional',
     title: 'At Google',
-    desc: 'AI-powered competitive dashboards used by 300+ professionals. GTM strategy at one of the world\'s most advanced AI organisations.',
-    cta: 'Not public',
-    href: null,
-    passive: true,
+    desc: 'Commercial strategy, business intelligence, and evaluation of AI-assisted analysis for the Pixel business.',
+    cta: 'Professional background',
+    href: '/work',
+    passive: false,
   },
 ]
 
@@ -122,7 +123,7 @@ export default async function Home() {
         </h1>
 
         <p style={{ fontSize: '17px', lineHeight: 1.7, color: 'var(--ed-text-muted)', maxWidth: '520px', marginBottom: '40px' }}>
-          GTM Strategy at Google. Kellogg MBA. I build AI products without an engineering degree and teach what I learn — all of it, openly.
+          {publicProfile.shortBio}
         </p>
 
         {/* CTAs */}
@@ -287,8 +288,8 @@ export default async function Home() {
           </div>
         ) : (
           <p style={{ fontSize: '14px', color: 'var(--ed-text-muted)', paddingTop: '8px' }}>
-            Essays in progress.{' '}
-            <a href="/writing" style={{ color: 'var(--ed-text-secondary)', fontWeight: 500 }}>See what's coming →</a>
+            Longer essays are in development. Practical guides are available in the AI School.{' '}
+            <a href="/learn" style={{ color: 'var(--ed-text-secondary)', fontWeight: 500 }}>Explore learning resources</a>
           </p>
         )}
       </section>

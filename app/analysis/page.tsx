@@ -4,10 +4,10 @@ import { createClient } from 'next-sanity'
 
 export const metadata: Metadata = {
   title: 'AI Analysis',
-  description: 'Daily AI trending articles and major deals & events — analysed for business professionals.',
+  description: 'AI industry articles, deals, and events for business professionals.',
   openGraph: {
-    title: 'AI Analysis — Daily Trends, Deals & Events',
-    description: 'Daily AI trending articles and major deals & events — analysed for business professionals.',
+    title: 'AI Analysis | Trends, Deals & Events',
+    description: 'AI industry articles, deals, and events for business professionals.',
     url: 'https://anshul.ai/analysis',
   },
 }
@@ -92,7 +92,7 @@ export default async function Analysis() {
           AI trends, deals<br />& events.
         </h1>
         <p className="text-xl leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>
-          Daily AI analysis and coverage of major industry moves — written for business professionals, not researchers.
+          An archive of AI industry developments, deals, and events for business professionals. Check publication dates and original sources for current information.
         </p>
       </section>
 

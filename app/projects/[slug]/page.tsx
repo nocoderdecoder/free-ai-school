@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { Nav } from '../../components/Nav'
 import { createClient } from 'next-sanity'
 import { PortableText } from '@portabletext/react'
@@ -18,7 +18,7 @@ const client = createClient({
 export async function generateStaticParams() {
   try {
     const projects = await client.fetch(
-      `*[_type == "project" && defined(slug.current)] { "slug": slug.current }`
+      `*[_type == "project" && defined(slug.current) && !(slug.current in ["anshul-ai-platform", "daily-ai-news-pipeline"])] { "slug": slug.current }`
     )
     return (projects ?? []).map((p: { slug: string }) => ({ slug: p.slug }))
   } catch {
@@ -28,6 +28,7 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
+  if (['anshul-ai-platform', 'daily-ai-news-pipeline'].includes(slug)) redirect('/projects')
   try {
     const project = await client.fetch(
       `*[_type == "project" && slug.current == $slug][0] { name, tagline, excerpt }`,
@@ -61,6 +62,7 @@ const statusColor: Record<string, string> = {
 
 export default async function ProjectDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
+  if (['anshul-ai-platform', 'daily-ai-news-pipeline'].includes(slug)) redirect('/projects')
 
   let project: any = null
   try {

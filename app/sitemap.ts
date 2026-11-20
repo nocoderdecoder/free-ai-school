@@ -47,7 +47,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .catch(() => [])
 
   const projects = await client
-    .fetch(`*[_type == "project" && defined(slug.current)] { "slug": slug.current, _updatedAt }`)
+    .fetch(`*[_type == "project" && defined(slug.current) && !(slug.current in ["anshul-ai-platform", "daily-ai-news-pipeline"])] { "slug": slug.current, _updatedAt }`)
     .catch(() => [])
 
   return [

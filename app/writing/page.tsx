@@ -27,7 +27,7 @@ const UPCOMING_TOPICS = [
     preview: "Most organisations are asking 'what can AI do?' The question that produces results is different.",
   },
   {
-    title: "What I learned building 6 AI products without writing code",
+    title: "What I learned building practical AI tools",
     preview: "The tools changed. The thinking required did not. Here is what actually matters when you build.",
   },
   {
@@ -39,11 +39,11 @@ const UPCOMING_TOPICS = [
     preview: "The questions that expose whether a product is real, the red flags that do not show up in demos.",
   },
   {
-    title: "How I built a 94-article AI school without writing content manually",
+    title: "Building AI learning resources with AI assistance",
     preview: "The automation pipeline, the tools, the decisions — and what it means for content creation at scale.",
   },
   {
-    title: "The real ROI of AI in business — a framework",
+    title: "Measuring the value of AI in business",
     preview: "Executives want numbers. Here is how I think about measuring AI impact when the outcomes are messy.",
   },
 ]

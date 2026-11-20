@@ -1,3 +1,5 @@
+import { publicProfile } from '../lib/publicProfile'
+
 /**
  * Reusable JSON-LD structured data injector. Renders a <script
  * type="application/ld+json"> tag with the given schema.org object. Safe to
@@ -8,7 +10,7 @@ export function JsonLd({ data }: { data: Record<string, unknown> }) {
     <script
       type="application/ld+json"
       // eslint-disable-next-line react/no-danger
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, '\\u003c') }}
     />
   )
 }
@@ -19,7 +21,7 @@ export function personSchema() {
     '@type': 'Person',
     name: 'Anshul Gupta',
     url: 'https://anshul.ai',
-    jobTitle: 'GTM Strategy Lead',
+    jobTitle: publicProfile.jobTitle,
     worksFor: {
       '@type': 'Organization',
       name: 'Google',
@@ -29,9 +31,9 @@ export function personSchema() {
       name: 'Kellogg School of Management',
     },
     description:
-      'GTM Strategy at Google. Kellogg MBA. Builds AI products without an engineering degree and teaches practical AI to business professionals.',
+      publicProfile.description,
     sameAs: [
-      'https://www.linkedin.com/in/anshulguptaa/',
+      publicProfile.linkedIn,
     ],
   }
 }

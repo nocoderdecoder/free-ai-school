@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Instrument_Serif, DM_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { CustomCursor } from "./components/CustomCursor";
 import "./globals.css";
+import { publicProfile } from "./lib/publicProfile";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,18 +30,14 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://anshul.ai'),
-  verification: {
-    // TODO: replace with real Google Search Console verification token from search.google.com/search-console
-    google: 'PLACEHOLDER_VERIFICATION_CODE',
-  },
   title: {
-    default: 'Anshul Gupta — AI Builder & Educator',
+    default: publicProfile.pageTitle,
     template: '%s | Anshul Gupta',
   },
-  description: 'GTM Strategy at Google. Kellogg MBA. I build AI products and teach practical AI to business professionals. No engineering background required.',
+  description: publicProfile.shortBio,
   openGraph: {
-    title: 'Anshul Gupta | AI Strategy & GTM Leader',
-    description: 'Building AI tools and strategies for business professionals',
+    title: publicProfile.pageTitle,
+    description: publicProfile.shortBio,
     url: 'https://anshul.ai',
     siteName: 'Anshul Gupta',
     type: 'website',
@@ -48,7 +45,6 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    site: '@anshulai',
   },
   robots: {
     index: true,

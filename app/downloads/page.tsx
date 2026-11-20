@@ -94,7 +94,7 @@ export default function Downloads() {
 
                         <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--ed-border)' }}>
                           {resource.fileSize ? (
-                            <span className="text-xs" style={{ color: 'var(--ed-text-light)' }}>{resource.fileSize} · PDF</span>
+                            <span className="text-xs" style={{ color: 'var(--ed-text-light)' }}>{resource.fileSize === 'PDF' ? 'PDF' : `${resource.fileSize} · PDF`}</span>
                           ) : (
                             <span className="text-xs" style={{ color: 'var(--ed-text-light)' }}>PDF</span>
                           )}

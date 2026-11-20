@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 
 export const runtime = 'edge'
-export const alt = 'Anshul Gupta — AI Strategy & GTM Leader'
+export const alt = 'Anshul Gupta | Applied AI & GTM Strategy'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
@@ -71,7 +71,7 @@ export default async function Image() {
               letterSpacing: '-0.5px',
             }}
           >
-            AI Strategy &amp; GTM Leader
+            Applied AI &amp; GTM Strategy
           </div>
           <div
             style={{

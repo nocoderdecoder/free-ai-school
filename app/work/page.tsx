@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Nav } from '../components/Nav'
+import { professionalWork } from '../lib/publicProfile'
 
 export const metadata: Metadata = {
   title: 'Work',
@@ -11,32 +12,7 @@ export const metadata: Metadata = {
   },
 }
 
-const accomplishments = [
-  {
-    org: "Google",
-    title: "AI-Powered Competitive Intelligence Dashboard",
-    description: "Led development of an AI dashboard enabling global teams to analyse consumer ratings and reviews at scale, driving data-informed business decisions across markets.",
-    tags: ["AI", "GTM Strategy", "Business Intelligence"],
-  },
-  {
-    org: "Google",
-    title: "AI Analytics Dashboard — 300+ Users",
-    description: "Built an AI-powered analytics dashboard adopted by 300+ professionals year-to-date, transforming how teams access and act on business intelligence.",
-    tags: ["AI", "Product Development", "Adoption"],
-  },
-  {
-    org: "Hindustan Unilever",
-    title: "National GTM Transformation — GSK Acquisition",
-    description: "Led national-scale change management for Hindustan Unilever's acquisition of GSK Consumer Healthcare. Unified sales teams, distributors, order processing tools, and analytics systems. Designed new GTM models during the pandemic and built incentive structures for the integrated sales force.",
-    tags: ["Change Management", "GTM", "Digital Transformation"],
-  },
-  {
-    org: "Kellogg / Uber",
-    title: "Shuttle Service Launch Strategy",
-    description: "Developed go-to-market strategy for Uber's shuttle service launch during a 3-month consulting engagement through Kellogg School of Management.",
-    tags: ["GTM Strategy", "Consulting", "Product Launch"],
-  },
-]
+const accomplishments = professionalWork
 
 export default function Work() {
   return (
@@ -49,7 +25,7 @@ export default function Work() {
           Professional<br />impact.
         </h1>
         <p className="text-xl leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>
-          AI strategy, digital transformation, and GTM leadership — applying technology to business problems at national and global scale.
+          Selected work in commercial strategy, business analysis, and applied AI across Google, consumer goods, and graduate client projects.
         </p>
       </section>
 

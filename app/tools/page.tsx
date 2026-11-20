@@ -4,10 +4,10 @@ import { ScrollSection } from '../components/ScrollSection'
 
 export const metadata: Metadata = {
   title: 'AI Tools for Business Professionals',
-  description: 'Practical AI tools built on Claude — GTM playbooks, readiness assessments, ROI calculators. Free to use.',
+  description: 'Practical tools for AI learning, GTM planning, readiness assessments, and ROI estimates. Free to use.',
   openGraph: {
     title: 'AI Tools — anshul.ai',
-    description: 'Practical AI tools built on Claude — GTM playbooks, readiness assessments, ROI calculators.',
+    description: 'Practical tools for AI learning, GTM planning, readiness assessments, and ROI estimates.',
     url: 'https://anshul.ai/tools',
   },
 }
@@ -30,7 +30,7 @@ const TOOLS = [
   {
     slug: 'gtm-playbook',
     name: 'GTM Playbook Generator',
-    tagline: 'Describe your product and target market. Get a tailored go-to-market strategy in 60 seconds.',
+    tagline: 'Describe your product and target market. Get an AI-generated go-to-market planning draft.',
     status: 'Live' as const,
     icon: '🚀',
   },
@@ -65,7 +65,7 @@ const TOOLS = [
   {
     slug: 'competitive-analysis',
     name: 'Competitive Analysis Generator',
-    tagline: 'Enter your product and a competitor. Get a sharp competitive brief with battle card talking points.',
+    tagline: 'Enter your product and a competitor. Get an AI-generated competitive brief to review and validate.',
     status: 'Live' as const,
     icon: '⚔️',
   },
@@ -116,7 +116,7 @@ export default function Tools() {
         <p className="section-label mb-4" style={{ color: 'var(--ed-text-faint)' }}>Tools</p>
         <h1 className="heading-page mb-6" style={{fontFamily: 'var(--font-serif)', fontWeight: 400, color: 'var(--ed-text-dark)'}}>AI tools for business professionals.</h1>
         <p className="text-xl leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>
-          Practical tools built on Claude. Free to use. No account required.
+          Practical tools for AI learning and business workflows. Free to use. No account required.
         </p>
       </section>
 

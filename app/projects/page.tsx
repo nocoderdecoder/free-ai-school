@@ -4,10 +4,10 @@ import { createClient } from 'next-sanity'
 
 export const metadata: Metadata = {
   title: 'Projects',
-  description: 'Real products, platforms, and automations — built at the intersection of AI and business strategy, without a traditional engineering background.',
+  description: 'Independent AI tools and learning projects, with prototypes labeled separately.',
   openGraph: {
     title: 'Projects — Things I Have Built with AI',
-    description: 'Real products, platforms, and automations — built at the intersection of AI and business strategy, without a traditional engineering background.',
+    description: 'Independent AI tools and learning projects, with prototypes labeled separately.',
     url: 'https://anshul.ai/projects',
   },
 }
@@ -53,24 +53,19 @@ const STATIC_PROJECTS: Project[] = [
     status: "Live",
   },
   {
-    name: "AI News → LinkedIn Pipeline",
-    tagline: "Automated content from signal to draft",
-    status: "Running",
-  },
-  {
     name: "Competitive Intelligence Scraper",
-    tagline: "Competitor tracking for strategy teams",
-    status: "Internal",
+    tagline: "Independent competitor-tracking prototype",
+    status: "Prototype",
   },
   {
     name: "HR Assistant Chatbot",
-    tagline: "RAG-based answers from internal docs",
-    status: "Demo",
+    tagline: "Independent document Q&A prototype",
+    status: "Prototype",
   },
   {
     name: "CV Tailoring System",
-    tagline: "Job-description-aware resume rewriting",
-    status: "Built",
+    tagline: "Personal resume-tailoring prototype",
+    status: "Prototype",
   },
 ]
 
@@ -165,7 +160,10 @@ export default async function Projects() {
       }`
     )
     const raw = sanityProjects?.length > 0 ? sanityProjects : STATIC_PROJECTS
-    projects = raw.filter((p: Project) => !HIDDEN_PROJECTS.has(p.name))
+    projects = raw.filter((p: Project) => !HIDDEN_PROJECTS.has(p.name)).map((p: Project) => {
+      const reviewed = STATIC_PROJECTS.find((item) => item.name === p.name)
+      return reviewed ? { ...p, tagline: reviewed.tagline, status: reviewed.status } : p
+    })
   } catch {
     projects = STATIC_PROJECTS.filter((p) => !HIDDEN_PROJECTS.has(p.name))
   }
@@ -178,7 +176,7 @@ export default async function Projects() {
         <p className="section-label mb-4" style={{ color: 'var(--ed-text-faint)' }}>Projects</p>
         <h1 className="mb-6 text-5xl leading-tight" style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, color: 'var(--ed-text-dark)' }}>Things I have built with AI.</h1>
         <p className="text-xl leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>
-          Real products, platforms, and automations — built at the intersection of AI and business strategy, without a traditional engineering background.
+          Independent AI tools and learning projects, with prototypes labeled separately.
         </p>
       </section>
 
