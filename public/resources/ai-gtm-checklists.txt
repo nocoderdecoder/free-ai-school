@@ -1,0 +1,32 @@
+PRACTICAL AI AND GTM CHECKLISTS
+Anshul Gupta | anshul.ai
+Original public resources. Fictional examples. No employer materials.
+
+Correct numbers can still produce a wrong answer.
+[ ] Record the source rows and expected calculation.
+[ ] Define when to clarify or abstain.
+[ ] Label error severity, not only pass or fail.
+[ ] Keep a holdout set separate from development examples.
+[ ] Re-run the full suite after a change.
+[ ] Record model, configuration, date, cost, and response time.
+Read: https://anshul.ai/writing/evaluating-a-commercial-ai-analyst
+
+What happens after the time is saved?
+[ ] Define an eligible task and its quality threshold.
+[ ] Measure the full workflow before introducing AI.
+[ ] Include review and correction time.
+[ ] Track recurring use with an explicit denominator.
+[ ] Separate recovered capacity from realized savings.
+[ ] Assign an owner to one downstream outcome.
+[ ] Record competing explanations and unintended effects.
+Read: https://anshul.ai/writing/from-ai-time-saved-to-business-value
+
+Turn a vague GTM problem into a program people can run.
+[ ] Define the customer segment, event, and observation window.
+[ ] Check data coverage and cohort maturity.
+[ ] Name the hypothesis and what would disprove it.
+[ ] Compare options using the same denominator.
+[ ] Assign an accountable owner and dependencies.
+[ ] Define a primary outcome and a quality guardrail.
+[ ] Set a review date and expansion or stop criteria.
+Read: https://anshul.ai/writing/turning-a-gtm-problem-into-a-program

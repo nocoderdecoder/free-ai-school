@@ -1,198 +1,104 @@
-import type { Metadata } from 'next'
-import { Nav } from '../components/Nav'
-import { createClient } from 'next-sanity'
-
+import type { Metadata } from "next";
+import { Shell, PageIntro, DemoNote } from "../components/portfolio/Shell";
 export const metadata: Metadata = {
-  title: 'Projects',
-  description: 'Real products, platforms, and automations — built at the intersection of AI and business strategy, without a traditional engineering background.',
-  openGraph: {
-    title: 'Projects — Things I Have Built with AI',
-    description: 'Real products, platforms, and automations — built at the intersection of AI and business strategy, without a traditional engineering background.',
-    url: 'https://anshul.ai/projects',
-  },
-}
-
-export const revalidate = 3600
-
-const client = createClient({
-  projectId: '8w4exnl4',
-  dataset: 'production',
-  apiVersion: '2024-01-01',
-  useCdn: true,
-})
-
-type Project = {
-  name: string
-  tagline: string
-  slug?: string
-  url?: string
-  status: string
-  image?: string
-  excerpt?: string
-  impact?: string
-  tools?: string[]
-  featured?: boolean
-}
-
-const HIDDEN_PROJECTS = new Set([
-  "anshul.ai Platform",
-  "Daily AI News Pipeline",
-])
-
-const STATIC_PROJECTS: Project[] = [
-  {
-    name: "PromptGrade",
-    tagline: "AI prompt scoring and rewriting",
-    url: "https://ratemyprompt.pro",
-    status: "Live",
-  },
-  {
-    name: "Speaking Speed Tester",
-    tagline: "Real-time words-per-minute measurement",
-    url: "/tools/speaking-speed",
-    status: "Live",
-  },
-  {
-    name: "AI News → LinkedIn Pipeline",
-    tagline: "Automated content from signal to draft",
-    status: "Running",
-  },
-  {
-    name: "Competitive Intelligence Scraper",
-    tagline: "Competitor tracking for strategy teams",
-    status: "Internal",
-  },
-  {
-    name: "HR Assistant Chatbot",
-    tagline: "RAG-based answers from internal docs",
-    status: "Demo",
-  },
-  {
-    name: "CV Tailoring System",
-    tagline: "Job-description-aware resume rewriting",
-    status: "Built",
-  },
-]
-
-const statusColor: Record<string, string> = {
-  Live:     "#2E7D4F",
-  Running:  "#3B5BA9",
-  Internal: "#B45309",
-  Demo:     "#7C3AED",
-  Built:    "var(--ed-text-light)",
-}
-
-function ProjectCard({ project }: { project: Project }) {
-  const isExternalUrl = project.url?.startsWith('http')
-  const hasDetailPage = !!project.slug
-  const href = hasDetailPage ? `/projects/${project.slug}` : (project.url ?? '')
-  const dot = <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ background: statusColor[project.status] ?? 'var(--ed-text-light)' }} />
-
-  const inner = project.image ? (
-    <>
-      <div className="relative w-full aspect-video overflow-hidden" style={{ background: 'var(--ed-card-hover)' }}>
-        <img
-          src={project.image}
-          alt={project.name}
-          className="w-full h-full object-cover object-top group-hover:scale-[1.03] transition duration-500"
-        />
-        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 backdrop-blur-sm px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.85)' }}>
-          {dot}
-          <span className="text-[10px]" style={{ color: 'var(--ed-text-muted)' }}>{project.status}</span>
-        </div>
-      </div>
-      <div className="p-4">
-        <h2 className="font-semibold text-sm mb-1" style={{ color: 'var(--ed-text)' }}>{project.name}</h2>
-        <p className="text-xs leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>{project.tagline}</p>
-        {project.impact && (
-          <p className="text-xs mt-2 font-medium" style={{ color: '#2E7D4F' }}>{project.impact}</p>
-        )}
-      </div>
-    </>
-  ) : (
-    <div className="p-5 flex flex-col h-full" style={{ minHeight: '140px' }}>
-      <div className="flex items-center gap-1.5 mb-auto">
-        {dot}
-        <span className="text-[10px] font-medium" style={{ color: 'var(--ed-text-light)' }}>{project.status}</span>
-      </div>
-      <div className="mt-4">
-        <h2 className="font-semibold text-sm mb-1.5 leading-snug" style={{ color: 'var(--ed-text)' }}>{project.name}</h2>
-        <p className="text-xs leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>{project.tagline}</p>
-        {project.impact && (
-          <p className="text-xs mt-2 font-medium" style={{ color: '#2E7D4F' }}>{project.impact}</p>
-        )}
-      </div>
-    </div>
-  )
-
-  const shared = "block rounded-xl overflow-hidden transition group ed-list-card card-hover"
-  const sharedStyle = { background: 'var(--ed-card-warm)', borderRadius: '14px' }
-
-  if (href) {
-    return (
-      <a
-        href={href}
-        target={isExternalUrl && !hasDetailPage ? '_blank' : undefined}
-        rel={isExternalUrl && !hasDetailPage ? 'noopener noreferrer' : undefined}
-        data-cursor="View"
-        className={shared}
-        style={sharedStyle}
-      >
-        {inner}
-      </a>
-    )
-  }
-
-  return <div className={shared} style={sharedStyle}>{inner}</div>
-}
-
-export default async function Projects() {
-  let projects: Project[] = []
-
-  try {
-    const sanityProjects = await client.fetch(
-      `*[_type == "project"] | order(featured desc, _createdAt asc) {
-        name,
-        "slug": slug.current,
-        tagline,
-        status,
-        featured,
-        url,
-        impact,
-        tools,
-        excerpt,
-        "image": coverImage.asset->url,
-      }`
-    )
-    const raw = sanityProjects?.length > 0 ? sanityProjects : STATIC_PROJECTS
-    projects = raw.filter((p: Project) => !HIDDEN_PROJECTS.has(p.name))
-  } catch {
-    projects = STATIC_PROJECTS.filter((p) => !HIDDEN_PROJECTS.has(p.name))
-  }
-
+  title: "Independent demonstrations",
+  description:
+    "Explore synthetic commercial analytics and GTM activation demonstrations, with calculations and assumptions you can inspect.",
+  alternates: { canonical: "https://anshul.ai/projects" },
+};
+export default function Projects() {
   return (
-    <main className="min-h-screen" style={{ backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)' }}>
-      <Nav variant="light" />
-
-      <section className="max-w-3xl mx-auto px-8 pt-28 pb-20">
-        <p className="section-label mb-4" style={{ color: 'var(--ed-text-faint)' }}>Projects</p>
-        <h1 className="mb-6 text-5xl leading-tight" style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, color: 'var(--ed-text-dark)' }}>Things I have built with AI.</h1>
-        <p className="text-xl leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>
-          Real products, platforms, and automations — built at the intersection of AI and business strategy, without a traditional engineering background.
+    <Shell>
+      <PageIntro
+        eyebrow="Independent projects"
+        title="Try it. Inspect it. Question it."
+      >
+        <p>
+          Two demonstrations of how I approach analytical reliability and
+          business execution. Each makes the inputs, assumptions, and
+          limitations visible.
         </p>
+      </PageIntro>
+      <section className="pf-wrap pf-section">
+        <div className="pf-grid">
+          <article className="pf-card">
+            <span className="pf-tag">Guided analytical demo</span>
+            <h2>Commercial analyst</h2>
+            <p>
+              Explore target attainment, sales changes, and stock availability
+              in a fictional retail business. Every supported answer includes
+              its calculation and source rows.
+            </p>
+            <p>
+              Includes a reproducible regression suite. Guided mode uses
+              deterministic calculations, not a live language model.
+            </p>
+            <a className="pf-text-link" href="/demos/commercial-analyst">
+              Try the analyst →
+            </a>
+          </article>
+          <article className="pf-card">
+            <span className="pf-tag">Interactive planning model</span>
+            <h2>GTM activation planner</h2>
+            <p>
+              Diagnose a fictional activation funnel. Compare a guided setup,
+              customer workshop, or onboarding change using explicit cost and
+              lift assumptions.
+            </p>
+            <p>
+              Includes an editable scenario and program brief. Estimates are
+              planning assumptions, not measured customer outcomes.
+            </p>
+            <a className="pf-text-link" href="/demos/gtm-activation">
+              Explore the planner →
+            </a>
+          </article>
+        </div>
+        <DemoNote />
       </section>
-
-      <section className="max-w-5xl mx-auto px-8 pb-32">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map((project) => (
-            <ProjectCard key={project.name} project={project} />
+      <section className="pf-wrap pf-section">
+        <div className="pf-section-head">
+          <h2>Other tools and learning projects</h2>
+        </div>
+        <div className="pf-grid three">
+          {[
+            [
+              "PromptGrade",
+              "A prompt scoring and rewriting tool. Scores are suggestions, not evidence that a prompt will improve task performance.",
+              "https://www.ratemyprompt.pro/",
+            ],
+            [
+              "AI Learning Compass",
+              "An adaptive interview and learning plan for professionals deciding what to learn and build next.",
+              "/tools/ai-learning-compass",
+            ],
+            [
+              "Speaking speed tester",
+              "A small browser experiment for measuring speaking pace.",
+              "/tools/speaking-speed",
+            ],
+          ].map(([t, d, h]) => (
+            <article className="pf-card" key={t}>
+              <h3>{t}</h3>
+              <p>{d}</p>
+              <a className="pf-text-link" href={h}>
+                Explore →
+              </a>
+            </article>
           ))}
         </div>
+        <div className="pf-actions">
+          <a className="pf-button secondary" href="/tools">
+            Browse existing AI tools
+          </a>
+          <a
+            className="pf-button secondary"
+            href="https://github.com/nocoderdecoder/free-ai-school"
+          >
+            View site source ↗
+          </a>
+        </div>
       </section>
-
-      <footer className="px-8 py-8 text-center text-sm" style={{ borderTop: '1px solid var(--ed-border)', color: 'var(--ed-text-faint)' }}>
-        © {new Date().getFullYear()} Anshul Gupta · anshul.ai
-      </footer>
-    </main>
-  )
+    </Shell>
+  );
 }

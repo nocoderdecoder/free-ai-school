@@ -1,58 +1,58 @@
 :root {
   /* ── Accent ── */
-  --accent:       #3B82F6;
-  --accent-glow:  rgba(59, 130, 246, 0.15);
+  --accent: #3b82f6;
+  --accent-glow: rgba(59, 130, 246, 0.15);
   --accent-muted: rgba(59, 130, 246, 0.4);
 
   /* ── Typography scale ── */
-  --text-xs:   0.75rem;
-  --text-sm:   0.875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
   --text-base: 1rem;
-  --text-lg:   1.125rem;
-  --text-xl:   1.25rem;
-  --text-2xl:  1.5rem;
-  --text-3xl:  2rem;
-  --text-4xl:  2.5rem;
-  --text-5xl:  3.5rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.5rem;
+  --text-5xl: 3.5rem;
   --text-hero: 4.5rem;
 
   /* ── Spacing rhythm ── */
   --space-section: 10rem;
-  --space-block:   5rem;
+  --space-block: 5rem;
   --space-element: 2rem;
-  --space-tight:   1rem;
+  --space-tight: 1rem;
 
   /* ── Timing ── */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in-out:   cubic-bezier(0.4, 0, 0.2, 1);
-  --duration-fast:  150ms;
-  --duration-base:  300ms;
-  --duration-slow:  600ms;
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-base: 300ms;
+  --duration-slow: 600ms;
   --duration-enter: 800ms;
 
   /* ── Radius ── */
-  --radius-sm:  0.5rem;
-  --radius-md:  0.75rem;
-  --radius-lg:  1rem;
-  --radius-xl:  1.5rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
   --radius-full: 9999px;
 
   /* ── Editorial theme (homepage) ── */
-  --ed-bg:           #FDFCFA;
-  --ed-card-warm:    #F3F0EB;
-  --ed-card-school:  #E8F0FE;
-  --ed-card-projects:#F3E8FF;
-  --ed-text:         #222222;
-  --ed-text-dark:    #1a1a1a;
-  --ed-text-secondary:#555555;
-  --ed-text-muted:   #888888;
-  --ed-text-faint:   #999999;
-  --ed-text-light:   #bbbbbb;
-  --ed-border:       #E8E5E0;
-  --ed-card-hover:   #EBE7E0;
-  --ed-cta:          #222222;
-  --ed-trending-dot: #4CAF50;
+  --ed-bg: #fdfcfa;
+  --ed-card-warm: #f3f0eb;
+  --ed-card-school: #e8f0fe;
+  --ed-card-projects: #f3e8ff;
+  --ed-text: #222222;
+  --ed-text-dark: #1a1a1a;
+  --ed-text-secondary: #555555;
+  --ed-text-muted: #596259;
+  --ed-text-faint: #647064;
+  --ed-text-light: #687368;
+  --ed-border: #e8e5e0;
+  --ed-card-hover: #ebe7e0;
+  --ed-cta: #222222;
+  --ed-trending-dot: #4caf50;
 
-  --font-serif:      var(--font-instrument-serif), serif;
-  --font-sans:       var(--font-dm-sans), sans-serif;
+  --font-serif: var(--font-instrument-serif), serif;
+  --font-sans: var(--font-dm-sans), sans-serif;
 }

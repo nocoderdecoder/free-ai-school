@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:compass": "node --import tsx --test tests/*.test.mjs"
+    "test:compass": "node --import tsx --test tests/*.test.mjs",
+    "test:portfolio": "node --import tsx --test tests/portfolio/*.test.mjs",
+    "resources:portfolio": "node --import tsx scripts/build-portfolio-resources.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.102.0",
