@@ -5,6 +5,7 @@ import { createClient } from 'next-sanity'
 import { PortableText } from '@portabletext/react'
 import { editorialComponents } from '../../components/PortableTextComponents'
 import { JsonLd, articleSchema } from '../../components/JsonLd'
+import { publicProfile } from '../../lib/publicProfile'
 
 export const revalidate = 3600
 
@@ -34,16 +35,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       { slug }
     )
     if (!post) return { title: 'Post Not Found' }
+    const url = `${publicProfile.siteUrl}/writing/${slug}`
     return {
       title: post.title,
       description: post.excerpt,
       alternates: {
-        canonical: `https://anshul.ai/writing/${slug}`,
+        canonical: url,
       },
       openGraph: {
-        title: `${post.title} — Anshul Gupta`,
+        title: `${post.title} | Anshul Gupta`,
         description: post.excerpt,
-        url: `https://anshul.ai/writing/${slug}`,
+        url,
       },
     }
   } catch {
@@ -76,15 +78,15 @@ export default async function WritingPost({ params }: { params: Promise<{ slug: 
         data={articleSchema({
           title: post.title,
           description: post.excerpt,
-          url: `https://anshul.ai/writing/${slug}`,
+          url: `${publicProfile.siteUrl}/writing/${slug}`,
           publishedAt: post.publishedAt,
         })}
       />
       <Nav variant="light" />
 
       <article className="max-w-3xl mx-auto px-8 pt-28 pb-32">
-        <a href="/writing" className="section-label mb-8 inline-block" style={{color: 'var(--ed-text-faint)'}}>
-          ← Writing
+        <a href="/work#resources" className="section-label mb-8 inline-block" style={{color: 'var(--ed-text-faint)'}}>
+          Back to Work
         </a>
 
         <header className="mt-4 mb-12">

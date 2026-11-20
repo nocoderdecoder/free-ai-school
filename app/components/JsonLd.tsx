@@ -3,7 +3,7 @@ import { publicProfile } from '../lib/publicProfile'
 /**
  * Reusable JSON-LD structured data injector. Renders a <script
  * type="application/ld+json"> tag with the given schema.org object. Safe to
- * use in both server and client components — no hooks, no browser-only APIs.
+ * use in both server and client components without hooks or browser-only APIs.
  */
 export function JsonLd({ data }: { data: Record<string, unknown> }) {
   return (
@@ -20,7 +20,8 @@ export function personSchema() {
     '@context': 'https://schema.org',
     '@type': 'Person',
     name: 'Anshul Gupta',
-    url: 'https://anshul.ai',
+    url: 'https://www.anshul.ai',
+    image: publicProfile.siteUrl + publicProfile.headshot,
     jobTitle: publicProfile.jobTitle,
     worksFor: {
       '@type': 'Organization',
@@ -43,13 +44,13 @@ export function organizationSchema() {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'Free AI School',
-    url: 'https://anshul.ai',
+    url: 'https://www.anshul.ai',
     founder: {
       '@type': 'Person',
       name: 'Anshul Gupta',
     },
     description:
-      'Free, practical AI education and tools for business professionals — no engineering background required.',
+      'Free, practical AI education and tools for business professionals. No engineering background required.',
   }
 }
 
@@ -76,12 +77,12 @@ export function articleSchema({
     author: {
       '@type': 'Person',
       name: authorName,
-      url: 'https://anshul.ai',
+      url: 'https://www.anshul.ai',
     },
     publisher: {
       '@type': 'Organization',
       name: 'Free AI School',
-      url: 'https://anshul.ai',
+      url: 'https://www.anshul.ai',
     },
   }
 }

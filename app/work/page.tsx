@@ -1,66 +1,108 @@
 import type { Metadata } from 'next'
-import { Nav } from '../components/Nav'
-import { professionalWork } from '../lib/publicProfile'
+import { PortfolioShell } from '../components/PortfolioShell'
+import s from '../profile.module.css'
 
 export const metadata: Metadata = {
   title: 'Work',
-  description: 'Professional accomplishments in AI, GTM strategy, and digital transformation at Google, Unilever, and beyond.',
+  description: 'Selected work in go-to-market strategy, business analytics, applied AI, and MBA consulting projects.',
+  alternates: { canonical: 'https://www.anshul.ai/work' },
   openGraph: {
-    title: 'Work — Professional Impact',
-    description: 'AI strategy, digital transformation, and GTM leadership across Google, Unilever, and Kellogg.',
-    url: 'https://anshul.ai/work',
+    title: 'Work | Anshul Gupta',
+    description: 'Experience across Google, Unilever, GSK, and consulting projects completed during the Kellogg MBA.',
+    url: 'https://www.anshul.ai/work',
   },
 }
 
-const accomplishments = professionalWork
+const experience = [
+  {
+    category: 'Go-to-market strategy',
+    title: 'Commercial planning and execution',
+    description: 'My experience at Google, Unilever, and GSK covers market and channel priorities, launch planning, distribution, and commercial performance. I connect market analysis with the requirements, people, and processes needed to carry a plan through.',
+  },
+  {
+    category: 'Business analytics',
+    title: 'Reporting that reflects the business',
+    description: 'At Google, I define business metrics and reporting requirements, work with engineering on analytical tools, and help teams test and adopt the resulting workflows. This includes clarifying what a measure means and how it should be compared.',
+  },
+  {
+    category: 'Applied AI',
+    title: 'From business need to a working tool',
+    description: 'I translate commercial questions into requirements for AI-assisted analysis. I work with engineering to develop the experience, assess the quality of its answers, and support its use in business workflows.',
+  },
+]
+
+const consulting = [
+  {
+    name: 'Uber',
+    description: 'Evaluated U.S. expansion opportunities for business shuttle services, comparing customer segments and route economics. Presented a phased market-entry recommendation as part of a Kellogg client project.',
+  },
+  {
+    name: 'MATTER',
+    description: 'Researched pharmaceutical-company priorities and potential partnerships for the Chicago healthcare incubator through a graduate independent study.',
+  },
+  {
+    name: 'Early-stage startups',
+    description: 'Worked on customer segmentation, pricing, and sales channels for U.S. market entry during my MBA.',
+  },
+]
+
+const projects = [
+  { name: 'Free AI School', href: '/learn', description: 'Practical guides to AI concepts, tools, and business applications.' },
+  { name: 'Short AI Courses', href: 'https://shortaicourses.com', description: 'Short, free courses for business professionals.' },
+  { name: 'Awesome Business AI', href: 'https://github.com/nocoderdecoder/awesome-business-ai', description: 'An open collection of workflow playbooks, templates, and evaluation examples.' },
+]
 
 export default function Work() {
   return (
-    <main className="min-h-screen" style={{backgroundColor: 'var(--ed-bg)', color: 'var(--ed-text)', fontFamily: 'var(--font-sans)'}}>
-      <Nav variant="light" />
+    <PortfolioShell>
+      <header className={s.pageHeader}>
+        <p className={s.eyebrow}>Work</p>
+        <h1 className={s.title}>Strategy, analytics, and applied AI.</h1>
+        <p className={s.lead}>Selected experience from commercial planning through delivery and adoption.</p>
+      </header>
 
-      <section className="max-w-3xl mx-auto px-8 pt-28 pb-20">
-        <p className="section-label mb-4" style={{ color: 'var(--ed-text-faint)' }}>Work</p>
-        <h1 className="heading-page mb-6" style={{fontFamily: 'var(--font-serif)', fontWeight: 400, color: 'var(--ed-text-dark)'}}>
-          Professional<br />impact.
-        </h1>
-        <p className="text-xl leading-relaxed" style={{ color: 'var(--ed-text-muted)' }}>
-          Selected work in commercial strategy, business analysis, and applied AI across Google, consumer goods, and graduate client projects.
-        </p>
-      </section>
-
-      <section className="max-w-3xl mx-auto px-8 pb-32">
-        <div className="space-y-6">
-          {accomplishments.map((item, i) => (
-            <div
-              key={i}
-              className="ed-list-card rounded-xl p-8 transition"
-              style={{ background: 'var(--ed-card-warm)', borderRadius: 14 }}
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-xs uppercase tracking-widest" style={{ color: 'var(--ed-text-muted)' }}>{item.org}</span>
+      <section id="experience" className={s.section} aria-labelledby="experience-heading">
+        <h2 id="experience-heading" className={s.sectionHeading}>Professional experience</h2>
+        <div className={s.rows}>
+          {experience.map((item) => (
+            <article className={s.row} key={item.category}>
+              <p className={s.rowMeta}>{item.category}</p>
+              <div className={s.rowContent}>
+                <h3>{item.title}</h3>
+                <p>{item.description}</p>
               </div>
-              <h2 className="text-xl font-bold mb-3" style={{ color: 'var(--ed-text-dark)' }}>{item.title}</h2>
-              <p className="leading-relaxed mb-4" style={{ color: 'var(--ed-text-secondary)' }}>{item.description}</p>
-              <div className="flex flex-wrap gap-2">
-                {item.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full"
-                    style={{ backgroundColor: 'var(--ed-card-warm)', color: 'var(--ed-text-faint)' }}
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
+            </article>
           ))}
         </div>
       </section>
 
-      <footer className="px-8 py-8 text-center text-sm" style={{ borderTop: '1px solid var(--ed-border)', color: 'var(--ed-text-faint)' }}>
-        © {new Date().getFullYear()} Anshul Gupta · anshul.ai
-      </footer>
-    </main>
+      <section className={s.section} aria-labelledby="consulting-heading">
+        <h2 id="consulting-heading" className={s.sectionHeading}>Consulting projects at Kellogg</h2>
+        <p className={s.muted}>Completed during my MBA at Northwestern University, 2023 to 2024.</p>
+        <div className={s.rows}>
+          {consulting.map((item) => (
+            <article className={s.row} key={item.name}>
+              <h3 className={s.rowMeta}>{item.name}</h3>
+              <div className={s.rowContent}><p>{item.description}</p></div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="resources" className={s.section} aria-labelledby="projects-heading">
+        <div id="projects">
+          <h2 id="projects-heading" className={s.sectionHeading}>Independent projects</h2>
+          <p className={s.muted}>Tools and learning resources I develop outside work.</p>
+          <div className={s.grid}>
+            {projects.map((project) => (
+              <article className={s.resource} key={project.name}>
+                <h3><a className={s.textLink} href={project.href}>{project.name}</a></h3>
+                <p>{project.description}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    </PortfolioShell>
   )
 }

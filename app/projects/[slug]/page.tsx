@@ -5,6 +5,7 @@ import { createClient } from 'next-sanity'
 import { PortableText } from '@portabletext/react'
 import { editorialComponents } from '../../components/PortableTextComponents'
 import { JsonLd, articleSchema } from '../../components/JsonLd'
+import { publicProfile } from '../../lib/publicProfile'
 
 export const revalidate = 3600
 
@@ -28,23 +29,24 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  if (['anshul-ai-platform', 'daily-ai-news-pipeline'].includes(slug)) redirect('/projects')
+  if (['anshul-ai-platform', 'daily-ai-news-pipeline'].includes(slug)) redirect('/work#projects')
   try {
     const project = await client.fetch(
       `*[_type == "project" && slug.current == $slug][0] { name, tagline, excerpt }`,
       { slug }
     )
     if (!project) return { title: 'Project Not Found' }
+    const url = `${publicProfile.siteUrl}/projects/${slug}`
     return {
       title: project.name,
       description: project.excerpt ?? project.tagline,
       alternates: {
-        canonical: `https://anshul.ai/projects/${slug}`,
+        canonical: url,
       },
       openGraph: {
-        title: `${project.name} — Anshul Gupta`,
+        title: `${project.name} | Anshul Gupta`,
         description: project.excerpt ?? project.tagline,
-        url: `https://anshul.ai/projects/${slug}`,
+        url,
       },
     }
   } catch {
@@ -62,7 +64,7 @@ const statusColor: Record<string, string> = {
 
 export default async function ProjectDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  if (['anshul-ai-platform', 'daily-ai-news-pipeline'].includes(slug)) redirect('/projects')
+  if (['anshul-ai-platform', 'daily-ai-news-pipeline'].includes(slug)) redirect('/work#projects')
 
   let project: any = null
   try {
@@ -91,14 +93,14 @@ export default async function ProjectDetail({ params }: { params: Promise<{ slug
         data={articleSchema({
           title: project.name,
           description: project.excerpt ?? project.tagline,
-          url: `https://anshul.ai/projects/${slug}`,
+          url: `${publicProfile.siteUrl}/projects/${slug}`,
         })}
       />
       <Nav variant="light" />
 
       <section className="max-w-3xl mx-auto px-8 pt-28 pb-12">
-        <a href="/projects" className="section-label mb-8 inline-block transition link-slide" style={{ color: 'var(--ed-text-faint)' }}>
-          ← Projects
+        <a href="/work#projects" className="section-label mb-8 inline-block transition link-slide" style={{ color: 'var(--ed-text-faint)' }}>
+          Back to Work
         </a>
 
         <div className="flex items-center gap-3 mb-6 mt-4">

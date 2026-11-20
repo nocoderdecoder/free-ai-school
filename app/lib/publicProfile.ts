@@ -3,11 +3,15 @@
 // learner counts, or employment dates inferred from projects or education.
 export const publicProfile = {
   name: 'Anshul Gupta',
-  pageTitle: 'Anshul Gupta | Applied AI & GTM Strategy',
-  shortBio: 'GTM strategy and business intelligence at Google. Kellogg MBA. I build independent AI tools and learning resources for business professionals.',
+  pageTitle: 'Anshul Gupta | GTM Strategy and Applied AI',
+  shortBio: 'Go-to-market strategy, business analytics, and applied AI. Global Strategy and Operations at Google. Previously Unilever and GSK. Kellogg MBA.',
   jobTitle: 'Senior Associate, Global Strategy and Operations',
-  headline: 'GTM Strategy at Google · Kellogg MBA · Applied AI',
-  description: 'GTM strategy and business intelligence at Google. Kellogg MBA. Background in consumer goods, retail, and distribution, with a focus on practical AI and reliable business analysis.',
+  headline: 'Go-to-market strategy and applied AI',
+  description: 'Anshul Gupta works across go-to-market strategy, business analytics, and applied AI, from business requirements to delivery and adoption.',
+  siteUrl: 'https://www.anshul.ai',
+  email: 'anshulgupta1512@gmail.com',
+  headshot: '/images/anshul-gupta.jpg',
+  speakerBio: 'Anshul Gupta is a Senior Associate in Global Strategy and Operations at Google. His work covers go-to-market strategy, business analytics, and applied AI, from business requirements to delivery and adoption. He previously worked at Unilever and GSK. He holds an MBA from Northwestern University’s Kellogg School of Management, where he completed strategy consulting projects for Uber, MATTER, and early-stage startups. He speaks in a personal capacity.',
   linkedIn: 'https://www.linkedin.com/in/anshul-gupta1/',
 }
 export const careerTimeline = [
@@ -35,7 +39,7 @@ export const careerTimeline = [
   },
   {
     "period": "Jan 2022–Jun 2023",
-    "org": "Hindustan Unilever",
+    "org": "Unilever",
     "role": "Channel Strategy Manager",
     "detail": "Developed channel strategy, geographic opportunity assessments, commercial investment models, and launch plans for an oral-care portfolio.",
     "tags": [
@@ -46,9 +50,9 @@ export const careerTimeline = [
   },
   {
     "period": "Mar 2020–Dec 2021",
-    "org": "GSK Consumer Healthcare / Hindustan Unilever",
+    "org": "Unilever / GSK",
     "role": "Business Transformation Manager, National Center of Excellence",
-    "detail": "Worked on the integration of acquired GSK consumer-healthcare products into Hindustan Unilever's distribution and ordering operations following the April 2020 merger. Defined business processes and systems requirements, coordinated rollout readiness, and developed distribution responses during COVID-19.",
+    "detail": "Worked on the integration of acquired GSK consumer-healthcare products into Unilever's distribution and ordering operations following the April 2020 merger. Defined business processes and systems requirements, coordinated rollout readiness, and developed distribution responses during COVID-19.",
     "tags": [
       "Business Transformation",
       "Systems Integration",
@@ -109,7 +113,7 @@ export const professionalWork = [
     ]
   },
   {
-    "org": "Hindustan Unilever | Jan 2022–Jun 2023",
+    "org": "Unilever | Jan 2022–Jun 2023",
     "title": "Channel strategy and commercial planning",
     "description": "Developed geographic and channel priorities, store-level targets, launch plans, and investment comparisons for an oral-care portfolio, connecting commercial decisions with market demand and distribution constraints.",
     "tags": [
@@ -119,9 +123,9 @@ export const professionalWork = [
     ]
   },
   {
-    "org": "GSK Consumer Healthcare / Hindustan Unilever | Mar 2020–Dec 2021",
+    "org": "Unilever / GSK | Mar 2020–Dec 2021",
     "title": "Post-merger process and distribution integration",
-    "description": "Contributed to the national integration of acquired GSK consumer-healthcare products into Hindustan Unilever operations. Defined business processes and systems requirements, coordinated cross-functional rollout readiness, and supported alternative distribution arrangements during COVID-19.",
+    "description": "Contributed to the national integration of acquired GSK consumer-healthcare products into Unilever operations. Defined business processes and systems requirements, coordinated cross-functional rollout readiness, and supported alternative distribution arrangements during COVID-19.",
     "tags": [
       "Business Transformation",
       "Systems Integration",

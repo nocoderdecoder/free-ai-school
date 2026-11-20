@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
     },
-    sitemap: 'https://anshul.ai/sitemap.xml',
+    sitemap: 'https://www.anshul.ai/sitemap.xml',
   }
 }

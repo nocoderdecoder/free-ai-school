@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif, DM_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
-import { CustomCursor } from "./components/CustomCursor";
 import "./globals.css";
 import { publicProfile } from "./lib/publicProfile";
 
@@ -29,7 +28,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://anshul.ai'),
+  metadataBase: new URL('https://www.anshul.ai'),
   title: {
     default: publicProfile.pageTitle,
     template: '%s | Anshul Gupta',
@@ -38,7 +37,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: publicProfile.pageTitle,
     description: publicProfile.shortBio,
-    url: 'https://anshul.ai',
+    url: 'https://www.anshul.ai',
     siteName: 'Anshul Gupta',
     type: 'website',
     locale: 'en_US',
@@ -61,7 +60,6 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${dmSans.variable} h-full antialiased`}>
         {children}
-        <CustomCursor />
         <Analytics />
       </body>
     </html>
