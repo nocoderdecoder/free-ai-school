@@ -49,11 +49,42 @@ send(1, "initialize", {
 });
 send(2, "tools/list");
 send(3, "tools/call", { name: "list_lab_projects", arguments: {} });
-send(4, "tools/call", { name: "validate_lab_assets", arguments: {} });
+send(4, "tools/call", { name: "inspect_lab_surface", arguments: {} });
 
-await waitForResponse(3);
+await Promise.all([waitForResponse(3), waitForResponse(4)]);
 const initializeResponse = responseById.get(1)?.result ?? {};
 const initializeInstructions = initializeResponse.instructions ?? "";
+const labSurfaceText = responseById.get(4)?.result?.content?.[0]?.text ?? "{}";
+const labSurface = JSON.parse(labSurfaceText);
+const labSurfaceRequiresMigration = labSurface?.status === "migration-required";
+const listLabProjectsError = responseById.get(3)?.error?.message ?? "";
+
+if (labSurfaceRequiresMigration) {
+  const listedTools = responseById.get(2)?.result?.tools?.length ?? 0;
+  const migrationSmokePassed =
+    listedTools >= 1 &&
+    responseById.get(2)?.result?.tools?.some((tool) => tool.name === "inspect_lab_surface") &&
+    labSurface?.targetFile === "app/lab/page.tsx" &&
+    typeof labSurface?.reason === "string" &&
+    labSurface.reason.length > 0 &&
+    typeof labSurface?.ownerNextStep === "string" &&
+    labSurface.ownerNextStep.includes("read-only diagnostic mode") &&
+    listLabProjectsError.includes("Portfolio Lab target unavailable") &&
+    initializeInstructions.includes("inspect_lab_surface");
+
+  console.log(JSON.stringify({
+    failed: !migrationSmokePassed,
+    mode: "migration-required",
+    listedTools,
+    surface: labSurface,
+    listLabProjectsError,
+  }, null, 2));
+  server.kill();
+  await once(server, "exit");
+  rl.close();
+  process.exit(migrationSmokePassed ? 0 : 1);
+}
+
 const listedProjectsText = responseById.get(3)?.result?.content?.[0]?.text ?? "{}";
 const firstProjectName = JSON.parse(listedProjectsText).projects?.[0]?.name ?? "";
 const firstProjectSlug = slugify(firstProjectName);

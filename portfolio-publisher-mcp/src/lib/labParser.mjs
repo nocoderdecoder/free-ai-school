@@ -162,12 +162,52 @@ function extractProjectsArray(source) {
   throw new Error("Could not parse the projects array in app/lab/page.tsx.");
 }
 
+function describeUnsupportedLabSurface(source) {
+  const redirectTarget = source.match(/\bredirect\(\s*["']([^"']+)["']\s*\)/)?.[1] ?? null;
+  const targetFile = toRepoRelative(paths.labPage);
+
+  return {
+    status: "migration-required",
+    targetFile,
+    redirectTarget,
+    reason: redirectTarget
+      ? `The legacy Lab page redirects to ${redirectTarget} and no longer contains a publishable projects array.`
+      : "The configured Lab page no longer contains the supported `const projects = [` card registry.",
+    ownerNextStep:
+      "Choose a current portfolio card registry before publishing. Keep this server in read-only diagnostic mode until its target schema and controlled-apply safety checks are migrated together.",
+  };
+}
+
+export async function inspectLabSurface() {
+  const source = await readLabSource();
+
+  if (!source.includes("const projects = [")) {
+    return describeUnsupportedLabSurface(source);
+  }
+
+  return {
+    status: "ready",
+    targetFile: toRepoRelative(paths.labPage),
+    redirectTarget: null,
+    reason: "The configured Lab page contains the supported projects card registry.",
+    ownerNextStep: "Use list_lab_projects to inspect the current cards and publish readiness.",
+  };
+}
+
 export async function readLabSource() {
   return fs.readFile(assertSafeRead(paths.labPage), "utf8");
 }
 
 export async function listLabProjects() {
   const source = await readLabSource();
+  const surface = source.includes("const projects = [")
+    ? null
+    : describeUnsupportedLabSurface(source);
+  if (surface) {
+    throw new Error(
+      `Portfolio Lab target unavailable: ${surface.reason} ${surface.ownerNextStep}`,
+    );
+  }
   const arrayBody = extractProjectsArray(source);
   const blocks = arrayBody.match(/\{[\s\S]*?\}/g) ?? [];
   return blocks.map(parseProjectBlock).filter(Boolean);

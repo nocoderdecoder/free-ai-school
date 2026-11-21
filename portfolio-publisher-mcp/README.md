@@ -8,8 +8,11 @@ In plain English: it gives an AI assistant a safe control panel for the portfoli
 
 This version is mostly read-only. It can inspect the Lab page, validate screenshot paths, and suggest future projects. It can stage review artifacts under `portfolio-publisher-mcp/generated/` and apply one publish-ready staged card through a confirmation-and-token-gated tool.
 
+Before using a publishing tool, call `inspect_lab_surface`. It confirms that the configured legacy Lab card registry still exists. If it returns `migration-required`, publishing remains intentionally paused: the server will not guess how to modify a replacement page or write to it. Choose the replacement card registry and migrate the parser, artifact format, tests, and controlled-apply safeguards together.
+
 ## Tools
 
+- `inspect_lab_surface`: reports whether the configured Lab card registry is ready for publishing or requires a deliberate migration after a portfolio-page change.
 - `list_lab_projects`: lists the projects currently shown on `/lab`.
 - `inspect_lab_format`: explains the current Lab card format and conventions.
 - `validate_lab_assets`: checks whether screenshot paths point directly to non-empty, structurally valid image files inside `public/`. It verifies the container structure for PNG, JPEG, GIF, WebP, and AVIF files up to 20 MB, so a filename or spoofed magic header alone cannot make an asset publish-ready. Traversal and unsupported URL-style path syntax are reported as `invalid-image-path`, symbolic links as `symlink-not-allowed`, directories as `not-a-file`, empty placeholders as `empty-file`, over-limit images as `image-too-large-to-validate`, and malformed or mismatched image bytes as `invalid-image-content`.
@@ -61,7 +64,7 @@ From this folder:
 npm run smoke
 ```
 
-The smoke command first runs focused lifecycle tests against disposable miniature repositories, then runs a non-mutating MCP protocol, schema, and readiness suite against the real local project. The disposable fixtures own staged tamper, lock contention, review-token mismatch, apply/replay, rehearsal, and discard safety coverage, so smoke verification never edits the real Lab source or creates real lock and screenshot fixtures.
+The smoke command first runs focused lifecycle tests against disposable miniature repositories, then runs a non-mutating MCP protocol, schema, and readiness suite against the real local project. If the real site has retired the legacy Lab registry, the real-project portion verifies the migration-required diagnostic instead of attempting the obsolete publishing workflow. The disposable fixtures own staged tamper, lock contention, review-token mismatch, apply/replay, rehearsal, and discard safety coverage, so smoke verification never edits the real Lab source or creates real lock and screenshot fixtures.
 
 To start the MCP server:
 

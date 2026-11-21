@@ -1,5 +1,16 @@
 export const tools = [
   {
+    name: "inspect_lab_surface",
+    title: "Inspect Lab Publishing Surface",
+    description:
+      "Read-only compatibility check for the configured Lab card registry. Use this before publishing after portfolio navigation or page structure changes.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "list_lab_projects",
     title: "List Lab Projects",
     description: "Read the portfolio Lab page and return the projects currently shown there.",

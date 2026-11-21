@@ -139,6 +139,10 @@ async function createFixtureClient(t) {
 
 test("Lab card update preview is exact, read-only, and readiness checked", async (t) => {
   const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const surface = await client.call("inspect_lab_surface", {});
+  assert.equal(surface.status, "ready");
+  assert.equal(surface.targetFile, "app/lab/page.tsx");
+  assert.equal(surface.redirectTarget, null);
   const existingCard = [
     "  {",
     '    name: "Existing Fixture",',
