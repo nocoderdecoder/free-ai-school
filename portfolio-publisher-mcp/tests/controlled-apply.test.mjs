@@ -137,6 +137,30 @@ async function createFixtureClient(t) {
   return { repoRoot, labPage, client };
 }
 
+test("migration-option discovery is read-only and does not promote a new target", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const workPage = path.join(repoRoot, "app", "work", "page.tsx");
+  const toolsPage = path.join(repoRoot, "app", "tools", "page.tsx");
+  await Promise.all([
+    fs.mkdir(path.dirname(workPage), { recursive: true }),
+    fs.mkdir(path.dirname(toolsPage), { recursive: true }),
+  ]);
+  await fs.writeFile(labPage, 'import { redirect } from "next/navigation";\nexport default function Lab() { redirect("/work#projects"); }\n', "utf8");
+  await fs.writeFile(workPage, 'const projects = [{ name: "Project", href: "/project", description: "Example" }];\nprojects.map((project) => project.name);\n', "utf8");
+  await fs.writeFile(toolsPage, 'const TOOLS = [{ slug: "tool", name: "Tool", tagline: "Example", status: "Live", icon: "x" }];\nTOOLS.map((tool) => tool.name);\n', "utf8");
+  const before = await fs.readFile(labPage, "utf8");
+
+  const options = await client.call("inspect_portfolio_migration_options", {});
+
+  assert.equal(options.status, "migration-required");
+  assert.equal(options.writeEnabled, false);
+  assert.equal(options.candidates.length, 2);
+  assert.ok(options.candidates.every((candidate) => candidate.compatibleWithLegacyPublisher === false));
+  assert.deepEqual(options.candidates.map((candidate) => candidate.status), ["candidate", "candidate"]);
+  assert.match(options.ownerNextStep, /does not select or modify/);
+  assert.equal(await fs.readFile(labPage, "utf8"), before);
+});
+
 test("Lab card update preview is exact, read-only, and readiness checked", async (t) => {
   const { repoRoot, labPage, client } = await createFixtureClient(t);
   const surface = await client.call("inspect_lab_surface", {});

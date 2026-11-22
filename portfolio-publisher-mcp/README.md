@@ -10,9 +10,12 @@ This version is mostly read-only. It can inspect the Lab page, validate screensh
 
 Before using a publishing tool, call `inspect_lab_surface`. It confirms that the configured legacy Lab card registry still exists. If it returns `migration-required`, publishing remains intentionally paused: the server will not guess how to modify a replacement page or write to it. Choose the replacement card registry and migrate the parser, artifact format, tests, and controlled-apply safeguards together.
 
+When the legacy surface is retired, call `inspect_portfolio_migration_options` for a read-only comparison of known current portfolio registries. It can point out the Work independent-projects and Tools catalog sources that need owner review, but it never selects either one, changes the target, or enables publishing.
+
 ## Tools
 
 - `inspect_lab_surface`: reports whether the configured Lab card registry is ready for publishing or requires a deliberate migration after a portfolio-page change.
+- `inspect_portfolio_migration_options`: read-only discovery of known current portfolio card registries when the legacy Lab surface requires migration; it explicitly reports that none are compatible until a deliberate schema and safety migration is complete.
 - `list_lab_projects`: lists the projects currently shown on `/lab`.
 - `inspect_lab_format`: explains the current Lab card format and conventions.
 - `validate_lab_assets`: checks whether screenshot paths point directly to non-empty, structurally valid image files inside `public/`. It verifies the container structure for PNG, JPEG, GIF, WebP, and AVIF files up to 20 MB, so a filename or spoofed magic header alone cannot make an asset publish-ready. Traversal and unsupported URL-style path syntax are reported as `invalid-image-path`, symbolic links as `symlink-not-allowed`, directories as `not-a-file`, empty placeholders as `empty-file`, over-limit images as `image-too-large-to-validate`, and malformed or mismatched image bytes as `invalid-image-content`.

@@ -194,6 +194,90 @@ export async function inspectLabSurface() {
   };
 }
 
+const MIGRATION_CANDIDATES = [
+  {
+    id: "work-independent-projects",
+    targetFile: "app/work/page.tsx",
+    publicRoute: "/work#projects",
+    arrayDeclaration: "const projects = [",
+    renderExpression: "projects.map",
+    expectedFields: ["name", "href", "description"],
+    description: "Independent projects shown on the Work page.",
+  },
+  {
+    id: "tools-catalog",
+    targetFile: "app/tools/page.tsx",
+    publicRoute: "/tools",
+    arrayDeclaration: "const TOOLS = [",
+    renderExpression: "TOOLS.map",
+    expectedFields: ["slug", "name", "tagline", "status", "icon"],
+    description: "Public AI tools catalog.",
+  },
+];
+
+function hasObjectField(source, field) {
+  return new RegExp(`\\b${field}\\s*:`).test(source);
+}
+
+/**
+ * Reports the known post-Lab portfolio surfaces for an owner to review. This is
+ * deliberately discovery-only: it never selects a target or makes either
+ * surface compatible with the legacy controlled-apply workflow.
+ */
+export async function inspectPortfolioMigrationOptions() {
+  const surface = await inspectLabSurface();
+  if (surface.status === "ready") {
+    return {
+      status: "legacy-surface-ready",
+      writeEnabled: false,
+      candidates: [],
+      ownerNextStep: "The legacy Lab registry is still available. Use inspect_lab_surface and the existing publish workflow; no migration choice is needed.",
+    };
+  }
+
+  const candidates = await Promise.all(MIGRATION_CANDIDATES.map(async (candidate) => {
+    const absolute = path.join(paths.repoRoot, candidate.targetFile);
+    let source;
+    try {
+      source = await fs.readFile(assertSafeRead(absolute), "utf8");
+    } catch (error) {
+      if (error?.code === "ENOENT") {
+        return {
+          ...candidate,
+          status: "not-found",
+          compatibleWithLegacyPublisher: false,
+          detectedFields: [],
+          reason: "The candidate source file is not present in this checkout.",
+        };
+      }
+      throw error;
+    }
+
+    const hasRegistry = source.includes(candidate.arrayDeclaration);
+    const hasRenderer = source.includes(candidate.renderExpression);
+    const detectedFields = candidate.expectedFields.filter((field) => hasObjectField(source, field));
+    const status = hasRegistry && hasRenderer ? "candidate" : "not-detected";
+
+    return {
+      ...candidate,
+      status,
+      compatibleWithLegacyPublisher: false,
+      detectedFields,
+      reason: status === "candidate"
+        ? "A project-like registry and its renderer were found, but its schema differs from the legacy Lab contract."
+        : "The expected registry and renderer pattern were not both found in this checkout.",
+    };
+  }));
+
+  return {
+    status: "migration-required",
+    writeEnabled: false,
+    legacySurface: surface,
+    candidates,
+    ownerNextStep: "Choose one candidate deliberately, then migrate its parser, artifact format, tests, and controlled-apply safeguards together. This diagnostic does not select or modify a publishing target.",
+  };
+}
+
 export async function readLabSource() {
   return fs.readFile(assertSafeRead(paths.labPage), "utf8");
 }

@@ -3,7 +3,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { inspectLabSurface, listLabProjects, getProjectAssetStatus, readLabSource } from "../lib/labParser.mjs";
+import { inspectLabSurface, inspectPortfolioMigrationOptions, listLabProjects, getProjectAssetStatus, readLabSource } from "../lib/labParser.mjs";
 import { assertSafeLabPageWrite, assertSafeRead } from "../lib/fileSafety.mjs";
 import { paths, toRepoRelative } from "../lib/paths.mjs";
 import { tools as toolDefinitions } from "./definitions.mjs";
@@ -3356,6 +3356,10 @@ export async function callTool(name, args = {}) {
 
   if (name === "inspect_lab_surface") {
     return textResult(await inspectLabSurface());
+  }
+
+  if (name === "inspect_portfolio_migration_options") {
+    return textResult(await inspectPortfolioMigrationOptions());
   }
 
   if (name === "list_lab_projects") {

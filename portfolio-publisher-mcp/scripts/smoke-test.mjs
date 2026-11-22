@@ -50,12 +50,15 @@ send(1, "initialize", {
 send(2, "tools/list");
 send(3, "tools/call", { name: "list_lab_projects", arguments: {} });
 send(4, "tools/call", { name: "inspect_lab_surface", arguments: {} });
+send(5, "tools/call", { name: "inspect_portfolio_migration_options", arguments: {} });
 
-await Promise.all([waitForResponse(3), waitForResponse(4)]);
+await Promise.all([waitForResponse(3), waitForResponse(4), waitForResponse(5)]);
 const initializeResponse = responseById.get(1)?.result ?? {};
 const initializeInstructions = initializeResponse.instructions ?? "";
 const labSurfaceText = responseById.get(4)?.result?.content?.[0]?.text ?? "{}";
 const labSurface = JSON.parse(labSurfaceText);
+const migrationOptionsText = responseById.get(5)?.result?.content?.[0]?.text ?? "{}";
+const migrationOptions = JSON.parse(migrationOptionsText);
 const labSurfaceRequiresMigration = labSurface?.status === "migration-required";
 const listLabProjectsError = responseById.get(3)?.error?.message ?? "";
 
@@ -69,6 +72,11 @@ if (labSurfaceRequiresMigration) {
     labSurface.reason.length > 0 &&
     typeof labSurface?.ownerNextStep === "string" &&
     labSurface.ownerNextStep.includes("read-only diagnostic mode") &&
+    migrationOptions?.status === "migration-required" &&
+    migrationOptions?.writeEnabled === false &&
+    Array.isArray(migrationOptions?.candidates) &&
+    migrationOptions.candidates.some((candidate) => candidate.id === "work-independent-projects") &&
+    migrationOptions.ownerNextStep.includes("does not select or modify") &&
     listLabProjectsError.includes("Portfolio Lab target unavailable") &&
     initializeInstructions.includes("inspect_lab_surface");
 
@@ -77,6 +85,7 @@ if (labSurfaceRequiresMigration) {
     mode: "migration-required",
     listedTools,
     surface: labSurface,
+    migrationOptions,
     listLabProjectsError,
   }, null, 2));
   server.kill();

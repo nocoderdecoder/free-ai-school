@@ -11,6 +11,17 @@ export const tools = [
     },
   },
   {
+    name: "inspect_portfolio_migration_options",
+    title: "Inspect Portfolio Migration Options",
+    description:
+      "Read-only discovery of known current portfolio card registries after the legacy Lab surface has been retired. It never selects or changes a publishing target.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "list_lab_projects",
     title: "List Lab Projects",
     description: "Read the portfolio Lab page and return the projects currently shown there.",

@@ -32,7 +32,7 @@ async function handleRequest(message) {
         },
         serverInfo: SERVER_INFO,
         instructions:
-          "Use this server to inspect and safely prepare Anshul's portfolio Lab projects. Start with inspect_lab_surface after portfolio navigation or page-structure changes; do not use publishing tools when it reports migration-required. Most tools are read-only; staged review artifacts are written only under portfolio-publisher-mcp/generated/, and controlled apply can change only app/lab/page.tsx after an exact fresh review token and confirm: true. When the surface is ready, inspect projects or staged queues, review artifacts before applying, then run the smoke suite and inspect the Git diff.",
+          "Use this server to inspect and safely prepare Anshul's portfolio Lab projects. Start with inspect_lab_surface after portfolio navigation or page-structure changes; do not use publishing tools when it reports migration-required. In that state, inspect_portfolio_migration_options can identify known current registries for owner review, but it never selects or changes a target. Most tools are read-only; staged review artifacts are written only under portfolio-publisher-mcp/generated/, and controlled apply can change only app/lab/page.tsx after an exact fresh review token and confirm: true. When the surface is ready, inspect projects or staged queues, review artifacts before applying, then run the smoke suite and inspect the Git diff.",
       });
       return;
     }
