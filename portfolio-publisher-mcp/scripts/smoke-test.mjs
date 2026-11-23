@@ -51,14 +51,17 @@ send(2, "tools/list");
 send(3, "tools/call", { name: "list_lab_projects", arguments: {} });
 send(4, "tools/call", { name: "inspect_lab_surface", arguments: {} });
 send(5, "tools/call", { name: "inspect_portfolio_migration_options", arguments: {} });
+send(6, "tools/call", { name: "create_portfolio_migration_brief", arguments: {} });
 
-await Promise.all([waitForResponse(3), waitForResponse(4), waitForResponse(5)]);
+await Promise.all([waitForResponse(3), waitForResponse(4), waitForResponse(5), waitForResponse(6)]);
 const initializeResponse = responseById.get(1)?.result ?? {};
 const initializeInstructions = initializeResponse.instructions ?? "";
 const labSurfaceText = responseById.get(4)?.result?.content?.[0]?.text ?? "{}";
 const labSurface = JSON.parse(labSurfaceText);
 const migrationOptionsText = responseById.get(5)?.result?.content?.[0]?.text ?? "{}";
 const migrationOptions = JSON.parse(migrationOptionsText);
+const migrationBriefText = responseById.get(6)?.result?.content?.[0]?.text ?? "{}";
+const migrationBrief = JSON.parse(migrationBriefText);
 const labSurfaceRequiresMigration = labSurface?.status === "migration-required";
 const listLabProjectsError = responseById.get(3)?.error?.message ?? "";
 
@@ -77,6 +80,9 @@ if (labSurfaceRequiresMigration) {
     Array.isArray(migrationOptions?.candidates) &&
     migrationOptions.candidates.some((candidate) => candidate.id === "work-independent-projects") &&
     migrationOptions.ownerNextStep.includes("does not select or modify") &&
+    migrationBrief?.format === "markdown" &&
+    migrationBrief?.markdown?.includes("# Portfolio publisher migration brief") &&
+    migrationBrief?.markdown?.includes("Write access: disabled") &&
     listLabProjectsError.includes("Portfolio Lab target unavailable") &&
     initializeInstructions.includes("inspect_lab_surface");
 
@@ -86,6 +92,7 @@ if (labSurfaceRequiresMigration) {
     listedTools,
     surface: labSurface,
     migrationOptions,
+    migrationBrief,
     listLabProjectsError,
   }, null, 2));
   server.kill();

@@ -22,6 +22,17 @@ export const tools = [
     },
   },
   {
+    name: "create_portfolio_migration_brief",
+    title: "Create Portfolio Migration Brief",
+    description:
+      "Create a read-only owner-facing Markdown brief comparing detected portfolio registries after the legacy Lab surface has been retired. It never selects a target or enables writes.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "list_lab_projects",
     title: "List Lab Projects",
     description: "Read the portfolio Lab page and return the projects currently shown there.",

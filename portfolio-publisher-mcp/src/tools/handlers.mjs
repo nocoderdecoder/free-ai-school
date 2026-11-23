@@ -27,6 +27,42 @@ function errorResult(message) {
   };
 }
 
+function formatPortfolioMigrationBrief(options) {
+  const lines = ["# Portfolio publisher migration brief", ""];
+
+  if (options.status === "legacy-surface-ready") {
+    lines.push("## Current status", "", "- The legacy Lab registry is still available; no migration decision is needed.", "");
+    lines.push("## Safe next step", "", `- ${options.ownerNextStep}`, "");
+    return lines.join("\n");
+  }
+
+  const legacySurface = options.legacySurface ?? {};
+  lines.push("## Current status", "");
+  lines.push(`- Legacy target: \`${legacySurface.targetFile ?? "app/lab/page.tsx"}\``);
+  lines.push(`- Why publishing is paused: ${legacySurface.reason ?? "The legacy registry is unavailable."}`);
+  if (legacySurface.redirectTarget) lines.push(`- Current redirect: \`${legacySurface.redirectTarget}\``);
+  lines.push("- Write access: disabled. This brief does not select or modify a publishing target.", "");
+
+  lines.push("## Candidates for owner review", "");
+  for (const candidate of options.candidates ?? []) {
+    lines.push(`### ${candidate.description ?? candidate.id}`, "");
+    lines.push(`- Candidate ID: \`${candidate.id}\``);
+    lines.push(`- Source: \`${candidate.targetFile}\` → \`${candidate.publicRoute}\``);
+    lines.push(`- Detection: ${candidate.status}`);
+    lines.push(`- Expected fields: ${candidate.expectedFields?.map((field) => `\`${field}\``).join(", ") || "none"}`);
+    lines.push(`- Fields observed locally: ${candidate.detectedFields?.map((field) => `\`${field}\``).join(", ") || "none"}`);
+    lines.push(`- Publisher compatibility: ${candidate.compatibleWithLegacyPublisher ? "compatible" : "not compatible with the legacy publisher"}`);
+    lines.push(`- Evidence: ${candidate.reason}`, "");
+  }
+
+  lines.push("## Decision required", "");
+  lines.push("- Choose one registry deliberately based on the portfolio surface you want to maintain.");
+  lines.push("- Do not apply legacy Lab artifacts to either candidate.");
+  lines.push("- After selection, migrate that target's parser, review-artifact schema, tests, and controlled-apply safeguards as one change.", "");
+  lines.push("## Safe next step", "", `- ${options.ownerNextStep}`);
+  return lines.join("\n");
+}
+
 function idea(name, angle, why) {
   return { name, angle, why };
 }
@@ -3360,6 +3396,13 @@ export async function callTool(name, args = {}) {
 
   if (name === "inspect_portfolio_migration_options") {
     return textResult(await inspectPortfolioMigrationOptions());
+  }
+
+  if (name === "create_portfolio_migration_brief") {
+    return textResult({
+      format: "markdown",
+      markdown: formatPortfolioMigrationBrief(await inspectPortfolioMigrationOptions()),
+    });
   }
 
   if (name === "list_lab_projects") {

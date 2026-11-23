@@ -12,10 +12,13 @@ Before using a publishing tool, call `inspect_lab_surface`. It confirms that the
 
 When the legacy surface is retired, call `inspect_portfolio_migration_options` for a read-only comparison of known current portfolio registries. It can point out the Work independent-projects and Tools catalog sources that need owner review, but it never selects either one, changes the target, or enables publishing.
 
+For a non-technical owner, call `create_portfolio_migration_brief` to receive the same discovery evidence as a copy-ready Markdown decision brief. It lists the retired target, detected candidates, their expected versus observed fields, and the required migration work, while keeping writes disabled.
+
 ## Tools
 
 - `inspect_lab_surface`: reports whether the configured Lab card registry is ready for publishing or requires a deliberate migration after a portfolio-page change.
 - `inspect_portfolio_migration_options`: read-only discovery of known current portfolio card registries when the legacy Lab surface requires migration; it explicitly reports that none are compatible until a deliberate schema and safety migration is complete.
+- `create_portfolio_migration_brief`: owner-friendly, read-only Markdown comparison of migration candidates; it never chooses a target, writes source, or enables publishing.
 - `list_lab_projects`: lists the projects currently shown on `/lab`.
 - `inspect_lab_format`: explains the current Lab card format and conventions.
 - `validate_lab_assets`: checks whether screenshot paths point directly to non-empty, structurally valid image files inside `public/`. It verifies the container structure for PNG, JPEG, GIF, WebP, and AVIF files up to 20 MB, so a filename or spoofed magic header alone cannot make an asset publish-ready. Traversal and unsupported URL-style path syntax are reported as `invalid-image-path`, symbolic links as `symlink-not-allowed`, directories as `not-a-file`, empty placeholders as `empty-file`, over-limit images as `image-too-large-to-validate`, and malformed or mismatched image bytes as `invalid-image-content`.
