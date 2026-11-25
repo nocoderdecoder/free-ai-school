@@ -52,6 +52,16 @@ function formatPortfolioMigrationBrief(options) {
     lines.push(`- Expected fields: ${candidate.expectedFields?.map((field) => `\`${field}\``).join(", ") || "none"}`);
     lines.push(`- Fields observed locally: ${candidate.detectedFields?.map((field) => `\`${field}\``).join(", ") || "none"}`);
     lines.push(`- Current entries detected: ${candidate.entryCount ?? 0}`);
+    const routeCoverage = candidate.routeCoverage;
+    if (routeCoverage) {
+      lines.push(`- Local route evidence: ${routeCoverage.ready} ready, ${routeCoverage.blocked} blocked, ${routeCoverage.external} external links not checked (of ${routeCoverage.total}).`);
+      if (routeCoverage.samples?.length) {
+        lines.push("- Route samples:");
+        for (const check of routeCoverage.samples) {
+          lines.push(`  - ${check.entry}: ${check.route || "no route"} — ${check.status}${check.file ? ` (\`${check.file}\`)` : ""}`);
+        }
+      }
+    }
     const sampleEntries = candidate.sampleEntries ?? [];
     if (sampleEntries.length > 0) {
       lines.push("- Sample cards:");

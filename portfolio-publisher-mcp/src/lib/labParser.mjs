@@ -202,6 +202,7 @@ const MIGRATION_CANDIDATES = [
     arrayDeclaration: "const projects = [",
     renderExpression: "projects.map",
     expectedFields: ["name", "href", "description"],
+    routeField: "href",
     description: "Independent projects shown on the Work page.",
   },
   {
@@ -211,6 +212,7 @@ const MIGRATION_CANDIDATES = [
     arrayDeclaration: "const TOOLS = [",
     renderExpression: "TOOLS.map",
     expectedFields: ["slug", "name", "tagline", "status", "icon"],
+    routeFromSlug: "tools",
     description: "Public AI tools catalog.",
   },
 ];
@@ -251,6 +253,62 @@ function extractCandidateEntries(source, declaration, expectedFields) {
     .filter((entry) => Object.keys(entry).length > 0);
 }
 
+function isExternalUrl(value) {
+  return /^https?:\/\//i.test(value);
+}
+
+function localCandidateRouteFile(route) {
+  if (!route || !route.startsWith("/")) return null;
+  if (route.includes("\\") || /[?\0]/.test(route)) return null;
+
+  const pathname = route.split("#", 1)[0];
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.some((segment) => segment === "." || segment === "..")) return null;
+  return segments.length > 0 ? `app/${segments.join("/")}/page.tsx` : null;
+}
+
+function candidateEntryRoute(candidate, entry) {
+  if (candidate.routeField) return entry[candidate.routeField] ?? "";
+  if (candidate.routeFromSlug && entry.slug) return `/${candidate.routeFromSlug}/${entry.slug}`;
+  return "";
+}
+
+async function inspectCandidateRoutes(candidate, entries) {
+  const checks = await Promise.all(entries.map(async (entry) => {
+    const route = candidateEntryRoute(candidate, entry);
+    const label = entry.name ?? entry.slug ?? "Unnamed entry";
+
+    if (!route) return { entry: label, route: "", status: "missing-route", file: null };
+    if (isExternalUrl(route)) return { entry: label, route, status: "external-url-not-checked", file: null };
+
+    const routeFile = localCandidateRouteFile(route);
+    if (!routeFile) return { entry: label, route, status: "invalid-route-path", file: null };
+
+    const absolute = path.resolve(paths.repoRoot, routeFile);
+    const relativeToApp = path.relative(paths.appDir, absolute);
+    if (relativeToApp === ".." || relativeToApp.startsWith(`..${path.sep}`)) {
+      return { entry: label, route, status: "invalid-route-path", file: null };
+    }
+
+    try {
+      await fs.access(assertSafeRead(absolute));
+      return { entry: label, route, status: "ok", file: toRepoRelative(absolute) };
+    } catch {
+      return { entry: label, route, status: "missing-route-file", file: routeFile };
+    }
+  }));
+
+  const counts = checks.reduce((summary, check) => {
+    summary.total += 1;
+    if (check.status === "ok") summary.ready += 1;
+    else if (check.status === "external-url-not-checked") summary.external += 1;
+    else summary.blocked += 1;
+    return summary;
+  }, { total: 0, ready: 0, external: 0, blocked: 0 });
+
+  return { ...counts, samples: checks.slice(0, 3) };
+}
+
 /**
  * Reports the known post-Lab portfolio surfaces for an owner to review. This is
  * deliberately discovery-only: it never selects a target or makes either
@@ -289,6 +347,7 @@ export async function inspectPortfolioMigrationOptions() {
     const hasRenderer = source.includes(candidate.renderExpression);
     const detectedFields = candidate.expectedFields.filter((field) => hasObjectField(source, field));
     const entries = extractCandidateEntries(source, candidate.arrayDeclaration, candidate.expectedFields);
+    const routeCoverage = await inspectCandidateRoutes(candidate, entries);
     const status = hasRegistry && hasRenderer ? "candidate" : "not-detected";
 
     return {
@@ -298,6 +357,7 @@ export async function inspectPortfolioMigrationOptions() {
       detectedFields,
       entryCount: entries.length,
       sampleEntries: entries.slice(0, 3),
+      routeCoverage,
       reason: status === "candidate"
         ? "A project-like registry and its renderer were found, but its schema differs from the legacy Lab contract."
         : "The expected registry and renderer pattern were not both found in this checkout.",

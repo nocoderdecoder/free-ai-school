@@ -80,10 +80,12 @@ if (labSurfaceRequiresMigration) {
     Array.isArray(migrationOptions?.candidates) &&
     migrationOptions.candidates.some((candidate) => candidate.id === "work-independent-projects") &&
     migrationOptions.candidates.every((candidate) => Number.isInteger(candidate.entryCount) && Array.isArray(candidate.sampleEntries)) &&
+    migrationOptions.candidates.every((candidate) => Number.isInteger(candidate.routeCoverage?.total) && Array.isArray(candidate.routeCoverage?.samples)) &&
     migrationOptions.ownerNextStep.includes("does not select or modify") &&
     migrationBrief?.format === "markdown" &&
     migrationBrief?.markdown?.includes("# Portfolio publisher migration brief") &&
     migrationBrief?.markdown?.includes("Write access: disabled") &&
+    migrationBrief?.markdown?.includes("Local route evidence:") &&
     listLabProjectsError.includes("Portfolio Lab target unavailable") &&
     initializeInstructions.includes("inspect_lab_surface");
 

@@ -161,6 +161,22 @@ test("migration-option discovery is read-only and does not promote a new target"
   assert.deepEqual(options.candidates.map((candidate) => candidate.entryCount), [1, 1]);
   assert.deepEqual(options.candidates[0].sampleEntries, [{ name: "Project", href: "/project", description: "Example" }]);
   assert.deepEqual(options.candidates[1].sampleEntries, [{ slug: "tool", name: "Tool", tagline: "Example", status: "Live", icon: "x" }]);
+  assert.deepEqual(options.candidates.map((candidate) => candidate.routeCoverage), [
+    {
+      total: 1,
+      ready: 0,
+      external: 0,
+      blocked: 1,
+      samples: [{ entry: "Project", route: "/project", status: "missing-route-file", file: "app/project/page.tsx" }],
+    },
+    {
+      total: 1,
+      ready: 0,
+      external: 0,
+      blocked: 1,
+      samples: [{ entry: "Tool", route: "/tools/tool", status: "missing-route-file", file: "app/tools/tool/page.tsx" }],
+    },
+  ]);
   assert.match(options.ownerNextStep, /does not select or modify/);
   assert.equal(brief.format, "markdown");
   assert.match(brief.markdown, /^# Portfolio publisher migration brief/m);
@@ -168,6 +184,8 @@ test("migration-option discovery is read-only and does not promote a new target"
   assert.match(brief.markdown, /app\/tools\/page\.tsx/);
   assert.match(brief.markdown, /Current entries detected: 1/);
   assert.match(brief.markdown, /Sample cards:/);
+  assert.match(brief.markdown, /Local route evidence: 0 ready, 1 blocked/);
+  assert.match(brief.markdown, /Route samples:/);
   assert.match(brief.markdown, /Write access: disabled/);
   assert.match(brief.markdown, /does not select or modify/);
   assert.equal(await fs.readFile(labPage, "utf8"), before);
