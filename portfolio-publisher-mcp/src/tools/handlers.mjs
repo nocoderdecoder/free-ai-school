@@ -51,6 +51,16 @@ function formatPortfolioMigrationBrief(options) {
     lines.push(`- Detection: ${candidate.status}`);
     lines.push(`- Expected fields: ${candidate.expectedFields?.map((field) => `\`${field}\``).join(", ") || "none"}`);
     lines.push(`- Fields observed locally: ${candidate.detectedFields?.map((field) => `\`${field}\``).join(", ") || "none"}`);
+    lines.push(`- Current entries detected: ${candidate.entryCount ?? 0}`);
+    const sampleEntries = candidate.sampleEntries ?? [];
+    if (sampleEntries.length > 0) {
+      lines.push("- Sample cards:");
+      for (const entry of sampleEntries) {
+        const label = entry.name ?? entry.slug ?? "Unnamed entry";
+        const detail = entry.href ?? entry.tagline ?? entry.description ?? "";
+        lines.push(`  - ${label}${detail ? ` — ${detail}` : ""}`);
+      }
+    }
     lines.push(`- Publisher compatibility: ${candidate.compatibleWithLegacyPublisher ? "compatible" : "not compatible with the legacy publisher"}`);
     lines.push(`- Evidence: ${candidate.reason}`, "");
   }

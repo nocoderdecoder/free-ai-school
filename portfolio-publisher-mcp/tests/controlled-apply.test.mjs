@@ -158,11 +158,16 @@ test("migration-option discovery is read-only and does not promote a new target"
   assert.equal(options.candidates.length, 2);
   assert.ok(options.candidates.every((candidate) => candidate.compatibleWithLegacyPublisher === false));
   assert.deepEqual(options.candidates.map((candidate) => candidate.status), ["candidate", "candidate"]);
+  assert.deepEqual(options.candidates.map((candidate) => candidate.entryCount), [1, 1]);
+  assert.deepEqual(options.candidates[0].sampleEntries, [{ name: "Project", href: "/project", description: "Example" }]);
+  assert.deepEqual(options.candidates[1].sampleEntries, [{ slug: "tool", name: "Tool", tagline: "Example", status: "Live", icon: "x" }]);
   assert.match(options.ownerNextStep, /does not select or modify/);
   assert.equal(brief.format, "markdown");
   assert.match(brief.markdown, /^# Portfolio publisher migration brief/m);
   assert.match(brief.markdown, /app\/work\/page\.tsx/);
   assert.match(brief.markdown, /app\/tools\/page\.tsx/);
+  assert.match(brief.markdown, /Current entries detected: 1/);
+  assert.match(brief.markdown, /Sample cards:/);
   assert.match(brief.markdown, /Write access: disabled/);
   assert.match(brief.markdown, /does not select or modify/);
   assert.equal(await fs.readFile(labPage, "utf8"), before);

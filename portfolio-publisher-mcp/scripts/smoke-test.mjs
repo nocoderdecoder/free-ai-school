@@ -79,6 +79,7 @@ if (labSurfaceRequiresMigration) {
     migrationOptions?.writeEnabled === false &&
     Array.isArray(migrationOptions?.candidates) &&
     migrationOptions.candidates.some((candidate) => candidate.id === "work-independent-projects") &&
+    migrationOptions.candidates.every((candidate) => Number.isInteger(candidate.entryCount) && Array.isArray(candidate.sampleEntries)) &&
     migrationOptions.ownerNextStep.includes("does not select or modify") &&
     migrationBrief?.format === "markdown" &&
     migrationBrief?.markdown?.includes("# Portfolio publisher migration brief") &&

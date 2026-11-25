@@ -219,6 +219,38 @@ function hasObjectField(source, field) {
   return new RegExp(`\\b${field}\\s*:`).test(source);
 }
 
+function extractArrayBody(source, declaration) {
+  const start = source.indexOf(declaration);
+  if (start === -1) return null;
+  const arrayStart = source.indexOf("[", start);
+  let depth = 0;
+
+  for (let index = arrayStart; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "[") depth += 1;
+    if (char === "]") depth -= 1;
+    if (depth === 0) return source.slice(arrayStart + 1, index);
+  }
+
+  return null;
+}
+
+function extractCandidateEntries(source, declaration, expectedFields) {
+  const arrayBody = extractArrayBody(source, declaration);
+  if (arrayBody == null) return [];
+
+  return (arrayBody.match(/\{[\s\S]*?\}/g) ?? [])
+    .map((block) => {
+      const entry = {};
+      for (const field of expectedFields) {
+        const value = block.match(new RegExp(`\\b${field}\\s*:\\s*["']([^"']*)["']`))?.[1];
+        if (value != null) entry[field] = value;
+      }
+      return entry;
+    })
+    .filter((entry) => Object.keys(entry).length > 0);
+}
+
 /**
  * Reports the known post-Lab portfolio surfaces for an owner to review. This is
  * deliberately discovery-only: it never selects a target or makes either
@@ -256,6 +288,7 @@ export async function inspectPortfolioMigrationOptions() {
     const hasRegistry = source.includes(candidate.arrayDeclaration);
     const hasRenderer = source.includes(candidate.renderExpression);
     const detectedFields = candidate.expectedFields.filter((field) => hasObjectField(source, field));
+    const entries = extractCandidateEntries(source, candidate.arrayDeclaration, candidate.expectedFields);
     const status = hasRegistry && hasRenderer ? "candidate" : "not-detected";
 
     return {
@@ -263,6 +296,8 @@ export async function inspectPortfolioMigrationOptions() {
       status,
       compatibleWithLegacyPublisher: false,
       detectedFields,
+      entryCount: entries.length,
+      sampleEntries: entries.slice(0, 3),
       reason: status === "candidate"
         ? "A project-like registry and its renderer were found, but its schema differs from the legacy Lab contract."
         : "The expected registry and renderer pattern were not both found in this checkout.",
