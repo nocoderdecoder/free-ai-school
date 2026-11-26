@@ -253,6 +253,33 @@ function extractCandidateEntries(source, declaration, expectedFields) {
     .filter((entry) => Object.keys(entry).length > 0);
 }
 
+function hasCandidateFieldValue(entry, field) {
+  const value = entry[field];
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function inspectCandidateSchema(entries, expectedFields) {
+  const incompleteEntries = entries.map((entry) => {
+    const missingFields = expectedFields.filter((field) => !hasCandidateFieldValue(entry, field));
+    return {
+      entry: entry.name ?? entry.slug ?? "Unnamed entry",
+      missingFields,
+    };
+  }).filter((entry) => entry.missingFields.length > 0);
+
+  return {
+    total: entries.length,
+    complete: entries.length - incompleteEntries.length,
+    incomplete: incompleteEntries.length,
+    fields: expectedFields.map((field) => ({
+      field,
+      present: entries.filter((entry) => hasCandidateFieldValue(entry, field)).length,
+      missing: entries.filter((entry) => !hasCandidateFieldValue(entry, field)).length,
+    })),
+    incompleteEntries: incompleteEntries.slice(0, 3),
+  };
+}
+
 function isExternalUrl(value) {
   return /^https?:\/\//i.test(value);
 }
@@ -347,6 +374,7 @@ export async function inspectPortfolioMigrationOptions() {
     const hasRenderer = source.includes(candidate.renderExpression);
     const detectedFields = candidate.expectedFields.filter((field) => hasObjectField(source, field));
     const entries = extractCandidateEntries(source, candidate.arrayDeclaration, candidate.expectedFields);
+    const schemaCoverage = inspectCandidateSchema(entries, candidate.expectedFields);
     const routeCoverage = await inspectCandidateRoutes(candidate, entries);
     const status = hasRegistry && hasRenderer ? "candidate" : "not-detected";
 
@@ -357,6 +385,7 @@ export async function inspectPortfolioMigrationOptions() {
       detectedFields,
       entryCount: entries.length,
       sampleEntries: entries.slice(0, 3),
+      schemaCoverage,
       routeCoverage,
       reason: status === "candidate"
         ? "A project-like registry and its renderer were found, but its schema differs from the legacy Lab contract."

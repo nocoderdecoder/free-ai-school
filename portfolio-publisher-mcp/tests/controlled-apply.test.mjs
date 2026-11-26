@@ -161,6 +161,32 @@ test("migration-option discovery is read-only and does not promote a new target"
   assert.deepEqual(options.candidates.map((candidate) => candidate.entryCount), [1, 1]);
   assert.deepEqual(options.candidates[0].sampleEntries, [{ name: "Project", href: "/project", description: "Example" }]);
   assert.deepEqual(options.candidates[1].sampleEntries, [{ slug: "tool", name: "Tool", tagline: "Example", status: "Live", icon: "x" }]);
+  assert.deepEqual(options.candidates.map((candidate) => candidate.schemaCoverage), [
+    {
+      total: 1,
+      complete: 1,
+      incomplete: 0,
+      fields: [
+        { field: "name", present: 1, missing: 0 },
+        { field: "href", present: 1, missing: 0 },
+        { field: "description", present: 1, missing: 0 },
+      ],
+      incompleteEntries: [],
+    },
+    {
+      total: 1,
+      complete: 1,
+      incomplete: 0,
+      fields: [
+        { field: "slug", present: 1, missing: 0 },
+        { field: "name", present: 1, missing: 0 },
+        { field: "tagline", present: 1, missing: 0 },
+        { field: "status", present: 1, missing: 0 },
+        { field: "icon", present: 1, missing: 0 },
+      ],
+      incompleteEntries: [],
+    },
+  ]);
   assert.deepEqual(options.candidates.map((candidate) => candidate.routeCoverage), [
     {
       total: 1,
@@ -183,12 +209,53 @@ test("migration-option discovery is read-only and does not promote a new target"
   assert.match(brief.markdown, /app\/work\/page\.tsx/);
   assert.match(brief.markdown, /app\/tools\/page\.tsx/);
   assert.match(brief.markdown, /Current entries detected: 1/);
+  assert.match(brief.markdown, /Schema coverage: 1 complete, 0 incomplete/);
+  assert.match(brief.markdown, /Field coverage: `name` 1\/1, `href` 1\/1, `description` 1\/1/);
   assert.match(brief.markdown, /Sample cards:/);
   assert.match(brief.markdown, /Local route evidence: 0 ready, 1 blocked/);
   assert.match(brief.markdown, /Route samples:/);
   assert.match(brief.markdown, /Write access: disabled/);
   assert.match(brief.markdown, /does not select or modify/);
   assert.equal(await fs.readFile(labPage, "utf8"), before);
+});
+
+test("migration-option discovery identifies incomplete candidate cards without enabling writes", async (t) => {
+  const { repoRoot, labPage, client } = await createFixtureClient(t);
+  const workPage = path.join(repoRoot, "app", "work", "page.tsx");
+  await fs.mkdir(path.dirname(workPage), { recursive: true });
+  await fs.writeFile(labPage, 'import { redirect } from "next/navigation";\nexport default function Lab() { redirect("/work#projects"); }\n', "utf8");
+  await fs.writeFile(workPage, [
+    'const projects = [',
+    '  { name: "Complete", href: "/learn", description: "Ready" },',
+    '  { name: "Missing description", href: "/learn" },',
+    '  { name: "Blank href", href: "", description: "Blocked" },',
+    '];',
+    'projects.map((project) => project.name);',
+  ].join("\n"), "utf8");
+
+  const options = await client.call("inspect_portfolio_migration_options", {});
+  const brief = await client.call("create_portfolio_migration_brief", {});
+  const workCandidate = options.candidates.find((candidate) => candidate.id === "work-independent-projects");
+
+  assert.equal(options.writeEnabled, false);
+  assert.deepEqual(workCandidate.schemaCoverage, {
+    total: 3,
+    complete: 1,
+    incomplete: 2,
+    fields: [
+      { field: "name", present: 3, missing: 0 },
+      { field: "href", present: 2, missing: 1 },
+      { field: "description", present: 2, missing: 1 },
+    ],
+    incompleteEntries: [
+      { entry: "Missing description", missingFields: ["description"] },
+      { entry: "Blank href", missingFields: ["href"] },
+    ],
+  });
+  assert.match(brief.markdown, /Schema coverage: 1 complete, 2 incomplete/);
+  assert.match(brief.markdown, /Incomplete card samples:/);
+  assert.match(brief.markdown, /Missing description: missing `description`/);
+  assert.match(brief.markdown, /Blank href: missing `href`/);
 });
 
 test("Lab card update preview is exact, read-only, and readiness checked", async (t) => {

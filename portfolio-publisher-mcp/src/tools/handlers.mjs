@@ -52,6 +52,19 @@ function formatPortfolioMigrationBrief(options) {
     lines.push(`- Expected fields: ${candidate.expectedFields?.map((field) => `\`${field}\``).join(", ") || "none"}`);
     lines.push(`- Fields observed locally: ${candidate.detectedFields?.map((field) => `\`${field}\``).join(", ") || "none"}`);
     lines.push(`- Current entries detected: ${candidate.entryCount ?? 0}`);
+    const schemaCoverage = candidate.schemaCoverage;
+    if (schemaCoverage) {
+      lines.push(`- Schema coverage: ${schemaCoverage.complete} complete, ${schemaCoverage.incomplete} incomplete (of ${schemaCoverage.total}).`);
+      if (schemaCoverage.fields?.length) {
+        lines.push(`- Field coverage: ${schemaCoverage.fields.map((field) => `\`${field.field}\` ${field.present}/${schemaCoverage.total}`).join(", ")}.`);
+      }
+      if (schemaCoverage.incompleteEntries?.length) {
+        lines.push("- Incomplete card samples:");
+        for (const entry of schemaCoverage.incompleteEntries) {
+          lines.push(`  - ${entry.entry}: missing ${entry.missingFields.map((field) => `\`${field}\``).join(", ")}`);
+        }
+      }
+    }
     const routeCoverage = candidate.routeCoverage;
     if (routeCoverage) {
       lines.push(`- Local route evidence: ${routeCoverage.ready} ready, ${routeCoverage.blocked} blocked, ${routeCoverage.external} external links not checked (of ${routeCoverage.total}).`);
