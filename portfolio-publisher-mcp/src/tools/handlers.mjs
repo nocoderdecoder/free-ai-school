@@ -75,6 +75,18 @@ function formatPortfolioMigrationBrief(options) {
         }
       }
     }
+    const migrationReadiness = candidate.migrationReadiness;
+    if (migrationReadiness) {
+      lines.push(`- Migration planning: ${migrationReadiness.readyForPlanning ? "ready for planning" : "needs repair"}.`);
+      if (migrationReadiness.blockers?.length) {
+        lines.push("- Planning blockers:");
+        for (const blocker of migrationReadiness.blockers) lines.push(`  - ${blocker}`);
+      }
+      if (migrationReadiness.notes?.length) {
+        lines.push("- Planning notes:");
+        for (const note of migrationReadiness.notes) lines.push(`  - ${note}`);
+      }
+    }
     const sampleEntries = candidate.sampleEntries ?? [];
     if (sampleEntries.length > 0) {
       lines.push("- Sample cards:");

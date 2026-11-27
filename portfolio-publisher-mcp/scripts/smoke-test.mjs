@@ -82,12 +82,14 @@ if (labSurfaceRequiresMigration) {
     migrationOptions.candidates.every((candidate) => Number.isInteger(candidate.entryCount) && Array.isArray(candidate.sampleEntries)) &&
     migrationOptions.candidates.every((candidate) => Number.isInteger(candidate.schemaCoverage?.total) && Array.isArray(candidate.schemaCoverage?.fields)) &&
     migrationOptions.candidates.every((candidate) => Number.isInteger(candidate.routeCoverage?.total) && Array.isArray(candidate.routeCoverage?.samples)) &&
+    migrationOptions.candidates.every((candidate) => typeof candidate.migrationReadiness?.readyForPlanning === "boolean" && Array.isArray(candidate.migrationReadiness?.blockers) && Array.isArray(candidate.migrationReadiness?.notes)) &&
     migrationOptions.ownerNextStep.includes("does not select or modify") &&
     migrationBrief?.format === "markdown" &&
     migrationBrief?.markdown?.includes("# Portfolio publisher migration brief") &&
     migrationBrief?.markdown?.includes("Write access: disabled") &&
     migrationBrief?.markdown?.includes("Schema coverage:") &&
     migrationBrief?.markdown?.includes("Local route evidence:") &&
+    migrationBrief?.markdown?.includes("Migration planning:") &&
     listLabProjectsError.includes("Portfolio Lab target unavailable") &&
     initializeInstructions.includes("inspect_lab_surface");
 

@@ -336,6 +336,28 @@ async function inspectCandidateRoutes(candidate, entries) {
   return { ...counts, samples: checks.slice(0, 3) };
 }
 
+function assessCandidateMigrationReadiness(hasRegistry, hasRenderer, schemaCoverage, routeCoverage) {
+  const blockers = [];
+  if (!hasRegistry) blockers.push("Expected card registry was not found.");
+  if (!hasRenderer) blockers.push("Expected card renderer was not found.");
+  if (schemaCoverage.total === 0) blockers.push("No candidate cards were detected.");
+  if (schemaCoverage.incomplete > 0) {
+    blockers.push(`${schemaCoverage.incomplete} candidate card${schemaCoverage.incomplete === 1 ? " is" : "s are"} missing required fields.`);
+  }
+  if (routeCoverage.blocked > 0) {
+    blockers.push(`${routeCoverage.blocked} candidate route${routeCoverage.blocked === 1 ? " is" : "s are"} missing or invalid locally.`);
+  }
+
+  return {
+    status: blockers.length === 0 ? "ready-for-planning" : "needs-repair",
+    readyForPlanning: blockers.length === 0,
+    blockers,
+    notes: routeCoverage.external > 0
+      ? [`${routeCoverage.external} external URL${routeCoverage.external === 1 ? " is" : "s are"} intentionally not checked by local diagnostics.`]
+      : [],
+  };
+}
+
 /**
  * Reports the known post-Lab portfolio surfaces for an owner to review. This is
  * deliberately discovery-only: it never selects a target or makes either
@@ -377,6 +399,12 @@ export async function inspectPortfolioMigrationOptions() {
     const schemaCoverage = inspectCandidateSchema(entries, candidate.expectedFields);
     const routeCoverage = await inspectCandidateRoutes(candidate, entries);
     const status = hasRegistry && hasRenderer ? "candidate" : "not-detected";
+    const migrationReadiness = assessCandidateMigrationReadiness(
+      hasRegistry,
+      hasRenderer,
+      schemaCoverage,
+      routeCoverage,
+    );
 
     return {
       ...candidate,
@@ -387,6 +415,7 @@ export async function inspectPortfolioMigrationOptions() {
       sampleEntries: entries.slice(0, 3),
       schemaCoverage,
       routeCoverage,
+      migrationReadiness,
       reason: status === "candidate"
         ? "A project-like registry and its renderer were found, but its schema differs from the legacy Lab contract."
         : "The expected registry and renderer pattern were not both found in this checkout.",

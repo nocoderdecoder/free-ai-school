@@ -10,14 +10,14 @@ This version is mostly read-only. It can inspect the Lab page, validate screensh
 
 Before using a publishing tool, call `inspect_lab_surface`. It confirms that the configured legacy Lab card registry still exists. If it returns `migration-required`, publishing remains intentionally paused: the server will not guess how to modify a replacement page or write to it. Choose the replacement card registry and migrate the parser, artifact format, tests, and controlled-apply safeguards together.
 
-When the legacy surface is retired, call `inspect_portfolio_migration_options` for a read-only comparison of known current portfolio registries. It can point out the Work independent-projects and Tools catalog sources that need owner review, but it never selects either one, changes the target, or enables publishing.
+When the legacy surface is retired, call `inspect_portfolio_migration_options` for a read-only comparison of known current portfolio registries. It can point out the Work independent-projects and Tools catalog sources that need owner review, including a machine-readable migration-planning readiness assessment, but it never selects either one, changes the target, or enables publishing.
 
-For a non-technical owner, call `create_portfolio_migration_brief` to receive the same discovery evidence as a copy-ready Markdown decision brief. It lists the retired target, detected candidates, per-card schema coverage, current entry counts, representative cards, local route evidence (including missing route files), and the required migration work, while keeping writes disabled. External links are identified but never contacted.
+For a non-technical owner, call `create_portfolio_migration_brief` to receive the same discovery evidence as a copy-ready Markdown decision brief. It lists the retired target, detected candidates, per-card schema coverage, current entry counts, representative cards, local route evidence (including missing route files), and each candidate's migration-planning readiness, while keeping writes disabled. External links are identified but never contacted.
 
 ## Tools
 
 - `inspect_lab_surface`: reports whether the configured Lab card registry is ready for publishing or requires a deliberate migration after a portfolio-page change.
-- `inspect_portfolio_migration_options`: read-only discovery of known current portfolio card registries when the legacy Lab surface requires migration; it reports per-entry schema coverage, current entry counts, up to three representative cards, and local route coverage without contacting external links. It explicitly reports that none are compatible until a deliberate schema and safety migration is complete.
+- `inspect_portfolio_migration_options`: read-only discovery of known current portfolio card registries when the legacy Lab surface requires migration; it reports per-entry schema coverage, current entry counts, up to three representative cards, local route coverage, and a machine-readable `migrationReadiness` assessment without contacting external links. It explicitly reports that none are compatible until a deliberate schema and safety migration is complete.
 - `create_portfolio_migration_brief`: owner-friendly, read-only Markdown comparison of migration candidates; it never chooses a target, writes source, or enables publishing.
 - `list_lab_projects`: lists the projects currently shown on `/lab`.
 - `inspect_lab_format`: explains the current Lab card format and conventions.

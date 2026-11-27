@@ -203,6 +203,20 @@ test("migration-option discovery is read-only and does not promote a new target"
       samples: [{ entry: "Tool", route: "/tools/tool", status: "missing-route-file", file: "app/tools/tool/page.tsx" }],
     },
   ]);
+  assert.deepEqual(options.candidates.map((candidate) => candidate.migrationReadiness), [
+    {
+      status: "needs-repair",
+      readyForPlanning: false,
+      blockers: ["1 candidate route is missing or invalid locally."],
+      notes: [],
+    },
+    {
+      status: "needs-repair",
+      readyForPlanning: false,
+      blockers: ["1 candidate route is missing or invalid locally."],
+      notes: [],
+    },
+  ]);
   assert.match(options.ownerNextStep, /does not select or modify/);
   assert.equal(brief.format, "markdown");
   assert.match(brief.markdown, /^# Portfolio publisher migration brief/m);
@@ -213,6 +227,8 @@ test("migration-option discovery is read-only and does not promote a new target"
   assert.match(brief.markdown, /Field coverage: `name` 1\/1, `href` 1\/1, `description` 1\/1/);
   assert.match(brief.markdown, /Sample cards:/);
   assert.match(brief.markdown, /Local route evidence: 0 ready, 1 blocked/);
+  assert.match(brief.markdown, /Migration planning: needs repair/);
+  assert.match(brief.markdown, /Planning blockers:/);
   assert.match(brief.markdown, /Route samples:/);
   assert.match(brief.markdown, /Write access: disabled/);
   assert.match(brief.markdown, /does not select or modify/);
@@ -256,6 +272,15 @@ test("migration-option discovery identifies incomplete candidate cards without e
   assert.match(brief.markdown, /Incomplete card samples:/);
   assert.match(brief.markdown, /Missing description: missing `description`/);
   assert.match(brief.markdown, /Blank href: missing `href`/);
+  assert.deepEqual(workCandidate.migrationReadiness, {
+    status: "needs-repair",
+    readyForPlanning: false,
+    blockers: [
+      "2 candidate cards are missing required fields.",
+      "3 candidate routes are missing or invalid locally.",
+    ],
+    notes: [],
+  });
 });
 
 test("Lab card update preview is exact, read-only, and readiness checked", async (t) => {
