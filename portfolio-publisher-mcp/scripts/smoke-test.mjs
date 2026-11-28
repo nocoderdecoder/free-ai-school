@@ -83,6 +83,7 @@ if (labSurfaceRequiresMigration) {
     migrationOptions.candidates.every((candidate) => Number.isInteger(candidate.schemaCoverage?.total) && Array.isArray(candidate.schemaCoverage?.fields)) &&
     migrationOptions.candidates.every((candidate) => Number.isInteger(candidate.routeCoverage?.total) && Array.isArray(candidate.routeCoverage?.samples)) &&
     migrationOptions.candidates.every((candidate) => typeof candidate.migrationReadiness?.readyForPlanning === "boolean" && Array.isArray(candidate.migrationReadiness?.blockers) && Array.isArray(candidate.migrationReadiness?.notes)) &&
+    migrationOptions.candidates.every((candidate) => candidate.sourceFingerprint?.algorithm === "sha256" && /^[a-f0-9]{64}$/.test(candidate.sourceFingerprint?.digest ?? "")) &&
     migrationOptions.ownerNextStep.includes("does not select or modify") &&
     migrationBrief?.format === "markdown" &&
     migrationBrief?.markdown?.includes("# Portfolio publisher migration brief") &&
@@ -90,6 +91,7 @@ if (labSurfaceRequiresMigration) {
     migrationBrief?.markdown?.includes("Schema coverage:") &&
     migrationBrief?.markdown?.includes("Local route evidence:") &&
     migrationBrief?.markdown?.includes("Migration planning:") &&
+    migrationBrief?.markdown?.includes("Reviewed source fingerprint:") &&
     listLabProjectsError.includes("Portfolio Lab target unavailable") &&
     initializeInstructions.includes("inspect_lab_surface");
 

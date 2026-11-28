@@ -49,6 +49,9 @@ function formatPortfolioMigrationBrief(options) {
     lines.push(`- Candidate ID: \`${candidate.id}\``);
     lines.push(`- Source: \`${candidate.targetFile}\` → \`${candidate.publicRoute}\``);
     lines.push(`- Detection: ${candidate.status}`);
+    if (candidate.sourceFingerprint?.algorithm && candidate.sourceFingerprint?.digest) {
+      lines.push(`- Reviewed source fingerprint: \`${candidate.sourceFingerprint.algorithm}:${candidate.sourceFingerprint.digest}\``);
+    }
     lines.push(`- Expected fields: ${candidate.expectedFields?.map((field) => `\`${field}\``).join(", ") || "none"}`);
     lines.push(`- Fields observed locally: ${candidate.detectedFields?.map((field) => `\`${field}\``).join(", ") || "none"}`);
     lines.push(`- Current entries detected: ${candidate.entryCount ?? 0}`);
@@ -102,6 +105,7 @@ function formatPortfolioMigrationBrief(options) {
 
   lines.push("## Decision required", "");
   lines.push("- Choose one registry deliberately based on the portfolio surface you want to maintain.");
+  lines.push("- Re-run this brief immediately before approving a migration; the source fingerprint must match the reviewed registry.");
   lines.push("- Do not apply legacy Lab artifacts to either candidate.");
   lines.push("- After selection, migrate that target's parser, review-artifact schema, tests, and controlled-apply safeguards as one change.", "");
   lines.push("## Safe next step", "", `- ${options.ownerNextStep}`);

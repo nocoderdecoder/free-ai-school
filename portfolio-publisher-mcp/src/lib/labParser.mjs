@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { paths, toRepoRelative } from "./paths.mjs";
 import { assertSafeRead } from "./fileSafety.mjs";
@@ -358,6 +359,13 @@ function assessCandidateMigrationReadiness(hasRegistry, hasRenderer, schemaCover
   };
 }
 
+function fingerprintCandidateSource(source) {
+  return {
+    algorithm: "sha256",
+    digest: createHash("sha256").update(source, "utf8").digest("hex"),
+  };
+}
+
 /**
  * Reports the known post-Lab portfolio surfaces for an owner to review. This is
  * deliberately discovery-only: it never selects a target or makes either
@@ -410,6 +418,7 @@ export async function inspectPortfolioMigrationOptions() {
       ...candidate,
       status,
       compatibleWithLegacyPublisher: false,
+      sourceFingerprint: fingerprintCandidateSource(source),
       detectedFields,
       entryCount: entries.length,
       sampleEntries: entries.slice(0, 3),

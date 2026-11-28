@@ -157,6 +157,8 @@ test("migration-option discovery is read-only and does not promote a new target"
   assert.equal(options.writeEnabled, false);
   assert.equal(options.candidates.length, 2);
   assert.ok(options.candidates.every((candidate) => candidate.compatibleWithLegacyPublisher === false));
+  assert.ok(options.candidates.every((candidate) => candidate.sourceFingerprint?.algorithm === "sha256"));
+  assert.ok(options.candidates.every((candidate) => /^[a-f0-9]{64}$/.test(candidate.sourceFingerprint?.digest ?? "")));
   assert.deepEqual(options.candidates.map((candidate) => candidate.status), ["candidate", "candidate"]);
   assert.deepEqual(options.candidates.map((candidate) => candidate.entryCount), [1, 1]);
   assert.deepEqual(options.candidates[0].sampleEntries, [{ name: "Project", href: "/project", description: "Example" }]);
@@ -221,6 +223,7 @@ test("migration-option discovery is read-only and does not promote a new target"
   assert.equal(brief.format, "markdown");
   assert.match(brief.markdown, /^# Portfolio publisher migration brief/m);
   assert.match(brief.markdown, /app\/work\/page\.tsx/);
+  assert.match(brief.markdown, /Reviewed source fingerprint: `sha256:[a-f0-9]{64}`/);
   assert.match(brief.markdown, /app\/tools\/page\.tsx/);
   assert.match(brief.markdown, /Current entries detected: 1/);
   assert.match(brief.markdown, /Schema coverage: 1 complete, 0 incomplete/);
@@ -232,6 +235,7 @@ test("migration-option discovery is read-only and does not promote a new target"
   assert.match(brief.markdown, /Route samples:/);
   assert.match(brief.markdown, /Write access: disabled/);
   assert.match(brief.markdown, /does not select or modify/);
+  assert.match(brief.markdown, /fingerprint must match the reviewed registry/);
   assert.equal(await fs.readFile(labPage, "utf8"), before);
 });
 
